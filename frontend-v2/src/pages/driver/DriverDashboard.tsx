@@ -1,0 +1,267 @@
+import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight, Bell, Gauge, MapPin, Package, TrendingUp, Truck, Zap } from "lucide-react";
+import { PageHeader, StatCard, StatusPill } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Countdown } from "@/components/Countdown";
+import { AccountHold } from "@/components/AccountHold";
+import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { registerPush } from "@/lib/pushNotifications";
+import { startLocationSharing, stopLocationSharing } from "@/lib/geolocation";
+import { toast } from "sonner";
+
+export default function DriverDashboard() {
+  const { user } = useAuth();
+  const [online, setOnline] = useState(true);
+  const [offers, setOffers] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [profileComplete, setProfileComplete] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [locationCity, setLocationCity] = useState<string>("");
+  const locationActive = useRef(false);
+
+  const fetchOffers = async () => {
+    try {
+      const [lb, pr] = await Promise.all([
+        api.getDriverLoadboard(),
+        api.getDriverProfile().catch((e: any) => {
+          if (e.message?.includes("404")) return { driver: null };
+          throw e;
+        }),
+      ]);
+      setOffers((lb.loads ?? []).filter((l: any) => l.load && l.offer?.status === "OFFERED"));
+      setProfile(pr.driver);
+      setProfileComplete(!!pr.driver);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOffers();
+    // Auto-start location sharing when online
+    if (!locationActive.current) {
+      locationActive.current = true;
+      startLocationSharing((city, state) => setLocationCity(city ? `${city}, ${state}` : ""));
+    }
+    return () => { stopLocationSharing(); locationActive.current = false; };
+  }, []);
+
+  const enablePush = async () => {
+    const ok = await registerPush();
+    if (ok) { setPushEnabled(true); toast.success("Push notifications enabled!"); }
+    else toast.error("Could not enable push notifications. Please allow notifications in your browser.");
+  };
+
+  const accept = async (loadId: string, label: string) => {
+    try {
+      await api.acceptOffer(loadId);
+      toast.success(`Load ${label} booked!`);
+      setOffers((p) => p.filter((o) => o.load?.loadId !== loadId));
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const decline = async (loadId: string) => {
+    try {
+      await api.declineOffer(loadId);
+      setOffers((p) => p.filter((o) => o.load?.loadId !== loadId));
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const navigate = useNavigate();
+  const displayName = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.fullName || profile.legalName || user?.email : user?.email ?? "Driver";
+  const maxCapLbs = profile?.maxCapacityLbs ?? 0;
+  const curLoadLbs = profile?.currentLoadLbs ?? 0;
+  const availCap = profile ? (maxCapLbs - curLoadLbs).toLocaleString() : "—";
+  const maxCap = profile ? maxCapLbs.toLocaleString() : "—";
+
+  const driverStatus = profile?.status;
+  const verificationStatus =
+    driverStatus === "VERIFIED" || driverStatus === "AVAILABLE" ? "APPROVED" :
+    driverStatus === "PENDING_VERIFICATION" ? "PENDING" : "NONE";
+
+  return (
+    <>
+      <AccountHold profileComplete={profileComplete} verificationStatus={verificationStatus} />
+      <PageHeader
+        eyebrow={`Driver · ${displayName}`}
+        title="Live load offers"
+        subtitle="Only loads matching your equipment, capacity, and radius show here. Tap accept before the timer runs out."
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            {locationCity && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground border border-border rounded-full px-3 py-1.5 bg-card">
+                <MapPin className="h-3 w-3 text-primary" /> {locationCity}
+              </span>
+            )}
+            {!pushEnabled && (
+              <Button size="sm" variant="outline" onClick={enablePush} className="rounded-full gap-1.5">
+                <Bell className="h-3.5 w-3.5" /> Enable alerts
+              </Button>
+            )}
+            <div className="flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-[var(--shadow-soft)]">
+              <span className={`h-2.5 w-2.5 rounded-full ${online ? "bg-success animate-pulse" : "bg-muted-foreground"}`} />
+              <span className="text-sm font-medium">{online ? "Online · Accepting" : "Offline"}</span>
+              <Switch checked={online} onCheckedChange={setOnline} />
+            </div>
+          </div>
+        }
+      />
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard label="Available capacity" value={`${availCap} lbs`} hint={`of ${maxCap} max`} />
+        <StatCard label="Equipment" value={profile?.trailerType?.replace("_", " ") ?? "—"} hint={profile?.cdlClass ? `CDL-${profile.cdlClass}` : ""} />
+        <StatCard label="Location" value={profile?.currentCity ?? "—"} hint={profile?.currentState ?? ""} />
+        <StatCard label="HOS available" value={profile ? `${profile.hosAvailableHours}h` : "—"} hint="Hours of service" />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Zap className="h-4 w-4 text-warning" />
+              {loading ? "Loading…" : `${offers.length} live offer${offers.length !== 1 ? "s" : ""}`}
+            </h2>
+            <Button variant="ghost" size="sm" onClick={fetchOffers}>Refresh</Button>
+          </div>
+
+          {offers.map((o) => {
+            const load = o.load;
+            const offer = o.offer;
+            const miles = load.totalMiles ?? 0;
+            const rate = load.rateAmount ?? 0;
+            const total = load.rateType === "PER_MILE" ? (miles * rate).toFixed(0) : rate.toFixed(0);
+
+            return (
+              <div
+                key={load.loadId}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/driver/loads/${load.loadId}`)}
+                onKeyDown={(e) => e.key === "Enter" && navigate(`/driver/loads/${load.loadId}`)}
+                className="rounded-2xl border border-border bg-card overflow-hidden shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-elegant)] hover:border-primary/30 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-secondary/40">
+                  <div className="flex items-center gap-3">
+                    <StatusPill status="BROADCAST" />
+                    <span className="text-xs text-muted-foreground">{load.referenceNumber}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {offer?.expiresAt && <Countdown expiresAt={offer.expiresAt * 1000} />}
+                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
+                <div className="p-5 grid md:grid-cols-12 gap-5 items-center">
+                  <div className="md:col-span-5">
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-center pt-1">
+                        <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+                        <div className="w-px flex-1 bg-border my-1 min-h-[28px]" />
+                        <div className="h-2.5 w-2.5 rounded-full bg-accent" />
+                      </div>
+                      <div className="flex-1 space-y-3 min-w-0">
+                        <div>
+                          <div className="text-sm font-semibold truncate">{load.pickupCity}, {load.pickupState}</div>
+                          <div className="text-xs text-muted-foreground">Pickup · {load.pickupTime}</div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold truncate">{load.deliveryCity}, {load.deliveryState}</div>
+                          <div className="text-xs text-muted-foreground">{miles} mi · {load.equipmentType?.replace("_", " ")}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="md:col-span-4 grid grid-cols-3 gap-3">
+                    <Mini label="Weight" value={`${(load.totalWeightLbs / 1000).toFixed(1)}k`} />
+                    <Mini label="$/mile" value={`$${Number(rate).toFixed(2)}`} />
+                    <Mini label="Total" value={`$${Number(total).toLocaleString()}`} accent />
+                  </div>
+                  <div className="md:col-span-3 flex md:flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="outline" className="flex-1" disabled={!profileComplete || verificationStatus !== "APPROVED"} onClick={() => decline(load.loadId)}>Decline</Button>
+                    <Button
+                      className="flex-1 bg-success text-success-foreground hover:bg-success/90"
+                      disabled={!profileComplete || verificationStatus !== "APPROVED"}
+                      onClick={() => accept(load.loadId, load.referenceNumber)}
+                    >
+                      Accept <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {!loading && offers.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+              <Truck className="h-8 w-8 mx-auto text-muted-foreground" />
+              <p className="mt-3 text-sm text-muted-foreground">No live offers. We'll show them here the moment one matches.</p>
+            </div>
+          )}
+        </div>
+
+        <aside className="space-y-6">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+            <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> Current position</div>
+            <div className="mt-4 aspect-square rounded-xl bg-gradient-to-br from-primary/90 to-accent relative overflow-hidden">
+              <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)", backgroundSize: "16px 16px" }} />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-white/30 animate-ping" />
+                  <div className="relative h-4 w-4 rounded-full bg-white border-2 border-primary" />
+                </div>
+              </div>
+              <div className="absolute bottom-3 left-3 text-primary-foreground">
+                <div className="text-xs opacity-70">{profile?.currentState ?? ""}</div>
+                <div className="text-sm font-semibold">{profile?.currentCity ?? "Unknown"}</div>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg bg-secondary p-2.5">
+                <div className="text-muted-foreground">Equipment</div>
+                <div className="font-semibold">{profile?.trailerType?.replace("_", " ") ?? "—"}</div>
+              </div>
+              <div className="rounded-lg bg-secondary p-2.5">
+                <div className="text-muted-foreground">MC</div>
+                <div className="font-semibold">{profile?.mcNumber ?? "—"}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+            <div className="flex items-center gap-2 text-sm font-semibold mb-4"><TrendingUp className="h-4 w-4 text-primary" /> Profile summary</div>
+            <Row icon={Package} label="Experience" value={`${profile?.experienceYears ?? "—"} yrs`} />
+            <Row icon={Gauge} label="CDL class" value={profile ? `Class ${profile.cdlClass}` : "—"} />
+            <Row icon={TrendingUp} label="DOT" value={profile?.dotNumber ?? "—"} />
+          </div>
+        </aside>
+      </div>
+    </>
+  );
+}
+
+function Mini({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-lg bg-secondary p-2.5">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className={`mt-0.5 text-sm font-bold ${accent ? "text-success" : ""}`}>{value}</div>
+    </div>
+  );
+}
+
+function Row({ icon: Icon, label, value }: { icon: typeof Package; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground"><Icon className="h-4 w-4" /> {label}</div>
+      <div className="text-sm font-semibold">{value}</div>
+    </div>
+  );
+}

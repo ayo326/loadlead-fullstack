@@ -1,0 +1,45 @@
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Always load backend/.env (works even when running from repo root)
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+export const config = {
+  port: process.env.PORT || 4000,
+  nodeEnv: process.env.NODE_ENV || 'development',
+
+  aws: {
+    region: process.env.AWS_REGION || 'us-east-1',
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+
+  dynamodb: {
+    endpoint: process.env.DYNAMODB_ENDPOINT,
+
+    usersTable: process.env.DYNAMODB_USERS_TABLE || 'LoadLead_Users',
+    driversTable: process.env.DYNAMODB_DRIVERS_TABLE || 'LoadLead_Drivers',
+    shippersTable: process.env.DYNAMODB_SHIPPERS_TABLE || 'LoadLead_Shippers',
+    receiversTable: process.env.DYNAMODB_RECEIVERS_TABLE || 'LoadLead_Receivers',
+    loadsTable: process.env.DYNAMODB_LOADS_TABLE || 'LoadLead_Loads',
+    offersTable: process.env.DYNAMODB_OFFERS_TABLE || 'LoadLead_Offers',
+    bolTable: process.env.DYNAMODB_BOL_TABLE || 'LoadLead_BOL',
+  },
+
+  jwt: {
+    secret: process.env.JWT_SECRET || 'dev-secret',
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  },
+
+  google: {
+    mapsApiKey: process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+  },
+
+  app: {
+    broadcastRadius: parseInt(process.env.BROADCAST_RADIUS_MILES || '50'),
+    offerTtl: parseInt(process.env.OFFER_TTL_MINUTES || '15'),
+    minMcMaturity: parseInt(process.env.MIN_MC_MATURITY_DAYS || '90'),
+  },
+};
+
+export default config;

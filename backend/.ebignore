@@ -1,0 +1,5 @@
+# Don't upload local dev files to Elastic Beanstalk
+.env
+node_modules/
+*.log
+.DS_Store

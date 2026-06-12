@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+build/
+.next/
+**/.next/
+
+# Local DynamoDB
+.dynamodb/
+
+# Backup files
+*.bak*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Deploy zips
+*.zip
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Claude
+.claude/scheduled_tasks.lock
