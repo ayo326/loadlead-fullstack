@@ -102,6 +102,7 @@ export default function AppLayout() {
   const handleLogout = () => { logout(); navigate("/login"); };
 
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "?";
+  const headshotUrl = user?.headshotUrl;
 
   return (
     <SidebarProvider>
@@ -119,7 +120,11 @@ export default function AppLayout() {
               <Bell className="h-4 w-4" />
               <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent" />
             </Button>
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground flex items-center justify-center text-sm font-semibold">{initials}</div>
+            <div className="h-9 w-9 rounded-full overflow-hidden bg-gradient-to-br from-primary to-accent text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0">
+              {headshotUrl
+                ? <img src={headshotUrl} alt="Profile" className="h-full w-full object-cover" />
+                : initials}
+            </div>
           </header>
           <main className="flex-1 p-6 lg:p-8 overflow-x-hidden">
             <Outlet />

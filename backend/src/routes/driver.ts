@@ -158,6 +158,20 @@ router.get(
   })
 );
 
+// POST /api/driver/headshot/upload-url — presigned URL to upload profile headshot
+router.post(
+  '/headshot/upload-url',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { fileType = 'image/jpeg' } = req.body;
+    const key = `headshots/${req.user!.userId}.jpg`;
+    const cmd = new PutObjectCommand({ Bucket: POD_BUCKET, Key: key, ContentType: fileType });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const url = await getSignedUrl(podS3 as any, cmd as any, { expiresIn: 300 });
+    const publicUrl = `https://${POD_BUCKET}.s3.amazonaws.com/${key}`;
+    res.json({ uploadUrl: url, key, publicUrl });
+  })
+);
+
 // POST /api/driver/loads/:loadId/pod/upload-url — get presigned S3 URL for photo upload
 router.post(
   '/loads/:loadId/pod/upload-url',

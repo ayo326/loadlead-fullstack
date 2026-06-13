@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Clock, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Camera, Clock, Upload } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -322,6 +322,70 @@ function BusinessVerification({
   );
 }
 
+// ─── Headshot Uploader ─────────────────────────────────────────────────────
+
+function HeadshotUploader() {
+  const { user, setHeadshotUrl } = useAuth();
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(user?.headshotUrl ?? null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image file."); return; }
+    setUploading(true);
+    try {
+      const localPreview = URL.createObjectURL(file);
+      setPreview(localPreview);
+      const { uploadUrl, publicUrl } = await api.getHeadshotUploadUrl(file.type);
+      await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      setHeadshotUrl(publicUrl);
+      await api.updateDriverProfile({ headshotUrl: publicUrl });
+      toast.success("Profile photo updated!");
+    } catch (e: any) {
+      toast.error("Upload failed: " + e.message);
+      setPreview(user?.headshotUrl ?? null);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-3 pb-4 border-b border-border">
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="relative group h-28 w-28 rounded-full overflow-hidden border-2 border-border bg-secondary hover:border-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        aria-label="Upload profile photo"
+      >
+        {preview ? (
+          <img src={preview} alt="Profile headshot" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            <Camera className="h-8 w-8" />
+          </div>
+        )}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Camera className="h-6 w-6 text-white" />
+        </div>
+        {uploading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+            <div className="h-5 w-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+          </div>
+        )}
+      </button>
+      <p className="text-xs text-muted-foreground text-center">Click to upload photo</p>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+      />
+    </div>
+  );
+}
+
 // ─── Driver Settings ────────────────────────────────────────────────────────
 
 function DriverSettings({ userId }: { userId: string }) {
@@ -424,13 +488,18 @@ function DriverSettings({ userId }: { userId: string }) {
 
   return (
     <Tabs defaultValue="profile" orientation="vertical" className="flex gap-6">
-      <TabsList className="flex flex-col h-auto w-48 shrink-0 rounded-xl bg-secondary p-1 gap-1">
-        <TabsTrigger value="profile" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Profile</TabsTrigger>
-        <TabsTrigger value="equipment" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Equipment</TabsTrigger>
-        <TabsTrigger value="authority" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Authority & Insurance</TabsTrigger>
-        <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
-        <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
-      </TabsList>
+      <div className="flex flex-col w-48 shrink-0 gap-3">
+        <div className="rounded-xl bg-secondary p-3">
+          <HeadshotUploader />
+        </div>
+        <TabsList className="flex flex-col h-auto w-full rounded-xl bg-secondary p-1 gap-1">
+          <TabsTrigger value="profile" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Profile</TabsTrigger>
+          <TabsTrigger value="equipment" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Equipment</TabsTrigger>
+          <TabsTrigger value="authority" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Authority & Insurance</TabsTrigger>
+          <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
+          <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
+        </TabsList>
+      </div>
 
       <div className="flex-1 min-w-0">
         <TabsContent value="profile">

@@ -84,6 +84,10 @@ export const api = {
   reverseGeocode: (lat: number, lng: number) =>
     request<{ city: string; state: string }>("GET", `/maps/reverse-geocode?lat=${lat}&lng=${lng}`),
 
+  // Headshot
+  getHeadshotUploadUrl: (fileType?: string) =>
+    request<{ uploadUrl: string; key: string; publicUrl: string }>("POST", "/driver/headshot/upload-url", { fileType }),
+
   // Proof of Delivery
   getPodUploadUrl: (loadId: string, fileType?: string) =>
     request<{ uploadUrl: string; key: string; publicUrl: string }>("POST", `/driver/loads/${loadId}/pod/upload-url`, { fileType }),

@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
-interface AuthUser { userId: string; email: string; role: string; }
+interface AuthUser { userId: string; email: string; role: string; headshotUrl?: string; }
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -10,6 +10,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<AuthUser>;
   signup: (email: string, password: string, role: string) => Promise<AuthUser>;
   logout: () => void;
+  setHeadshotUrl: (url: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -22,7 +23,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const token = localStorage.getItem("ll_token");
     if (!token) { setLoading(false); return; }
     api.me()
-      .then((r) => setUser(r.user))
+      .then(async (r) => {
+        let headshotUrl: string | undefined;
+        if (r.user.role === "DRIVER") {
+          try {
+            const profile = await api.getDriverProfile();
+            headshotUrl = profile.driver?.headshotUrl || undefined;
+          } catch { /* profile may not exist yet */ }
+        }
+        setUser({ ...r.user, headshotUrl });
+      })
       .catch(() => localStorage.removeItem("ll_token"))
       .finally(() => setLoading(false));
   }, []);
@@ -46,8 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const setHeadshotUrl = (url: string) =>
+    setUser((u) => u ? { ...u, headshotUrl: url } : u);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, setHeadshotUrl }}>
       {children}
     </AuthContext.Provider>
   );
