@@ -2,7 +2,15 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
-interface AuthUser { userId: string; email: string; role: string; headshotUrl?: string; }
+interface AuthUser {
+  userId: string;
+  email: string;
+  role: string;
+  headshotUrl?: string;
+  displayName?: string;
+  phone?: string;
+  createdAt?: number;
+}
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -11,6 +19,7 @@ interface AuthContextValue {
   signup: (email: string, password: string, role: string, orgParams?: Record<string, any>) => Promise<AuthUser>;
   logout: () => void;
   setHeadshotUrl: (url: string) => void;
+  updateUser: (patch: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -59,8 +68,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setHeadshotUrl = (url: string) =>
     setUser((u) => u ? { ...u, headshotUrl: url } : u);
 
+  const updateUser = (patch: Partial<AuthUser>) =>
+    setUser((u) => u ? { ...u, ...patch } : u);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, setHeadshotUrl }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, setHeadshotUrl, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

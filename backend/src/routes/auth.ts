@@ -50,6 +50,29 @@ router.get(
   })
 );
 
+// PATCH /api/auth/me — update own profile (displayName, phone)
+router.patch(
+  '/me',
+  authenticate,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { displayName, phone } = req.body;
+    const updates: Record<string, any> = { updatedAt: Date.now() };
+    if (displayName !== undefined) updates.displayName = displayName;
+    if (phone      !== undefined) updates.phone       = phone;
+
+    await docClient.send(new UpdateCommand({
+      TableName: USERS_TABLE,
+      Key: { userId: req.user!.userId },
+      UpdateExpression: 'SET ' + Object.keys(updates).map((k, i) => `#f${i} = :v${i}`).join(', '),
+      ExpressionAttributeNames:  Object.fromEntries(Object.keys(updates).map((k, i) => [`#f${i}`, k])),
+      ExpressionAttributeValues: Object.fromEntries(Object.keys(updates).map((k, i) => [`:v${i}`, updates[k]])),
+    }));
+
+    const user = await AuthService.getUserById(req.user!.userId);
+    res.json({ user });
+  })
+);
+
 // POST /api/auth/forgot-password
 router.post('/forgot-password', asyncHandler(async (req, res) => {
   const { email } = req.body;

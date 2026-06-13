@@ -78,6 +78,8 @@ export const api = {
   getReceiverLoad: (loadId: string) => request<{ load: any }>("GET", `/receiver/loads/${loadId}`),
 
   // Auth extras
+  updateMe: (data: { displayName?: string; phone?: string }) =>
+    request<{ user: any }>("PATCH", "/auth/me", data),
   forgotPassword: (email: string) => request("POST", "/auth/forgot-password", { email }),
   resetPassword: (token: string, password: string) => request("POST", "/auth/reset-password", { token, password }),
 
