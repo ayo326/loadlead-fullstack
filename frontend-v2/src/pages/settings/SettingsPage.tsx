@@ -1244,8 +1244,8 @@ function AdminSettings({ email }: { email: string }) {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground mt-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-              ⚠ Two identical <code className="font-mono text-[10px]">setInterval</code> calls for <code className="font-mono text-[10px]">rebroadcastExpiredLoads</code> exist in <code className="font-mono text-[10px]">index.ts</code> — each broadcast cycle currently runs twice. Deduplicate before scaling.
+            <p className="text-xs text-muted-foreground mt-4 bg-secondary rounded-lg px-3 py-2">
+              Per-load overrides (<code className="font-mono text-[10px]">minMcMaturityDays</code>, <code className="font-mono text-[10px]">broadcastRadiusMiles</code>) always take precedence over platform defaults. For production scale, replace the rebroadcast worker with an EventBridge rule or Lambda.
             </p>
           </SectionCard>
         </TabsContent>

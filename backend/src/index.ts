@@ -84,30 +84,16 @@ app.use(errorHandler);
 const PORT = Number(process.env.PORT) || config.port || 4000;
 
 
-// Local dev worker: expire offers + rebroadcast queued loads (every 30s)
-if ((process.env.NODE_ENV || 'development') !== 'production') {
-  setInterval(async () => {
-    try {
-      await BroadcastService.rebroadcastExpiredLoads();
-      // uncomment if you want to see it running:
-      // console.log('[worker] rebroadcastExpiredLoads tick');
-    } catch (e) {
-      console.error('[worker] rebroadcastExpiredLoads error', e);
-    }
-  }, 30_000);
-}
-
-
-// Dev worker: expire offers + rebroadcast queued OPEN loads
-if ((process.env.NODE_ENV || 'development') !== 'production') {
-  setInterval(async () => {
-    try {
-      await BroadcastService.rebroadcastExpiredLoads();
-    } catch (e) {
-      console.error('[rebroadcast worker] error', e);
-    }
-  }, 30_000);
-}
+// Background worker: expire unaccepted offers and rebroadcast queued OPEN loads.
+// Runs every 30 s in development; in production this should be replaced by an
+// AWS EventBridge rule or a dedicated Lambda so the EB instance stays stateless.
+setInterval(async () => {
+  try {
+    await BroadcastService.rebroadcastExpiredLoads();
+  } catch (e) {
+    console.error('[rebroadcast worker] error', e);
+  }
+}, 30_000);
 
 
 app.use('/api/maps', mapsRouter);
