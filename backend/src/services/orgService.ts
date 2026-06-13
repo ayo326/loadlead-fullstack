@@ -121,14 +121,15 @@ export class OrgService {
     Logger.info(`Org reinstated: ${orgId} by ${actorUserId}`);
   }
 
-  /** All orgs where a user has an ACTIVE membership */
+  /** All orgs where a user has a membership (ACTIVE or legacy records without status field) */
   static async getOrgsForUser(userId: string): Promise<Organization[]> {
     const memberships = await OrgMembershipService.getMembershipsForUser(userId);
     if (!memberships.length) return [];
 
     const orgs = await Promise.all(
+      // Treat missing status as ACTIVE for backward-compat with pre-migration records
       memberships
-        .filter(m => m.status === 'ACTIVE')
+        .filter(m => !m.status || m.status === 'ACTIVE')
         .map(m => OrgService.getOrgById(m.orgId))
     );
     return orgs.filter(Boolean) as Organization[];

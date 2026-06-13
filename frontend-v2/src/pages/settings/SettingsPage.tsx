@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Camera, Clock, Upload, Building2, Users, Mail, CheckSquare, Square, Loader2, Plus, Trash2, Badge } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -721,7 +721,7 @@ function DriverSettings({ userId }: { userId: string }) {
         </TabsContent>
 
         <TabsContent value="organisation">
-          <OrgTab callerUserRole="DRIVER" />
+          <OrgTabErrorBoundary><OrgTab callerUserRole="DRIVER" /></OrgTabErrorBoundary>
         </TabsContent>
       </div>
     </Tabs>
@@ -882,7 +882,7 @@ function ShipperSettings({ userId }: { userId: string }) {
         </TabsContent>
 
         <TabsContent value="organisation">
-          <OrgTab callerUserRole="SHIPPER" />
+          <OrgTabErrorBoundary><OrgTab callerUserRole="SHIPPER" /></OrgTabErrorBoundary>
         </TabsContent>
 
         <TabsContent value="biz">
@@ -1004,7 +1004,7 @@ function ReceiverSettings({ userId }: { userId: string }) {
         </TabsContent>
 
         <TabsContent value="organisation">
-          <OrgTab callerUserRole="RECEIVER" />
+          <OrgTabErrorBoundary><OrgTab callerUserRole="RECEIVER" /></OrgTabErrorBoundary>
         </TabsContent>
 
         <TabsContent value="biz">
@@ -1256,6 +1256,37 @@ function AdminSettings({ email }: { email: string }) {
 }
 
 // ─── Organisation Tab ────────────────────────────────────────────────────────
+
+class OrgTabErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-5 text-sm text-destructive space-y-2">
+          <p className="font-semibold">Organisation tab error</p>
+          <p className="font-mono text-xs break-all">{this.state.error.message}</p>
+          <p className="text-xs text-muted-foreground">{this.state.error.stack?.split("\n")[1]}</p>
+          <button
+            className="text-xs underline text-primary"
+            onClick={() => this.setState({ error: null })}
+          >
+            Try again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const ALL_CAPABILITIES = [
   { key: "CARRIER",  label: "Carrier",  desc: "Move freight — trucks & drivers" },
