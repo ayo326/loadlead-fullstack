@@ -5,6 +5,7 @@ const podS3 = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 import { DriverService } from '../services/driverService';
 import { OfferService } from '../services/offerService';
 import { LoadService } from '../services/loadService';
+import { CapacityService, calcUsableVolume } from '../services/capacityService';
 import { authenticate, requireDriver, AuthRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { driverValidators } from '../utils/validators';
@@ -222,6 +223,38 @@ router.post(
     } catch (_) {}
 
     res.json({ message: 'Proof of delivery recorded. Load marked DELIVERED.' });
+  })
+);
+
+// POST /api/driver/capacity/check — evaluate a prospective load against driver's current capacity
+router.post(
+  '/capacity/check',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const driver = await DriverService.getProfileByUserId(req.user!.userId);
+    if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
+
+    const { totalWeightLbs = 0, dimLengthIn, dimWidthIn, dimHeightIn } = req.body;
+    const loadVolumeCuIn = calcUsableVolume(dimLengthIn, dimWidthIn, dimHeightIn);
+
+    const fakeLoad = { totalWeightLbs, dimLengthIn, dimWidthIn, dimHeightIn, loadVolumeCuIn,
+      equipmentType: driver.trailerType } as any;
+    const result = CapacityService.evaluateLoad(driver as any, fakeLoad);
+    res.json(result);
+  })
+);
+
+// PATCH /api/driver/capacity/buffer — driver views/confirms their buffer (read-only for drivers; only admins change it)
+router.get(
+  '/capacity/buffer',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const driver = await DriverService.getProfileByUserId(req.user!.userId);
+    if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
+    res.json({
+      safetyBufferPct: driver.safetyBufferPct ?? 10,
+      overBufferFlag: driver.overBufferFlag ?? false,
+      maxCapacityLbs: driver.maxCapacityLbs,
+      maxOperationalLbs: driver.maxCapacityLbs * (1 - ((driver.safetyBufferPct ?? 10) / 100)),
+    });
   })
 );
 

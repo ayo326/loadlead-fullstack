@@ -1,6 +1,51 @@
-import { Activity, AlertTriangle, CheckCircle2, Users } from "lucide-react";
+import { useState } from "react";
+import { Activity, AlertTriangle, CheckCircle2, Shield, Users } from "lucide-react";
 import { PageHeader, StatCard, StatusPill } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { adminDrivers, adminMetrics } from "@/lib/mockData";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+
+// ─── Buffer manager panel ────────────────────────────────────────────────────
+
+function BufferManager({ driverId, driverName }: { driverId: string; driverName: string }) {
+  const [pct, setPct] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    const n = Number(pct);
+    if (n < 5 || n > 25) { toast.error("Buffer must be between 5% and 25%."); return; }
+    setSaving(true);
+    try {
+      const r = await api.adminSetDriverBuffer(driverId, n);
+      toast.success(r.message);
+      if (r.overBuffer) toast.warning(r.alert ?? "Driver is now Over Buffer.");
+      setPct("");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        type="number"
+        min={5}
+        max={25}
+        placeholder="5–25%"
+        value={pct}
+        onChange={(e) => setPct(e.target.value)}
+        className="w-24 h-8 text-xs"
+      />
+      <Button size="sm" variant="outline" disabled={saving || !pct} onClick={save} className="h-8 text-xs">
+        Set buffer
+      </Button>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   return (
@@ -32,23 +77,29 @@ export default function AdminDashboard() {
                   <th className="px-5 py-3 font-medium">Driver</th>
                   <th className="px-5 py-3 font-medium">Equipment</th>
                   <th className="px-5 py-3 font-medium">Capacity</th>
+                  <th className="px-5 py-3 font-medium">Buffer</th>
                   <th className="px-5 py-3 font-medium">Location</th>
-                  <th className="px-5 py-3 font-medium">Rating</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {adminDrivers.map((d) => {
-                  const used = Math.round((d.currentLoadLbs / d.maxCapacityLbs) * 100);
+                  const bufPct: number = (d as any).safetyBufferPct ?? 10;
+                  const maxOp = d.maxCapacityLbs * (1 - bufPct / 100);
+                  const used = Math.min(100, Math.round((d.currentLoadLbs / maxOp) * 100));
+                  const overBuffer = (d as any).overBufferFlag ?? false;
                   return (
-                    <tr key={d.id} className="border-t border-border hover:bg-secondary/40">
+                    <tr key={d.id} className={`border-t border-border hover:bg-secondary/40 ${overBuffer ? "bg-destructive/5" : ""}`}>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground flex items-center justify-center text-xs font-semibold">
-                            {d.name.split(" ").map((n) => n[0]).join("")}
+                            {d.name.split(" ").map((n: string) => n[0]).join("")}
                           </div>
                           <div>
-                            <div className="font-medium">{d.name}</div>
+                            <div className="font-medium flex items-center gap-1.5">
+                              {d.name}
+                              {overBuffer && <span className="text-[10px] font-bold text-destructive bg-destructive/10 rounded px-1">OVER BUFFER</span>}
+                            </div>
                             <div className="text-xs text-muted-foreground">{d.mcNumber}</div>
                           </div>
                         </div>
@@ -56,12 +107,17 @@ export default function AdminDashboard() {
                       <td className="px-5 py-4 text-muted-foreground">{d.equipment.replace("_", " ")}</td>
                       <td className="px-5 py-4">
                         <div className="w-28 h-1.5 rounded-full bg-secondary overflow-hidden">
-                          <div className="h-full bg-primary" style={{ width: `${used}%` }} />
+                          <div className={`h-full ${used >= 100 ? "bg-destructive" : used >= 90 ? "bg-warning" : "bg-primary"}`} style={{ width: `${used}%` }} />
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">{(d.currentLoadLbs / 1000).toFixed(1)}k / {(d.maxCapacityLbs / 1000).toFixed(0)}k lbs</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {(d.currentLoadLbs / 1000).toFixed(1)}k / {(maxOp / 1000).toFixed(0)}k op. lbs
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <BufferManager driverId={d.id} driverName={d.name} />
+                        <p className="text-xs text-muted-foreground mt-1">Current: {bufPct}%</p>
                       </td>
                       <td className="px-5 py-4 text-muted-foreground">{d.location}</td>
-                      <td className="px-5 py-4 font-semibold">{d.rating} ★</td>
                       <td className="px-5 py-4"><StatusPill status={d.status} /></td>
                     </tr>
                   );

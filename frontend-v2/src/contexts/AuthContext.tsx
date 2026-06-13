@@ -8,7 +8,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
-  signup: (email: string, password: string, role: string) => Promise<AuthUser>;
+  signup: (email: string, password: string, role: string, orgParams?: Record<string, any>) => Promise<AuthUser>;
   logout: () => void;
   setHeadshotUrl: (url: string) => void;
 }
@@ -44,8 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return r.user;
   };
 
-  const signup = async (email: string, password: string, role: string) => {
-    const r = await api.signup(email, password, role);
+  const signup = async (email: string, password: string, role: string, orgParams?: Record<string, any>) => {
+    const r = await api.signup(email, password, role, orgParams);
     localStorage.setItem("ll_token", r.token);
     setUser(r.user);
     return r.user;

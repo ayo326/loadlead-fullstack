@@ -108,6 +108,19 @@ export const EmailService = {
     `));
   },
 
+  async sendOrgInvitation(to: string, orgName: string, inviteUrl: string) {
+    await send(to, `🏢 You've been invited to join ${orgName} on LoadLead`, base(`
+      <h2 style="margin:0 0 8px;color:#1a3a5c;">You're invited!</h2>
+      <p style="color:#555;margin:0 0 8px;">You've been invited to join <strong>${orgName}</strong> on LoadLead.</p>
+      <p style="color:#888;font-size:13px;margin:0 0 24px;">This invitation expires in 72 hours.</p>
+      <a href="${inviteUrl}"
+         style="display:inline-block;background:#1a3a5c;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
+        Accept Invitation
+      </a>
+      <p style="color:#aaa;font-size:12px;margin-top:24px;">If you weren't expecting this, you can safely ignore it.</p>
+    `));
+  },
+
   async passwordReset(to: string, resetUrl: string) {
     await send(to, '🔐 Reset Your LoadLead Password', base(`
       <h2 style="margin:0 0 8px;color:#1a3a5c;">Password reset request</h2>

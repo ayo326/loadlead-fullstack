@@ -54,16 +54,31 @@ export class DriverService {
         currentLoadLbs: data.currentLoadLbs || 0,
         specialEquipment: data.specialEquipment || [],
 
+        // ── Equipment spec §11.1 loading capability attributes ──
+        dockHeightCompatible: data.dockHeightCompatible ?? false,
+        liftgateEquipped: data.liftgateEquipped ?? false,
+        palletJackOnboard: data.palletJackOnboard ?? false,
+        // Use explicit null-check so negative temps (-10°F) aren't treated as falsy
+        tempRangeMin: data.tempRangeMin !== undefined ? Number(data.tempRangeMin) : undefined,
+        tempRangeMax: data.tempRangeMax !== undefined ? Number(data.tempRangeMax) : undefined,
+        securementGear: data.securementGear || [],
+        // Interior dimensions for volume matching
+        interiorLengthIn: data.interiorLengthIn !== undefined ? Number(data.interiorLengthIn) : undefined,
+        interiorWidthIn:  data.interiorWidthIn  !== undefined ? Number(data.interiorWidthIn)  : undefined,
+        interiorHeightIn: data.interiorHeightIn !== undefined ? Number(data.interiorHeightIn) : undefined,
+        safetyBufferPct: data.safetyBufferPct || 10,
+
         // Authority & Insurance
         mcNumber: data.mcNumber!,
         dotNumber: data.dotNumber!,
         authorityStartDate: this.toTimestamp(data.authorityStartDate) || now,
-        cargoInsuranceAmount: data.cargoInsuranceAmount || 0,
-        liabilityInsuranceAmount: data.liabilityInsuranceAmount || 0,
+        // Canonical insurance fields used by broadcast matching
+        cargoInsuranceAmount: data.cargoInsuranceAmount || data.cargoCoverageAmount || 0,
+        liabilityInsuranceAmount: data.liabilityInsuranceAmount || data.autoLiabilityAmount || 0,
         insuranceCertificate: data.insuranceCertificate,
         w9Form: data.w9Form,
 
-        // InsurancePolicies schema integration
+        // InsurancePolicies schema integration (alias fields)
         insurancePolicyId: data.insurancePolicyId,
         insuranceProvider: data.insuranceProvider,
         policyNumber: data.policyNumber,
@@ -128,6 +143,14 @@ export class DriverService {
         ...updates,
         updatedAt: Helpers.getCurrentTimestamp(),
       };
+
+      // Keep canonical insurance fields in sync with alias fields
+      if (updateData.cargoCoverageAmount != null && !updateData.cargoInsuranceAmount) {
+        updateData.cargoInsuranceAmount = updateData.cargoCoverageAmount;
+      }
+      if (updateData.autoLiabilityAmount != null && !updateData.liabilityInsuranceAmount) {
+        updateData.liabilityInsuranceAmount = updateData.autoLiabilityAmount;
+      }
 
       // Normalize date-like fields if incoming values are ISO strings
       const dateFields = ['authorityStartDate', 'dob', 'medicalCertExpiration', 'mcIssueDate', 'policyExpirationDate'];

@@ -19,6 +19,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
 import SettingsPage from "./pages/settings/SettingsPage.tsx";
 import BillOfLadingPage from "./pages/bol/BillOfLadingPage.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
+import AcceptInvite from "./pages/AcceptInvite.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ResetPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
               <Route path="/driver"                element={<RequireRole role="DRIVER"><DriverDashboard /></RequireRole>} />
               <Route path="/driver/loads/:loadId" element={<RequireRole role="DRIVER"><DriverLoadDetail /></RequireRole>} />

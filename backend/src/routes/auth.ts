@@ -21,8 +21,8 @@ router.post(
   '/signup',
   validate(authValidators.signup),
   asyncHandler(async (req, res) => {
-    const { email, password, role } = req.body;
-    const result = await AuthService.signup(email, password, role);
+    const { email, password, role, orgParams } = req.body;
+    const result = await AuthService.signup(email, password, role, orgParams);
     // Send role-specific welcome email (non-blocking)
     EmailService.welcome(email, role).catch(() => {});
     res.status(201).json(result);

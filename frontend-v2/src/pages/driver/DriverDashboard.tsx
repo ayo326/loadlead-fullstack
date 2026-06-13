@@ -79,10 +79,26 @@ export default function DriverDashboard() {
 
   const navigate = useNavigate();
   const displayName = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.fullName || profile.legalName || user?.email : user?.email ?? "Driver";
+  const bufferPct = profile?.safetyBufferPct ?? 10;
   const maxCapLbs = profile?.maxCapacityLbs ?? 0;
+  const maxOpLbs = maxCapLbs * (1 - bufferPct / 100);
   const curLoadLbs = profile?.currentLoadLbs ?? 0;
-  const availCap = profile ? (maxCapLbs - curLoadLbs).toLocaleString() : "—";
+  const availCap = profile ? Math.max(0, maxOpLbs - curLoadLbs).toLocaleString() : "—";
   const maxCap = profile ? maxCapLbs.toLocaleString() : "—";
+
+  // Volume
+  const interiorL = profile?.interiorLengthIn ?? 0;
+  const interiorW = profile?.interiorWidthIn ?? 0;
+  const interiorH = profile?.interiorHeightIn ?? 0;
+  const usableVolCuIn = interiorL * interiorW * interiorH;
+  const maxOpVolCuIn = usableVolCuIn * (1 - bufferPct / 100);
+  const curVolCuIn = profile?.currentVolumeCuIn ?? 0;
+  const availVolCuFt = usableVolCuIn > 0 ? Math.max(0, (maxOpVolCuIn - curVolCuIn) / 1728) : null;
+
+  // Weight utilization % of operational limit
+  const weightUsedPct = maxOpLbs > 0 ? Math.min(100, (curLoadLbs / maxOpLbs) * 100) : 0;
+  const volUsedPct = maxOpVolCuIn > 0 ? Math.min(100, (curVolCuIn / maxOpVolCuIn) * 100) : 0;
+  const overBuffer = profile?.overBufferFlag ?? false;
 
   const driverStatus = profile?.status;
   const verificationStatus =
@@ -117,11 +133,51 @@ export default function DriverDashboard() {
         }
       />
 
+      {overBuffer && (
+        <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 flex items-start gap-3">
+          <span className="text-destructive font-bold text-lg leading-none">!</span>
+          <div className="text-sm">
+            <span className="font-semibold text-destructive">Over Buffer:</span>{" "}
+            Your current load exceeds the operational limit after a buffer adjustment. You cannot accept new loads until resolved. Contact your admin.
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Available capacity" value={`${availCap} lbs`} hint={`of ${maxCap} max`} />
+        {/* Weight capacity meter */}
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Weight capacity</p>
+          <p className="text-xl font-bold">{availCap} <span className="text-sm font-normal text-muted-foreground">lbs bookable</span></p>
+          <div className="mt-2 h-2 rounded-full bg-secondary overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${weightUsedPct >= 100 ? "bg-destructive" : weightUsedPct >= 90 ? "bg-warning" : "bg-primary"}`}
+              style={{ width: `${weightUsedPct}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">{weightUsedPct.toFixed(0)}% of {maxOpLbs.toLocaleString()} op. limit · {bufferPct}% buffer</p>
+        </div>
+
+        {/* Volume capacity meter */}
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Volume capacity</p>
+          {availVolCuFt !== null ? (
+            <>
+              <p className="text-xl font-bold">{availVolCuFt.toFixed(0)} <span className="text-sm font-normal text-muted-foreground">cu ft bookable</span></p>
+              <div className="mt-2 h-2 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${volUsedPct >= 100 ? "bg-destructive" : volUsedPct >= 90 ? "bg-warning" : "bg-primary"}`}
+                  style={{ width: `${volUsedPct}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{volUsedPct.toFixed(0)}% of op. limit</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-2">Set interior dims in Equipment settings to enable volume matching.</p>
+          )}
+        </div>
+
         <StatCard label="Equipment" value={profile?.trailerType?.replace("_", " ") ?? "—"} hint={profile?.cdlClass ? `CDL-${profile.cdlClass}` : ""} />
         <StatCard label="Location" value={profile?.currentCity ?? "—"} hint={profile?.currentState ?? ""} />
-        <StatCard label="HOS available" value={profile ? `${profile.hosAvailableHours}h` : "—"} hint="Hours of service" />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">

@@ -1,4 +1,5 @@
 import { Load, LoadStatus, TrailerType } from '../types';
+import { deriveLoadingRequirements } from './equipmentService';
 import { Database } from '../config/database';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
@@ -20,12 +21,29 @@ export class LoadService {
         
         // Load Basics
         referenceNumber: data.referenceNumber || `REF-${loadId.slice(-8)}`,
-        equipmentType: data.equipmentType!,
+        equipmentType: (data.equipmentType ?? (data.acceptedEquipmentTypes?.[0])) as TrailerType,
+        acceptedEquipmentTypes: data.acceptedEquipmentTypes?.length
+          ? data.acceptedEquipmentTypes
+          : data.equipmentType ? [data.equipmentType] : [],
         loadSize: data.loadSize || 'FULL',
         totalWeightLbs: data.totalWeightLbs!,
         length: data.length,
         width: data.width,
         height: data.height,
+        dimLengthIn: data.dimLengthIn,
+        dimWidthIn: data.dimWidthIn,
+        dimHeightIn: data.dimHeightIn,
+        loadVolumeCuIn: (data.dimLengthIn && data.dimWidthIn && data.dimHeightIn)
+          ? data.dimLengthIn * data.dimWidthIn * data.dimHeightIn : undefined,
+        // Facility profiles → derive hard loading requirements at creation time
+        pickupFacility: (data as any).pickupFacility,
+        deliveryFacility: (data as any).deliveryFacility,
+        derivedLoadingRequirements: deriveLoadingRequirements(
+          (data as any).pickupFacility,
+          (data as any).deliveryFacility,
+        ),
+        tempRequiredMin: (data as any).tempRequiredMin,
+        tempRequiredMax: (data as any).tempRequiredMax,
         
         // Pickup
         pickupCity: data.pickupCity!,

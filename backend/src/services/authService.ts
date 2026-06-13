@@ -1,4 +1,5 @@
-import { User, UserRole, UserStatus } from '../types';
+import { User, UserRole, UserStatus, OrgCapability } from '../types';
+import { OrgService } from './orgService';
 import { Database } from '../config/database';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
@@ -32,7 +33,22 @@ export class AuthService {
     return user.passwordHash ?? user.password ?? user.password_hash ?? user.hashedPassword;
   }
 
-  static async signup(email: string, password: string, role: UserRole): Promise<{ user: User; token: string }> {
+  static async signup(
+    email: string,
+    password: string,
+    role: UserRole,
+    orgParams?: {
+      legalName: string;
+      capabilities: OrgCapability[];
+      dba?: string;
+      dotNumber?: string;
+      mcNumber?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+      country?: string;
+    }
+  ): Promise<{ user: User; token: string; orgId?: string }> {
     try {
       const existingUsers = await Database.query<StoredUser>(
         config.dynamodb.usersTable,
@@ -69,7 +85,22 @@ export class AuthService {
 
       Logger.info(`User signed up: ${email} with role ${role}`);
 
-      return { user: safeUser, token };
+      // Auto-create organisation if org params provided (non-DRIVER, non-ADMIN roles)
+      let orgId: string | undefined;
+      if (orgParams && role !== UserRole.ADMIN) {
+        try {
+          const { org } = await OrgService.createOrg({
+            ...orgParams,
+            ownerId: userId,
+            ownerRole: role,
+          });
+          orgId = org.orgId;
+        } catch (orgErr) {
+          Logger.error('Auto-create org failed (non-fatal)', orgErr);
+        }
+      }
+
+      return { user: safeUser, token, orgId };
     } catch (error) {
       Logger.error('Signup error', error);
       throw error;

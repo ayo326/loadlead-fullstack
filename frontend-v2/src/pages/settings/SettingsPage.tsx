@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Camera, Clock, Upload } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Camera, Clock, Upload, Building2, Users, Mail, CheckSquare, Square, Loader2, Plus, Trash2, Badge } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,7 +49,27 @@ function SectionCard({ children }: { children: React.ReactNode }) {
   );
 }
 
-const FREIGHT_TYPES = ["DRY_VAN", "REEFER", "FLATBED", "STEP_DECK", "BOX_TRUCK"];
+const TRAILER_TYPES: { value: string; label: string; group: string }[] = [
+  // Enclosed
+  { value: "DRY_VAN",    label: "Dry Van",                  group: "Enclosed" },
+  { value: "REEFER",     label: "Refrigerated (Reefer)",    group: "Enclosed" },
+  { value: "BOX_TRUCK",  label: "Box Truck (Straight)",     group: "Enclosed" },
+  // Open-deck
+  { value: "FLATBED",    label: "Flatbed",                  group: "Open-Deck" },
+  { value: "STEP_DECK",  label: "Step Deck (Drop Deck)",    group: "Open-Deck" },
+  { value: "RGN",        label: "Removable Gooseneck (RGN)", group: "Open-Deck" },
+  { value: "CONESTOGA",  label: "Conestoga",                group: "Open-Deck" },
+  // Specialized
+  { value: "TANKER",     label: "Tanker",                   group: "Specialized" },
+  { value: "CAR_HAULER", label: "Car Hauler",               group: "Specialized" },
+  { value: "POWER_ONLY", label: "Power Only",               group: "Specialized" },
+];
+
+/** Legacy list used by MultiCheckbox (shipper preferred equipment) */
+const FREIGHT_TYPES = TRAILER_TYPES.map((t) => t.value);
+
+const OPEN_DECK_TYPES = ["FLATBED", "STEP_DECK", "RGN", "CONESTOGA"];
+const SECUREMENT_OPTIONS = ["TARPS", "STRAPS", "CHAINS", "BINDERS", "EDGE_PROTECTORS"];
 
 function MultiCheckbox({
   options,
@@ -458,6 +478,7 @@ function DriverSettings({ userId }: { userId: string }) {
   // required field lists per tab
   const REQUIRED_PROFILE = ["firstName", "lastName", "phone", "dob", "licenseNumber", "licenseState", "cdlClass", "driverType", "experienceYears", "carrierId"];
   const REQUIRED_EQUIP   = ["truckMake", "truckModel", "truckYear", "truckVIN", "trailerType", "maxCapacityLbs"];
+  const LOADING_CAPS     = ["dockHeightCompatible","liftgateEquipped","palletJackOnboard","tempRangeMin","tempRangeMax","securementGear"];
   const REQUIRED_AUTH    = ["mcNumber", "dotNumber", "authorityStartDate", "mcIssueDate", "medicalCertExpiration"];
 
   const FIELD_LABELS: Record<string, string> = {
@@ -544,13 +565,121 @@ function DriverSettings({ userId }: { userId: string }) {
                 <Select value={profile.trailerType} onValueChange={(v) => set("trailerType", v)}>
                   <SelectTrigger id="trailerType"><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
-                    {FREIGHT_TYPES.map((t) => <SelectItem key={t} value={t}>{t.replace("_", " ")}</SelectItem>)}
+                    {["Enclosed", "Open-Deck", "Specialized"].map((group) => (
+                      <div key={group}>
+                        <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{group}</div>
+                        {TRAILER_TYPES.filter((t) => t.group === group).map((t) => (
+                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        ))}
+                      </div>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>
-              {inp("maxCapacityLbs", "Max Capacity (lbs)", "number", "", true)}
+              {inp("maxCapacityLbs", "Max Weight Capacity (lbs)", "number", "", true)}
             </div>
-            <Button disabled={saving} onClick={() => { if (validate(REQUIRED_EQUIP)) save(equipFields); }}>
+
+            {/* Interior dimensions for volume matching */}
+            <div className="pt-2 border-t border-border space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Interior Cargo Dimensions (inches)</p>
+              <p className="text-xs text-muted-foreground">Used for volume-based capacity matching alongside weight.</p>
+              <div className="grid grid-cols-3 gap-3">
+                {inp("interiorLengthIn", "Length (in)", "number", "636")}
+                {inp("interiorWidthIn", "Width (in)", "number", "98")}
+                {inp("interiorHeightIn", "Height (in)", "number", "110")}
+              </div>
+              {profile.interiorLengthIn && profile.interiorWidthIn && profile.interiorHeightIn && (
+                <p className="text-xs text-muted-foreground">
+                  Usable volume: <span className="font-medium text-foreground">
+                    {((Number(profile.interiorLengthIn) * Number(profile.interiorWidthIn) * Number(profile.interiorHeightIn)) / 1728).toLocaleString(undefined, { maximumFractionDigits: 0 })} cu ft
+                  </span>
+                </p>
+              )}
+            </div>
+
+            {/* Loading capability attributes (spec §11.1) */}
+            <div className="pt-2 border-t border-border space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Loading Capabilities</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {[
+                  { key: "dockHeightCompatible", label: "Dock-height compatible" },
+                  { key: "liftgateEquipped",     label: "Liftgate equipped" },
+                  { key: "palletJackOnboard",    label: "Pallet jack onboard" },
+                ].map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-3 rounded-lg border border-border px-3 py-2 cursor-pointer hover:bg-secondary/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={!!profile[key]}
+                      onChange={(e) => set(key, String(e.target.checked))}
+                    />
+                    <span className="text-sm">{label}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* Reefer temp range */}
+              {profile.trailerType === "REEFER" && (
+                <div className="grid grid-cols-2 gap-3">
+                  {inp("tempRangeMin", "Min Temp (°F)", "number", "-20")}
+                  {inp("tempRangeMax", "Max Temp (°F)", "number", "70")}
+                </div>
+              )}
+
+              {/* Open-deck securement gear */}
+              {OPEN_DECK_TYPES.includes(profile.trailerType) && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Securement Gear</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {SECUREMENT_OPTIONS.map((opt) => {
+                      const current: string[] = Array.isArray(profile.securementGear)
+                        ? profile.securementGear
+                        : (profile.securementGear ? [profile.securementGear] : []);
+                      const selected = current.includes(opt);
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => {
+                            const next = selected
+                              ? current.filter((x: string) => x !== opt)
+                              : [...current, opt];
+                            set("securementGear", next as any);
+                          }}
+                          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            selected
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-secondary text-foreground hover:bg-secondary/80"
+                          }`}
+                        >
+                          {opt.replace("_", " ")}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Safety buffer display (read-only for drivers) */}
+            <div className="pt-2 border-t border-border space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Safety Buffer</p>
+              <p className="text-sm">
+                Your effective safety buffer is{" "}
+                <span className="font-semibold text-foreground">{profile.safetyBufferPct ?? 10}%</span>
+                {" "}— set by your admin. This keeps your bookable weight at{" "}
+                <span className="font-semibold text-foreground">
+                  {profile.maxCapacityLbs
+                    ? `${(Number(profile.maxCapacityLbs) * (1 - (Number(profile.safetyBufferPct ?? 10) / 100))).toLocaleString()} lbs`
+                    : "—"}
+                </span>
+                {" "}below your rated capacity.
+              </p>
+            </div>
+
+            <Button disabled={saving} onClick={() => {
+              if (validate(REQUIRED_EQUIP)) save([...equipFields, "interiorLengthIn", "interiorWidthIn", "interiorHeightIn", ...LOADING_CAPS]);
+            }}>
               {isNew ? "Save equipment" : "Save changes"}
             </Button>
           </SectionCard>
@@ -677,6 +806,7 @@ function ShipperSettings({ userId }: { userId: string }) {
       <TabsList className="flex flex-col h-auto w-48 shrink-0 rounded-xl bg-secondary p-1 gap-1">
         <TabsTrigger value="company" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Company</TabsTrigger>
         <TabsTrigger value="operations" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Operations</TabsTrigger>
+        <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
         <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
         <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
       </TabsList>
@@ -744,6 +874,10 @@ function ShipperSettings({ userId }: { userId: string }) {
 
         <TabsContent value="id">
           <IDVerification userId={userId} />
+        </TabsContent>
+
+        <TabsContent value="organisation">
+          <OrgTab />
         </TabsContent>
 
         <TabsContent value="biz">
@@ -825,6 +959,7 @@ function ReceiverSettings({ userId }: { userId: string }) {
     <Tabs defaultValue="facility" orientation="vertical" className="flex gap-6">
       <TabsList className="flex flex-col h-auto w-48 shrink-0 rounded-xl bg-secondary p-1 gap-1">
         <TabsTrigger value="facility" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Facility</TabsTrigger>
+        <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
         <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
         <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
       </TabsList>
@@ -863,6 +998,10 @@ function ReceiverSettings({ userId }: { userId: string }) {
           <IDVerification userId={userId} />
         </TabsContent>
 
+        <TabsContent value="organisation">
+          <OrgTab />
+        </TabsContent>
+
         <TabsContent value="biz">
           <BusinessVerification userId={userId} role="RECEIVER" />
         </TabsContent>
@@ -896,6 +1035,261 @@ function AdminSettings({ email }: { email: string }) {
         </TabsContent>
       </div>
     </Tabs>
+  );
+}
+
+// ─── Organisation Tab ────────────────────────────────────────────────────────
+
+const ALL_CAPABILITIES = [
+  { key: "CARRIER",  label: "Carrier",  desc: "Move freight — trucks & drivers" },
+  { key: "SHIPPER",  label: "Shipper",  desc: "Post loads and find drivers" },
+  { key: "RECEIVER", label: "Receiver", desc: "Accept deliveries at facility" },
+];
+
+const ORG_ROLES = ["OWNER", "ADMIN", "MEMBER", "VIEWER"];
+const USER_ROLES = ["DRIVER", "SHIPPER", "RECEIVER", "ADMIN"];
+
+function OrgTab() {
+  const [orgs, setOrgs] = useState<any[]>([]);
+  const [selectedOrg, setSelectedOrg] = useState<any | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // invite form
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteOrgRole, setInviteOrgRole] = useState("MEMBER");
+  const [inviteUserRole, setInviteUserRole] = useState("SHIPPER");
+  const [inviting, setInviting] = useState(false);
+
+  // edit org
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editCaps, setEditCaps] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const loadOrgs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { orgs: list } = await api.getMyOrgs();
+      setOrgs(list);
+      if (list.length > 0 && !selectedOrg) setSelectedOrg(list[0]);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { loadOrgs(); }, [loadOrgs]);
+
+  useEffect(() => {
+    if (!selectedOrg) return;
+    setEditName(selectedOrg.legalName);
+    setEditCaps(selectedOrg.capabilities ?? []);
+    Promise.all([
+      api.getOrgMembers(selectedOrg.orgId),
+      api.getOrgInvitations(selectedOrg.orgId),
+    ]).then(([mRes, iRes]) => {
+      setMembers(mRes.members);
+      setInvitations(iRes.invitations.filter((inv: any) => !inv.acceptedAt && inv.expiresAt > Date.now()));
+    }).catch(() => {});
+  }, [selectedOrg]);
+
+  async function handleSaveOrg() {
+    if (!selectedOrg) return;
+    setSaving(true);
+    try {
+      await api.updateOrg(selectedOrg.orgId, { legalName: editName, capabilities: editCaps });
+      setSelectedOrg((o: any) => ({ ...o, legalName: editName, capabilities: editCaps }));
+      setEditing(false);
+      toast.success("Organisation updated");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedOrg) return;
+    setInviting(true);
+    try {
+      await api.sendInvitation(selectedOrg.orgId, { email: inviteEmail, orgRole: inviteOrgRole, userRole: inviteUserRole });
+      toast.success(`Invitation sent to ${inviteEmail}`);
+      setInviteEmail("");
+      // refresh invitations
+      const { invitations: updated } = await api.getOrgInvitations(selectedOrg.orgId);
+      setInvitations(updated.filter((inv: any) => !inv.acceptedAt && inv.expiresAt > Date.now()));
+    } catch (e: any) { toast.error(e.message); }
+    finally { setInviting(false); }
+  }
+
+  async function handleRemoveMember(membershipId: string) {
+    if (!selectedOrg) return;
+    try {
+      await api.removeMember(selectedOrg.orgId, membershipId);
+      setMembers(m => m.filter(x => x.membershipId !== membershipId));
+      toast.success("Member removed");
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  if (loading) return <div className="flex items-center gap-2 text-muted-foreground text-sm py-8"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
+
+  if (orgs.length === 0) {
+    return (
+      <SectionCard>
+        <div className="text-center py-8 space-y-3">
+          <Building2 className="h-10 w-10 text-muted-foreground mx-auto" />
+          <p className="text-sm text-muted-foreground">You are not part of any organisation yet.</p>
+          <p className="text-xs text-muted-foreground">Organisations are created automatically when you sign up as Shipper or Receiver, or you can be invited by an existing member.</p>
+        </div>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Org selector if multiple */}
+      {orgs.length > 1 && (
+        <div className="flex gap-2 flex-wrap">
+          {orgs.map(o => (
+            <button
+              key={o.orgId}
+              onClick={() => setSelectedOrg(o)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${selectedOrg?.orgId === o.orgId ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}
+            >
+              {o.legalName}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selectedOrg && (
+        <>
+          {/* Org info card */}
+          <SectionCard>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  {editing ? (
+                    <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8 text-sm font-semibold w-60" />
+                  ) : (
+                    <div className="font-semibold">{selectedOrg.legalName}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground">{selectedOrg.orgId}</div>
+                </div>
+              </div>
+              {!editing ? (
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>Edit</Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
+                  <Button size="sm" onClick={handleSaveOrg} disabled={saving}>
+                    {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Capabilities */}
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Capabilities</Label>
+              <div className="flex gap-2 flex-wrap">
+                {ALL_CAPABILITIES.map(cap => {
+                  const active = (editing ? editCaps : selectedOrg.capabilities ?? []).includes(cap.key);
+                  return (
+                    <button
+                      key={cap.key}
+                      type="button"
+                      disabled={!editing}
+                      onClick={() => editing && setEditCaps(prev => prev.includes(cap.key) ? prev.filter(c => c !== cap.key) : [...prev, cap.key])}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${active ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground"} ${editing ? "cursor-pointer hover:border-primary/60" : "cursor-default"}`}
+                    >
+                      {active ? <CheckSquare className="h-3 w-3" /> : <Square className="h-3 w-3" />}
+                      {cap.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </SectionCard>
+
+          {/* Members */}
+          <SectionCard>
+            <div className="flex items-center gap-2 font-semibold text-sm">
+              <Users className="h-4 w-4 text-primary" /> Members
+            </div>
+            <div className="divide-y divide-border">
+              {members.map(m => (
+                <div key={m.membershipId} className="flex items-center justify-between py-2.5 text-sm">
+                  <div>
+                    <span className="font-medium">{m.userId}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{m.userRole}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${m.orgRole === "OWNER" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" : "bg-secondary text-muted-foreground"}`}>
+                      {m.orgRole}
+                    </span>
+                    {m.orgRole !== "OWNER" && (
+                      <button onClick={() => handleRemoveMember(m.membershipId)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {members.length === 0 && <p className="text-sm text-muted-foreground py-3">No members yet.</p>}
+            </div>
+          </SectionCard>
+
+          {/* Pending invitations */}
+          {invitations.length > 0 && (
+            <SectionCard>
+              <div className="flex items-center gap-2 font-semibold text-sm">
+                <Mail className="h-4 w-4 text-primary" /> Pending invitations
+              </div>
+              <div className="divide-y divide-border">
+                {invitations.map((inv: any) => (
+                  <div key={inv.token} className="flex items-center justify-between py-2.5 text-sm">
+                    <span>{inv.email}</span>
+                    <span className="text-xs text-muted-foreground">{inv.orgRole} · {inv.userRole}</span>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Invite form */}
+          <SectionCard>
+            <div className="flex items-center gap-2 font-semibold text-sm">
+              <Plus className="h-4 w-4 text-primary" /> Invite a team member
+            </div>
+            <form onSubmit={handleInvite} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="inviteEmail">Email address</Label>
+                <Input id="inviteEmail" type="email" placeholder="colleague@company.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Org role</Label>
+                  <select value={inviteOrgRole} onChange={e => setInviteOrgRole(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm">
+                    {ORG_ROLES.filter(r => r !== "OWNER").map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Account type</Label>
+                  <select value={inviteUserRole} onChange={e => setInviteUserRole(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm">
+                    {USER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+              </div>
+              <Button type="submit" size="sm" disabled={inviting}>
+                {inviting ? <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Sending…</> : "Send invitation"}
+              </Button>
+            </form>
+          </SectionCard>
+        </>
+      )}
+    </div>
   );
 }
 

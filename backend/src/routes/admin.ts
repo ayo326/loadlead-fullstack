@@ -2,6 +2,7 @@ import express from 'express';
 import { DriverService } from '../services/driverService';
 import { ShipperService } from '../services/shipperService';
 import { LoadService } from '../services/loadService';
+import { CapacityService } from '../services/capacityService';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { TrackingService } from '../services/trackingService';
@@ -139,6 +140,43 @@ router.put('/loads/:loadId/status', asyncHandler(async (req: AuthRequest, res) =
   
   await LoadService.updateLoadStatus(loadId, status);
   res.json({ message: 'Load status updated successfully' });
+}));
+
+// PATCH /api/admin/drivers/:driverId/buffer — admin sets a driver's safety buffer %
+router.patch('/drivers/:driverId/buffer', asyncHandler(async (req: AuthRequest, res) => {
+  const { driverId } = req.params;
+  const { safetyBufferPct } = req.body;
+  if (safetyBufferPct === undefined) return res.status(400).json({ error: 'safetyBufferPct is required' });
+
+  const { overBuffer } = await CapacityService.updateDriverBuffer(
+    driverId,
+    Number(safetyBufferPct),
+    req.user!.userId,
+    req.user!.role,
+    DriverService,
+  );
+
+  res.json({
+    message: `Buffer updated to ${safetyBufferPct}%`,
+    overBuffer,
+    ...(overBuffer && {
+      alert: 'This driver is now Over Buffer. They are blocked from accepting new loads until resolved.',
+    }),
+  });
+}));
+
+// GET /api/admin/drivers/:driverId/buffer — get current buffer + audit trail
+router.get('/drivers/:driverId/buffer', asyncHandler(async (req: AuthRequest, res) => {
+  const { driverId } = req.params;
+  const driver = await DriverService.getProfileById(driverId);
+  if (!driver) return res.status(404).json({ error: 'Driver not found' });
+  res.json({
+    safetyBufferPct: driver.safetyBufferPct ?? 10,
+    overBufferFlag: driver.overBufferFlag ?? false,
+    maxCapacityLbs: driver.maxCapacityLbs,
+    maxOperationalLbs: driver.maxCapacityLbs * (1 - ((driver.safetyBufferPct ?? 10) / 100)),
+    currentLoadLbs: driver.currentLoadLbs,
+  });
 }));
 
 // GET /api/admin/loads/:loadId/tracking

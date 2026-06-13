@@ -42,11 +42,37 @@ export enum OfferStatus {
 }
 
 export enum TrailerType {
-  DRY_VAN = 'DRY_VAN',
-  REEFER = 'REEFER',
-  FLATBED = 'FLATBED',
-  STEP_DECK = 'STEP_DECK',
-  BOX_TRUCK = 'BOX_TRUCK'
+  // Enclosed
+  DRY_VAN    = 'DRY_VAN',
+  REEFER     = 'REEFER',
+  BOX_TRUCK  = 'BOX_TRUCK',
+  // Open-deck
+  FLATBED    = 'FLATBED',
+  STEP_DECK  = 'STEP_DECK',
+  RGN        = 'RGN',
+  CONESTOGA  = 'CONESTOGA',
+  // Specialized
+  TANKER     = 'TANKER',
+  CAR_HAULER = 'CAR_HAULER',
+  POWER_ONLY = 'POWER_ONLY',
+}
+
+export type FreightFormat = 'PALLETIZED' | 'FLOOR_LOADED' | 'CRATED' | 'DRIVE_ON' | 'LIQUID_BULK';
+
+export interface FacilityProfile {
+  dockAvailable: boolean;
+  forkliftAvailable: boolean;
+  freightFormat: FreightFormat;
+}
+
+/** Derived loading requirements computed from facility profiles (spec §11.3) */
+export interface DerivedLoadingRequirements {
+  requiresLiftgate: boolean;
+  requiresPalletJack: boolean;
+  requiresDockHeight: boolean;
+  requiresRgnOrCarHauler: boolean;
+  requiresTanker: boolean;
+  notes?: string;
 }
 
 export enum CDLClass {
@@ -81,11 +107,28 @@ export interface Account {
   updatedAt: number;
 }
 
+// ─── Organisation types (Orgs, Roles & Onboarding spec) ─────────────────────
+
+export enum OrgCapability {
+  CARRIER  = 'CARRIER',
+  SHIPPER  = 'SHIPPER',
+  RECEIVER = 'RECEIVER',
+}
+
+/** Hierarchy: OWNER > ADMIN > MEMBER > VIEWER */
+export enum OrgRole {
+  OWNER  = 'OWNER',
+  ADMIN  = 'ADMIN',
+  MEMBER = 'MEMBER',
+  VIEWER = 'VIEWER',
+}
+
 export interface Organization {
   orgId: string;
   legalName: string;
   dba?: string;
-  orgType?: string;
+  /** Bitmask of OrgCapability values the org has enabled */
+  capabilities: OrgCapability[];
   dotNumber?: string;
   mcNumber?: string;
   mcIssueDate?: number;
@@ -94,6 +137,32 @@ export interface Organization {
   state?: string;
   zip?: string;
   country?: string;
+  /** userId of the founding member */
+  ownerId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface OrgMembership {
+  membershipId: string;
+  orgId: string;
+  userId: string;
+  orgRole: OrgRole;
+  /** Mirror of UserRole so membership can be filtered by role type */
+  userRole: UserRole;
+  joinedAt: number;
+}
+
+export interface OrgInvitation {
+  token: string;
+  orgId: string;
+  email: string;
+  orgRole: OrgRole;
+  userRole: UserRole;
+  invitedBy: string;   // userId
+  expiresAt: number;
+  acceptedAt?: number;
+  createdAt: number;
 }
 
 export interface CarrierProfile {
@@ -113,6 +182,32 @@ export interface InsurancePolicy {
   autoLiabilityAmount: number;
   cargoCoverageAmount: number;
   expirationDate: number;
+}
+
+// ─── Capacity types ──────────────────────────────────────────────────────────
+
+export type CapacityZone = 'SAFE' | 'BUFFER' | 'DANGER';
+
+export interface CapacityCheck {
+  zone: CapacityZone;
+  /** Remaining bookable weight after this load (lbs) */
+  remainingWeightLbs: number;
+  /** Remaining bookable volume after this load (cu in) */
+  remainingVolumeCuIn: number;
+  /** Human-readable block message (only set in DANGER zone) */
+  blockMessage?: string;
+  /** Human-readable warning (only set in BUFFER zone) */
+  warningMessage?: string;
+}
+
+export interface BufferAuditLog {
+  logId: string;
+  driverId: string;
+  changedBy: string;      // userId
+  changedByRole: string;
+  oldBufferPct: number;
+  newBufferPct: number;
+  timestamp: number;
 }
 
 export interface Driver {
@@ -151,6 +246,28 @@ export interface Driver {
   maxCapacityLbs: number;
   currentLoadLbs: number;
   specialEquipment: string[];
+
+  // Loading capabilities (spec §11.1)
+  dockHeightCompatible?: boolean;
+  liftgateEquipped?: boolean;
+  palletJackOnboard?: boolean;
+  tempRangeMin?: number;   // °F — reefer only
+  tempRangeMax?: number;   // °F — reefer only
+  securementGear?: string[]; // e.g. ['TARPS','STRAPS','CHAINS']
+
+  // Volume capacity (interior dimensions in inches)
+  interiorLengthIn?: number;
+  interiorWidthIn?: number;
+  interiorHeightIn?: number;
+  /** Derived: interiorLengthIn × interiorWidthIn × interiorHeightIn */
+  usableVolumeCuIn?: number;
+  /** Current onboard volume in cubic inches */
+  currentVolumeCuIn?: number;
+
+  // Safety buffer (5–25%, default 10%). Stored per equipment record.
+  safetyBufferPct?: number;
+  /** Set by system when tightening buffer puts existing loads over limit */
+  overBufferFlag?: boolean;
 
   // Authority & Insurance
   mcNumber: string;
@@ -263,6 +380,25 @@ export interface Load {
   length?: number;
   width?: number;
   height?: number;
+  /** Load dimensions in inches for volume matching */
+  dimLengthIn?: number;
+  dimWidthIn?: number;
+  dimHeightIn?: number;
+  /** Derived: dimLengthIn × dimWidthIn × dimHeightIn */
+  loadVolumeCuIn?: number;
+
+  // Equipment matching (spec §11.2)
+  /** One or more acceptable trailer types; driver must match at least one */
+  acceptedEquipmentTypes?: TrailerType[];
+  /** Temperature requirements (reefer loads) */
+  tempRequiredMin?: number;
+  tempRequiredMax?: number;
+
+  // Facility profiles (spec §11.2–11.3)
+  pickupFacility?: FacilityProfile;
+  deliveryFacility?: FacilityProfile;
+  /** System-derived hard filters computed from facility profiles */
+  derivedLoadingRequirements?: DerivedLoadingRequirements;
 
   // Pickup
   pickupCity: string;

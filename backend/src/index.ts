@@ -20,6 +20,7 @@ import { BroadcastService } from './services/broadcastService';
 dotenv.config();
 
 import mapsRouter from './routes/maps';
+import orgRoutes from './routes/org';
 const app: Application = express();
 
 // Middleware
@@ -110,6 +111,7 @@ if ((process.env.NODE_ENV || 'development') !== 'production') {
 
 
 app.use('/api/maps', mapsRouter);
+app.use('/api/org', orgRoutes);
 
 app.listen(PORT, () => {
   Logger.info(`Server running on port ${PORT}`);

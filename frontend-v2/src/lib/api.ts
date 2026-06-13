@@ -23,9 +23,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export const api = {
   // Auth
-  signup: (email: string, password: string, role: string) =>
-    request<{ token: string; user: { userId: string; email: string; role: string } }>(
-      "POST", "/auth/signup", { email, password, role }
+  signup: (email: string, password: string, role: string, orgParams?: Record<string, any>) =>
+    request<{ token: string; user: { userId: string; email: string; role: string }; orgId?: string }>(
+      "POST", "/auth/signup", { email, password, role, orgParams }
     ),
 
   login: (email: string, password: string) =>
@@ -84,6 +84,20 @@ export const api = {
   reverseGeocode: (lat: number, lng: number) =>
     request<{ city: string; state: string }>("GET", `/maps/reverse-geocode?lat=${lat}&lng=${lng}`),
 
+  // Capacity
+  checkDriverCapacity: (payload: { totalWeightLbs: number; dimLengthIn?: number; dimWidthIn?: number; dimHeightIn?: number }) =>
+    request<{ zone: string; remainingWeightLbs: number; remainingVolumeCuIn: number; blockMessage?: string; warningMessage?: string }>(
+      "POST", "/driver/capacity/check", payload),
+  getDriverBuffer: () =>
+    request<{ safetyBufferPct: number; overBufferFlag: boolean; maxCapacityLbs: number; maxOperationalLbs: number }>(
+      "GET", "/driver/capacity/buffer"),
+  adminSetDriverBuffer: (driverId: string, safetyBufferPct: number) =>
+    request<{ message: string; overBuffer: boolean; alert?: string }>(
+      "PATCH", `/admin/drivers/${driverId}/buffer`, { safetyBufferPct }),
+  adminGetDriverBuffer: (driverId: string) =>
+    request<{ safetyBufferPct: number; overBufferFlag: boolean; maxCapacityLbs: number; maxOperationalLbs: number; currentLoadLbs: number }>(
+      "GET", `/admin/drivers/${driverId}/buffer`),
+
   // Headshot
   getHeadshotUploadUrl: (fileType?: string) =>
     request<{ uploadUrl: string; key: string; publicUrl: string }>("POST", "/driver/headshot/upload-url", { fileType }),
@@ -111,4 +125,39 @@ export const api = {
   disputeBOL: (bolId: string, reason: string) =>
     request<{ bol: any }>("POST", `/bol/${bolId}/dispute`, { reason }),
   updateBOLWMS: (bolId: string, data: any) => request<{ bol: any }>("PUT", `/bol/${bolId}/wms`, data),
+
+  // Organisations
+  createOrg: (data: {
+    legalName: string;
+    capabilities: string[];
+    dba?: string;
+    dotNumber?: string;
+    mcNumber?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  }) => request<{ org: any; membership: any }>("POST", "/org", data),
+
+  getMyOrgs: () => request<{ orgs: any[] }>("GET", "/org"),
+  getOrg: (orgId: string) => request<{ org: any }>("GET", `/org/${orgId}`),
+  updateOrg: (orgId: string, data: any) => request<{ ok: boolean }>("PATCH", `/org/${orgId}`, data),
+
+  getOrgMembers: (orgId: string) => request<{ members: any[] }>("GET", `/org/${orgId}/members`),
+  updateMemberRole: (orgId: string, membershipId: string, orgRole: string) =>
+    request<{ ok: boolean }>("PATCH", `/org/${orgId}/members/${membershipId}`, { orgRole }),
+  removeMember: (orgId: string, membershipId: string) =>
+    request<{ ok: boolean }>("DELETE", `/org/${orgId}/members/${membershipId}`),
+
+  sendInvitation: (orgId: string, data: { email: string; orgRole: string; userRole: string }) =>
+    request<{ token: string; expiresAt: number }>("POST", `/org/${orgId}/invitations`, data),
+  getOrgInvitations: (orgId: string) => request<{ invitations: any[] }>("GET", `/org/${orgId}/invitations`),
+
+  // Public invite preview (no auth needed)
+  getInvitationPreview: (token: string) =>
+    request<{ email: string; orgRole: string; userRole: string; orgName: string; expiresAt: number; alreadyAccepted: boolean }>(
+      "GET", `/org/invitations/${token}`
+    ),
+  acceptInvitation: (token: string) =>
+    request<{ membership: any }>("POST", `/org/invitations/${token}/accept`),
 };

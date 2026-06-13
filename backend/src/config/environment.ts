@@ -24,6 +24,9 @@ export const config = {
     loadsTable: process.env.DYNAMODB_LOADS_TABLE || 'LoadLead_Loads',
     offersTable: process.env.DYNAMODB_OFFERS_TABLE || 'LoadLead_Offers',
     bolTable: process.env.DYNAMODB_BOL_TABLE || 'LoadLead_BOL',
+    orgsTable: process.env.DYNAMODB_ORGS_TABLE || 'LoadLead_Organizations',
+    membershipsTable: process.env.DYNAMODB_MEMBERSHIPS_TABLE || 'LoadLead_Memberships',
+    invitationsTable: process.env.DYNAMODB_INVITATIONS_TABLE || 'LoadLead_Invitations',
   },
 
   jwt: {

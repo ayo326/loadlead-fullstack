@@ -3,6 +3,7 @@ import { LoadService } from './loadService';
 import { DriverService } from './driverService';
 import { OfferService } from './offerService';
 import { CapacityService } from './capacityService';
+import { EquipmentService, deriveLoadingRequirements } from './equipmentService';
 import { GeolocationService } from './geolocationService';
 import { Helpers } from '../utils/helpers';
 import Logger from '../utils/logger';
@@ -34,11 +35,28 @@ export class BroadcastService {
       // Filter by capacity and requirements
       const eligibleDrivers: Array<Driver & { distanceMiles: number }> = [];
       
+      // Pre-compute derived loading requirements once per load (spec §11.3)
+      const loadWithDerived = {
+        ...load,
+        derivedLoadingRequirements: load.derivedLoadingRequirements
+          ?? deriveLoadingRequirements(
+               (load as any).pickupFacility,
+               (load as any).deliveryFacility,
+             ),
+      };
+
       for (const driver of driversInRadius) {
-        // Check capacity
-        const capacityCheck = CapacityService.canDriverHandleLoad(driver, load);
+        // Step 1+2: equipment type + loading requirements (spec §11.4)
+        const equipCheck = EquipmentService.checkEquipmentMatch(driver, loadWithDerived as any);
+        if (!equipCheck.eligible) {
+          Logger.debug(`Driver ${driver.driverId} excluded (equipment): ${equipCheck.reason}`);
+          continue;
+        }
+
+        // Steps 3+4: capacity + geometric fit
+        const capacityCheck = CapacityService.canDriverHandleLoad(driver, loadWithDerived as any);
         if (!capacityCheck.canHandle) {
-          Logger.debug(`Driver ${driver.driverId} excluded: ${capacityCheck.reason}`);
+          Logger.debug(`Driver ${driver.driverId} excluded (capacity): ${capacityCheck.reason}`);
           continue;
         }
         
@@ -159,7 +177,11 @@ static async tryMatchOpenLoadsForDriver(driverId: string): Promise<number> {
     const distMiles = GeolocationService.calculateDistance(load.pickupLat, load.pickupLng, driver.currentLat, driver.currentLng);
     if (distMiles > load.broadcastRadiusMiles) continue;
 
-    // Capacity check
+    // Steps 1+2: equipment + loading requirements
+    const equipCheck = EquipmentService.checkEquipmentMatch(driver as any, load as any);
+    if (!equipCheck.eligible) continue;
+
+    // Steps 3+4: capacity + geometric fit
     const cap = CapacityService.canDriverHandleLoad(driver as any, load as any);
     if (!cap.canHandle) continue;
 
