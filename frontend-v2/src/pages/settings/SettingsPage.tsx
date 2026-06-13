@@ -1328,13 +1328,15 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
       api.getOrgMembers(orgId),
       api.getOrgInvitations(orgId),
     ]);
-    setMembers(mRes.members);
-    setInvitations(iRes.invitations.filter((inv: any) =>
+    const memberList: any[] = mRes?.members ?? [];
+    const inviteList: any[] = iRes?.invitations ?? [];
+    setMembers(memberList);
+    setInvitations(inviteList.filter((inv: any) =>
       !inv.acceptedAt && !inv.revokedAt && inv.expiresAt > Date.now()
     ));
     // find my own membership
     if (user) {
-      const mine = mRes.members.find((m: any) => m.userId === user.userId);
+      const mine = memberList.find((m: any) => m.userId === user.userId);
       setMyMembership(mine ?? null);
     }
   };
@@ -1342,7 +1344,7 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
   const loadOrgs = useCallback(async () => {
     setLoading(true);
     try {
-      const { orgs: list } = await api.getMyOrgs();
+      const { orgs: list = [] } = await api.getMyOrgs();
       setOrgs(list);
       if (list.length > 0 && !selectedOrg) setSelectedOrg(list[0]);
     } catch { /* ignore */ }
