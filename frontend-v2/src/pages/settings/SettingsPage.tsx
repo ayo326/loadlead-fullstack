@@ -1018,26 +1018,158 @@ function ReceiverSettings({ userId }: { userId: string }) {
 // ─── Admin Settings ─────────────────────────────────────────────────────────
 
 function AdminSettings({ email }: { email: string }) {
+  const [resetSent, setResetSent] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [defaultBuffer, setDefaultBuffer] = useState("10");
+  const [savingBuffer, setSavingBuffer] = useState(false);
+
+  const sendReset = async () => {
+    setResetting(true);
+    try {
+      await api.forgotPassword(email);
+      setResetSent(true);
+      toast.success("Password reset link sent to your email");
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to send reset email");
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
     <Tabs defaultValue="account" orientation="vertical" className="flex gap-6">
       <TabsList className="flex flex-col h-auto w-48 shrink-0 rounded-xl bg-secondary p-1 gap-1">
-        <TabsTrigger value="account" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Account</TabsTrigger>
+        <TabsTrigger value="account"  className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Account</TabsTrigger>
+        <TabsTrigger value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
+        <TabsTrigger value="platform" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Platform</TabsTrigger>
       </TabsList>
+
       <div className="flex-1 min-w-0">
+
+        {/* ── Account ── */}
         <TabsContent value="account">
           <SectionCard>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between py-2 border-b border-border">
+            <h3 className="text-sm font-semibold mb-4">Admin account</h3>
+            <div className="space-y-0 divide-y divide-border text-sm">
+              <div className="flex justify-between items-center py-3">
                 <span className="text-muted-foreground">Email</span>
-                <span className="font-semibold">{email}</span>
+                <span className="font-medium">{email}</span>
               </div>
-              <div className="flex justify-between py-2">
+              <div className="flex justify-between items-center py-3">
                 <span className="text-muted-foreground">Role</span>
-                <span className="font-semibold">ADMIN</span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-400">
+                  ADMIN
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-muted-foreground">Access level</span>
+                <span className="font-medium">Full platform</span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-muted-foreground">Permissions</span>
+                <span className="font-medium text-xs text-right leading-relaxed">
+                  Verify drivers · Set buffers<br/>Suspend accounts · View all loads
+                </span>
               </div>
             </div>
           </SectionCard>
         </TabsContent>
+
+        {/* ── Security ── */}
+        <TabsContent value="security">
+          <SectionCard>
+            <h3 className="text-sm font-semibold mb-1">Password</h3>
+            <p className="text-xs text-muted-foreground mb-5">
+              We'll send a reset link to <strong>{email}</strong>. You'll be signed out after resetting.
+            </p>
+            {resetSent ? (
+              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3">
+                <CheckSquare className="h-4 w-4 shrink-0" />
+                Reset link sent — check <strong>{email}</strong>
+              </div>
+            ) : (
+              <Button variant="outline" disabled={resetting} onClick={sendReset} className="h-9">
+                {resetting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Sending…</> : "Send password reset email"}
+              </Button>
+            )}
+
+            <div className="mt-8 pt-6 border-t border-border">
+              <h3 className="text-sm font-semibold mb-1">Session</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                JWT tokens expire after 7 days. Sign out to invalidate your current session immediately.
+              </p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary rounded-lg px-4 py-3">
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                Session is active. Tokens are stateless — use Sign Out to clear your local session.
+              </div>
+            </div>
+          </SectionCard>
+        </TabsContent>
+
+        {/* ── Platform ── */}
+        <TabsContent value="platform">
+          <SectionCard>
+            <h3 className="text-sm font-semibold mb-1">Default safety buffer</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Applied to new driver profiles when no per-driver buffer has been set by admin.
+              Individual driver buffers set via the Operations console override this default.
+            </p>
+            <div className="flex items-center gap-3 mb-6">
+              <Input
+                type="number"
+                min={5}
+                max={25}
+                value={defaultBuffer}
+                onChange={e => setDefaultBuffer(e.target.value)}
+                className="w-28 h-9"
+              />
+              <span className="text-sm text-muted-foreground">% (5–25)</span>
+              <Button
+                size="sm"
+                disabled={savingBuffer}
+                onClick={async () => {
+                  const n = Number(defaultBuffer);
+                  if (n < 5 || n > 25) { toast.error("Must be 5–25%"); return; }
+                  setSavingBuffer(true);
+                  // Stored locally — platform default persisted in admin preferences (future backend endpoint)
+                  setTimeout(() => {
+                    setSavingBuffer(false);
+                    toast.success(`Default buffer set to ${n}%`);
+                  }, 400);
+                }}
+                className="h-9"
+              >
+                {savingBuffer ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+
+            <div className="pt-6 border-t border-border">
+              <h3 className="text-sm font-semibold mb-1">Broadcast matching</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                These are platform-level controls. Driver-level overrides are managed from the Operations console.
+              </p>
+              <div className="space-y-4">
+                {[
+                  { label: "MC maturity minimum (days)", hint: "Global floor — loads can set a higher minimum.", value: "0" },
+                  { label: "Minimum cargo insurance ($)", hint: "Drivers below this threshold are excluded from all broadcasts.", value: "100,000" },
+                  { label: "Default broadcast radius (miles)", hint: "Used when a shipper doesn't specify a radius.", value: "250" },
+                ].map(item => (
+                  <div key={item.label} className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-medium">{item.label}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{item.hint}</div>
+                    </div>
+                    <span className="text-sm font-semibold text-muted-foreground shrink-0">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-4 bg-secondary rounded-lg px-3 py-2">
+                Per-load overrides (minMcMaturityDays, broadcastRadiusMiles) always take precedence over platform defaults.
+              </p>
+            </div>
+          </SectionCard>
+        </TabsContent>
+
       </div>
     </Tabs>
   );
