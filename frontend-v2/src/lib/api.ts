@@ -52,6 +52,14 @@ export const api = {
   // Admin
   getAdminDrivers: (status?: string) =>
     request<{ drivers: any[] }>("GET", `/admin/drivers${status ? `?status=${status}` : ""}`),
+  getAdminDriver: (driverId: string) =>
+    request<{ driver: any }>("GET", `/admin/drivers/${driverId}`),
+  adminVerifyDriver: (driverId: string) =>
+    request<{ message: string }>("POST", `/admin/drivers/${driverId}/verify`),
+  adminSuspendDriver: (driverId: string) =>
+    request<{ message: string }>("POST", `/admin/drivers/${driverId}/suspend`),
+  getAdminLoads: (status?: string) =>
+    request<{ loads: any[] }>("GET", `/admin/loads${status ? `?status=${status}` : ""}`),
 
   // Driver profile
   createDriverProfile: (data: unknown) => request<{ driver: any }>("POST", "/driver/profile", data),
