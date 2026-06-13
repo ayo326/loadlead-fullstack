@@ -668,7 +668,7 @@ function DriverSettings({ userId }: { userId: string }) {
               <p className="text-sm">
                 Your effective safety buffer is{" "}
                 <span className="font-semibold text-foreground">{profile.safetyBufferPct ?? 10}%</span>
-                {" "}— set by your admin. This keeps your bookable weight at{" "}
+                {" "}— {(profile as any).bufferSetByRole === "OWNER" ? "set by your owner" : "set by your admin"}. This keeps your bookable weight at{" "}
                 <span className="font-semibold text-foreground">
                   {profile.maxCapacityLbs
                     ? `${(Number(profile.maxCapacityLbs) * (1 - (Number(profile.safetyBufferPct ?? 10) / 100))).toLocaleString()} lbs`
@@ -721,7 +721,7 @@ function DriverSettings({ userId }: { userId: string }) {
         </TabsContent>
 
         <TabsContent value="organisation">
-          <OrgTab />
+          <OrgTab callerUserRole="DRIVER" />
         </TabsContent>
       </div>
     </Tabs>
@@ -882,7 +882,7 @@ function ShipperSettings({ userId }: { userId: string }) {
         </TabsContent>
 
         <TabsContent value="organisation">
-          <OrgTab />
+          <OrgTab callerUserRole="SHIPPER" />
         </TabsContent>
 
         <TabsContent value="biz">
@@ -1004,7 +1004,7 @@ function ReceiverSettings({ userId }: { userId: string }) {
         </TabsContent>
 
         <TabsContent value="organisation">
-          <OrgTab />
+          <OrgTab callerUserRole="RECEIVER" />
         </TabsContent>
 
         <TabsContent value="biz">
@@ -1263,20 +1263,51 @@ const ALL_CAPABILITIES = [
   { key: "RECEIVER", label: "Receiver", desc: "Accept deliveries at facility" },
 ];
 
-const ORG_ROLES = ["OWNER", "ADMIN", "MEMBER", "VIEWER"];
+// Spec §3.2 roles — MEMBER/VIEWER are deprecated and excluded from invite dropdown
+const ORG_ROLES = ["OWNER", "ORG_ADMIN", "DISPATCHER", "ORG_DRIVER", "SHIPPER_USER", "RECEIVER_USER"];
+const ORG_ROLE_LABELS: Record<string, string> = {
+  OWNER:         "Owner",
+  ORG_ADMIN:     "Org Admin",
+  DISPATCHER:    "Dispatcher",
+  ORG_DRIVER:    "Driver",
+  SHIPPER_USER:  "Shipper User",
+  RECEIVER_USER: "Receiver User",
+  // legacy
+  ADMIN:  "Admin (legacy)",
+  MEMBER: "Member (legacy)",
+  VIEWER: "Viewer (legacy)",
+};
 const USER_ROLES = ["DRIVER", "SHIPPER", "RECEIVER", "ADMIN"];
 
-function OrgTab() {
+function OrgRoleBadge({ role }: { role: string }) {
+  const colours: Record<string, string> = {
+    OWNER:         "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
+    ORG_ADMIN:     "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400",
+    DISPATCHER:    "bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400",
+    ORG_DRIVER:    "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400",
+    SHIPPER_USER:  "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",
+    RECEIVER_USER: "bg-teal-100 text-teal-700 dark:bg-teal-950/40 dark:text-teal-400",
+  };
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colours[role] ?? "bg-secondary text-muted-foreground"}`}>
+      {ORG_ROLE_LABELS[role] ?? role}
+    </span>
+  );
+}
+
+function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
   const [orgs, setOrgs] = useState<any[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<any | null>(null);
+  const [myMembership, setMyMembership] = useState<any | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [invitations, setInvitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   // invite form
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteOrgRole, setInviteOrgRole] = useState("MEMBER");
-  const [inviteUserRole, setInviteUserRole] = useState("SHIPPER");
+  const [inviteOrgRole, setInviteOrgRole] = useState("ORG_DRIVER");
+  const [inviteUserRole, setInviteUserRole] = useState("DRIVER");
   const [inviting, setInviting] = useState(false);
 
   // edit org
@@ -1284,6 +1315,29 @@ function OrgTab() {
   const [editName, setEditName] = useState("");
   const [editCaps, setEditCaps] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // owner self-buffer
+  const [bufferPct, setBufferPct] = useState(10);
+  const [savingBuffer, setSavingBuffer] = useState(false);
+
+  const isAdminRole = (role: string) =>
+    ["OWNER", "ORG_ADMIN", "ADMIN"].includes(role);
+
+  const refreshMembers = async (orgId: string) => {
+    const [mRes, iRes] = await Promise.all([
+      api.getOrgMembers(orgId),
+      api.getOrgInvitations(orgId),
+    ]);
+    setMembers(mRes.members);
+    setInvitations(iRes.invitations.filter((inv: any) =>
+      !inv.acceptedAt && !inv.revokedAt && inv.expiresAt > Date.now()
+    ));
+    // find my own membership
+    if (user) {
+      const mine = mRes.members.find((m: any) => m.userId === user.userId);
+      setMyMembership(mine ?? null);
+    }
+  };
 
   const loadOrgs = useCallback(async () => {
     setLoading(true);
@@ -1301,13 +1355,7 @@ function OrgTab() {
     if (!selectedOrg) return;
     setEditName(selectedOrg.legalName);
     setEditCaps(selectedOrg.capabilities ?? []);
-    Promise.all([
-      api.getOrgMembers(selectedOrg.orgId),
-      api.getOrgInvitations(selectedOrg.orgId),
-    ]).then(([mRes, iRes]) => {
-      setMembers(mRes.members);
-      setInvitations(iRes.invitations.filter((inv: any) => !inv.acceptedAt && inv.expiresAt > Date.now()));
-    }).catch(() => {});
+    refreshMembers(selectedOrg.orgId).catch(() => {});
   }, [selectedOrg]);
 
   async function handleSaveOrg() {
@@ -1327,18 +1375,19 @@ function OrgTab() {
     if (!selectedOrg) return;
     setInviting(true);
     try {
-      await api.sendInvitation(selectedOrg.orgId, { email: inviteEmail, orgRole: inviteOrgRole, userRole: inviteUserRole });
-      toast.success(`Invitation sent to ${inviteEmail}`);
+      await api.sendInvitation(selectedOrg.orgId, {
+        email: inviteEmail, orgRole: inviteOrgRole, userRole: inviteUserRole,
+      });
+      toast.success(`Invitation sent to ${inviteEmail} — expires in 7 days`);
       setInviteEmail("");
-      // refresh invitations
-      const { invitations: updated } = await api.getOrgInvitations(selectedOrg.orgId);
-      setInvitations(updated.filter((inv: any) => !inv.acceptedAt && inv.expiresAt > Date.now()));
+      await refreshMembers(selectedOrg.orgId);
     } catch (e: any) { toast.error(e.message); }
     finally { setInviting(false); }
   }
 
-  async function handleRemoveMember(membershipId: string) {
+  async function handleRemoveMember(membershipId: string, name: string) {
     if (!selectedOrg) return;
+    if (!confirm(`Remove ${name} from this organisation?`)) return;
     try {
       await api.removeMember(selectedOrg.orgId, membershipId);
       setMembers(m => m.filter(x => x.membershipId !== membershipId));
@@ -1346,7 +1395,46 @@ function OrgTab() {
     } catch (e: any) { toast.error(e.message); }
   }
 
-  if (loading) return <div className="flex items-center gap-2 text-muted-foreground text-sm py-8"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
+  async function handleSuspendMember(membershipId: string, currentStatus: string) {
+    if (!selectedOrg) return;
+    try {
+      if (currentStatus === "SUSPENDED") {
+        await api.reinstateMember(selectedOrg.orgId, membershipId);
+        setMembers(m => m.map(x => x.membershipId === membershipId ? { ...x, status: "ACTIVE" } : x));
+        toast.success("Member reinstated");
+      } else {
+        await api.suspendMember(selectedOrg.orgId, membershipId);
+        setMembers(m => m.map(x => x.membershipId === membershipId ? { ...x, status: "SUSPENDED" } : x));
+        toast.success("Member suspended — access revoked without deleting history");
+      }
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  async function handleRevokeInvitation(token: string, email: string) {
+    if (!selectedOrg) return;
+    if (!confirm(`Revoke invitation to ${email}?`)) return;
+    try {
+      await api.revokeInvitation(selectedOrg.orgId, token);
+      setInvitations(i => i.filter(x => x.token !== token));
+      toast.success("Invitation revoked");
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  async function handleSaveBuffer() {
+    if (!selectedOrg) return;
+    setSavingBuffer(true);
+    try {
+      const res = await api.orgOwnerSetBuffer(selectedOrg.orgId, bufferPct);
+      toast.success(res.message);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setSavingBuffer(false); }
+  }
+
+  if (loading) return (
+    <div className="flex items-center gap-2 text-muted-foreground text-sm py-8">
+      <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+    </div>
+  );
 
   if (orgs.length === 0) {
     return (
@@ -1360,6 +1448,9 @@ function OrgTab() {
     );
   }
 
+  const amOwner = myMembership?.orgRole === "OWNER";
+  const amAdmin = myMembership && isAdminRole(myMembership.orgRole);
+
   return (
     <div className="space-y-5">
       {/* Org selector if multiple */}
@@ -1372,6 +1463,7 @@ function OrgTab() {
               className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${selectedOrg?.orgId === o.orgId ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}
             >
               {o.legalName}
+              {o.suspended && <span className="ml-1.5 text-xs text-destructive">(suspended)</span>}
             </button>
           ))}
         </div>
@@ -1379,6 +1471,14 @@ function OrgTab() {
 
       {selectedOrg && (
         <>
+          {/* Org suspended banner */}
+          {selectedOrg.suspended && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              <span className="font-semibold">⛔ Organisation suspended</span>
+              {selectedOrg.suspensionReason && <span className="text-muted-foreground">— {selectedOrg.suspensionReason}</span>}
+            </div>
+          )}
+
           {/* Org info card */}
           <SectionCard>
             <div className="flex items-center justify-between">
@@ -1395,7 +1495,7 @@ function OrgTab() {
                   <div className="text-xs text-muted-foreground">{selectedOrg.orgId}</div>
                 </div>
               </div>
-              {!editing ? (
+              {amAdmin && (!editing ? (
                 <Button variant="outline" size="sm" onClick={() => setEditing(true)}>Edit</Button>
               ) : (
                 <div className="flex gap-2">
@@ -1404,7 +1504,7 @@ function OrgTab() {
                     {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                   </Button>
                 </div>
-              )}
+              ))}
             </div>
 
             {/* Capabilities */}
@@ -1430,30 +1530,69 @@ function OrgTab() {
             </div>
           </SectionCard>
 
+          {/* Owner self-buffer (spec §5.1 — only for OWNER who is also a DRIVER) */}
+          {amOwner && callerUserRole === "DRIVER" && (
+            <SectionCard>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-sm">Safety Buffer (Owner override)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">As org Owner, you can set your own buffer within the platform range (5–25%).</p>
+                </div>
+                <span className="text-2xl font-bold text-primary">{bufferPct}%</span>
+              </div>
+              <input
+                type="range" min={5} max={25} step={1}
+                value={bufferPct}
+                onChange={e => setBufferPct(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground"><span>5% min</span><span>25% max</span></div>
+              <Button size="sm" onClick={handleSaveBuffer} disabled={savingBuffer} className="mt-1">
+                {savingBuffer ? <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Saving…</> : "Apply buffer"}
+              </Button>
+            </SectionCard>
+          )}
+
           {/* Members */}
           <SectionCard>
             <div className="flex items-center gap-2 font-semibold text-sm">
               <Users className="h-4 w-4 text-primary" /> Members
+              <span className="ml-auto text-xs font-normal text-muted-foreground">{members.filter(m => m.status !== "SUSPENDED").length} active</span>
             </div>
             <div className="divide-y divide-border">
-              {members.map(m => (
-                <div key={m.membershipId} className="flex items-center justify-between py-2.5 text-sm">
-                  <div>
-                    <span className="font-medium">{m.userId}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">{m.userRole}</span>
+              {members.map(m => {
+                const isSuspended = m.status === "SUSPENDED";
+                return (
+                  <div key={m.membershipId} className={`flex items-center justify-between py-2.5 text-sm ${isSuspended ? "opacity-50" : ""}`}>
+                    <div>
+                      <span className="font-medium font-mono text-xs">{m.userId}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{m.userRole}</span>
+                      {isSuspended && <span className="ml-2 text-xs text-destructive font-medium">suspended</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <OrgRoleBadge role={m.orgRole} />
+                      {amAdmin && m.orgRole !== "OWNER" && (
+                        <>
+                          <button
+                            title={isSuspended ? "Reinstate member" : "Suspend member"}
+                            onClick={() => handleSuspendMember(m.membershipId, m.status ?? "ACTIVE")}
+                            className={`text-xs px-1.5 py-0.5 rounded border transition-colors ${isSuspended ? "border-green-400 text-green-600 hover:bg-green-50" : "border-amber-300 text-amber-600 hover:bg-amber-50"}`}
+                          >
+                            {isSuspended ? "Reinstate" : "Suspend"}
+                          </button>
+                          <button
+                            title="Remove member"
+                            onClick={() => handleRemoveMember(m.membershipId, m.userId)}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${m.orgRole === "OWNER" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" : "bg-secondary text-muted-foreground"}`}>
-                      {m.orgRole}
-                    </span>
-                    {m.orgRole !== "OWNER" && (
-                      <button onClick={() => handleRemoveMember(m.membershipId)} className="text-muted-foreground hover:text-destructive transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {members.length === 0 && <p className="text-sm text-muted-foreground py-3">No members yet.</p>}
             </div>
           </SectionCard>
@@ -1463,47 +1602,82 @@ function OrgTab() {
             <SectionCard>
               <div className="flex items-center gap-2 font-semibold text-sm">
                 <Mail className="h-4 w-4 text-primary" /> Pending invitations
+                <span className="ml-auto text-xs font-normal text-muted-foreground">Expire 7 days after sending</span>
               </div>
               <div className="divide-y divide-border">
-                {invitations.map((inv: any) => (
-                  <div key={inv.token} className="flex items-center justify-between py-2.5 text-sm">
-                    <span>{inv.email}</span>
-                    <span className="text-xs text-muted-foreground">{inv.orgRole} · {inv.userRole}</span>
-                  </div>
-                ))}
+                {invitations.map((inv: any) => {
+                  const daysLeft = Math.max(0, Math.ceil((inv.expiresAt - Date.now()) / 86_400_000));
+                  return (
+                    <div key={inv.token} className="flex items-center justify-between py-2.5 text-sm">
+                      <div>
+                        <span className="font-medium">{inv.email}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          <OrgRoleBadge role={inv.orgRole} /> · {inv.userRole}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{daysLeft}d left</span>
+                        {amAdmin && (
+                          <button
+                            title="Revoke invitation"
+                            onClick={() => handleRevokeInvitation(inv.token, inv.email)}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </SectionCard>
           )}
 
-          {/* Invite form */}
-          <SectionCard>
-            <div className="flex items-center gap-2 font-semibold text-sm">
-              <Plus className="h-4 w-4 text-primary" /> Invite a team member
-            </div>
-            <form onSubmit={handleInvite} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="inviteEmail">Email address</Label>
-                <Input id="inviteEmail" type="email" placeholder="colleague@company.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+          {/* Invite form (Owner / Org Admin only) */}
+          {amAdmin && (
+            <SectionCard>
+              <div className="flex items-center gap-2 font-semibold text-sm">
+                <Plus className="h-4 w-4 text-primary" /> Invite a team member
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <form onSubmit={handleInvite} className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label>Org role</Label>
-                  <select value={inviteOrgRole} onChange={e => setInviteOrgRole(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm">
-                    {ORG_ROLES.filter(r => r !== "OWNER").map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
+                  <Label htmlFor="inviteEmail">Email address</Label>
+                  <Input
+                    id="inviteEmail" type="email" placeholder="colleague@company.com"
+                    value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required
+                  />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Account type</Label>
-                  <select value={inviteUserRole} onChange={e => setInviteUserRole(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm">
-                    {USER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Org role</Label>
+                    <select
+                      value={inviteOrgRole}
+                      onChange={e => setInviteOrgRole(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {ORG_ROLES.filter(r => r !== "OWNER").map(r => (
+                        <option key={r} value={r}>{ORG_ROLE_LABELS[r] ?? r}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Account type</Label>
+                    <select
+                      value={inviteUserRole}
+                      onChange={e => setInviteUserRole(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {USER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
                 </div>
-              </div>
-              <Button type="submit" size="sm" disabled={inviting}>
-                {inviting ? <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Sending…</> : "Send invitation"}
-              </Button>
-            </form>
-          </SectionCard>
+                <Button type="submit" size="sm" disabled={inviting}>
+                  {inviting ? <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Sending…</> : "Send invitation"}
+                </Button>
+              </form>
+            </SectionCard>
+          )}
         </>
       )}
     </div>
