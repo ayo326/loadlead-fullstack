@@ -170,12 +170,20 @@ router.get('/drivers/:driverId/buffer', asyncHandler(async (req: AuthRequest, re
   const { driverId } = req.params;
   const driver = await DriverService.getProfileById(driverId);
   if (!driver) return res.status(404).json({ error: 'Driver not found' });
+  const bufferPct = driver.safetyBufferPct ?? 10;
+  const setByRole = driver.bufferSetByRole ?? 'ADMIN';
   res.json({
-    safetyBufferPct: driver.safetyBufferPct ?? 10,
+    safetyBufferPct: bufferPct,
     overBufferFlag: driver.overBufferFlag ?? false,
     maxCapacityLbs: driver.maxCapacityLbs,
-    maxOperationalLbs: driver.maxCapacityLbs * (1 - ((driver.safetyBufferPct ?? 10) / 100)),
+    maxOperationalLbs: driver.maxCapacityLbs * (1 - (bufferPct / 100)),
     currentLoadLbs: driver.currentLoadLbs,
+    bufferSetBy: driver.bufferSetBy,
+    bufferSetByRole: setByRole,
+    // Human-readable message per spec §5.1
+    bufferSetByMessage: setByRole === 'OWNER'
+      ? 'Safety buffer set by your owner.'
+      : 'Safety buffer set by your admin.',
   });
 }));
 

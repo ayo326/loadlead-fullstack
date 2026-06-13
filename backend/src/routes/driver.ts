@@ -249,11 +249,17 @@ router.get(
   asyncHandler(async (req: AuthRequest, res) => {
     const driver = await DriverService.getProfileByUserId(req.user!.userId);
     if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
+    const bufferPct = driver.safetyBufferPct ?? 10;
+    const setByRole = driver.bufferSetByRole ?? 'ADMIN';
     res.json({
-      safetyBufferPct: driver.safetyBufferPct ?? 10,
+      safetyBufferPct: bufferPct,
       overBufferFlag: driver.overBufferFlag ?? false,
       maxCapacityLbs: driver.maxCapacityLbs,
-      maxOperationalLbs: driver.maxCapacityLbs * (1 - ((driver.safetyBufferPct ?? 10) / 100)),
+      maxOperationalLbs: driver.maxCapacityLbs * (1 - (bufferPct / 100)),
+      bufferSetByRole: setByRole,
+      bufferSetByMessage: setByRole === 'OWNER'
+        ? 'Safety buffer set by your owner.'
+        : 'Safety buffer set by your admin.',
     });
   })
 );

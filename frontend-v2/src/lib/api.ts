@@ -170,4 +170,34 @@ export const api = {
     ),
   acceptInvitation: (token: string) =>
     request<{ membership: any }>("POST", `/org/invitations/${token}/accept`),
+
+  /** Revoke a pending invitation before it is accepted (spec §4.3) */
+  revokeInvitation: (orgId: string, token: string) =>
+    request<{ ok: boolean }>("DELETE", `/org/${orgId}/invitations/${token}`),
+
+  /** Suspend a membership without deleting history (spec §6.4) */
+  suspendMember: (orgId: string, membershipId: string) =>
+    request<{ ok: boolean }>("POST", `/org/${orgId}/members/${membershipId}/suspend`),
+
+  /** Reinstate a suspended membership */
+  reinstateMember: (orgId: string, membershipId: string) =>
+    request<{ ok: boolean }>("POST", `/org/${orgId}/members/${membershipId}/reinstate`),
+
+  /** Platform Admin: suspend an entire org */
+  suspendOrg: (orgId: string, reason?: string) =>
+    request<{ ok: boolean; message: string }>("POST", `/org/${orgId}/suspend`, { reason }),
+
+  /** Platform Admin: reinstate a suspended org */
+  reinstateOrg: (orgId: string) =>
+    request<{ ok: boolean; message: string }>("POST", `/org/${orgId}/reinstate`),
+
+  /** Owner: set their own driver safety buffer within platform bounds (spec §5.1) */
+  orgOwnerSetBuffer: (orgId: string, safetyBufferPct: number) =>
+    request<{ ok: boolean; safetyBufferPct: number; message: string }>(
+      "PATCH", `/org/${orgId}/buffer`, { safetyBufferPct }
+    ),
+
+  /** Get membership audit log for an org (spec §6.5) */
+  getOrgAuditLog: (orgId: string) =>
+    request<{ logs: any[] }>("GET", `/org/${orgId}/audit`),
 };

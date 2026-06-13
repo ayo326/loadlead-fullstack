@@ -221,6 +221,8 @@ export class CapacityService {
     await driverService.updateProfile(driverId, {
       safetyBufferPct: newBufferPct,
       overBufferFlag: overBuffer,
+      bufferSetBy: changedBy,
+      bufferSetByRole: changedByRole,
     });
 
     return { overBuffer };

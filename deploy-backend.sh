@@ -76,6 +76,15 @@ ensure_table LoadLead_Invitations \
   --global-secondary-indexes \
     '[{"IndexName":"orgId-index","KeySchema":[{"AttributeName":"orgId","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}]'
 
+# Membership audit log table (new — spec §6.5)
+ensure_table LoadLead-MembershipAuditLogs \
+  --attribute-definitions \
+    AttributeName=logId,AttributeType=S \
+    AttributeName=orgId,AttributeType=S \
+  --key-schema AttributeName=logId,KeyType=HASH \
+  --global-secondary-indexes \
+    '[{"IndexName":"orgId-index","KeySchema":[{"AttributeName":"orgId","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}]'
+
 echo ""
 echo "▶  Building TypeScript..."
 npm --prefix backend run build

@@ -1,5 +1,8 @@
 import crypto from 'crypto';
-import { Organization, OrgMembership, OrgInvitation, OrgCapability, OrgRole, UserRole } from '../types';
+import {
+  Organization, OrgMembership, OrgInvitation, MembershipAuditLog,
+  OrgCapability, OrgRole, ADMIN_ORG_ROLES, UserRole,
+} from '../types';
 import { Database } from '../config/database';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
@@ -39,6 +42,7 @@ export class OrgService {
       zip: params.zip,
       country: params.country,
       ownerId: params.ownerId,
+      suspended: false,
       createdAt: now,
       updatedAt: now,
     };
@@ -50,6 +54,15 @@ export class OrgService {
       userId: params.ownerId,
       orgRole: OrgRole.OWNER,
       userRole: params.ownerRole,
+    });
+
+    await OrgAuditService.log({
+      orgId,
+      targetUserId: params.ownerId,
+      actorUserId: params.ownerId,
+      actorRole: params.ownerRole,
+      action: 'MEMBER_ADDED',
+      newValue: OrgRole.OWNER,
     });
 
     Logger.info(`Org created: ${orgId} by ${params.ownerId}`);
@@ -67,13 +80,56 @@ export class OrgService {
     });
   }
 
-  /** All orgs where a user has a membership */
+  /** Platform Admin: suspend an entire org (spec §6.4) */
+  static async suspendOrg(orgId: string, actorUserId: string, reason?: string): Promise<void> {
+    const now = Helpers.getCurrentTimestamp();
+    await Database.updateItem(config.dynamodb.orgsTable, { orgId }, {
+      suspended: true,
+      suspendedAt: now,
+      suspendedBy: actorUserId,
+      suspensionReason: reason ?? '',
+      updatedAt: now,
+    });
+    await OrgAuditService.log({
+      orgId,
+      targetUserId: orgId,   // target is the org itself
+      actorUserId,
+      actorRole: UserRole.ADMIN,
+      action: 'ORG_SUSPENDED',
+      newValue: reason,
+    });
+    Logger.info(`Org suspended: ${orgId} by ${actorUserId}`);
+  }
+
+  /** Platform Admin: reinstate a suspended org */
+  static async reinstateOrg(orgId: string, actorUserId: string): Promise<void> {
+    const now = Helpers.getCurrentTimestamp();
+    await Database.updateItem(config.dynamodb.orgsTable, { orgId }, {
+      suspended: false,
+      suspendedAt: undefined,
+      suspendedBy: undefined,
+      suspensionReason: undefined,
+      updatedAt: now,
+    });
+    await OrgAuditService.log({
+      orgId,
+      targetUserId: orgId,
+      actorUserId,
+      actorRole: UserRole.ADMIN,
+      action: 'ORG_REINSTATED',
+    });
+    Logger.info(`Org reinstated: ${orgId} by ${actorUserId}`);
+  }
+
+  /** All orgs where a user has an ACTIVE membership */
   static async getOrgsForUser(userId: string): Promise<Organization[]> {
     const memberships = await OrgMembershipService.getMembershipsForUser(userId);
     if (!memberships.length) return [];
 
     const orgs = await Promise.all(
-      memberships.map(m => OrgService.getOrgById(m.orgId))
+      memberships
+        .filter(m => m.status === 'ACTIVE')
+        .map(m => OrgService.getOrgById(m.orgId))
     );
     return orgs.filter(Boolean) as Organization[];
   }
@@ -96,6 +152,7 @@ export class OrgMembershipService {
       userId: params.userId,
       orgRole: params.orgRole,
       userRole: params.userRole,
+      status: 'ACTIVE',
       joinedAt: Helpers.getCurrentTimestamp(),
     };
     await Database.putItem(config.dynamodb.membershipsTable, membership);
@@ -127,24 +184,135 @@ export class OrgMembershipService {
     return all.find(m => m.userId === userId) ?? null;
   }
 
-  static async updateMemberRole(membershipId: string, orgRole: OrgRole): Promise<void> {
-    await Database.updateItem(config.dynamodb.membershipsTable, { membershipId }, { orgRole });
+  static async getMembershipById(membershipId: string): Promise<OrgMembership | null> {
+    return Database.getItem<OrgMembership>(config.dynamodb.membershipsTable, { membershipId });
   }
 
-  static async removeMember(membershipId: string): Promise<void> {
-    // DynamoDB delete via updateItem pattern not ideal — use deleteItem
+  static async updateMemberRole(
+    membershipId: string,
+    orgRole: OrgRole,
+    actorUserId: string,
+    actorRole: string,
+    oldRole: string,
+  ): Promise<void> {
+    await Database.updateItem(config.dynamodb.membershipsTable, { membershipId }, { orgRole });
+    // Fetch the updated record to get orgId/userId for audit
+    const membership = await this.getMembershipById(membershipId);
+    if (membership) {
+      await OrgAuditService.log({
+        orgId: membership.orgId,
+        targetUserId: membership.userId,
+        actorUserId,
+        actorRole,
+        action: 'ROLE_CHANGED',
+        oldValue: oldRole,
+        newValue: orgRole,
+      });
+    }
+  }
+
+  /** Remove a member. Enforces last-owner guard (spec §7). */
+  static async removeMember(
+    membershipId: string,
+    actorUserId: string,
+    actorRole: string,
+  ): Promise<void> {
+    const membership = await this.getMembershipById(membershipId);
+    if (!membership) throw new AppError('Membership not found', 404);
+
+    // Last-owner guard (spec §7)
+    if (membership.orgRole === OrgRole.OWNER) {
+      const allMembers = await this.getMembersOfOrg(membership.orgId);
+      const owners = allMembers.filter(m => m.orgRole === OrgRole.OWNER && m.status === 'ACTIVE');
+      if (owners.length <= 1) {
+        throw new AppError(
+          'Cannot remove the last Owner. Transfer ownership first or add another Owner.',
+          409
+        );
+      }
+    }
+
     const { docClient } = await import('../config/aws');
     const { DeleteCommand } = await import('@aws-sdk/lib-dynamodb');
     await docClient.send(new DeleteCommand({
       TableName: config.dynamodb.membershipsTable,
       Key: { membershipId },
     }));
+
+    await OrgAuditService.log({
+      orgId: membership.orgId,
+      targetUserId: membership.userId,
+      actorUserId,
+      actorRole,
+      action: 'MEMBER_REMOVED',
+      oldValue: membership.orgRole,
+    });
+  }
+
+  /** Suspend a membership without deleting it (spec §6.4) */
+  static async suspendMember(
+    membershipId: string,
+    actorUserId: string,
+    actorRole: string,
+  ): Promise<void> {
+    const membership = await this.getMembershipById(membershipId);
+    if (!membership) throw new AppError('Membership not found', 404);
+
+    // Cannot suspend the last OWNER
+    if (membership.orgRole === OrgRole.OWNER) {
+      const allMembers = await this.getMembersOfOrg(membership.orgId);
+      const activeOwners = allMembers.filter(
+        m => m.orgRole === OrgRole.OWNER && m.status === 'ACTIVE'
+      );
+      if (activeOwners.length <= 1) {
+        throw new AppError('Cannot suspend the last active Owner.', 409);
+      }
+    }
+
+    await Database.updateItem(config.dynamodb.membershipsTable, { membershipId }, {
+      status: 'SUSPENDED',
+      suspendedAt: Helpers.getCurrentTimestamp(),
+      suspendedBy: actorUserId,
+    });
+
+    await OrgAuditService.log({
+      orgId: membership.orgId,
+      targetUserId: membership.userId,
+      actorUserId,
+      actorRole,
+      action: 'MEMBER_SUSPENDED',
+    });
+  }
+
+  /** Reinstate a suspended membership */
+  static async reinstateMember(
+    membershipId: string,
+    actorUserId: string,
+    actorRole: string,
+  ): Promise<void> {
+    const membership = await this.getMembershipById(membershipId);
+    if (!membership) throw new AppError('Membership not found', 404);
+
+    await Database.updateItem(config.dynamodb.membershipsTable, { membershipId }, {
+      status: 'ACTIVE',
+      suspendedAt: undefined,
+      suspendedBy: undefined,
+    });
+
+    await OrgAuditService.log({
+      orgId: membership.orgId,
+      targetUserId: membership.userId,
+      actorUserId,
+      actorRole,
+      action: 'MEMBER_REINSTATED',
+    });
   }
 }
 
 // ─── OrgInvitationService ────────────────────────────────────────────────────
 
-const INVITE_TTL_HOURS = 72;
+/** 7 days per spec §4.3 */
+const INVITE_TTL_HOURS = 168;
 
 export class OrgInvitationService {
 
@@ -170,6 +338,16 @@ export class OrgInvitationService {
     };
 
     await Database.putItem(config.dynamodb.invitationsTable, invitation);
+
+    await OrgAuditService.log({
+      orgId: params.orgId,
+      targetUserId: params.email,   // user may not exist yet
+      actorUserId: params.invitedBy,
+      actorRole: 'OWNER_OR_ORG_ADMIN',
+      action: 'INVITE_SENT',
+      newValue: params.orgRole,
+    });
+
     Logger.info(`Invitation created for ${params.email} to org ${params.orgId}`);
     return invitation;
   }
@@ -188,11 +366,36 @@ export class OrgInvitationService {
     );
   }
 
+  /** Revoke a pending invitation (spec §4.3). Only Owner/OrgAdmin may revoke. */
+  static async revokeInvitation(token: string, actorUserId: string): Promise<void> {
+    const invite = await this.getInvitationByToken(token);
+    if (!invite) throw new AppError('Invitation not found', 404);
+    if (invite.acceptedAt) throw new AppError('Invitation already accepted — cannot revoke', 409);
+    if (invite.revokedAt) throw new AppError('Invitation already revoked', 409);
+
+    await Database.updateItem(config.dynamodb.invitationsTable, { token }, {
+      revokedAt: Helpers.getCurrentTimestamp(),
+      revokedBy: actorUserId,
+    });
+
+    await OrgAuditService.log({
+      orgId: invite.orgId,
+      targetUserId: invite.email,
+      actorUserId,
+      actorRole: 'OWNER_OR_ORG_ADMIN',
+      action: 'INVITE_REVOKED',
+      oldValue: invite.orgRole,
+    });
+
+    Logger.info(`Invitation revoked: ${token} by ${actorUserId}`);
+  }
+
   /** Accept an invitation: creates membership, marks invitation accepted */
   static async acceptInvitation(token: string, userId: string): Promise<OrgMembership> {
     const invite = await this.getInvitationByToken(token);
     if (!invite) throw new AppError('Invitation not found', 404);
     if (invite.acceptedAt) throw new AppError('Invitation already used', 409);
+    if (invite.revokedAt) throw new AppError('Invitation has been revoked', 410);
     if (invite.expiresAt < Helpers.getCurrentTimestamp()) {
       throw new AppError('Invitation has expired', 410);
     }
@@ -209,7 +412,61 @@ export class OrgInvitationService {
       acceptedAt: Helpers.getCurrentTimestamp(),
     });
 
+    await OrgAuditService.log({
+      orgId: invite.orgId,
+      targetUserId: userId,
+      actorUserId: userId,
+      actorRole: invite.userRole,
+      action: 'INVITE_ACCEPTED',
+      newValue: invite.orgRole,
+    });
+
     Logger.info(`Invitation accepted: ${token} by user ${userId}`);
     return membership;
+  }
+}
+
+// ─── OrgAuditService ─────────────────────────────────────────────────────────
+
+const MEMBERSHIP_AUDIT_TABLE = process.env.DYNAMODB_MEMBERSHIP_AUDIT_TABLE
+  || 'LoadLead-MembershipAuditLogs';
+
+export class OrgAuditService {
+  static async log(params: {
+    orgId: string;
+    targetUserId: string;
+    actorUserId: string;
+    actorRole: string;
+    action: MembershipAuditLog['action'];
+    oldValue?: string;
+    newValue?: string;
+  }): Promise<void> {
+    try {
+      const log: MembershipAuditLog = {
+        logId: Helpers.generateId('mlog'),
+        orgId: params.orgId,
+        targetUserId: params.targetUserId,
+        actorUserId: params.actorUserId,
+        actorRole: params.actorRole,
+        action: params.action,
+        oldValue: params.oldValue,
+        newValue: params.newValue,
+        timestamp: Helpers.getCurrentTimestamp(),
+      };
+      await Database.putItem(MEMBERSHIP_AUDIT_TABLE, log);
+    } catch (e) {
+      // Non-blocking — audit failures must not break primary operations
+      Logger.error(`[OrgAuditService] Failed to write audit log: ${e}`);
+    }
+  }
+
+  static async getLogsForOrg(orgId: string): Promise<MembershipAuditLog[]> {
+    return Database.query<MembershipAuditLog>(
+      MEMBERSHIP_AUDIT_TABLE,
+      'orgId-index',
+      '#orgId = :orgId',
+      { '#orgId': 'orgId' },
+      { ':orgId': orgId }
+    );
   }
 }

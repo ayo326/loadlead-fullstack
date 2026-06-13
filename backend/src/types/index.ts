@@ -115,13 +115,28 @@ export enum OrgCapability {
   RECEIVER = 'RECEIVER',
 }
 
-/** Hierarchy: OWNER > ADMIN > MEMBER > VIEWER */
+/**
+ * Org roles per spec §3.2.
+ * Hierarchy (permission level): OWNER > ORG_ADMIN > DISPATCHER > ORG_DRIVER = SHIPPER_USER = RECEIVER_USER
+ * Legacy aliases MEMBER / VIEWER kept for backward-compat with older records but not accepted on new invitations.
+ */
 export enum OrgRole {
-  OWNER  = 'OWNER',
+  OWNER         = 'OWNER',
+  ORG_ADMIN     = 'ORG_ADMIN',
+  DISPATCHER    = 'DISPATCHER',
+  ORG_DRIVER    = 'ORG_DRIVER',
+  SHIPPER_USER  = 'SHIPPER_USER',
+  RECEIVER_USER = 'RECEIVER_USER',
+  /** @deprecated use ORG_ADMIN */
   ADMIN  = 'ADMIN',
+  /** @deprecated — not in spec; treated as ORG_DRIVER */
   MEMBER = 'MEMBER',
+  /** @deprecated — not in spec; treated as RECEIVER_USER */
   VIEWER = 'VIEWER',
 }
+
+/** Roles that are considered admin-level for permission checks */
+export const ADMIN_ORG_ROLES: OrgRole[] = [OrgRole.OWNER, OrgRole.ORG_ADMIN, OrgRole.ADMIN];
 
 export interface Organization {
   orgId: string;
@@ -139,9 +154,16 @@ export interface Organization {
   country?: string;
   /** userId of the founding member */
   ownerId: string;
+  /** Platform Admin can suspend an org, freezing all members */
+  suspended?: boolean;
+  suspendedAt?: number;
+  suspendedBy?: string;  // userId of Platform Admin
+  suspensionReason?: string;
   createdAt: number;
   updatedAt: number;
 }
+
+export type MembershipStatus = 'ACTIVE' | 'SUSPENDED';
 
 export interface OrgMembership {
   membershipId: string;
@@ -150,7 +172,11 @@ export interface OrgMembership {
   orgRole: OrgRole;
   /** Mirror of UserRole so membership can be filtered by role type */
   userRole: UserRole;
+  /** ACTIVE (default) or SUSPENDED — suspension revokes access without deleting history (spec §6.4) */
+  status: MembershipStatus;
   joinedAt: number;
+  suspendedAt?: number;
+  suspendedBy?: string;
 }
 
 export interface OrgInvitation {
@@ -162,7 +188,22 @@ export interface OrgInvitation {
   invitedBy: string;   // userId
   expiresAt: number;
   acceptedAt?: number;
+  revokedAt?: number;
+  revokedBy?: string;
   createdAt: number;
+}
+
+/** Audit log entry for membership changes (spec §6.5) */
+export interface MembershipAuditLog {
+  logId: string;
+  orgId: string;
+  targetUserId: string;
+  actorUserId: string;
+  actorRole: string;      // UserRole of acting user
+  action: 'MEMBER_ADDED' | 'MEMBER_REMOVED' | 'ROLE_CHANGED' | 'MEMBER_SUSPENDED' | 'MEMBER_REINSTATED' | 'INVITE_SENT' | 'INVITE_ACCEPTED' | 'INVITE_REVOKED' | 'ORG_SUSPENDED' | 'ORG_REINSTATED';
+  oldValue?: string;      // e.g. previous orgRole
+  newValue?: string;      // e.g. new orgRole
+  timestamp: number;
 }
 
 export interface CarrierProfile {
@@ -268,6 +309,10 @@ export interface Driver {
   safetyBufferPct?: number;
   /** Set by system when tightening buffer puts existing loads over limit */
   overBufferFlag?: boolean;
+  /** userId who last set the buffer (Platform Admin or org Owner per spec §5.1) */
+  bufferSetBy?: string;
+  /** Role of the user who last set the buffer ('ADMIN' | 'OWNER') — drives UI message */
+  bufferSetByRole?: string;
 
   // Authority & Insurance
   mcNumber: string;
