@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { ArrowRight, ShieldCheck, Truck, PackagePlus, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
 
   const handleRoleSelect = (r: typeof roles[number]) => {
     setRole(r);
@@ -71,7 +73,7 @@ export default function Login() {
     setLoading(true);
     try {
       const user = await login(email, password);
-      const dest = roles.find((r) => r.key === user.role)?.to ?? "/driver";
+      const dest = redirectTo ?? roles.find((r) => r.key === user.role)?.to ?? "/driver";
       navigate(dest);
     } catch (err: any) {
       setError(err.message ?? "Login failed");

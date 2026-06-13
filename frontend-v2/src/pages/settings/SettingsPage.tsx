@@ -519,6 +519,7 @@ function DriverSettings({ userId }: { userId: string }) {
           <TabsTrigger value="authority" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Authority & Insurance</TabsTrigger>
           <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
           <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
+          <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
         </TabsList>
       </div>
 
@@ -717,6 +718,10 @@ function DriverSettings({ userId }: { userId: string }) {
             mcNumber={profile.mcNumber}
             dotNumber={profile.dotNumber}
           />
+        </TabsContent>
+
+        <TabsContent value="organisation">
+          <OrgTab />
         </TabsContent>
       </div>
     </Tabs>
