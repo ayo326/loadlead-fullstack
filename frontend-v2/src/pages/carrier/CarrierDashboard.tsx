@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Building2, ShieldCheck, Users, Loader2, Send, UserPlus, Truck } from "lucide-react";
+import { Building2, ShieldCheck, Users, Loader2, Send, UserPlus, Truck, Activity } from "lucide-react";
+import { CarrierDashboardView } from "@/components/dashboard/CarrierDashboardView";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -404,9 +405,12 @@ export default function CarrierDashboard() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-6">
-        <Tabs defaultValue="verification" orientation="vertical" className="flex gap-6">
+      <div className="max-w-6xl mx-auto px-6 py-6">
+        <Tabs defaultValue="overview" orientation="vertical" className="flex gap-6">
           <TabsList className="flex flex-col h-auto w-44 shrink-0 rounded-xl bg-secondary p-1 gap-1">
+            <TabsTrigger value="overview" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+              <Activity className="h-4 w-4 mr-2" />Overview
+            </TabsTrigger>
             <TabsTrigger value="verification" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
               <ShieldCheck className="h-4 w-4 mr-2" />Verification
             </TabsTrigger>
@@ -419,6 +423,7 @@ export default function CarrierDashboard() {
           </TabsList>
 
           <div className="flex-1 min-w-0">
+            <TabsContent value="overview"><CarrierDashboardView orgId={orgId} /></TabsContent>
             <TabsContent value="verification"><VerificationTab orgId={orgId} /></TabsContent>
             <TabsContent value="drivers"><DriversTab orgId={orgId} /></TabsContent>
             <TabsContent value="dispatch"><DispatchTab /></TabsContent>

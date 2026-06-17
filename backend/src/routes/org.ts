@@ -12,6 +12,12 @@ import { EmailService } from '../services/emailService';
 import { Database } from '../config/database';
 import config from '../config/environment';
 import { submitCarrierDocs, getVerification, EntityType } from '../services/verification';
+import { LoadService } from '../services/loadService';
+import { OfferService } from '../services/offerService';
+import { DriverService } from '../services/driverService';
+import { resolveInvoicePayee } from '../services/factoring';
+import * as Calc from '../services/dashboardCalc';
+import { LoadStatus, OfferStatus, Driver, Load, Offer } from '../types';
 
 const router = express.Router();
 
@@ -546,6 +552,275 @@ router.get(
 
     const logs = await OrgAuditService.getLogsForOrg(orgId);
     res.json({ logs: logs.sort((a, b) => b.timestamp - a.timestamp) });
+  })
+);
+
+// ─── Carrier settings aggregation (canonical sections) ─────────────────────
+// Read-only aggregation of the spec §3 canonical sections, bound to this
+// org's canonical records. Writes are NOT here — they go through each
+// section's existing canonical endpoint (PATCH /:orgId, POST verification/
+// submit, POST :orgId/drivers, etc.) so we keep "no parallel store" rule.
+//
+// Independent of the OO settings endpoint — separate handler, separate code,
+// per the Independence Principle. The parity test asserts both expose the
+// same canonical section set (minus persona-N/As).
+router.get('/:orgId/settings', asyncHandler(async (req: AuthRequest, res) => {
+  const { orgId } = req.params;
+  const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
+  if (!callerMembership || callerMembership.status !== 'ACTIVE') {
+    throw new AppError('Forbidden', 403);
+  }
+
+  const [org, members, authority] = await Promise.all([
+    OrgService.getOrgById(orgId),
+    OrgMembershipService.getMembersOfOrg(orgId),
+    getVerification(orgId),
+  ]);
+  if (!org) throw new AppError('Organisation not found', 404);
+
+  const driverMembers = members.filter(m => m.orgRole === OrgRole.ORG_DRIVER && m.status === 'ACTIVE');
+  const driverUsers = await Promise.all(
+    driverMembers.map(m =>
+      Database.getItem<{ userId: string; email: string; idvStatus?: string }>(
+        config.dynamodb.usersTable, { userId: m.userId },
+      ),
+    ),
+  );
+
+  res.json({
+    parentType: 'CARRIER_ORG',
+    sections: {
+      profile: {
+        editable: true,
+        endpoint: `PATCH /api/org/${orgId}`,
+        data: {
+          legalName: org.legalName,
+          dba: org.dba,
+          mcNumber: org.mcNumber,
+          dotNumber: org.dotNumber,
+          city: org.city,
+          state: org.state,
+        },
+      },
+      verification: {
+        editable: false,           // read-only mirror with re-verify action
+        action: { endpoint: `POST /api/org/${orgId}/verification/submit` },
+        data: {
+          status: authority?.verificationStatus ?? 'UNVERIFIED',
+          fmcsaAuthorityActive: authority?.fmcsaAuthorityActive ?? null,
+          kybStatus: authority?.kybStatus ?? null,
+          reverifyAfter: authority?.reverifyAfter ?? null,
+        },
+      },
+      identity: {
+        editable: false,           // read-only mirror of member drivers' user.idvStatus
+        data: {
+          members: driverUsers.filter(Boolean).map(u => ({
+            userId: u!.userId,
+            email: u!.email,
+            idvStatus: u!.idvStatus ?? 'UNVERIFIED',
+          })),
+        },
+      },
+      driversFleet: {
+        editable: true,
+        endpoints: {
+          createDirect: `POST /api/org/${orgId}/drivers`,
+          invite: `POST /api/org/${orgId}/invitations`,
+          roster: `GET /api/org/${orgId}/members`,
+          remove: `DELETE /api/org/${orgId}/members/:membershipId`,
+        },
+        data: { count: driverMembers.length },
+      },
+      factoring: {
+        editable: true,
+        endpoint: `GET/PUT /api/factoring/profile?carrierId=${orgId}`,
+        data: { carrierId: orgId },
+      },
+      notifications: {
+        editable: true,
+        endpoint: `GET/PUT /api/notifications/preferences`,
+        data: { pushEnabled: null, emailEnabled: null }, // FE reads canonical prefs route
+      },
+      membersAndRoles: {
+        editable: true,
+        endpoints: {
+          list: `GET /api/org/${orgId}/members`,
+          changeRole: `PATCH /api/org/${orgId}/members/:membershipId/role`,
+        },
+        data: { total: members.length },
+      },
+      capabilities: {
+        editable: false,           // read-only mirror; SHIPPER+CARRIER exclusivity enforced server-side
+        data: { current: org.capabilities },
+      },
+    },
+  });
+}));
+
+// ─── Carrier dashboard aggregation ──────────────────────────────────────────
+// Independent of the OO dashboard. Computed server-side in a single handler
+// per spec §0 — no N+1 from the client. Shares only the persona-neutral calc
+// service with the OO dashboard.
+//
+// 🔴 fields (HOS, reefer, fuel, CSA) return { available:false } per the
+// no-fabrication rule. The frontend renders those as "Connect <X>"
+// placeholders, never zeros.
+router.get(
+  '/:orgId/dashboard',
+  requireOrgCapability(OrgCapability.CARRIER),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { orgId } = req.params;
+    const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
+    if (!callerMembership || callerMembership.status !== 'ACTIVE') {
+      throw new AppError('Forbidden', 403);
+    }
+
+    // ── Org → drivers → loads + offers, in parallel ──────────────────────
+    const members = await OrgMembershipService.getMembersOfOrg(orgId);
+    const driverMembers = members.filter(m => m.orgRole === OrgRole.ORG_DRIVER && m.status === 'ACTIVE');
+
+    // Driver records (Driver.userId === member.userId, since direct-onboarded
+    // drivers' Driver row is keyed off their User).
+    const driverProfiles = (await Promise.all(
+      driverMembers.map(m => DriverService.getProfileByUserId(m.userId))
+    )).filter((d): d is Driver => !!d);
+
+    // Loads assigned to these drivers + their active offers — fan-out in
+    // parallel so the handler is still O(1) round-trips per persona.
+    const [driverLoads, driverOffersList, org, authority] = await Promise.all([
+      Promise.all(driverProfiles.map(d => LoadService.getLoadsByAssignedDriver(d.driverId))),
+      Promise.all(driverProfiles.map(d => OfferService.getOffersByDriver(d.driverId))),
+      OrgService.getOrgById(orgId),
+      getVerification(orgId),
+    ]);
+
+    const loads: Load[] = driverLoads.flat();
+    const offers: Offer[] = driverOffersList.flat();
+
+    // User records for member drivers (idvStatus lives on User per refactor)
+    const memberUsers = await Promise.all(
+      driverMembers.map(m =>
+        Database.getItem<{ userId: string; idvStatus?: string }>(
+          config.dynamodb.usersTable, { userId: m.userId },
+        ),
+      ),
+    );
+
+    // ── 1.1 Alerts ───────────────────────────────────────────────────────
+    const activeLoads = Calc.activeLoadCounts(loads);
+    const unassigned = Calc.unassignedLoads(loads).map(l => ({
+      loadId: l.loadId,
+      pickup: { city: l.pickupCity, state: l.pickupState, at: l.pickupDate },
+      delivery: { city: l.deliveryCity, state: l.deliveryState, at: l.deliveryDate },
+      rate: l.rateAmount,
+    }));
+    const etaAtRisk = Calc.etaAtRisk(loads); // 🟡 partial — no live ETA provider wired yet
+
+    // ── 1.2 Fleet & compliance ───────────────────────────────────────────
+    const driversPanel = driverProfiles.map(d => {
+      const u = memberUsers.find(uu => uu?.userId === d.userId);
+      return {
+        driverId: d.driverId,
+        name: d.legalName,
+        availability: Calc.driverAvailability(d.driverId, offers, loads),
+        idvStatus: u?.idvStatus ?? 'UNVERIFIED',
+      };
+    });
+    const onboarding = Calc.onboardingRollup(memberUsers.filter(Boolean) as Array<{ idvStatus?: string }>);
+    const authorityCompliance = Calc.complianceRollup(authority ?? null);
+
+    // ── 1.3 Financial ─────────────────────────────────────────────────────
+    const grossRevenue = Calc.grossRevenue(loads);
+    const rpm = Calc.rpmBreakdown(loads);
+
+    // Payee breakdown: only against delivered loads, and only those with an
+    // amount we can compute. Each call to resolveInvoicePayee is sequential
+    // intentionally — DynamoDB Local doesn't like many parallel writes; the
+    // GSI on the OptIns table is the bottleneck anyway.
+    const deliveredLoads = loads.filter(l => l.status === LoadStatus.DELIVERED);
+    const payees = [];
+    for (const l of deliveredLoads) {
+      const total = l.rateType === 'PER_MILE'
+        ? (l.totalMiles ? l.rateAmount * l.totalMiles : 0)
+        : l.rateAmount;
+      if (total <= 0) continue;
+      try {
+        const p = await resolveInvoicePayee(l.loadId);
+        payees.push({ payee: p.payee, amount: total });
+      } catch { /* per-load resolution failure shouldn't fail the dashboard */ }
+    }
+    const payeeBreakdown = Calc.payeeBreakdown(payees);
+
+    // ── 1.4 Loadboard ────────────────────────────────────────────────────
+    const tendered = offers
+      .filter(o => o.status === OfferStatus.OFFERED)
+      .map(o => {
+        const l = loads.find(ll => ll.loadId === o.loadId);
+        if (!l) return null;
+        return {
+          loadId: l.loadId,
+          driverId: o.driverId,
+          origin: { city: l.pickupCity, state: l.pickupState },
+          dest: { city: l.deliveryCity, state: l.deliveryState },
+          weight: l.totalWeightLbs,
+          commodity: l.commodityDescription,
+          equipment: l.equipmentType,
+          payout: l.rateType === 'PER_MILE' ? (l.totalMiles ?? 0) * l.rateAmount : l.rateAmount,
+          expiresAt: o.expiresAt,
+        };
+      })
+      .filter(Boolean);
+
+    // ── 1.5 SLA ──────────────────────────────────────────────────────────
+    const acceptance = Calc.acceptanceMetrics(offers);
+    const otp = Calc.otpMetrics(loads);
+
+    res.json({
+      orgId,
+      orgName: org?.legalName,
+      // 1.1
+      alerts: {
+        activeLoads,
+        unassigned,
+        etaAtRisk,
+        hosWarnings: Calc.NOT_CONNECTED,        // ELD integration not connected
+        reeferDeviations: Calc.NOT_CONNECTED,   // Trailer telemetry not connected
+      },
+      // 1.2
+      fleet: {
+        drivers: driversPanel,
+        onboarding,
+        authorityExpiry: authorityCompliance.daysToExpiry,
+        compliance: authorityCompliance,
+        insurance: Calc.PENDING_CAPTURE,         // COI fields not captured yet
+        hosRemaining: Calc.NOT_CONNECTED,
+        equipmentHealth: Calc.NOT_CONNECTED,
+      },
+      // 1.3
+      financial: {
+        grossRevenue,
+        rpm,
+        payeeBreakdown,
+        factoringPipeline: Calc.factoringPipeline([]), // No org-level factoring opt-ins surface yet
+        fuelSpend: Calc.NOT_CONNECTED,
+        tolls: Calc.NOT_CONNECTED,
+      },
+      // 1.4
+      loadboard: {
+        tendered,
+        capabilityWarnings: [],  // capability gate enforces server-side; warnings empty here means nothing to surface
+        dwell: Calc.dwell(loads), // 🟡 pending status-transition timestamps
+        deadhead: Calc.PENDING_CAPTURE,
+      },
+      // 1.5
+      sla: {
+        otp,
+        acceptance,
+        compliancePosture: authorityCompliance,
+        csaScores: Calc.NOT_CONNECTED,
+      },
+    });
   })
 );
 

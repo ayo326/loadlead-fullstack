@@ -249,6 +249,15 @@ export const api = {
     request<{ loads: any[] }>("GET", "/owner-operator/loadboard"),
   getOwnerOperatorOffer: (loadId: string) =>
     request<{ offer: any; load: any; driverId?: string }>("GET", `/owner-operator/offers/${loadId}`),
+  // Dashboard + settings — independent per persona, same canonical shape
+  getCarrierDashboard: (orgId: string) =>
+    request<any>("GET", `/org/${orgId}/dashboard`),
+  getOoDashboard: () =>
+    request<any>("GET", `/owner-operator/dashboard`),
+  getCarrierSettings: (orgId: string) =>
+    request<any>("GET", `/org/${orgId}/settings`),
+  getOoSettings: () =>
+    request<any>("GET", `/owner-operator/settings`),
   // Verification — both gates: company authority (FMCSA/KYB) and personal IDV
   getOoVerification: () => request<{ verification: any }>("GET", "/owner-operator/verification"),
   submitOoVerification: () => request<{ verification: any }>("POST", "/owner-operator/verification/submit"),

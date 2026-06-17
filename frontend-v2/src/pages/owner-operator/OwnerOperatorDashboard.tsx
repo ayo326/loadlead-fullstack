@@ -4,6 +4,7 @@ import { MapPin, Navigation, Truck, Users, Package, ArrowRight, AlertCircle } fr
 import { LoadRoutePanel } from "@/components/LoadRoutePanel";
 import { PageHeader, StatCard } from "@/components/PageHeader";
 import { PushSubscriptionPrompt } from "@/components/PushSubscriptionPrompt";
+import { OwnerOperatorDashboardView } from "@/components/dashboard/OwnerOperatorDashboardView";
 import { Button } from "@/components/ui/button";
 import { RouteMapCard } from "@/components/RouteMapCard";
 import { api } from "@/lib/api";
@@ -82,6 +83,12 @@ export default function OwnerOperatorDashboard() {
       />
 
       <div className="max-w-6xl mx-auto p-6 space-y-6">
+        {/* Aggregated dashboard (§2 blended) — sits at the top so the
+            high-level health is the first thing seen. The legacy load-list
+            + fleet sections below are retained for back-compat and detailed
+            inline actions; the new view shows the same data condensed. */}
+        <OwnerOperatorDashboardView />
+
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" id="oo-stats">
           <StatCard

@@ -18,8 +18,10 @@ import { authenticate, requireOwnerOperator, AuthRequest } from '../middleware/a
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { Helpers } from '../utils/helpers';
 import { PushService } from '../services/pushService';
-import { OfferStatus } from '../types';
+import { OfferStatus, LoadStatus, Driver, Load, Offer } from '../types';
 import { requireVerifiedCarrier, submitCarrierDocs, submitDriverIdv, getVerification, EntityType } from '../services/verification';
+import { resolveInvoicePayee } from '../services/factoring';
+import * as Calc from '../services/dashboardCalc';
 
 const router = express.Router();
 router.use(authenticate);
@@ -338,6 +340,307 @@ router.get('/fleet/invites', asyncHandler(async (req: AuthRequest, res) => {
   const now = Helpers.getCurrentTimestamp();
   const pending = all.filter(i => !i.acceptedAt && i.expiresAt > now);
   res.json({ invites: pending });
+}));
+
+// ─── Owner Operator settings aggregation (canonical sections) ───────────────
+// Read-only aggregation of the spec §3 canonical sections, bound to this
+// OO's canonical records. Writes are NOT here — they go through existing
+// canonical endpoints (PUT /profile, POST /verification/submit, etc.).
+//
+// Independent of the carrier-org settings endpoint per the Independence
+// Principle. Members & roles is ABSENT (not stubbed) per spec §3 — OO is its
+// own owner; the fleet section already covers the only people it manages.
+router.get('/settings', requireOwnerOperator, asyncHandler(async (req: AuthRequest, res) => {
+  const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
+  if (!profile) throw new AppError('Owner Operator profile not found', 404);
+
+  const fleetDriverIds = profile.fleetDriverIds ?? [];
+  const selfDriver = await DriverService.getProfileByUserId(req.user!.userId);
+  const fleetDrivers = (await Promise.all(
+    fleetDriverIds.map(id => DriverService.getProfileById(id)),
+  )).filter((d): d is Driver => !!d);
+
+  const allDrivers: Driver[] = [];
+  const seen = new Set<string>();
+  if (selfDriver) { allDrivers.push(selfDriver); seen.add(selfDriver.driverId); }
+  for (const d of fleetDrivers) if (!seen.has(d.driverId)) { allDrivers.push(d); seen.add(d.driverId); }
+
+  const [authority, identity] = await Promise.all([
+    getVerification(profile.operatorId),
+    getVerification(req.user!.userId),
+  ]);
+
+  const driverUsers = await Promise.all(
+    allDrivers.map(d =>
+      Database.getItem<{ userId: string; email: string; idvStatus?: string }>(
+        config.dynamodb.usersTable, { userId: d.userId },
+      ),
+    ),
+  );
+
+  res.json({
+    parentType: 'OWNER_OPERATOR',
+    sections: {
+      profile: {
+        editable: true,
+        endpoint: `PUT /api/owner-operator/profile`,
+        data: {
+          legalName: profile.legalName,
+          dba: profile.dba,
+          mcNumber: profile.mcNumber,
+          dotNumber: profile.dotNumber,
+          city: profile.city,
+          state: profile.state,
+        },
+      },
+      verification: {
+        editable: false,            // read-only mirror with re-verify action
+        action: { endpoint: `POST /api/owner-operator/verification/submit` },
+        data: {
+          status: authority?.verificationStatus ?? 'UNVERIFIED',
+          fmcsaAuthorityActive: authority?.fmcsaAuthorityActive ?? null,
+          kybStatus: authority?.kybStatus ?? null,
+          reverifyAfter: authority?.reverifyAfter ?? null,
+        },
+      },
+      identity: {
+        editable: false,            // self-driver + fleet drivers' user.idvStatus
+        action: { endpoint: `POST /api/owner-operator/verification/idv` },
+        data: {
+          self: identity?.verificationStatus ?? 'UNVERIFIED',
+          fleet: driverUsers.filter(Boolean).map(u => ({
+            userId: u!.userId,
+            email: u!.email,
+            idvStatus: u!.idvStatus ?? 'UNVERIFIED',
+          })),
+        },
+      },
+      driversFleet: {
+        editable: true,
+        endpoints: {
+          roster: `GET /api/owner-operator/fleet`,
+          invite: `POST /api/owner-operator/fleet/invite`,
+          remove: `DELETE /api/owner-operator/fleet/:driverId`,
+        },
+        // self-driver is shown via roster but flagged non-removable on the wire
+        data: {
+          count: allDrivers.length,
+          selfDriverId: selfDriver?.driverId ?? null,
+        },
+      },
+      factoring: {
+        editable: true,
+        endpoint: `GET/PUT /api/factoring/profile?carrierId=${profile.operatorId}`,
+        data: { carrierId: profile.operatorId },
+      },
+      notifications: {
+        editable: true,
+        endpoint: `GET/PUT /api/notifications/preferences`,
+        data: { pushEnabled: null, emailEnabled: null },
+      },
+      // membersAndRoles: ABSENT per spec — OO is its own owner.
+      capabilities: {
+        editable: false,            // CARRIER is inherent for an OO; read-only mirror
+        data: { current: ['CARRIER'] },
+      },
+    },
+  });
+}));
+
+// ─── Owner Operator dashboard aggregation ───────────────────────────────────
+// Independent implementation per the spec's Independence Principle — does NOT
+// share container code with the carrier dashboard. Composes the persona-neutral
+// calc service (dashboardCalc) for the math, and an OO-specific "My haul" panel
+// for the blended driver-and-dispatcher view.
+//
+// 🔴 fields return { available:false } — no fabrication.
+router.get('/dashboard', requireOwnerOperator, asyncHandler(async (req: AuthRequest, res) => {
+  const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
+  if (!profile) throw new AppError('Owner Operator profile not found', 404);
+
+  const fleetDriverIds = profile.fleetDriverIds ?? [];
+  // Self-driver lives on the OO themselves: its userId === OO userId.
+  // OO fleet may overlap (or not) with the self-driver, so handle both paths.
+  const selfDriver = await DriverService.getProfileByUserId(req.user!.userId);
+  const fleetDrivers = (await Promise.all(
+    fleetDriverIds.map(id => DriverService.getProfileById(id)),
+  )).filter((d): d is Driver => !!d);
+
+  // Combined driver set: self-driver (if exists, isSelf flag carried) + fleet.
+  // Deduplicate in case the self-driver is also in the fleet array.
+  const allDrivers: Driver[] = [];
+  const seen = new Set<string>();
+  if (selfDriver) { allDrivers.push(selfDriver); seen.add(selfDriver.driverId); }
+  for (const d of fleetDrivers) if (!seen.has(d.driverId)) { allDrivers.push(d); seen.add(d.driverId); }
+
+  // Fan out per-driver lookups in parallel.
+  const [driverLoads, driverOffers, authority, identity] = await Promise.all([
+    Promise.all(allDrivers.map(d => LoadService.getLoadsByAssignedDriver(d.driverId))),
+    Promise.all(allDrivers.map(d => OfferService.getOffersByDriver(d.driverId))),
+    getVerification(profile.operatorId),
+    getVerification(req.user!.userId),
+  ]);
+
+  const loads: Load[] = driverLoads.flat();
+  const offers: Offer[] = driverOffers.flat();
+
+  // Per-driver user records (idvStatus mirror)
+  const driverUsers = await Promise.all(
+    allDrivers.map(d =>
+      Database.getItem<{ userId: string; idvStatus?: string }>(
+        config.dynamodb.usersTable, { userId: d.userId },
+      ),
+    ),
+  );
+
+  // ── My haul (the blended OO-specific panel) ─────────────────────────────
+  const myHaul = (() => {
+    if (!selfDriver) return null;
+    const active = loads.find(l =>
+      l.assignedDriverId === selfDriver.driverId &&
+      (l.status === LoadStatus.BOOKED || l.status === LoadStatus.IN_TRANSIT),
+    );
+    if (!active) return null;
+    return {
+      loadId: active.loadId,
+      status: active.status,
+      pickup: { city: active.pickupCity, state: active.pickupState, at: active.pickupDate },
+      delivery: { city: active.deliveryCity, state: active.deliveryState, at: active.deliveryDate },
+      rate: active.rateAmount,
+      miles: active.totalMiles,
+      // selfEta: live tracking ETA — Calc.etaAtRisk would surface it, but for
+      // "my haul" we just expose the deliveryDate target. Real ETA needs a
+      // tracking provider wired (🟡).
+      selfEta: null,
+    };
+  })();
+
+  // ── Fleet & onboarding (parity with carrier 1.2) ─────────────────────────
+  const driversPanel = allDrivers.map(d => {
+    const u = driverUsers.find(uu => uu?.userId === d.userId);
+    return {
+      driverId: d.driverId,
+      name: d.legalName,
+      availability: Calc.driverAvailability(d.driverId, offers, loads),
+      idvStatus: u?.idvStatus ?? 'UNVERIFIED',
+      isSelf: d.isSelf === true,
+    };
+  });
+  const onboarding = Calc.onboardingRollup(driverUsers.filter(Boolean) as Array<{ idvStatus?: string }>);
+  const compliancePosture = Calc.complianceRollup(authority ?? null);
+
+  // ── Alerts (parity with carrier 1.1) ─────────────────────────────────────
+  const activeLoads = Calc.activeLoadCounts(loads);
+  const unassigned = Calc.unassignedLoads(loads).map(l => ({
+    loadId: l.loadId,
+    pickup: { city: l.pickupCity, state: l.pickupState, at: l.pickupDate },
+    delivery: { city: l.deliveryCity, state: l.deliveryState, at: l.deliveryDate },
+    rate: l.rateAmount,
+  }));
+  const etaAtRisk = Calc.etaAtRisk(loads);
+
+  // ── Financial (parity with carrier 1.3) ──────────────────────────────────
+  const grossRevenue = Calc.grossRevenue(loads);
+  const rpm = Calc.rpmBreakdown(loads);
+
+  const deliveredLoads = loads.filter(l => l.status === LoadStatus.DELIVERED);
+  const payees = [];
+  for (const l of deliveredLoads) {
+    const total = l.rateType === 'PER_MILE'
+      ? (l.totalMiles ? l.rateAmount * l.totalMiles : 0)
+      : l.rateAmount;
+    if (total <= 0) continue;
+    try {
+      const p = await resolveInvoicePayee(l.loadId);
+      payees.push({ payee: p.payee, amount: total });
+    } catch { /* per-load resolution failure shouldn't fail the dashboard */ }
+  }
+  const payeeBreakdown = Calc.payeeBreakdown(payees);
+
+  // ── Loadboard ────────────────────────────────────────────────────────────
+  const tendered = offers
+    .filter(o => o.status === OfferStatus.OFFERED)
+    .map(o => {
+      const l = loads.find(ll => ll.loadId === o.loadId);
+      if (!l) return null;
+      // OO can accept as self (when offered to self-driver) or as fleet
+      const acceptAs: 'self' | 'fleet' =
+        selfDriver && o.driverId === selfDriver.driverId ? 'self' : 'fleet';
+      return {
+        loadId: l.loadId,
+        driverId: o.driverId,
+        acceptAs,
+        origin: { city: l.pickupCity, state: l.pickupState },
+        dest: { city: l.deliveryCity, state: l.deliveryState },
+        weight: l.totalWeightLbs,
+        commodity: l.commodityDescription,
+        equipment: l.equipmentType,
+        payout: l.rateType === 'PER_MILE' ? (l.totalMiles ?? 0) * l.rateAmount : l.rateAmount,
+        expiresAt: o.expiresAt,
+      };
+    })
+    .filter(Boolean);
+
+  // ── SLA (parity with carrier 1.5) ────────────────────────────────────────
+  const acceptance = Calc.acceptanceMetrics(offers);
+  const otp = Calc.otpMetrics(loads);
+
+  res.json({
+    operatorId: profile.operatorId,
+    operatorName: profile.legalName,
+    // OO-specific blended panel
+    myHaul,
+    // Verification: authority (OO-level) + identity (per-person on User)
+    verification: {
+      authority: compliancePosture,
+      identity: {
+        status: identity?.verificationStatus ?? 'UNVERIFIED',
+        daysToExpiry: identity?.reverifyAfter
+          ? Math.round((new Date(identity.reverifyAfter).getTime() - Date.now()) / 86_400_000)
+          : null,
+      },
+    },
+    // Alerts (same categories as carrier 1.1, operator-scoped)
+    alerts: {
+      activeLoads,
+      unassigned,
+      etaAtRisk,
+      hosWarnings: Calc.NOT_CONNECTED,
+      reeferDeviations: Calc.NOT_CONNECTED,
+    },
+    // Fleet (same categories as carrier 1.2, operator-scoped, self-driver non-removable)
+    fleet: {
+      drivers: driversPanel,
+      onboarding,
+      authorityExpiry: compliancePosture.daysToExpiry,
+      insurance: Calc.PENDING_CAPTURE,
+      hosRemaining: Calc.NOT_CONNECTED,
+      equipmentHealth: Calc.NOT_CONNECTED,
+    },
+    // Financial (same categories as carrier 1.3, operator-scoped)
+    financial: {
+      grossRevenue,
+      rpm,
+      payeeBreakdown,
+      factoringPipeline: Calc.factoringPipeline([]),
+      fuelSpend: Calc.NOT_CONNECTED,
+      tolls: Calc.NOT_CONNECTED,
+    },
+    // Loadboard (parity, plus the OO-only acceptAs hint per row)
+    loadboard: {
+      tendered,
+      capabilityWarnings: [],
+      dwell: Calc.dwell(loads),
+      deadhead: Calc.PENDING_CAPTURE,
+    },
+    // SLA (same categories as carrier 1.5)
+    sla: {
+      otp,
+      acceptance,
+      compliancePosture,
+      csaScores: Calc.NOT_CONNECTED,
+    },
+  });
 }));
 
 export default router;
