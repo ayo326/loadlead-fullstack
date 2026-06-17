@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Bell, Gauge, MapPin, Package, TrendingUp, Truck, Zap } from "lucide-react";
+import { ArrowRight, Bell, Gauge, MapPin, Navigation, Package, TrendingUp, Truck, Zap } from "lucide-react";
+import { RouteMapCard } from "@/components/RouteMapCard";
+import { LoadRoutePanel } from "@/components/LoadRoutePanel";
 import { PageHeader, StatCard, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -21,6 +23,7 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [locationCity, setLocationCity] = useState<string>("");
+  const [routeOpenId, setRouteOpenId] = useState<string | null>(null);
   const locationActive = useRef(false);
 
   const fetchOffers = async () => {
@@ -79,10 +82,26 @@ export default function DriverDashboard() {
 
   const navigate = useNavigate();
   const displayName = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.fullName || profile.legalName || user?.email : user?.email ?? "Driver";
+  const bufferPct = profile?.safetyBufferPct ?? 10;
   const maxCapLbs = profile?.maxCapacityLbs ?? 0;
+  const maxOpLbs = maxCapLbs * (1 - bufferPct / 100);
   const curLoadLbs = profile?.currentLoadLbs ?? 0;
-  const availCap = profile ? (maxCapLbs - curLoadLbs).toLocaleString() : "—";
+  const availCap = profile ? Math.max(0, maxOpLbs - curLoadLbs).toLocaleString() : "—";
   const maxCap = profile ? maxCapLbs.toLocaleString() : "—";
+
+  // Volume
+  const interiorL = profile?.interiorLengthIn ?? 0;
+  const interiorW = profile?.interiorWidthIn ?? 0;
+  const interiorH = profile?.interiorHeightIn ?? 0;
+  const usableVolCuIn = interiorL * interiorW * interiorH;
+  const maxOpVolCuIn = usableVolCuIn * (1 - bufferPct / 100);
+  const curVolCuIn = profile?.currentVolumeCuIn ?? 0;
+  const availVolCuFt = usableVolCuIn > 0 ? Math.max(0, (maxOpVolCuIn - curVolCuIn) / 1728) : null;
+
+  // Weight utilization % of operational limit
+  const weightUsedPct = maxOpLbs > 0 ? Math.min(100, (curLoadLbs / maxOpLbs) * 100) : 0;
+  const volUsedPct = maxOpVolCuIn > 0 ? Math.min(100, (curVolCuIn / maxOpVolCuIn) * 100) : 0;
+  const overBuffer = profile?.overBufferFlag ?? false;
 
   const driverStatus = profile?.status;
   const verificationStatus =
@@ -117,11 +136,51 @@ export default function DriverDashboard() {
         }
       />
 
+      {overBuffer && (
+        <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 flex items-start gap-3">
+          <span className="text-destructive font-bold text-lg leading-none">!</span>
+          <div className="text-sm">
+            <span className="font-semibold text-destructive">Over Buffer:</span>{" "}
+            Your current load exceeds the operational limit after a buffer adjustment. You cannot accept new loads until resolved. Contact your admin.
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Available capacity" value={`${availCap} lbs`} hint={`of ${maxCap} max`} />
+        {/* Weight capacity meter */}
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Weight capacity</p>
+          <p className="text-xl font-bold">{availCap} <span className="text-sm font-normal text-muted-foreground">lbs bookable</span></p>
+          <div className="mt-2 h-2 rounded-full bg-secondary overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${weightUsedPct >= 100 ? "bg-destructive" : weightUsedPct >= 90 ? "bg-warning" : "bg-primary"}`}
+              style={{ width: `${weightUsedPct}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">{weightUsedPct.toFixed(0)}% of {maxOpLbs.toLocaleString()} op. limit · {bufferPct}% buffer</p>
+        </div>
+
+        {/* Volume capacity meter */}
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
+          <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Volume capacity</p>
+          {availVolCuFt !== null ? (
+            <>
+              <p className="text-xl font-bold">{availVolCuFt.toFixed(0)} <span className="text-sm font-normal text-muted-foreground">cu ft bookable</span></p>
+              <div className="mt-2 h-2 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${volUsedPct >= 100 ? "bg-destructive" : volUsedPct >= 90 ? "bg-warning" : "bg-primary"}`}
+                  style={{ width: `${volUsedPct}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{volUsedPct.toFixed(0)}% of op. limit</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-2">Set interior dims in Equipment settings to enable volume matching.</p>
+          )}
+        </div>
+
         <StatCard label="Equipment" value={profile?.trailerType?.replace("_", " ") ?? "—"} hint={profile?.cdlClass ? `CDL-${profile.cdlClass}` : ""} />
         <StatCard label="Location" value={profile?.currentCity ?? "—"} hint={profile?.currentState ?? ""} />
-        <StatCard label="HOS available" value={profile ? `${profile.hosAvailableHours}h` : "—"} hint="Hours of service" />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -196,6 +255,46 @@ export default function DriverDashboard() {
                     </Button>
                   </div>
                 </div>
+
+                {/* ── Route toggle footer ──────────────────────────────── */}
+                <div
+                  className="border-t border-border/60 px-5 py-2.5 flex items-center gap-2 bg-secondary/30"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => setRouteOpenId(routeOpenId === load.loadId ? null : load.loadId)}
+                    className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
+                      routeOpenId === load.loadId ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Navigation className="h-3.5 w-3.5" />
+                    {routeOpenId === load.loadId ? "Hide route" : "Route"}
+                  </button>
+                  {routeOpenId === load.loadId && (
+                    <span className="text-[10px] text-muted-foreground ml-1">
+                      {load.pickupCity} → {load.deliveryCity}
+                    </span>
+                  )}
+                </div>
+
+                {/* ── Route panel ──────────────────────────────────────── */}
+                {routeOpenId === load.loadId && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <LoadRoutePanel
+                      pickupAddress={load.pickupAddress}
+                      deliveryAddress={load.deliveryAddress}
+                      pickupCity={load.pickupCity}
+                      pickupState={load.pickupState}
+                      deliveryCity={load.deliveryCity}
+                      deliveryState={load.deliveryState}
+                      currentLat={profile?.currentLat}
+                      currentLng={profile?.currentLng}
+                      currentCity={profile?.currentCity}
+                      currentState={profile?.currentState}
+                      mapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -210,20 +309,26 @@ export default function DriverDashboard() {
 
         <aside className="space-y-6">
           <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
-            <div className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> Current position</div>
-            <div className="mt-4 aspect-square rounded-xl bg-gradient-to-br from-primary/90 to-accent relative overflow-hidden">
-              <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)", backgroundSize: "16px 16px" }} />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-full bg-white/30 animate-ping" />
-                  <div className="relative h-4 w-4 rounded-full bg-white border-2 border-primary" />
-                </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <MapPin className="h-4 w-4 text-primary" />
+                {offers.length > 0 ? "Route preview" : "Current position"}
               </div>
-              <div className="absolute bottom-3 left-3 text-primary-foreground">
-                <div className="text-xs opacity-70">{profile?.currentState ?? ""}</div>
-                <div className="text-sm font-semibold">{profile?.currentCity ?? "Unknown"}</div>
-              </div>
+              {offers.length > 0 && (
+                <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {offers[0].load?.pickupCity} → {offers[0].load?.deliveryCity}
+                </span>
+              )}
             </div>
+            <RouteMapCard
+              pickupAddress={offers[0]?.load?.pickupAddress ?? null}
+              deliveryAddress={offers[0]?.load?.deliveryAddress ?? null}
+              currentCity={profile?.currentCity ?? null}
+              currentState={profile?.currentState ?? null}
+              currentLat={profile?.currentLat ?? null}
+              currentLng={profile?.currentLng ?? null}
+              mapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+            />
             <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
               <div className="rounded-lg bg-secondary p-2.5">
                 <div className="text-muted-foreground">Equipment</div>

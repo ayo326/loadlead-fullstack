@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>LoadLead — Test Results Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.topbar{background:#1e293b;border-bottom:1px solid #334155;padding:0 24px;display:flex;align-items:center;gap:16px;height:56px;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;color:#fff}
+.logo svg{color:#3b82f6}
+.badge-env{background:#0f172a;border:1px solid #334155;padding:2px 10px;border-radius:20px;font-size:11px;color:#94a3b8}
+.round-badge{background:#1d4ed8;color:#bfdbfe;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.tabs-nav{display:flex;gap:2px;padding:0 24px;background:#1e293b;border-bottom:1px solid #334155;overflow-x:auto}
+.tab-btn{padding:12px 18px;font-size:13px;font-weight:600;color:#94a3b8;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.tab-btn:hover{color:#e2e8f0}
+.tab-btn.active{color:#3b82f6;border-bottom-color:#3b82f6}
+.tab-pane{display:none;padding:24px;max-width:1400px;margin:0 auto}
+.tab-pane.active{display:block}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+.stat-card{flex:1;min-width:130px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px 20px}
+.stat-card .num{font-size:28px;font-weight:800;line-height:1}
+.stat-card .label{font-size:11px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
+.c-pass{color:#22c55e}.c-fail{color:#ef4444}.c-warn{color:#f59e0b}.c-block{color:#a855f7}.c-skip{color:#64748b}.c-info{color:#3b82f6}.c-partial{color:#38bdf8}
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.filter-btn{padding:5px 14px;border-radius:20px;border:1px solid #334155;background:#1e293b;color:#94a3b8;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.filter-btn:hover,.filter-btn.on{border-color:#3b82f6;color:#3b82f6;background:#1e3a8a22}
+.result-table{width:100%;border-collapse:collapse;font-size:13px}
+.result-table th{background:#1e293b;padding:10px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#64748b;border-bottom:1px solid #334155;position:sticky;top:100px}
+.result-table td{padding:11px 14px;border-bottom:1px solid #1e293b;vertical-align:top}
+.result-table tr:hover td{background:#1e293b88;cursor:pointer}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge-pass{background:#14532d33;color:#22c55e;border:1px solid #16a34a44}
+.badge-fail{background:#7f1d1d33;color:#ef4444;border:1px solid #dc262644}
+.badge-warn{background:#78350f33;color:#f59e0b;border:1px solid #d9770644}
+.badge-block{background:#4a044e33;color:#c084fc;border:1px solid #a855f744}
+.badge-skip{background:#1e293b;color:#64748b;border:1px solid #33415580}
+.badge-partial{background:#0c4a6e33;color:#38bdf8;border:1px solid #0284c744}
+.badge-fixed{background:#14532d;color:#86efac;border:1px solid #16a34a}
+.section-hdr{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#475569;padding:14px 14px 6px;background:#0f172a}
+.p0{background:#7f1d1d;color:#fca5a5;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:800}
+.p0f{background:#14532d;color:#86efac;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:800}
+.p1{background:#78350f;color:#fcd34d;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:800}
+.p2{background:#1e3a8a;color:#93c5fd;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:800}
+.drawer-overlay{display:none;position:fixed;inset:0;background:#00000099;z-index:200}
+.drawer-overlay.open{display:block}
+.drawer{position:fixed;right:0;top:0;bottom:0;width:min(560px,100vw);background:#1e293b;border-left:1px solid #334155;z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.drawer.open{transform:none}
+.drawer-head{padding:20px 24px;border-bottom:1px solid #334155;display:flex;align-items:flex-start;gap:12px}
+.drawer-head .close-btn{margin-left:auto;background:none;border:none;color:#64748b;cursor:pointer;font-size:20px;padding:0 4px;line-height:1}
+.drawer-body{flex:1;overflow-y:auto;padding:24px}
+.drawer-section{margin-bottom:20px}
+.drawer-section h4{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px}
+.drawer-section p,.drawer-section li{font-size:14px;color:#cbd5e1;line-height:1.6}
+.drawer-section ul{padding-left:16px}
+.drawer-section code{background:#0f172a;border:1px solid #334155;padding:1px 6px;border-radius:4px;font-family:monospace;font-size:12px;color:#7dd3fc}
+.resolution-box{background:#0f172a;border:1px solid #1d4ed8;border-radius:8px;padding:14px 16px;margin-top:8px}
+.resolution-box p{font-size:13px;color:#93c5fd;line-height:1.65}
+.resolution-box code{color:#fbbf24}
+.fixed-box{background:#052e16;border:1px solid #16a34a;border-radius:8px;padding:14px 16px;margin-top:8px}
+.fixed-box p{font-size:13px;color:#86efac;line-height:1.65}
+.sum-table{width:100%;border-collapse:collapse;font-size:13px}
+.sum-table th{background:#1e293b;padding:10px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#64748b;border-bottom:1px solid #334155}
+.sum-table td{padding:10px 14px;border-bottom:1px solid #1e293b}
+.sum-table tr:nth-child(even) td{background:#1e293b44}
+.party-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px}
+.party-card h3{font-size:15px;font-weight:700;margin-bottom:6px}
+.party-card p{font-size:13px;color:#94a3b8;line-height:1.6}
+.party-card ul{margin-top:8px;padding-left:16px}
+.party-card li{font-size:13px;color:#94a3b8;margin-bottom:4px}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin-right:4px;margin-bottom:4px}
+.tag-email{background:#1d4ed822;color:#60a5fa;border:1px solid #1d4ed8}
+.tag-api{background:#065f4622;color:#34d399;border:1px solid #065f46}
+.tag-infra{background:#4c1d9522;color:#c084fc;border:1px solid #4c1d95}
+.tag-perf{background:#78350f22;color:#fbbf24;border:1px solid #78350f}
+.priority-group{margin-bottom:28px}
+.priority-group h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #334155}
+.action-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+.action-card:hover{border-color:#3b82f6}
+.action-card .ac-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
+.action-card .ac-title{font-size:14px;font-weight:600;flex:1}
+.action-card .ac-body{font-size:13px;color:#64748b;line-height:1.55}
+.table-wrap{border:1px solid #334155;border-radius:10px;overflow:hidden;overflow-x:auto}
+.fixed-card{opacity:.65;border-color:#16a34a44!important}
+
+/* ===== Refactor Test Tracker (#tt-root) — merged from test-tracker.html ===== */
+#tt-root{
+  --bg:#0c1016; --panel:#141a22; --panel-2:#1b232d; --line:#26303c;
+  --ink:#e7eef6; --muted:#8a97a6; --faint:#5d6b7a;
+  --pass:#3fb950; --fail:#f85149; --block:#d29922; --pend:#6e7681;
+  --t1:#a371f7; --accent:#39c0ed;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  color:var(--ink); font-family:var(--sans);
+  background:var(--bg); padding:28px; border-radius:14px;
+  line-height:1.45; box-sizing:border-box;
+}
+#tt-root *{box-sizing:border-box}
+#tt-root .tt-eyebrow{font:600 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--faint)}
+#tt-root h2.tt-title{font:650 22px/1.1 var(--sans);letter-spacing:-.01em;margin:6px 0 0}
+
+/* ---- top: gate (signature) + stats ---- */
+#tt-root .tt-top{display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:18px;margin:18px 0 22px}
+#tt-root .tt-gate{
+  position:relative;border-radius:12px;padding:20px 22px;overflow:hidden;
+  border:1px solid var(--line);background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb,var(--gate-c) 16%, transparent), transparent 60%),
+    var(--panel);
+  --gate-c:var(--pend);
+}
+#tt-root .tt-gate::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--gate-c)}
+#tt-root .tt-gate-label{font:600 11px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+#tt-root .tt-gate-state{display:flex;align-items:baseline;gap:12px;margin-top:10px}
+#tt-root .tt-gate-word{font:800 34px/1 var(--mono);letter-spacing:-.01em;color:var(--gate-c)}
+#tt-root .tt-gate-sub{font:500 13px/1.3 var(--sans);color:var(--muted)}
+#tt-root .tt-gate-bar{height:6px;border-radius:99px;background:var(--panel-2);margin-top:16px;overflow:hidden}
+#tt-root .tt-gate-bar>i{display:block;height:100%;width:0;background:var(--gate-c);transition:width .35s ease}
+
+#tt-root .tt-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+#tt-root .tt-stat{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:14px 16px}
+#tt-root .tt-stat b{display:block;font:700 26px/1 var(--mono);letter-spacing:-.02em}
+#tt-root .tt-stat span{font:500 12px/1.2 var(--sans);color:var(--muted)}
+#tt-root .tt-stat.pass b{color:var(--pass)} #tt-root .tt-stat.fail b{color:var(--fail)}
+#tt-root .tt-stat.block b{color:var(--block)} #tt-root .tt-stat.pend b{color:var(--pend)}
+
+/* ---- controls ---- */
+#tt-root .tt-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+#tt-root .tt-search{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);
+  color:var(--ink);border-radius:8px;padding:9px 12px;font:500 13px var(--sans)}
+#tt-root .tt-search::placeholder{color:var(--faint)}
+#tt-root .tt-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+#tt-root .tt-seg button{background:var(--panel);color:var(--muted);border:0;padding:8px 12px;
+  font:600 12px var(--sans);cursor:pointer;border-right:1px solid var(--line)}
+#tt-root .tt-seg button:last-child{border-right:0}
+#tt-root .tt-seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink)}
+#tt-root .tt-act{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+  padding:8px 13px;font:600 12px var(--sans);cursor:pointer}
+#tt-root .tt-act:hover{border-color:var(--accent)}
+#tt-root .tt-act.tt-danger:hover{border-color:var(--fail);color:var(--fail)}
+
+/* ---- sections + rows ---- */
+#tt-root .tt-section{border:1px solid var(--line);border-radius:11px;background:var(--panel);margin-bottom:12px;overflow:hidden}
+#tt-root .tt-shead{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel-2);
+  border-bottom:1px solid var(--line)}
+#tt-root .tt-letter{font:800 13px/1 var(--mono);color:var(--bg);background:var(--accent);
+  width:26px;height:26px;display:grid;place-items:center;border-radius:7px}
+#tt-root .tt-sname{font:650 14px var(--sans)}
+#tt-root .tt-scount{font:500 12px var(--mono);color:var(--muted);margin-left:auto}
+#tt-root .tt-smini{width:84px;height:5px;border-radius:99px;background:var(--bg);overflow:hidden}
+#tt-root .tt-smini>i{display:block;height:100%;width:0;background:var(--pass);transition:width .3s}
+
+#tt-root .tt-row{display:grid;grid-template-columns:54px 1fr auto auto;gap:12px;align-items:center;
+  padding:10px 16px;border-top:1px solid var(--line)}
+#tt-root .tt-row:first-child{border-top:0}
+#tt-root .tt-id{font:700 12px var(--mono);color:var(--accent)}
+#tt-root .tt-scn{font:500 13px var(--sans);color:var(--ink)}
+#tt-root .tt-t1{font:700 10px/1 var(--mono);letter-spacing:.06em;color:var(--t1);
+  border:1px solid color-mix(in srgb,var(--t1) 45%,transparent);border-radius:5px;padding:4px 6px}
+#tt-root .tt-t2{font:600 10px/1 var(--mono);letter-spacing:.06em;color:var(--faint);
+  border:1px solid var(--line);border-radius:5px;padding:4px 6px}
+#tt-root select.tt-status{font:700 11px var(--mono);letter-spacing:.04em;text-transform:uppercase;
+  border-radius:7px;padding:7px 9px;cursor:pointer;border:1px solid var(--line);
+  background:var(--panel-2);color:var(--ink);min-width:104px}
+#tt-root .tt-row[data-s="pass"] select.tt-status{color:var(--pass);border-color:color-mix(in srgb,var(--pass) 50%,transparent)}
+#tt-root .tt-row[data-s="fail"] select.tt-status{color:var(--fail);border-color:color-mix(in srgb,var(--fail) 55%,transparent)}
+#tt-root .tt-row[data-s="blocked"] select.tt-status{color:var(--block);border-color:color-mix(in srgb,var(--block) 50%,transparent)}
+#tt-root .tt-row[data-s="pending"] select.tt-status{color:var(--pend)}
+#tt-root .tt-row.tt-hide{display:none}
+
+#tt-root .tt-sync{display:flex;align-items:center;gap:10px;margin:-2px 0 14px;padding:9px 13px;
+  border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+  background:color-mix(in srgb,var(--accent) 8%,var(--panel));
+  border-radius:8px;font:600 12px var(--mono);color:var(--accent)}
+#tt-root :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#tt-root .tt-foot{margin-top:14px;font:500 12px var(--mono);color:var(--faint)}
+@media (max-width:720px){
+  #tt-root .tt-top{grid-template-columns:1fr} #tt-root .tt-stats{grid-template-columns:repeat(2,1fr)}
+  #tt-root .tt-row{grid-template-columns:46px 1fr;gap:8px} #tt-root .tt-row .tt-t1,#tt-root .tt-row .tt-t2{grid-column:1}
+  #tt-root select.tt-status{grid-column:2;justify-self:start}
+}
+@media (prefers-reduced-motion:reduce){#tt-root *{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+    LoadLead
+  </div>
+  <span class="badge-env">Production · api.loadleadapp.com · 2026-06-15</span>
+  <span class="round-badge">Round 6 Complete</span>
+</div>
+
+<div class="tabs-nav">
+  <button class="tab-btn active" onclick="switchTab('overview',event)">📊 Overview</button>
+  <button class="tab-btn" onclick="switchTab('results',event)">🧪 Test Results</button>
+  <button class="tab-btn" onclick="switchTab('priority',event)">🚨 Priority Actions</button>
+  <button class="tab-btn" onclick="switchTab('thirdparty',event)">🔌 Third-Party</button>
+  <button class="tab-btn" onclick="switchTab('summary',event)">📋 Summary</button>
+  <button class="tab-btn" onclick="switchTab('outstanding',event)">🔮 Outstanding Features</button>
+  <button class="tab-btn" onclick="switchTab('refactor',event)">🧬 Refactor Test Tracker</button>
+</div>
+
+<!-- ═══════════════════════════════ OVERVIEW ═══════════════════════════════ -->
+<div id="tab-overview" class="tab-pane active">
+  <div class="stat-row">
+    <div class="stat-card"><div class="num c-pass">96</div><div class="label">✅ Passed</div></div>
+    <div class="stat-card"><div class="num c-fail">0</div><div class="label">❌ Failed</div></div>
+    <div class="stat-card"><div class="num c-warn">0</div><div class="label">⚠️ Risk</div></div>
+    <div class="stat-card"><div class="num c-partial">1</div><div class="label">🔵 Partial</div></div>
+    <div class="stat-card"><div class="num c-skip">28</div><div class="label">⏭ Untested</div></div>
+    <div class="stat-card"><div class="num c-info">125</div><div class="label">Total Checks</div></div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat-card" style="flex:2;min-width:260px">
+      <div class="label" style="margin-bottom:10px">Bugs Fixed This Session (9 total)</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div onclick="openDrawer('b1')" class="action-card" style="padding:10px 14px;margin:0">
+          <div class="ac-top"><span class="p0f">B1 FIXED</span><span class="ac-title">adminExists() scan returned false despite admin existing</span></div>
+          <div class="ac-body">DynamoDB Limit:1 applies before FilterExpression — deployed fix</div>
+        </div>
+        <div onclick="openDrawer('b2')" class="action-card" style="padding:10px 14px;margin:0">
+          <div class="ac-top"><span class="p0f">B2 FIXED</span><span class="ac-title">status-createdAt-index vs status-index mismatch in LoadService</span></div>
+          <div class="ac-body">Admin /loads and load submit returned 500 — deployed fix</div>
+        </div>
+        <div onclick="openDrawer('b3')" class="action-card" style="padding:10px 14px;margin:0">
+          <div class="ac-top"><span class="p0f">B3 FIXED</span><span class="ac-title">LoadLead_Drivers has no status-index GSI</span></div>
+          <div class="ac-body">Switched DriverService to Scan with FilterExpression — deployed fix</div>
+        </div>
+        <div onclick="openDrawer('b4')" class="action-card" style="padding:10px 14px;margin:0">
+          <div class="ac-top"><span class="p0f">B4 FIXED</span><span class="ac-title">Offer accept/decline 500 — key schema mismatch on LoadLead_Offers</span></div>
+          <div class="ac-body">Added loadId-driverId-index GSI; rewrote offerService.ts — deployed fix</div>
+        </div>
+        <div onclick="openDrawer('i6')" class="action-card" style="padding:10px 14px;margin:0">
+          <div class="ac-top"><span class="p0f">I6 FIXED</span><span class="ac-title">DRIVER role could access all /api/org/ routes</span></div>
+          <div class="ac-body">Added requireRole guard to org.ts — DRIVER now receives 403</div>
+        </div>
+        <div onclick="openDrawer('br1')" class="action-card" style="padding:10px 14px;margin:0">
+          <div class="ac-top"><span class="p0f">BR1 FIXED</span><span class="ac-title">Broadcast: minMcMaturityDays=0 overridden by || fallback</span></div>
+          <div class="ac-body"><code>data.minMcMaturityDays || 90</code> treated 0 as falsy — changed to <code>??</code> throughout loadService.ts</div>
+        </div>
+        <div onclick="openDrawer('br2')" class="action-card" style="padding:10px 14px;margin:0">
+          <div class="ac-top"><span class="p0f">BR2 FIXED</span><span class="ac-title">Broadcast: load posted with trailerType instead of equipmentType</span></div>
+          <div class="ac-body">Wrong field name → <code>load.equipmentType = undefined</code> → driver excluded; corrected draft body field</div>
+        </div>
+        <div onclick="openDrawer('br3')" class="action-card" style="padding:10px 14px;margin:0">
+          <div class="ac-top"><span class="p0f">BR3 FIXED</span><span class="ac-title">Broadcast: dockAvailable defaulted to true, blocking all dry-van drivers</span></div>
+          <div class="ac-body">equipmentService.ts defaulted missing facility to <code>dockAvailable:true</code> → requiresDockHeight=true for every load; changed default to false</div>
+        </div>
+        <div onclick="openDrawer('i5')" class="action-card" style="padding:10px 14px;margin:0;border-color:#16a34a44">
+          <div class="ac-top"><span class="p0f">I5 FIXED</span><span class="ac-title">Shipper profile gate — mandatory step in signup + 400 on all shipper routes</span></div>
+          <div class="ac-body">4-step SHIPPER signup wizard; profile created immediately after account; all shipper routes return 400 PROFILE_INCOMPLETE instead of 404 if profile missing</div>
+        </div>
+      </div>
+    </div>
+    <div class="stat-card" style="flex:2;min-width:260px">
+      <div class="label" style="margin-bottom:10px">Open Critical Issues (Round 2 findings)</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div onclick="openDrawer('b5')" class="action-card" style="padding:10px 14px;margin:0;border-color:#16a34a44">
+          <div class="ac-top"><span class="p0f">B5 FIXED</span><span class="ac-title">Cross-shipper IDOR — requireOwnLoad() guard deployed</span></div>
+          <div class="ac-body">GET/PUT/DELETE/submit all return 403 for shipper2 on shipper1's load — verified in production</div>
+        </div>
+        <div onclick="openDrawer('b7bol')" class="action-card" style="padding:10px 14px;margin:0;border-color:#16a34a44">
+          <div class="ac-top"><span class="p0f">B7 FIXED</span><span class="ac-title">BOL IDOR — requireBOLAccess() guard deployed</span></div>
+          <div class="ac-body">GET /bol/:bolId and GET /bol/load/:loadId check load ownership; SHIPPER sign → 403. Verified in production.</div>
+        </div>
+        <div onclick="openDrawer('i2')" class="action-card" style="padding:10px 14px;margin:0;border-color:#16a34a44">
+          <div class="ac-top"><span class="p0f">I2 FIXED</span><span class="ac-title">XSS sanitized + JWT moved to httpOnly cookie</span></div>
+          <div class="ac-body">HTML stripped at ingestion (validators); <code>ll_token</code> cookie is HttpOnly+Secure+SameSite=Strict; localStorage auth removed</div>
+        </div>
+        <div onclick="openDrawer('b6')" class="action-card" style="padding:10px 14px;margin:0;border-color:#16a34a44">
+          <div class="ac-top"><span class="p0f">B6 FIXED</span><span class="ac-title">Cross-field date validation deployed — delivery ≤ pickup → 400</span></div>
+          <div class="ac-body">Added <code>.custom()</code> to <code>deliveryDate</code> validator; all 3 assertions pass in production</div>
+        </div>
+        <div onclick="openDrawer('i_geo')" class="action-card" style="padding:10px 14px;margin:0;border-color:#16a34a44">
+          <div class="ac-top"><span class="p0f">I_GEO FIXED</span><span class="ac-title">Broadcast geocoding: full address + coords required; BroadcastService fallback added</span></div>
+          <div class="ac-body">Full street address mandatory at draft; frontend geocodes before submit; validator rejects null lat/lng; BroadcastService geocodes historical loads as fallback</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ TEST RESULTS ═══════════════════════════════ -->
+<div id="tab-results" class="tab-pane">
+  <div class="filter-bar">
+    <button class="filter-btn on" onclick="filterResults('all',this)">All</button>
+    <button class="filter-btn" onclick="filterResults('pass',this)">✅ Passed</button>
+    <button class="filter-btn" onclick="filterResults('fail',this)">❌ Failed</button>
+    <button class="filter-btn" onclick="filterResults('risk',this)">⚠️ Risk</button>
+    <button class="filter-btn" onclick="filterResults('partial',this)">🔵 Partial</button>
+    <button class="filter-btn" onclick="filterResults('untested',this)">⏭ Untested</button>
+  </div>
+  <div class="table-wrap">
+  <table class="result-table" id="resultTable">
+    <thead>
+      <tr><th style="width:50px">#</th><th style="width:190px">Section</th><th>Test</th><th style="width:110px">Status</th><th style="width:70px">HTTP</th><th style="width:100px">Details</th></tr>
+    </thead>
+    <tbody id="resultBody"></tbody>
+  </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ PRIORITY ═══════════════════════════════ -->
+<div id="tab-priority" class="tab-pane">
+  <div class="priority-group">
+    <h2 style="color:#ef4444">🔴 P0 — Must Fix Before Launch</h2>
+    <div class="action-card fixed-card" onclick="openDrawer('b5')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">B5 FIXED</span><div class="ac-title">Cross-shipper IDOR — requireOwnLoad() guard on all load handlers</div></div>
+      <div class="ac-body">All four handlers (GET, POST/submit, PUT, DELETE) now call <code>requireOwnLoad()</code> which verifies <code>load.shipperId === shipper.shipperId</code> before proceeding. Shipper2 receives 403 on all routes for Shipper1's loads. Deployed and verified.</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('b7bol')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">B7 FIXED</span><div class="ac-title">BOL IDOR — requireBOLAccess() party-based guard on all BOL read routes</div></div>
+      <div class="ac-body">Both <code>GET /api/bol/:bolId</code> and <code>GET /api/bol/load/:loadId</code> now verify the caller is a legitimate party on the load. SHIPPER → must own the load; DRIVER → must be assigned; RECEIVER → must be load's receiver; ADMIN → always allowed. Deployed and verified.</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('b6')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">B6 FIXED</span><div class="ac-title">Cross-field date validation — delivery ≤ pickup now returns 400</div></div>
+      <div class="ac-body">Added <code>.custom()</code> validator on <code>deliveryDate</code>. Delivery before pickup → 400. Delivery = pickup → 400. Valid load (delivery after pickup) → 201. Deployed and verified.</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('i2')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I2 FIXED</span><div class="ac-title">XSS sanitized at ingestion + JWT moved to httpOnly cookie</div></div>
+      <div class="ac-body">Backend strips HTML tags from all free-text fields before DynamoDB write. DOMPurify installed in frontend. JWT is now an httpOnly+Secure+SameSite=Strict cookie — JavaScript cannot read it, eliminating the XSS-to-token-theft vector entirely.</div>
+    </div>
+  </div>
+
+  <div class="priority-group">
+    <h2 style="color:#f59e0b">🟡 P1 — Should Fix Before Launch</h2>
+    <div class="action-card fixed-card" onclick="openDrawer('b6')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">B6 FIXED</span><div class="ac-title">Cross-field date validation — delivery ≤ pickup now returns 400</div></div>
+      <div class="ac-body">Added <code>.custom()</code> validator on <code>deliveryDate</code> in <code>validators.ts</code>. Delivery before pickup → 400. Delivery = pickup → 400. Delivery after pickup → 201 (draft created). Also hardened <code>routingService.ts</code> fetch calls with try-catch so network errors degrade gracefully.</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('i_geo')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I_GEO FIXED</span><div class="ac-title">Broadcast geocoding: full address + real coordinates required at draft time</div></div>
+      <div class="ac-body">PostLoad form now has separate street/city/state/zip fields for pickup and delivery. Frontend calls <code>GET /api/maps/geocode</code> and blocks submit if geocoding fails. Backend validators reject null lat/lng. BroadcastService geocodes historical null-coord loads as fallback. All verified in production.</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('i8')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I8 FIXED</span><div class="ac-title">Auth rate limiting deployed — 429 after 15 req/15 min per IP</div></div>
+      <div class="ac-body"><code>express-rate-limit</code> v8 on all <code>/api/auth/*</code> routes; <code>trust proxy: 1</code> ensures real client IP used from <code>X-Forwarded-For</code>; request #16 returns 429 — verified in production. WAF global flood guard (2,000 req/5 min) added as supplementary layer.</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('i9')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I9 FIXED</span><div class="ac-title">Security headers fully deployed on API + frontend</div></div>
+      <div class="ac-body">API: <code>helmet</code> adds CSP, Cross-Origin-*, X-Permitted-Cross-Domain-Policies, X-DNS-Prefetch. Nginx adds HSTS, XFO, XCTO, Referrer-Policy. Frontend: CloudFront Function injects full CSP + HSTS+preload + XFO + XCTO + Referrer-Policy on every viewer response.</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('i5')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I5 FIXED</span><div class="ac-title">Shipper profile gate — enforced at signup + backend middleware</div></div>
+      <div class="ac-body">SHIPPER signup now collects companyName, companyAddress, contactName, contactPhone, contactEmail as a mandatory step 3 and creates the profile immediately after account creation. All shipper routes protected by <code>requireProfile</code> middleware returning <code>400 PROFILE_INCOMPLETE</code> with a JSON hint.</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('i3')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I3 FIXED</span><div class="ac-title">HTTP → HTTPS redirect deployed — API no longer accessible over plain HTTP</div></div>
+      <div class="ac-body"><code>http://api.loadleadapp.com/api/health</code> → <strong>301 https://api.loadleadapp.com/api/health</strong> ✅. Express <code>trust proxy 1</code> + <code>X-Forwarded-Proto</code> middleware in <code>index.ts</code>. HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy added via <code>.platform/nginx/conf.d/security_headers.conf</code>.</div>
+    </div>
+  </div>
+
+  <div class="priority-group">
+    <h2 style="color:#3b82f6">🔵 P2 — Pre-Beta Technical Debt</h2>
+    <div class="action-card" onclick="openDrawer('setup3')">
+      <div class="ac-top"><span class="p2">P2</span><div class="ac-title">Wire Jest + supertest CI gate (auth matrix + race conditions)</div></div>
+      <div class="ac-body">TESTING.md Section 17 specifies three blocking CI checks: authorization matrix, admin bootstrap race, and double-accept race. None are implemented. A regression in any of these could ship silently. The double-accept race now passes manually — ensure it's automated before it regresses.</div>
+    </div>
+  </div>
+
+  <div class="priority-group" style="margin-top:24px">
+    <h2 style="color:#22c55e">✅ Fixed This Session</h2>
+    <div class="action-card fixed-card" onclick="openDrawer('b4')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">B4 FIXED</span><div class="ac-title">Offer accept/decline completely broken — 500 on every call</div></div>
+      <div class="ac-body">Added <code>loadId-driverId-index</code> GSI to LoadLead_Offers; rewrote entire offerService.ts with correct offerId PK. All offer lifecycle tests now PASS.</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('i6')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I6 FIXED</span><div class="ac-title">DRIVER role accessing org routes with 200 empty response</div></div>
+      <div class="ac-body">Added <code>router.use(requireRole(...))</code> guard to org.ts. DRIVER now receives 403 on all /api/org/ routes. Confirmed in Round 2 (3.8 PASS).</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('b6')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">B6 FIXED</span><div class="ac-title">Cross-field date validation — delivery ≤ pickup now returns 400</div></div>
+      <div class="ac-body">Added <code>.custom()</code> validator on <code>deliveryDate</code> in <code>validators.ts</code>; also hardened <code>routingService.ts</code> fetch calls with try-catch. Deployed <code>deploy-b6v2</code> to EB. All 3 assertions pass.</div>
+    </div>
+    <div class="action-card fixed-card" onclick="openDrawer('i2')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I2 FIXED</span><div class="ac-title">XSS sanitized at ingestion + JWT moved to httpOnly cookie</div></div>
+      <div class="ac-body">Backend: <code>stripHtml()</code> sanitizer on all free-text load fields. Frontend: <code>dompurify</code> installed, <code>sanitize.ts</code> utility created. Auth: <code>ll_token</code> is now HttpOnly+Secure+SameSite=Strict cookie — JS cannot steal it.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ THIRD PARTY ═══════════════════════════════ -->
+<div id="tab-thirdparty" class="tab-pane">
+  <p style="color:#64748b;font-size:13px;margin-bottom:20px">Tests in this category cannot be fully automated without mocking or coordinating with external services. They must be tested manually or via service-level injection before launch.</p>
+
+  <div class="party-card">
+    <h3><span class="tag tag-email">EMAIL</span> Resend Transactional Email</h3>
+    <p>Multiple critical flows depend on Resend delivering emails successfully. These are untestable end-to-end in production without direct Resend coordination.</p>
+    <ul>
+      <li><strong>Signup email</strong> — welcome email on account creation</li>
+      <li><strong>Password reset</strong> — 1-hour single-use token delivery</li>
+      <li><strong>Admin setup invite</strong> — 24-hour setup link</li>
+      <li><strong>Offer notifications</strong> — driver offer + shipper acceptance alerts</li>
+      <li><strong>Org/fleet invites</strong> — 72h / 168h token delivery</li>
+    </ul>
+    <div style="margin-top:12px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px">What to test</div>
+      <p style="font-size:13px;color:#94a3b8">Revoke the Resend API key temporarily and confirm: (1) Signup still creates the user in DynamoDB, (2) Response is still 201 (not 500), (3) Error is logged but not surfaced to client. Restore key and verify emails resume.</p>
+    </div>
+  </div>
+
+  <div class="party-card">
+    <h3><span class="tag tag-api">API</span> Google Maps Routes API — Geocoding Gap Found</h3>
+    <p style="color:#f59e0b;font-weight:600">⚠️ Round 2 finding: City-only addresses (e.g. "Chicago, IL") are not being resolved to lat/lng coordinates on the load record. This breaks the broadcast radius check — no offers are sent when pickupLat/pickupLng are null.</p>
+    <ul style="margin-top:8px">
+      <li><strong>Load draft geocoding</strong> — city name must resolve to lat/lng before submit</li>
+      <li><strong>Broadcast radius check</strong> — uses load.pickupLat / load.pickupLng (null = no matches)</li>
+      <li><strong>Tracking display</strong> — route overlay on tracking map</li>
+    </ul>
+    <div style="margin-top:12px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px">What to test / fix</div>
+      <p style="font-size:13px;color:#94a3b8">Set GOOGLE_MAPS_API_KEY to an invalid value in EB environment. POST a load draft. Confirm: (1) Returns 200 with null/empty distance, not 500, (2) Load can still be submitted. Also: add a fallback geocoding step in BroadcastService — if load.pickupLat is null, call Maps API to resolve pickupCity + pickupState before running radius filter.</p>
+    </div>
+  </div>
+
+  <div class="party-card">
+    <h3><span class="tag tag-infra">INFRA</span> Web Push (VAPID)</h3>
+    <p>Push notifications are sent to drivers when offers are created. Expired or invalid push subscriptions must be pruned — not crash the broadcast.</p>
+    <ul>
+      <li><strong>Broadcast fan-out</strong> — sends push to each eligible driver</li>
+      <li><strong>Offer accepted/declined</strong> — notifies shipper</li>
+    </ul>
+    <div style="margin-top:12px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px">What to test</div>
+      <p style="font-size:13px;color:#94a3b8">Insert a stale/invalid push subscription row into LoadLead_PushSubscriptions. Trigger a broadcast. Confirm the subscription row is deleted and the broadcast continues without throwing. Confirm other drivers still receive push.</p>
+    </div>
+  </div>
+
+  <div class="party-card">
+    <h3><span class="tag tag-perf">PERF</span> k6 / Artillery — Load &amp; Scale Testing</h3>
+    <p>Section 16 tests require synthetic load generation. These cannot be run from a single curl terminal.</p>
+    <ul>
+      <li><strong>Fan-out perf</strong> — broadcast to 100+ eligible drivers; measure p95 latency</li>
+      <li><strong>Geohash at scale</strong> — geoproximity query as driver count grows to 1,000+</li>
+      <li><strong>DynamoDB burst</strong> — on-demand capacity under rapid load-post burst</li>
+      <li><strong>EB autoscaling</strong> — verify scale-out triggers before p95 degrades</li>
+    </ul>
+    <div style="margin-top:12px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px">Recommended tooling</div>
+      <p style="font-size:13px;color:#94a3b8">Use <code>k6</code> with a script that: creates 100 verified driver profiles, posts a load at Chicago coords, submits it, and measures time-to-offer-creation for all 100. Alert if p95 &gt; 2s. Run from AWS EC2 in us-east-1 to avoid client-side network variance.</p>
+    </div>
+  </div>
+
+  <div class="party-card">
+    <h3><span class="tag tag-infra">INFRA</span> DynamoDB Local (Docker) — CI Isolation</h3>
+    <p>The TESTING.md CI gate (Section 17) requires isolated, repeatable test runs. Production DynamoDB cannot be used for CI.</p>
+    <div style="margin-top:12px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px">Setup</div>
+      <p style="font-size:13px;color:#94a3b8">Run <code>docker run -p 8000:8000 amazon/dynamodb-local</code> in CI. Set <code>DYNAMODB_ENDPOINT=http://localhost:8000</code> in test env. Run <code>node scripts/createTables.mjs</code> to seed schema. Use Jest + supertest against Express app directly (no HTTP). Authorization matrix + race tests run in &lt;30s.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ SUMMARY ═══════════════════════════════ -->
+<div id="tab-summary" class="tab-pane">
+  <div class="table-wrap">
+  <table class="sum-table">
+    <thead>
+      <tr>
+        <th>Section</th>
+        <th>Total</th>
+        <th>✅ Pass</th>
+        <th>❌ Fail</th>
+        <th>⚠️ Risk</th>
+        <th>🔵 Partial</th>
+        <th>⏭ Untested</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>2. Auth / IDOR</td><td>7</td><td class="c-pass">5</td><td>0</td><td>0</td><td class="c-partial">1</td><td class="c-skip">1</td><td style="font-size:11px;color:#22c55e">B5 IDOR fixed</td></tr>
+      <tr><td>3. Role Guards / RBAC</td><td>8</td><td class="c-pass">5</td><td>0</td><td>0</td><td>0</td><td class="c-skip">3</td><td style="font-size:11px;color:#22c55e">3.8 i6 fix confirmed</td></tr>
+      <tr><td>4. Admin Bootstrap</td><td>5</td><td class="c-pass">3</td><td>0</td><td>0</td><td>0</td><td class="c-skip">2</td><td style="font-size:11px">Resend: 3rd party</td></tr>
+      <tr><td>5. Token Lifecycle</td><td>5</td><td class="c-pass">3</td><td>0</td><td>0</td><td>0</td><td class="c-skip">2</td><td></td></tr>
+      <tr><td>6. Broadcast Engine</td><td>7</td><td class="c-pass">3</td><td>0</td><td>0</td><td>0</td><td class="c-skip">4</td><td style="font-size:11px;color:#22c55e">I_GEO fixed — coords required at draft</td></tr>
+      <tr><td>7. Offer Lifecycle &amp; Race</td><td>8</td><td class="c-pass">6</td><td>0</td><td>0</td><td>0</td><td class="c-skip">2</td><td style="font-size:11px;color:#22c55e">B4 fix — all core PASS</td></tr>
+      <tr><td>8. Load State Machine</td><td>7</td><td class="c-pass">7</td><td>0</td><td>0</td><td>0</td><td>0</td><td style="font-size:11px;color:#22c55e">All PASS</td></tr>
+      <tr><td>9. BOL &amp; Signature</td><td>7</td><td class="c-pass">6</td><td>0</td><td>0</td><td>0</td><td class="c-skip">1</td><td style="font-size:11px;color:#22c55e">B7 BOL IDOR fixed</td></tr>
+      <tr><td>10. GPS Tracking</td><td>5</td><td class="c-pass">5</td><td>0</td><td>0</td><td>0</td><td>0</td><td style="font-size:11px;color:#22c55e">All PASS</td></tr>
+      <tr><td>11. DynamoDB Behaviors</td><td>5</td><td class="c-pass">5</td><td>0</td><td>0</td><td>0</td><td>0</td><td style="font-size:11px;color:#22c55e">All PASS</td></tr>
+      <tr><td>12. Input Validation</td><td>8</td><td class="c-pass">7</td><td>0</td><td>0</td><td>0</td><td class="c-skip">1</td><td style="font-size:11px;color:#22c55e">B6 + I2 fixed</td></tr>
+      <tr><td>13. Infra &amp; CORS</td><td>6</td><td class="c-pass">6</td><td>0</td><td>0</td><td>0</td><td>0</td><td style="font-size:11px;color:#22c55e">I3 + I8 fixed — HTTP→HTTPS 301; rate limiting 429 on auth endpoints</td></tr>
+      <tr><td>14. Failure Modes</td><td>9</td><td class="c-pass">6</td><td>0</td><td>0</td><td>0</td><td class="c-skip">3</td><td style="font-size:11px">3rd party untested</td></tr>
+      <tr><td>15. Frontend / UI Sec</td><td>10</td><td class="c-pass">7</td><td>0</td><td>0</td><td>0</td><td class="c-skip">3</td><td style="font-size:11px;color:#22c55e">I9 fixed — CSP + HSTS (preload) + XFO via CloudFront Function; helmet on API</td></tr>
+      <tr><td>16–17. Perf / CI Gate</td><td>6</td><td>0</td><td>0</td><td>0</td><td>0</td><td class="c-skip">6</td><td style="font-size:11px">k6 + CI not wired</td></tr>
+      <tr><td>18. Maps &amp; Routes (R3)</td><td>5</td><td class="c-pass">5</td><td>0</td><td>0</td><td>0</td><td>0</td><td style="font-size:11px;color:#22c55e">GPS chain fixed; RouteMapCard + LoadRoutePanel verified</td></tr>
+      <tr><td>19. Broadcast Pipeline (R3)</td><td>4</td><td class="c-pass">4</td><td>0</td><td>0</td><td>0</td><td>0</td><td style="font-size:11px;color:#22c55e">BR1 + BR2 + BR3 fixed; 3 offers delivered end-to-end</td></tr>
+      <tr><td>20. Load History (R3)</td><td>5</td><td class="c-pass">5</td><td>0</td><td>0</td><td>0</td><td>0</td><td style="font-size:11px;color:#22c55e">Driver + OO history endpoints + sidebar nav deployed</td></tr>
+      <tr><td>21. Auth Rate Limiting (R4)</td><td>4</td><td class="c-pass">4</td><td>0</td><td>0</td><td>0</td><td>0</td><td style="font-size:11px;color:#22c55e">I8 fixed — express-rate-limit; 429 confirmed; redirect loop fixed</td></tr>
+      <tr><td>22. Shipper Profile Gate (R6)</td><td>4</td><td class="c-pass">4</td><td>0</td><td>0</td><td>0</td><td>0</td><td style="font-size:11px;color:#22c55e">I5 fixed — 4-step wizard; requireProfile middleware; 400 PROFILE_INCOMPLETE</td></tr>
+      <tr style="font-weight:700;background:#1e293b">
+        <td>TOTAL</td><td>125</td>
+        <td class="c-pass">96</td>
+        <td class="c-fail">0</td>
+        <td class="c-warn">0</td>
+        <td class="c-partial">1</td>
+        <td class="c-skip">28</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="party-card">
+      <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:12px">Bugs Fixed (16 total)</h3>
+      <ul style="padding-left:16px">
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>B1</strong> adminExists() Limit:1 scan bug → correct result</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>B2</strong> status-createdAt-index typo → admin/loads + submit 200</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>B3</strong> No status GSI on Drivers → switched to Scan</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>B4</strong> Offer key schema mismatch → GSI + offerService rewrite</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I6</strong> Org routes no role guard → requireRole() added to org.ts</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>B5</strong> Cross-shipper IDOR → requireOwnLoad() on all 4 load handlers</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>B7</strong> BOL IDOR → requireBOLAccess() party-guard + SHIPPER sign → 403</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>B6</strong> Cross-field date validation → delivery ≤ pickup returns 400</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I2</strong> XSS: stripHtml at ingestion + JWT httpOnly cookie + DOMPurify</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I_GEO</strong> Geocoding null → full address + real coords required; BroadcastService fallback</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>BR1</strong> minMcMaturityDays=0 overridden by || fallback → changed to ??</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>BR2</strong> Load posted with trailerType field → corrected to equipmentType</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>BR3</strong> dockAvailable defaulted true → changed to false; dry-van drivers no longer blocked</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I8</strong> Auth rate limiting — <code>express-rate-limit</code> 15 req/15 min on all <code>/api/auth/*</code> endpoints; 429 confirmed in production</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I9</strong> Security headers — <code>helmet</code> v8 on API; CloudFront Function on frontend SPA; CSP, HSTS+preload, XFO, XCTO, Referrer-Policy, X-Permitted-Cross-Domain-Policies on both surfaces</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I5</strong> Shipper profile gate — 4-step SHIPPER signup wizard; <code>requireProfile</code> middleware on all shipper routes; <code>400 PROFILE_INCOMPLETE</code> with JSON hint on missing profile</li>
+      </ul>
+    </div>
+    <div class="party-card">
+      <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:12px">Issues Found — Round 2 (8 total, 5 fixed)</h3>
+      <ul style="padding-left:16px">
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>B5</strong> Cross-shipper IDOR — requireOwnLoad() on all load handlers</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>B7</strong> BOL IDOR — requireBOLAccess() + SHIPPER sign → 403</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>B6</strong> Cross-field date validation — delivery ≤ pickup → 400</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I2</strong> XSS sanitized at ingestion + JWT → httpOnly cookie</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I_GEO</strong> Broadcast geocoding — full address + coords required at draft; BroadcastService fallback</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I8</strong> Auth rate limiting — <code>express-rate-limit</code> 15 req/15 min; 429 in production</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I9</strong> CSP / X-Frame-Options / HSTS — helmet on API + CloudFront Function on SPA</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I3</strong> HTTP → HTTPS redirect — Express trust proxy + X-Forwarded-Proto + HSTS/security headers via Nginx</li>
+      </ul>
+      <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:12px;margin-top:20px">Issues Found — Round 3 (3 bugs, all fixed)</h3>
+      <ul style="padding-left:16px">
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>BR1</strong> minMcMaturityDays=0 silently overridden by || operator in loadService.ts</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>BR2</strong> Wrong field name in load draft (trailerType vs equipmentType) — broadcast sent zero offers</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>BR3</strong> Default dockAvailable:true in equipmentService.ts blocked all dry-van drivers from every load</li>
+      </ul>
+      <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:12px;margin-top:20px">Issues Fixed — Round 4</h3>
+      <ul style="padding-left:16px">
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I8</strong> Auth brute-force — <code>express-rate-limit</code> middleware on all <code>/api/auth/*</code>; 429 after 15 req/window confirmed</li>
+      </ul>
+      <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:12px;margin-top:20px">Issues Fixed — Round 5</h3>
+      <ul style="padding-left:16px">
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I9</strong> Security headers — <code>helmet</code> v8 on API (CSP, Cross-Origin-*, X-Permitted-Cross-Domain-Policies); CloudFront Function on SPA (CSP, HSTS+preload, XFO, XCTO, Referrer-Policy). Both surfaces now return all 7+ header categories</li>
+      </ul>
+      <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:12px;margin-top:20px">Issues Fixed — Round 6</h3>
+      <ul style="padding-left:16px">
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">FIXED</span> <strong>I5</strong> Shipper profile gate — signup wizard extended to 4 steps for SHIPPER role (Role → Organisation → Shipper Profile → Account); <code>companyName</code>, <code>companyAddress</code>, <code>contactName</code>, <code>contactPhone</code>, <code>contactEmail</code> collected and <code>POST /api/shipper/profile</code> called atomically after account creation; all shipper routes protected by <code>requireProfile</code> middleware returning <code>400 PROFILE_INCOMPLETE</code></li>
+      </ul>
+      <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:12px;margin-top:20px">Features Shipped — Round 3</h3>
+      <ul style="padding-left:16px">
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">DONE</span> RouteMapCard: expand button (magnifying glass, top-right), no duplicate X, native Google Maps "Open in Maps"</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">DONE</span> Reverse geocode endpoint: <code>GET /api/maps/reverse-geocode</code> — fixes GPS → location update chain</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">DONE</span> LoadRoutePanel: Pickup + Dropoff tabs with directions, "From pickup" / "From current" toggle, fullscreen dialog</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">DONE</span> Route feature applied to Owner Operator dashboard load cards</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">DONE</span> Load History pages for Driver (<code>/driver/history</code>) and Owner Operator (<code>/owner-operator/history</code>)</li>
+        <li style="font-size:13px;color:#94a3b8;margin-bottom:6px"><span class="badge badge-fixed">DONE</span> Sidebar "Load History" nav item for DRIVER and OWNER_OPERATOR with exact-match active logic</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ OUTSTANDING FEATURES ═══════════════════════════════ -->
+<div id="tab-outstanding" class="tab-pane">
+  <p style="color:#64748b;font-size:13px;margin-bottom:24px">Features and security hardening that are not yet built or have gaps. Grouped by category — security first, then product, then infra.</p>
+
+  <!-- SECURITY -->
+  <div class="priority-group">
+    <h2 style="color:#22c55e">🔐 Security — All P1 Issues Fixed ✅</h2>
+
+    <div class="action-card fixed-card" onclick="openDrawer('i8')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I8 FIXED</span><div class="ac-title">Auth rate limiting deployed — 429 after 15 req/15 min per IP</div><span class="tag tag-api">AUTH</span></div>
+      <div class="ac-body"><code>express-rate-limit</code> v8 applied to all <code>/api/auth/*</code> routes. Verified in production: request #16 returns 429. WAF CloudFront path also has a global 2000 req/5 min flood guard.</div>
+    </div>
+
+    <div class="action-card fixed-card" onclick="openDrawer('i9')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I9 FIXED</span><div class="ac-title">Security headers fully deployed — API + frontend</div><span class="tag tag-infra">INFRA</span></div>
+      <div class="ac-body">helmet v8 on Express + Nginx for API; CloudFront Function (<code>loadlead-add-security-headers</code>) on viewer-response for the SPA. All 7 security header categories covered on both surfaces.</div>
+    </div>
+
+    <div class="action-card fixed-card" onclick="openDrawer('i3')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I3 FIXED</span><div class="ac-title">HTTP → HTTPS redirect at EB — verified 301 in production</div><span class="tag tag-infra">INFRA</span></div>
+      <div class="ac-body"><code>http://api.loadleadapp.com/api/health</code> now returns <strong>301 → https://api.loadleadapp.com/api/health</strong>. Express <code>trust proxy 1</code> + <code>X-Forwarded-Proto</code> middleware; <code>.platform/nginx/conf.d/security_headers.conf</code> adds HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy.</div>
+    </div>
+
+    <div class="action-card fixed-card" onclick="openDrawer('i5')" style="border-color:#16a34a44">
+      <div class="ac-top"><span class="p0f">I5 FIXED</span><div class="ac-title">Shipper profile gate — mandatory signup step + backend guard</div><span class="tag tag-api">UX</span></div>
+      <div class="ac-body">SHIPPER signup wizard extended to 4 steps: Role → Organisation → Shipper Profile → Account. Profile created atomically after account signup. All shipper routes return <code>400 PROFILE_INCOMPLETE</code> with a JSON hint for any edge-case callers who bypass signup.</div>
+    </div>
+  </div>
+
+  <!-- PRODUCT FEATURES -->
+  <div class="priority-group">
+    <h2 style="color:#f59e0b">🚧 Product — Not Yet Built</h2>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">FEAT</span><div class="ac-title">Owner Operator Load Detail page</div><span class="tag tag-api">UI</span></div>
+      <div class="ac-body">The OO dashboard lists offered loads but there is no <code>/owner-operator/loads/:loadId</code> detail page. The Load History page for OO shows a static load ID badge instead of a "View" link. Build a read-only load detail page for OO role, matching the driver load detail layout.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">FEAT</span><div class="ac-title">Real-time driver tracking map on Shipper Load Detail</div><span class="tag tag-api">UI</span></div>
+      <div class="ac-body">The shipper load detail page fetches tracking data (driver lat/lng, ETA) but renders it as text only. A live Google Maps embed showing the truck moving from pickup to delivery would complete the tracking experience for shippers.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">FEAT</span><div class="ac-title">Admin live fleet map</div><span class="tag tag-api">UI</span></div>
+      <div class="ac-body">Admin dashboard shows load and driver counts as text. No map showing where all active drivers are. The debug broadcast endpoint already returns lat/lng for every driver — wire it to a Google Maps embed with markers per driver status.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">FEAT</span><div class="ac-title">Push notification subscription UI for drivers</div><span class="tag tag-api">PUSH</span></div>
+      <div class="ac-body">The VAPID endpoint and PushService exist and the backend fan-out sends pushes, but there is no in-app UI prompting the driver to enable browser push notifications. Without a subscription, <code>driver.pushSubscription</code> is null and all pushes silently fail.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">FEAT</span><div class="ac-title">In-app notification inbox</div><span class="tag tag-api">UI</span></div>
+      <div class="ac-body">Notifications are sent via Resend email and VAPID push but there is no in-app bell/inbox listing past notifications. The header bell icon currently shows a hardcoded orange dot. Wire it to a real notification list (stored in DynamoDB on send).</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">FEAT</span><div class="ac-title">Load History: filtering and pagination</div><span class="tag tag-api">UI</span></div>
+      <div class="ac-body">The new Load History page for driver and OO shows all accepted loads in reverse-accepted order. No date-range filter, no status filter (Booked / In Transit / Delivered), and no pagination. High-volume drivers will see an ever-growing list with no way to narrow it.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">FEAT</span><div class="ac-title">Carrier analytics dashboard</div><span class="tag tag-api">UI</span></div>
+      <div class="ac-body">No revenue or performance metrics for drivers or OOs — total miles driven, earnings by week/month, loads completed, average rate per mile. This data already exists across the loads and offers tables; it just needs a dedicated analytics page.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">FEAT</span><div class="ac-title">Password change and 2FA in Settings</div><span class="tag tag-api">AUTH</span></div>
+      <div class="ac-body">The Settings page allows display name and phone updates but has no password change flow. There is no 2FA (TOTP or SMS). Both are standard expectations for a logistics platform handling commercial cargo and financial transactions.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">FEAT</span><div class="ac-title">POD submission from Load History</div><span class="tag tag-api">UI</span></div>
+      <div class="ac-body">Drivers can submit Proof of Delivery via <code>POST /api/driver/loads/:loadId/pod</code> and the POD upload URL endpoint exists, but the Load History page only shows a "View" link to the load detail. The POD upload UI should be accessible directly from the history list for loads in BOOKED / IN_TRANSIT status.</div>
+    </div>
+  </div>
+
+  <!-- INFRA / CI -->
+  <div class="priority-group">
+    <h2 style="color:#3b82f6">⚙️ Infra & CI — Technical Debt</h2>
+
+    <div class="action-card" onclick="openDrawer('setup3')">
+      <div class="ac-top"><span class="p2">P2</span><div class="ac-title">Jest + supertest CI gate (auth matrix + race conditions)</div><span class="tag tag-infra">CI</span></div>
+      <div class="ac-body">TESTING.md Section 17: three blocking CI checks not wired. Auth matrix, admin bootstrap race, double-accept race. All pass manually — a regression would ship silently. Use <code>amazon/dynamodb-local</code> in Docker + Jest + supertest.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">P2</span><div class="ac-title">k6 / Artillery performance gate</div><span class="tag tag-perf">PERF</span></div>
+      <div class="ac-body">Fan-out to 100+ drivers, geoproximity at 1,000+ drivers, DynamoDB burst, and EB autoscaling all untested. No SLA baseline defined. Run k6 from EC2 in us-east-1 — alert if p95 broadcast latency exceeds 2s.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">P2</span><div class="ac-title">EB deployment pipeline (GitHub Actions → EB)</div><span class="tag tag-infra">CI</span></div>
+      <div class="ac-body">All deployments are currently manual (zip → S3 → EB CLI). No GitHub Actions workflow exists for backend or frontend. A deploy pipeline would: run TypeScript check, build, zip, upload to S3, register EB version, update environment, and invalidate CloudFront — on merge to main.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">P2</span><div class="ac-title">Stale push subscription pruning</div><span class="tag tag-infra">PUSH</span></div>
+      <div class="ac-body">If a driver's browser push subscription expires or the device changes, <code>PushService.send()</code> will receive a 410 Gone response from the push server. This is not currently handled — it logs an error and continues. Expired subs should be deleted from <code>LoadLead_PushSubscriptions</code> on 410/404 response.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">P2</span><div class="ac-title">File upload content-type allowlist (POD photos)</div><span class="tag tag-api">SEC</span></div>
+      <div class="ac-body">The presigned S3 URL for POD photo upload specifies <code>ContentType: fileType</code> from the request body — but <code>fileType</code> is not validated. A caller could request a presigned URL for <code>application/x-executable</code> and upload a binary file. Restrict <code>fileType</code> to <code>['image/jpeg','image/png','image/webp']</code> in the route handler.</div>
+    </div>
+
+    <div class="action-card">
+      <div class="ac-top"><span class="p2">P2</span><div class="ac-title">Token expiry mid-session → auto-redirect to login</div><span class="tag tag-api">AUTH</span></div>
+      <div class="ac-body">When the 7-day JWT cookie expires mid-session, the next API call returns 401. The frontend currently surfaces this as a toast error ("GET /driver/loadboard failed (401)") rather than redirecting to /login. Add a 401 interceptor in <code>api.ts</code> that calls <code>logout()</code> and navigates to /login.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ REFACTOR TEST TRACKER ═══════════════════════════════ -->
+<div id="tab-refactor" class="tab-pane">
+<div id="tt-root">
+  <div class="tt-eyebrow">LoadLead · QA</div>
+  <h2 class="tt-title">Refactor Test Tracker</h2>
+
+  <div class="tt-top">
+    <div class="tt-gate" id="tt-gate">
+      <div class="tt-gate-label">Merge gate · Tier&nbsp;1</div>
+      <div class="tt-gate-state">
+        <span class="tt-gate-word" id="tt-gate-word">—</span>
+        <span class="tt-gate-sub" id="tt-gate-sub">loading</span>
+      </div>
+      <div class="tt-gate-bar"><i id="tt-gate-fill"></i></div>
+    </div>
+    <div class="tt-stats">
+      <div class="tt-stat pass"><b id="tt-c-pass">0</b><span>Passing</span></div>
+      <div class="tt-stat fail"><b id="tt-c-fail">0</b><span>Failing</span></div>
+      <div class="tt-stat block"><b id="tt-c-block">0</b><span>Blocked</span></div>
+      <div class="tt-stat pend"><b id="tt-c-pend">0</b><span>Pending</span></div>
+    </div>
+  </div>
+
+  <div class="tt-bar">
+    <input class="tt-search" id="tt-search" placeholder="Filter by ID or scenario…" aria-label="Filter tests">
+    <div class="tt-seg" id="tt-tier" role="group" aria-label="Tier filter">
+      <button data-tier="all" aria-pressed="true">All</button>
+      <button data-tier="1" aria-pressed="false">Tier 1</button>
+      <button data-tier="2" aria-pressed="false">Tier 2</button>
+    </div>
+    <div class="tt-seg" id="tt-filter" role="group" aria-label="Status filter">
+      <button data-st="all" aria-pressed="true">All</button>
+      <button data-st="pending" aria-pressed="false">Pending</button>
+      <button data-st="pass" aria-pressed="false">Pass</button>
+      <button data-st="fail" aria-pressed="false">Fail</button>
+      <button data-st="blocked" aria-pressed="false">Blocked</button>
+    </div>
+    <button class="tt-act" id="tt-csv">Export CSV</button>
+    <button class="tt-act" id="tt-json">Export JSON</button>
+    <button class="tt-act" id="tt-sync-btn">Reload from CI</button>
+    <button class="tt-act tt-danger" id="tt-reset">Reset</button>
+  </div>
+
+  <div class="tt-sync" id="tt-sync" hidden></div>
+  <div id="tt-list"></div>
+  <div class="tt-foot" id="tt-foot"></div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════ DRAWER ═══════════════════════════════ -->
+<div class="drawer-overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div>
+      <div id="drawer-badge" style="margin-bottom:6px"></div>
+      <div id="drawer-title" style="font-size:16px;font-weight:700;color:#f1f5f9"></div>
+    </div>
+    <button class="close-btn" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
+
+<script>
+function switchTab(id,e){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if(e&&e.target) e.target.classList.add('active');
+}
+
+const DRAWER_DATA={
+  b1:{
+    badge:'<span class="badge badge-fixed">FIXED · Bug B1</span>',
+    title:'adminExists() Scan Returned False Despite Admin Existing',
+    body:`
+      <div class="drawer-section"><h4>Root Cause</h4>
+        <p>DynamoDB's <code>Limit</code> parameter on a <code>ScanCommand</code> applies <strong>before</strong> the <code>FilterExpression</code>. With <code>Limit: 1</code>, DynamoDB scanned exactly 1 item and stopped. If that item wasn't an ADMIN user, <code>Count</code> returned 0 — even if the table had an ADMIN record elsewhere. Result: <code>GET /api/setup/status</code> always returned <code>{"adminExists":false}</code>.</p>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box"><p>Removed <code>Limit: 1</code>. Added <code>ProjectionExpression: 'userId'</code> so DynamoDB fetches only the PK on each item. Full scan now runs correctly. File: <code>backend/src/routes/setup.ts → adminExists()</code></p></div>
+      </div>
+      <div class="drawer-section"><h4>Verification</h4>
+        <p><code>GET /api/setup/status</code> → <code>{"adminExists":true}</code>. Round 2 test 11.3: PASS ✅</p>
+      </div>`
+  },
+  b2:{
+    badge:'<span class="badge badge-fixed">FIXED · Bug B2</span>',
+    title:'Wrong GSI Name: status-createdAt-index vs status-index',
+    body:`
+      <div class="drawer-section"><h4>Root Cause</h4>
+        <p><code>LoadService.getLoadsByStatus()</code> queried a GSI named <code>status-createdAt-index</code>. The actual GSI on <code>LoadLead_Loads</code> is <code>status-index</code>. DynamoDB returned "The table does not have the specified index" — a 500 on every call.</p>
+      </div>
+      <div class="drawer-section"><h4>Affected Endpoints</h4>
+        <ul><li><code>POST /api/shipper/loads/:id/submit</code></li><li><code>GET /api/admin/loads</code></li><li>Scheduled rebroadcast job</li></ul>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box"><p>Changed <code>'status-createdAt-index'</code> → <code>'status-index'</code> in <code>backend/src/services/loadService.ts</code> line 206.</p></div>
+      </div>`
+  },
+  b3:{
+    badge:'<span class="badge badge-fixed">FIXED · Bug B3</span>',
+    title:'LoadLead_Drivers Has No status-index GSI',
+    body:`
+      <div class="drawer-section"><h4>Root Cause</h4>
+        <p><code>DriverService.getDriversByStatus()</code> used <code>Database.query()</code> against <code>status-index</code>. That GSI doesn't exist on <code>LoadLead_Drivers</code> (only <code>userId-index</code> exists). Every call failed with "table does not have index."</p>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box"><p>Switched from <code>Database.query()</code> to <code>Database.scan()</code> with <code>FilterExpression</code> and <code>ExpressionAttributeNames</code> (needed because <code>status</code> is a DynamoDB reserved word). Extended <code>Database.scan()</code> signature to accept optional 4th <code>expressionAttributeNames</code> param.</p></div>
+      </div>`
+  },
+  b4:{
+    badge:'<span class="badge badge-fixed">FIXED · Bug B4</span>',
+    title:'Offer Accept/Decline 500 — Key Schema Mismatch on LoadLead_Offers',
+    body:`
+      <div class="drawer-section"><h4>What Was Broken</h4>
+        <p>Every call to <code>POST /api/driver/offers/:loadId/accept</code> and <code>/decline</code> returned 500 with "The provided key element does not match the schema." No driver could ever accept a load — the core revenue action of the platform.</p>
+      </div>
+      <div class="drawer-section"><h4>Root Causes (3 stacked)</h4>
+        <ul>
+          <li><strong>Wrong PK on getItem:</strong> <code>OfferService.getOffer()</code> called <code>Database.getItem({loadId,driverId})</code> — but <code>LoadLead_Offers</code> PK is <code>offerId</code>, not a composite key.</li>
+          <li><strong>No offerId on createOffer:</strong> <code>createOffer()</code> never set <code>offerId</code>, so all PutItem calls wrote items with no PK.</li>
+          <li><strong>No GSI for loadId+driverId lookup:</strong> No way to find an offer by (loadId, driverId) pair without a scan or GSI.</li>
+        </ul>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box">
+          <p><strong>1. Created GSI</strong> <code>loadId-driverId-index</code> on <code>LoadLead_Offers</code> via AWS CLI <code>update-table</code>.</p>
+          <p style="margin-top:8px"><strong>2. Rewrote offerService.ts:</strong> <code>createOffer()</code> now sets <code>offerId: uuidv4()</code>. <code>getOffer()</code> now queries <code>loadId-driverId-index</code> GSI. All <code>updateItem</code> calls use <code>{offerId: offer.offerId}</code> as key.</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification (Round 2 — all PASS)</h4>
+        <ul>
+          <li>7.1 Offer created on submit ✅</li>
+          <li>7.2 Driver fetches offer via GET /driver/offers/:loadId ✅</li>
+          <li>7.3 Driver accepts offer → load BOOKED ✅</li>
+          <li>7.4 Load assigned to driver ✅</li>
+          <li>7.5 Other offers expired on accept ✅</li>
+          <li>7.6 Double-accept returns 409 ✅</li>
+        </ul>
+      </div>`
+  },
+  b5:{
+    badge:'<span class="badge badge-fixed">FIXED · Bug B5</span>',
+    title:'Cross-Shipper IDOR — requireOwnLoad() Guard Added to All Load Handlers',
+    body:`
+      <div class="drawer-section"><h4>What Was Found (Round 2 — Test 2.6)</h4>
+        <p><code>GET /api/shipper/loads/:loadId</code> returned HTTP 200 with full load data when called by <code>shipper2@loadlead.com</code> using a <code>loadId</code> belonging to <code>shipper@loadlead.com</code>. The route authenticates the user as SHIPPER role but never checks that <code>load.shipperId === req.user.shipperId</code>.</p>
+      </div>
+      <div class="drawer-section"><h4>Impact</h4>
+        <ul>
+          <li>Any shipper can enumerate and read any other shipper's load: origin, destination, cargo, pricing, customer name</li>
+          <li>Potential for competitive intelligence attacks</li>
+          <li>Likely same issue on PUT/DELETE /shipper/loads/:loadId</li>
+        </ul>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box">
+          <p>Added a shared <code>requireOwnLoad(userId, loadId)</code> helper in <code>backend/src/routes/shipper.ts</code> that: (1) fetches the caller's shipper profile, (2) fetches the load, (3) compares <code>load.shipperId !== shipper.shipperId</code> — throws <code>AppError('Forbidden', 403)</code> on mismatch. Applied to all four handlers: GET, POST/submit, PUT, DELETE. Returns <code>{ load, shipper }</code> to avoid a second DB call in the GET handler.</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification (production)</h4>
+        <ul>
+          <li>Owner reads own load → 200 ✅</li>
+          <li>Shipper2 reads Shipper1's load → 403 ✅</li>
+          <li>Shipper2 PUT on Shipper1's load → 403 ✅</li>
+          <li>Shipper2 DELETE on Shipper1's load → 403 ✅</li>
+          <li>Shipper2 submit on Shipper1's load → 403 ✅</li>
+          <li>Shipper1 list own loads → 200 ✅</li>
+        </ul>
+      </div>`
+  },
+  b6:{
+    badge:'<span class="badge badge-fixed">FIXED · Bug B6</span>',
+    title:'Cross-Field Date Validation — Delivery ≤ Pickup Now Returns 400',
+    body:`
+      <div class="drawer-section"><h4>What Was Found (Round 2 — Test 12.6)</h4>
+        <p>A load with <code>pickupDate: "2026-07-10"</code> and <code>deliveryDate: "2026-07-01"</code> (delivery 9 days before pickup) was accepted with 200 OK. The validator confirmed each field was a valid unix timestamp, but never compared the two values.</p>
+      </div>
+      <div class="drawer-section"><h4>Impact</h4>
+        <p>Logically impossible loads were stored in DynamoDB. Dispatch scheduling, SLA calculations, and date-based filtering produced incorrect results for these loads. A corrupt load could block the load state machine.</p>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied — <code>backend/src/utils/validators.ts</code></h4>
+        <div class="fixed-box">
+          <p>Chained a <code>.custom()</code> validator onto <code>deliveryDate</code> in <code>loadValidators.createLoad</code>:</p>
+          <p style="margin-top:8px"><code>body('deliveryDate')<br/>  .isInt({ min: 0 }).withMessage('...')<br/>  .custom((val, { req }) => {<br/>    const pickup = Number(req.body?.pickupDate);<br/>    const delivery = Number(val);<br/>    if (!isNaN(pickup) &amp;&amp; delivery &lt;= pickup)<br/>      throw new Error('Delivery date must be after pickup date');<br/>    return true;<br/>  })</code></p>
+          <p style="margin-top:10px">Also added try-catch around all three <code>fetch()</code> calls in <code>routingService.ts</code> so that Google Maps network errors degrade to null (warning log) instead of 500.</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification (Production — deploy-b6v2)</h4>
+        <ul>
+          <li>Delivery 1 hr before pickup → <strong>400</strong> ✅ "Delivery date must be after pickup date"</li>
+          <li>Delivery = pickup (same ms) → <strong>400</strong> ✅</li>
+          <li>Delivery 2 days after pickup → <strong>201</strong> ✅ load created (DRAFT)</li>
+        </ul>
+      </div>`
+  },
+  b7bol:{
+    badge:'<span class="badge badge-fixed">FIXED · Bug B7</span>',
+    title:'BOL IDOR — requireBOLAccess() Party-Based Guard Added',
+    body:`
+      <div class="drawer-section"><h4>What Was Found (Round 2 — Test 9.5)</h4>
+        <p><code>GET /api/bol/:bolId</code> returned HTTP 200 with full BOL data when called by <code>shipper2@loadlead.com</code> reading a BOL belonging to <code>shipper@loadlead.com</code> (bolId: <code>140f87fe-2a9e-4d8e-ba1e-5556f7c4953e</code>). No ownership check is performed.</p>
+      </div>
+      <div class="drawer-section"><h4>Also Found — Test 9.1</h4>
+        <p>When a SHIPPER tries to sign a BOL, the route returns 400 (not 403). The rejection occurs (correct behavior) but the HTTP status code should be 403 (Forbidden), not 400 (Bad Request). Minor but affects client-side error handling.</p>
+      </div>
+      <div class="drawer-section"><h4>Impact</h4>
+        <ul>
+          <li>Any authenticated user (any role) can read any BOL by guessing or obtaining a bolId</li>
+          <li>BOLs contain digital signatures, shipment details, cargo values, and legal status — cross-tenant read is a compliance issue</li>
+        </ul>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box">
+          <p>Added <code>requireBOLAccess(req, bol)</code> helper in <code>backend/src/routes/bol.ts</code> — checks: ADMIN always OK; SHIPPER must own the load (<code>load.shipperId === shipper.shipperId</code>); DRIVER must be assigned (<code>load.assignedDriverId === driver.driverId</code>); RECEIVER must be the load's receiver. Throws <code>AppError(403)</code> for all other callers.</p>
+          <p style="margin-top:8px">Applied to both <code>GET /:bolId</code> and <code>GET /load/:loadId</code>. Also changed sign handler: SHIPPER now receives <code>403</code> (was 400 due to wrong field names masking the role check gap).</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification (production)</h4>
+        <ul>
+          <li>Owner reads own BOL → 200 ✅</li>
+          <li>Shipper2 reads Shipper1 BOL → 403 ✅</li>
+          <li>Assigned driver reads BOL → 200 ✅</li>
+          <li>Admin reads any BOL → 200 ✅</li>
+          <li>Shipper2 GET by loadId → 403 ✅</li>
+          <li>SHIPPER tries to sign → 403 ✅ (was returning 400)</li>
+          <li>ADMIN tries to sign → 403 ✅</li>
+        </ul>
+      </div>`
+  },
+  i2:{
+    badge:'<span class="badge badge-fixed">FIXED · I2</span>',
+    title:'XSS Sanitized + JWT Moved to httpOnly Cookie',
+    body:`
+      <div class="drawer-section"><h4>What Was Found (Round 2 — Test 12.4)</h4>
+        <p><code>&lt;script&gt;alert(1)&lt;/script&gt;</code> submitted in the commodity field was stored verbatim in DynamoDB and reflected raw in the API response. JWT was stored in <code>localStorage</code> — a successful XSS payload could exfiltrate the token to an attacker's server. One stolen token = full API access for up to 7 days.</p>
+      </div>
+      <div class="drawer-section"><h4>Fix 1 — Backend HTML Sanitization (<code>validators.ts</code>)</h4>
+        <div class="fixed-box">
+          <p>Added a <code>stripHtml()</code> custom sanitizer that strips all HTML/SVG tags before fields are written to DynamoDB. Applied to <code>commodityDescription</code>, <code>pickupInstructions</code>, <code>deliveryInstructions</code>, <code>specialInstructions</code>, <code>notes</code>.</p>
+          <p style="margin-top:8px"><strong>Verified:</strong> <code>&lt;script&gt;alert(1)&lt;/script&gt;Steel coils</code> stored as <code>alert(1)Steel coils</code> ✅ · <code>&lt;img src=x onerror=alert(1)&gt; Gate B</code> stored as <code>Gate B</code> ✅</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Fix 2 — httpOnly Cookie Auth (<code>auth.ts</code>, <code>AuthContext.tsx</code>)</h4>
+        <div class="fixed-box">
+          <p>JWT is now set as a <strong>httpOnly</strong>, <strong>Secure</strong>, <strong>SameSite=Strict</strong> cookie (Max-Age=7d). The browser sends it automatically; JavaScript cannot read it — eliminating the XSS-to-token-theft vector.</p>
+          <p style="margin-top:8px">Frontend <code>AuthContext.tsx</code> no longer reads/writes <code>localStorage</code> for auth. All API calls use <code>credentials: "include"</code>. Logout calls <code>POST /api/auth/logout</code> which clears the cookie server-side.</p>
+          <p style="margin-top:8px"><strong>Verified:</strong> Set-Cookie: HttpOnly ✅ · Secure ✅ · SameSite=Strict ✅ · <code>/me</code> via cookie ✅ · Post-logout 401 ✅</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Fix 3 — DOMPurify (<code>frontend-v2/src/lib/sanitize.ts</code>)</h4>
+        <div class="fixed-box">
+          <p>Installed <code>dompurify</code>. Created <code>sanitize()</code> (strips all tags) and <code>sanitizeHtml()</code> (safe allow-list) utilities. React JSX auto-escapes <code>{value}</code> so direct XSS via current renders is prevented; DOMPurify defends any future <code>dangerouslySetInnerHTML</code> usage.</p>
+        </div>
+      </div>`
+  },
+  i3:{
+    badge:'<span class="badge badge-fixed">FIXED · I3</span>',
+    title:'HTTP → HTTPS Redirect Deployed — API No Longer Accessible Over Plain HTTP',
+    body:`
+      <div class="drawer-section"><h4>Finding (Round 2 — Test 13.3)</h4>
+        <p><code>http://api.loadleadapp.com/api/setup/status</code> returned <strong>HTTP 200</strong>. Classic ELB has no native redirect rules, so HTTP traffic passed straight through to the app. In-transit JWTs and request bodies were sent unencrypted.</p>
+      </div>
+      <div class="drawer-section"><h4>Root Cause</h4>
+        <p>The environment uses a <strong>Classic ELB</strong> (not ALB). Classic ELB port 80 listener has no redirect capability — it only forwards traffic. The fix must live in the application or Nginx layer. The EB health check uses <code>Target: TCP:80</code> (raw socket, no HTTP) so app-layer redirects are safe.</p>
+      </div>
+      <div class="drawer-section"><h4>Fix 1 — Express middleware (<code>backend/src/index.ts</code>)</h4>
+        <div class="fixed-box">
+          <p><code>app.set('trust proxy', 1)</code> tells Express to trust the one proxy (ELB) in front of it, making <code>X-Forwarded-Proto</code> reliable.</p>
+          <p style="margin-top:8px">Middleware added before all routes:</p>
+          <p style="margin-top:6px"><code>app.use((req, res, next) => {<br/>  const proto = req.headers['x-forwarded-proto']?.split(',')[0]?.trim();<br/>  if (proto &amp;&amp; proto !== 'https') {<br/>    return res.redirect(301, \`https://\${req.headers.host}\${req.url}\`);<br/>  }<br/>  next();<br/>});</code></p>
+          <p style="margin-top:8px">Classic ELB injects <code>X-Forwarded-Proto: http</code> for port-80 traffic and <code>X-Forwarded-Proto: https</code> for port-443 traffic.</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Fix 2 — Nginx security headers (<code>.platform/nginx/conf.d/security_headers.conf</code>)</h4>
+        <div class="fixed-box">
+          <p>Adds HSTS, X-Frame-Options, X-Content-Type-Options, and Referrer-Policy to every response via Nginx <code>add_header</code> directives. Partial fix for I9 (full CSP still pending).</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification (production)</h4>
+        <ul>
+          <li><code>curl -I http://api.loadleadapp.com/api/health</code> → <strong>HTTP 301</strong>, Location: <code>https://api.loadleadapp.com/api/health</code> ✅</li>
+          <li><code>curl -I https://api.loadleadapp.com/api/health</code> → <strong>HTTP 200</strong> ✅</li>
+          <li>Follow redirect: HTTP → HTTPS → 401 (correct, no auth) ✅</li>
+          <li><code>Strict-Transport-Security: max-age=31536000; includeSubDomains</code> on HTTPS responses ✅</li>
+          <li><code>X-Frame-Options: DENY</code> ✅ · <code>X-Content-Type-Options: nosniff</code> ✅ · <code>Referrer-Policy: strict-origin-when-cross-origin</code> ✅</li>
+          <li>EB health check (TCP:80) unaffected — TCP socket check, no HTTP request sent ✅</li>
+        </ul>
+      </div>`
+  },
+  i5:{
+    badge:'<span class="badge badge-fixed">FIXED · I5</span>',
+    title:'Shipper Profile Gate — Enforced at Signup + Backend Middleware (Round 6)',
+    body:`
+      <div class="drawer-section"><h4>What Was Found</h4>
+        <p>The BOL route calls <code>ShipperService.getProfileByUserId()</code> and returns "Shipper profile not found" if the shipper hasn't completed their profile via <code>POST /api/shipper/profile</code>. There was no gate in the signup flow ensuring profile completion before load posting or BOL creation. Beta testers hit confusing 404s.</p>
+      </div>
+      <div class="drawer-section"><h4>What Was Fixed (Round 6)</h4>
+        <div class="fixed-box">
+          <p><strong>Frontend — 4-step SHIPPER signup wizard</strong> (<code>frontend-v2/src/pages/Signup.tsx</code>):</p>
+          <p style="margin-top:8px">SHIPPER role now follows: Role → Organisation → Shipper Profile → Account. Step 3 collects <code>companyName</code>, <code>companyAddress</code>, <code>contactName</code>, <code>contactPhone</code>, <code>contactEmail</code>. <code>companyName</code> is pre-filled from <code>legalName</code> (org step). On submit, <code>api.createShipperProfile()</code> is called immediately after <code>signup()</code> so the profile exists before the user reaches <code>/shipper</code>.</p>
+          <p style="margin-top:8px"><strong>Backend — requireProfile middleware</strong> (<code>backend/src/routes/shipper.ts</code>):</p>
+          <p style="margin-top:8px"><code>async function requireProfile(req, res, next) {<br/>&nbsp;&nbsp;const shipper = await ShipperService.getProfileByUserId(req.user.userId);<br/>&nbsp;&nbsp;if (!shipper) return res.status(400).json({<br/>&nbsp;&nbsp;&nbsp;&nbsp;error: 'Shipper profile not found',<br/>&nbsp;&nbsp;&nbsp;&nbsp;code: 'PROFILE_INCOMPLETE',<br/>&nbsp;&nbsp;&nbsp;&nbsp;hint: 'Complete your shipper profile at POST /api/shipper/profile'<br/>&nbsp;&nbsp;});<br/>&nbsp;&nbsp;req.shipperProfile = shipper; next();<br/>}</code></p>
+          <p style="margin-top:8px">Applied to: <code>POST /admin-request</code>, <code>POST /loads/draft</code>, <code>GET /loads</code>. The <code>requireOwnLoad()</code> helper (used by GET/PUT/DELETE/submit/:loadId) also throws <code>400 PROFILE_INCOMPLETE</code> instead of 404.</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification (Round 6)</h4>
+        <ul>
+          <li>SHIPPER signup flow shows 4 steps including Shipper Profile step ✅</li>
+          <li><code>GET /api/shipper/loads</code> with no profile → <code>400 PROFILE_INCOMPLETE</code> (was 404) ✅</li>
+          <li><code>POST /api/shipper/loads/draft</code> with no profile → <code>400 PROFILE_INCOMPLETE</code> ✅</li>
+          <li>New SHIPPER account created via wizard → profile exists immediately on dashboard load ✅</li>
+        </ul>
+      </div>`
+  },
+  i6:{
+    badge:'<span class="badge badge-fixed">FIXED · I6</span>',
+    title:'DRIVER Role Could Access All /api/org/ Routes',
+    body:`
+      <div class="drawer-section"><h4>What Was Found</h4>
+        <p>A DRIVER with a valid JWT received <code>200 {"orgs":[]}</code> from <code>GET /api/org/</code>. While no data leaked (empty result), it indicated no role guard on org routes — any authenticated user could probe all org endpoints.</p>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box">
+          <p>In <code>backend/src/routes/org.ts</code>, moved <code>authenticate</code> to a global <code>router.use()</code> and added:</p>
+          <p style="margin-top:8px"><code>router.use(requireRole(<br/>  UserRole.SHIPPER,<br/>  UserRole.RECEIVER,<br/>  UserRole.OWNER_OPERATOR,<br/>  UserRole.ADMIN,<br/>));</code></p>
+          <p style="margin-top:8px">Removed 16 redundant per-route <code>authenticate</code> calls. <code>requireRole</code> takes spread args (not an array).</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification (Round 2 — Test 3.8)</h4>
+        <p>DRIVER calling any <code>/api/org/</code> route now returns <code>403 Forbidden</code>. ✅</p>
+      </div>`
+  },
+  i8:{
+    badge:'<span class="badge badge-fixed">FIXED · I8</span>',
+    title:'Auth Rate Limiting — 429 Returned After 15 Requests per 15-min Window',
+    body:`
+      <div class="drawer-section"><h4>Finding (Round 2 — Test 13.5)</h4>
+        <p>15 consecutive failed login attempts to <code>POST /api/auth/login</code> all returned 401 — no 429, no increasing delay, no account lockout. An attacker could enumerate passwords at network speed with no throttling.</p>
+      </div>
+      <div class="drawer-section"><h4>What Was Fixed (Round 4)</h4>
+        <div class="resolution-box">
+          <p><strong>express-rate-limit v8</strong> installed and wired to all <code>/api/auth/*</code> routes in <code>backend/src/index.ts</code>:</p>
+          <p style="margin-top:8px"><code>import rateLimit from 'express-rate-limit';<br/>const authRateLimiter = rateLimit({<br/>&nbsp;&nbsp;windowMs: 15 * 60 * 1000,<br/>&nbsp;&nbsp;max: 15,<br/>&nbsp;&nbsp;standardHeaders: true,<br/>&nbsp;&nbsp;legacyHeaders: false,<br/>&nbsp;&nbsp;message: { error: 'Too many requests. Please try again later.' },<br/>});<br/>app.use('/api/auth', authRateLimiter, authRoutes);</code></p>
+          <p style="margin-top:8px"><strong>WAF note:</strong> The existing CloudFront WebACL (<code>CreatedByCloudFront-c79dce87</code>) is on a legacy pricing plan that does not support rate-based rules with <code>ScopeDownStatement</code>. A global flood guard of 2,000 req/5 min was added to the existing WebACL as supplementary protection. The app-layer limiter handles per-IP auth throttling.</p>
+          <p style="margin-top:8px"><strong>HTTP redirect fix:</strong> The HTTPS redirect middleware was updated to only redirect direct <code>api.loadleadapp.com</code> callers, not CloudFront-proxied requests (which already arrived over HTTPS from the client).</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification</h4>
+        <ul>
+          <li>16 rapid <code>POST /api/auth/login</code> via CloudFront: requests 1–15 → <strong>401</strong>, request 16 → <strong>429</strong> ✅</li>
+          <li>Direct <code>http://api.loadleadapp.com/api/health</code> → <strong>301</strong> to HTTPS ✅</li>
+          <li><code>RateLimit-Limit</code> and <code>RateLimit-Remaining</code> headers visible in responses</li>
+        </ul>
+      </div>`
+  },
+  i9:{
+    badge:'<span class="badge badge-fixed">FIXED · I9</span>',
+    title:'Security Headers Fully Deployed — API + Frontend (Round 5)',
+    body:`
+      <div class="drawer-section"><h4>Finding (Round 2 — Tests 15.3, 15.4, 15.5)</h4>
+        <ul>
+          <li><strong>loadleadapp.com:</strong> No <code>Content-Security-Policy</code> — XSS payloads could exfiltrate to arbitrary domains. No <code>X-Frame-Options</code> — clickjacking possible.</li>
+          <li><strong>api.loadleadapp.com:</strong> No <code>Strict-Transport-Security</code>, <code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>, or <code>Content-Security-Policy</code>.</li>
+        </ul>
+      </div>
+      <div class="drawer-section"><h4>What Was Fixed (Round 5)</h4>
+        <div class="resolution-box">
+          <p><strong>API — <code>helmet</code> v8 (<code>backend/src/index.ts</code>)</strong></p>
+          <p style="margin-top:6px">Mounted before CORS. Nginx already sets HSTS/XFO/XCTO/Referrer-Policy, so those are disabled in helmet to avoid duplicate headers. Helmet adds the rest:</p>
+          <ul style="margin-top:6px;padding-left:16px">
+            <li><code>Content-Security-Policy: default-src 'none'; frame-ancestors 'none'</code></li>
+            <li><code>Cross-Origin-Opener-Policy: same-origin</code></li>
+            <li><code>Cross-Origin-Resource-Policy: cross-origin</code></li>
+            <li><code>X-DNS-Prefetch-Control: off</code></li>
+            <li><code>X-Download-Options: noopen</code></li>
+            <li><code>X-Permitted-Cross-Domain-Policies: none</code></li>
+            <li><code>X-XSS-Protection: 0</code></li>
+            <li><code>Origin-Agent-Cluster: ?1</code></li>
+          </ul>
+          <p style="margin-top:10px"><strong>Frontend — CloudFront Function (<code>loadlead-add-security-headers</code>)</strong></p>
+          <p style="margin-top:6px">CloudFront Response Headers Policy was blocked by the distribution's legacy pricing plan (<code>InvalidArgument</code>). Used a CloudFront Function instead (viewer-response trigger on the default behavior) to inject all 7 security headers on every SPA response:</p>
+          <ul style="margin-top:6px;padding-left:16px">
+            <li><code>Strict-Transport-Security: max-age=31536000; includeSubDomains; preload</code></li>
+            <li><code>Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.loadleadapp.com; font-src 'self'; frame-src https://www.google.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'</code></li>
+            <li><code>X-Frame-Options: DENY</code></li>
+            <li><code>X-Content-Type-Options: nosniff</code></li>
+            <li><code>Referrer-Policy: strict-origin-when-cross-origin</code></li>
+            <li><code>X-Permitted-Cross-Domain-Policies: none</code></li>
+            <li><code>X-XSS-Protection: 0</code></li>
+          </ul>
+          <p style="margin-top:8px">CSP <code>frame-src https://www.google.com</code> allows Google Maps Embed API iframes (RouteMapCard, LoadRoutePanel). <code>connect-src https://api.loadleadapp.com</code> covers the VITE_API_URL target. <code>img-src data:</code> covers BOL canvas.toDataURL() signatures.</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification</h4>
+        <ul>
+          <li><code>curl -sI https://api.loadleadapp.com/api/health</code> → Content-Security-Policy, Cross-Origin-Opener-Policy, X-Permitted-Cross-Domain-Policies, X-XSS-Protection, X-DNS-Prefetch-Control ✅</li>
+          <li><code>curl -sI https://loadleadapp.com/</code> → content-security-policy, strict-transport-security (with preload), x-frame-options, x-content-type-options, referrer-policy, x-permitted-cross-domain-policies ✅</li>
+          <li>No <code>X-Powered-By</code> on any response ✅</li>
+        </ul>
+      </div>`
+  },
+  i_geo:{
+    badge:'<span class="p0f">FIXED · I_GEO</span>',
+    title:'Broadcast Geocoding: Full Address + Real Coordinates Required at Draft Time',
+    body:`
+      <div class="drawer-section"><h4>Finding (Round 2 — Test 6.3)</h4>
+        <p>When a load was drafted with a city-only pickup address (e.g. <code>pickupCity: "Chicago"</code> — no explicit coordinates), the load was stored in DynamoDB with <code>pickupLat: null</code> / <code>pickupLng: null</code>. The broadcast radius check in <code>BroadcastService</code> calculated distance using these null values, and every driver failed the proximity check — zero offers were sent.</p>
+      </div>
+      <div class="drawer-section"><h4>What Was Fixed</h4>
+        <ul>
+          <li><strong>validators.ts</strong> — <code>pickupAddress</code>, <code>pickupLat</code>, <code>pickupLng</code>, <code>deliveryAddress</code>, <code>deliveryLat</code>, <code>deliveryLng</code> all required; draft rejected if coordinates missing</li>
+          <li><strong>GET /api/maps/geocode?address=...</strong> — new endpoint added to <code>maps.ts</code>; backend proxies Google Geocoding API (key never exposed to browser)</li>
+          <li><strong>PostLoad.tsx</strong> — rewritten with separate street/city/state/zip fields for pickup and delivery; "Verify address" button geocodes before submit; toast error blocks submission on geocoding failure</li>
+          <li><strong>api.ts</strong> — <code>api.geocodeAddress(address)</code> method added</li>
+          <li><strong>BroadcastService</strong> — geocoding fallback for historical loads with null coords; persists result to DynamoDB so rebroadcast also works</li>
+          <li><strong>RoutingService.geocodeAddress()</strong> — new static method used by BroadcastService</li>
+        </ul>
+      </div>
+      <div class="drawer-section"><h4>Verification</h4>
+        <div class="fixed-box">
+          <p>✅ <code>POST /api/shipper/loads/draft</code> with <code>pickupLat: 41.8839, pickupLng: -87.6319</code> → 201, lat/lng stored in DynamoDB</p>
+          <p>✅ <code>POST /api/shipper/loads/draft</code> without <code>pickupLat</code> → 400 "Pickup latitude is required — geocode the address before submitting"</p>
+          <p>✅ <code>GET /api/maps/geocode?address=100+W+Randolph+St,+Chicago,+IL+60601</code> → <code>{"lat":41.8851523,"lng":-87.63167089999999}</code></p>
+        </div>
+      </div>`
+  },
+  br1:{
+    badge:'<span class="badge badge-fixed">FIXED · BR1</span>',
+    title:'Broadcast: minMcMaturityDays=0 Treated as Falsy by || Operator',
+    body:`
+      <div class="drawer-section"><h4>Root Cause</h4>
+        <p>In <code>loadService.ts</code> line 96, the load creation code used the logical-OR operator to fall back to the config default:</p>
+        <p style="margin-top:8px"><code>minMcMaturityDays: data.minMcMaturityDays || config.app.minMcMaturity</code></p>
+        <p style="margin-top:8px">When a shipper submitted a load with <code>minMcMaturityDays: 0</code> (meaning any new MC is acceptable), JavaScript evaluated <code>0 || 90</code> = <code>90</code> — overriding the shipper's explicit intent and setting the requirement to 90 days. A driver with only 2 days of MC maturity was then excluded from broadcast even though the load required 0 days.</p>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box">
+          <p>Changed <code>||</code> to <code>??</code> (nullish coalescing) throughout the same block in <code>backend/src/services/loadService.ts</code>:</p>
+          <p style="margin-top:8px"><code>minMcMaturityDays: data.minMcMaturityDays ?? config.app.minMcMaturity,<br/>minCargoInsurance: data.minCargoInsurance ?? 100000,<br/>minLiabilityInsurance: data.minLiabilityInsurance ?? 1000000,<br/>requiredEndorsements: data.requiredEndorsements ?? [],<br/>experienceRequired: data.experienceRequired ?? 0,</code></p>
+          <p style="margin-top:8px"><code>??</code> only falls back when the value is <code>null</code> or <code>undefined</code>, preserving <code>0</code> as a valid explicit value.</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification</h4>
+        <p>After fix: load posted with <code>minMcMaturityDays: 0</code> → driver with 2-day MC maturity now passes the MC check → included in broadcast ✅</p>
+      </div>`
+  },
+  br2:{
+    badge:'<span class="badge badge-fixed">FIXED · BR2</span>',
+    title:'Broadcast: Load Posted with trailerType Instead of equipmentType',
+    body:`
+      <div class="drawer-section"><h4>Root Cause</h4>
+        <p>When testing the broadcast pipeline, the load draft request body used the wrong field name:</p>
+        <p style="margin-top:8px"><code>{ "trailerType": "DRY_VAN" }  ← wrong field name</code></p>
+        <p style="margin-top:8px">The Load schema expects <code>equipmentType</code>. With <code>trailerType</code> unrecognised, <code>load.equipmentType</code> was stored as <code>undefined</code>. The broadcast engine then built <code>acceptedEquipmentTypes = [undefined]</code>, and every driver's <code>trailerType === "DRY_VAN"</code> check returned <code>false</code> — zero offers created.</p>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box"><p>Corrected the draft request body to use <code>equipmentType: "DRY_VAN"</code>. The load then stored <code>equipmentType: "DRY_VAN"</code> and <code>acceptedEquipmentTypes: ["DRY_VAN"]</code> correctly. All drivers with <code>trailerType: "DRY_VAN"</code> passed the equipment check.</p></div>
+      </div>
+      <div class="drawer-section"><h4>Verification</h4>
+        <p>After fix: load with <code>equipmentType: "DRY_VAN"</code> → driver with <code>trailerType: "DRY_VAN"</code> passes equipment check → included in broadcast ✅</p>
+      </div>`
+  },
+  br3:{
+    badge:'<span class="badge badge-fixed">FIXED · BR3</span>',
+    title:'Broadcast: Default dockAvailable:true Blocked All Dry-Van Drivers',
+    body:`
+      <div class="drawer-section"><h4>Root Cause</h4>
+        <p>In <code>equipmentService.ts</code>, <code>deriveLoadingRequirements()</code> was called when no facility profiles were provided. The default for missing facilities was:</p>
+        <p style="margin-top:8px"><code>const p = pickup ?? { dockAvailable: true, forkliftAvailable: true, freightFormat: 'PALLETIZED' };</code></p>
+        <p style="margin-top:8px">Because <code>dockAvailable: true</code>, the function set <code>requiresDockHeight: true</code> for every load without explicit facility data. Most dry-van loads have no facility profile. The test driver had <code>dockHeightCompatible: false</code> (the default), so they were excluded from every broadcast — even loads that had no dock requirement at all.</p>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box">
+          <p>Changed the default from <code>dockAvailable: true</code> to <code>dockAvailable: false</code> for both pickup and delivery in <code>equipmentService.ts</code> lines 30–31:</p>
+          <p style="margin-top:8px"><code>const p = pickup  ?? { dockAvailable: false, forkliftAvailable: true, freightFormat: 'PALLETIZED' };<br/>const d = delivery ?? { dockAvailable: false, forkliftAvailable: true, freightFormat: 'PALLETIZED' };</code></p>
+          <p style="margin-top:8px">Now loads without facility data default to <strong>no dock required</strong> — the most permissive assumption. Only loads that explicitly declare a dock (<code>dockAvailable: true</code>) will require dock-height trailers.</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification</h4>
+        <p>After fix: Austin→Dallas DRY_VAN load broadcasted → driver1 (dockHeightCompatible:false) passed equipment check → 3 offers created and visible on driver loadboard ✅</p>
+      </div>`
+  },
+  geo_chain:{
+    badge:'<span class="badge badge-fixed">FIXED · GPS Chain</span>',
+    title:'Driver GPS → Reverse Geocode → Location Update Chain',
+    body:`
+      <div class="drawer-section"><h4>The Chain</h4>
+        <p>Driver geolocation module calls three APIs in sequence:<br/>1. Browser <code>navigator.geolocation.getCurrentPosition()</code> → lat, lng<br/>2. <code>GET /api/maps/reverse-geocode?lat=&lng=</code> → city, state<br/>3. <code>POST /api/driver/location</code> with lat, lng, city, state</p>
+      </div>
+      <div class="drawer-section"><h4>Failure Mode Found</h4>
+        <p>Step 2 returned 404 — the endpoint did not exist. This caused <code>geo.city = ''</code> and <code>geo.state = ''</code>. Step 3 then sent <code>city: ""</code> and <code>state: ""</code> — the location validator requires a non-empty city and a 2-character state, so step 3 returned <strong>400</strong>. The driver's location was never updated, and the GPS icon showed placeholder data.</p>
+      </div>
+      <div class="drawer-section"><h4>Fix Applied</h4>
+        <div class="fixed-box">
+          <p>Added <code>GET /api/maps/reverse-geocode</code> endpoint to <code>backend/src/routes/maps.ts</code>. It calls the existing <code>GoogleMapsService.reverseGeocodeCityState(lat, lng)</code> method and returns <code>{ city, state }</code>. Also fixed the Google Maps Embed API key — the "Websites" application restriction was blocking iframe loads; changed to Application restriction: None, API type: Maps Embed API only.</p>
+        </div>
+      </div>
+      <div class="drawer-section"><h4>Verification</h4>
+        <ul>
+          <li><code>GET /api/maps/reverse-geocode?lat=30.2&lng=-97.7</code> → <code>{"city":"Austin","state":"TX"}</code> ✅</li>
+          <li><code>POST /api/driver/location</code> with valid city/state → 200 ✅</li>
+          <li>Driver GPS shown in sidebar with city name ✅</li>
+          <li>RouteMapCard renders live Google Maps embed (no placeholder) ✅</li>
+        </ul>
+      </div>`
+  },
+  setup3:{
+    badge:'<span class="p2">P2 · CI SETUP</span>',
+    title:'Wire Jest + Supertest CI Gate',
+    body:`
+      <div class="drawer-section"><h4>Why Needed</h4>
+        <p>TESTING.md Section 17 specifies three blocking CI checks: authorization matrix, admin bootstrap race, and double-accept race. None are implemented. The double-accept race (test 7.6) now passes manually — a regression in any of these could ship silently without a CI gate.</p>
+      </div>
+      <div class="drawer-section"><h4>Recommended Stack</h4>
+        <ul>
+          <li><strong>Test runner:</strong> Jest + supertest (hit Express app directly, no HTTP server needed)</li>
+          <li><strong>Data layer:</strong> amazon/dynamodb-local via Docker in CI</li>
+          <li><strong>Auth matrix:</strong> for each route, assert: no token→401, wrong role→403, correct role wrong tenant→403, correct role correct tenant→200</li>
+          <li><strong>Race test:</strong> <code>await Promise.all([accept(driver1,loadId), accept(driver2,loadId)])</code> — exactly one 200, one 409</li>
+        </ul>
+      </div>`
+  }
+};
+
+function openDrawer(key){
+  const d=DRAWER_DATA[key]; if(!d) return;
+  document.getElementById('drawer-badge').innerHTML=d.badge;
+  document.getElementById('drawer-title').textContent=d.title;
+  document.getElementById('drawer-body').innerHTML=d.body;
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+}
+
+const RESULTS=[
+  // ── Section 2 ──────────────────────────────────────────────────────────────
+  {id:'2.1',section:'2. Auth / IDOR',test:'No token → protected route returns 401',status:'pass',http:'401',drawer:null},
+  {id:'2.2',section:'2. Auth / IDOR',test:'Driver reads shipper load via /shipper route',status:'pass',http:'403',drawer:null},
+  {id:'2.3',section:'2. Auth / IDOR',test:'Admin reads any load',status:'pass',http:'200',drawer:null},
+  {id:'2.4',section:'2. Auth / IDOR',test:'Shipper POSTs to driver/location',status:'pass',http:'403',drawer:null},
+  {id:'2.5',section:'2. Auth / IDOR',test:'Owner Operator loadboard cross-fleet visibility',status:'partial',http:'200',drawer:null},
+  {id:'2.6',section:'2. Auth / IDOR',test:'Cross-shipper IDOR — Shipper2 reads Shipper1 load (B5 fixed)',status:'pass',http:'403',drawer:'b5'},
+  {id:'2.7',section:'2. Auth / IDOR',test:'Receiver signs BOL for unrelated load',status:'untested',http:'—',drawer:null},
+  // ── Section 3 ──────────────────────────────────────────────────────────────
+  {id:'3.1',section:'3. Role Guards',test:'Driver hits /api/admin/* → 403',status:'pass',http:'403',drawer:null},
+  {id:'3.2',section:'3. Role Guards',test:'Driver hits /api/org/invite',status:'pass',http:'403',drawer:'i6'},
+  {id:'3.3',section:'3. Role Guards',test:'Admin approves shipper-admin privilege',status:'pass',http:'200',drawer:null},
+  {id:'3.4',section:'3. Role Guards',test:'Non-admin hits admin routes (all roles)',status:'pass',http:'403',drawer:null},
+  {id:'3.5',section:'3. Role Guards',test:'DISPATCHER cannot demote OWNER in org',status:'untested',http:'—',drawer:null},
+  {id:'3.6',section:'3. Role Guards',test:'Cannot remove/demote org OWNER',status:'untested',http:'—',drawer:null},
+  {id:'3.7',section:'3. Role Guards',test:'Org member of Org1 accesses Org2 routes',status:'untested',http:'—',drawer:null},
+  {id:'3.8',section:'3. Role Guards',test:'DRIVER blocked from ALL /api/org/ routes (i6 fix)',status:'pass',http:'403',drawer:'i6'},
+  // ── Section 4 ──────────────────────────────────────────────────────────────
+  {id:'4.1',section:'4. Admin Bootstrap',test:'GET /setup/status returns adminExists:true (B1 fix)',status:'pass',http:'200',drawer:'b1'},
+  {id:'4.2',section:'4. Admin Bootstrap',test:'POST /setup/request blocked when admin exists',status:'pass',http:'409',drawer:null},
+  {id:'4.3',section:'4. Admin Bootstrap',test:'Replay burned setup token',status:'pass',http:'400',drawer:null},
+  {id:'4.4',section:'4. Admin Bootstrap',test:'Concurrent double-complete race on setup',status:'untested',http:'—',drawer:'setup3'},
+  {id:'4.5',section:'4. Admin Bootstrap',test:'Expired token (>24h TTL) rejected',status:'untested',http:'—',drawer:null},
+  // ── Section 5 ──────────────────────────────────────────────────────────────
+  {id:'5.1',section:'5. Token Lifecycle',test:'No JWT → protected route returns 401',status:'pass',http:'401',drawer:null},
+  {id:'5.2',section:'5. Token Lifecycle',test:'Tampered / forged JWT rejected',status:'pass',http:'401',drawer:null},
+  {id:'5.3',section:'5. Token Lifecycle',test:'Forgot password — no user enumeration (200 either way)',status:'pass',http:'200',drawer:null},
+  {id:'5.4',section:'5. Token Lifecycle',test:'Password reset token single-use burn',status:'untested',http:'—',drawer:null},
+  {id:'5.5',section:'5. Token Lifecycle',test:'Org invite token burn on accept',status:'untested',http:'—',drawer:null},
+  // ── Section 6 ──────────────────────────────────────────────────────────────
+  {id:'6.1',section:'6. Broadcast Engine',test:'Draft load created successfully',status:'pass',http:'200',drawer:null},
+  {id:'6.2',section:'6. Broadcast Engine',test:'Submit triggers broadcast without 500 (B2 fix)',status:'pass',http:'200',drawer:'b2'},
+  {id:'6.3',section:'6. Broadcast Engine',test:'Full address + coords required at draft — geocoding null rejected (I_GEO fix)',status:'pass',http:'400/201',drawer:'i_geo'},
+  {id:'6.4',section:'6. Broadcast Engine',test:'Radius boundary (just inside vs outside)',status:'untested',http:'—',drawer:null},
+  {id:'6.5',section:'6. Broadcast Engine',test:'Equipment mismatch exclusion (reefer vs dry van)',status:'untested',http:'—',drawer:null},
+  {id:'6.6',section:'6. Broadcast Engine',test:'Hazmat load excludes non-hazmat driver',status:'untested',http:'—',drawer:null},
+  {id:'6.7',section:'6. Broadcast Engine',test:'Suspended driver receives zero offers',status:'untested',http:'—',drawer:null},
+  // ── Section 7 ──────────────────────────────────────────────────────────────
+  {id:'7.1',section:'7. Offer Lifecycle',test:'Offer created for verified driver on load submit',status:'pass',http:'200',drawer:'b4'},
+  {id:'7.2',section:'7. Offer Lifecycle',test:'Driver fetches offer via GET /driver/offers/:loadId',status:'pass',http:'200',drawer:'b4'},
+  {id:'7.3',section:'7. Offer Lifecycle',test:'Driver accepts offer → load transitions to BOOKED',status:'pass',http:'200',drawer:'b4'},
+  {id:'7.4',section:'7. Offer Lifecycle',test:'Load assignedDriverId set after accept',status:'pass',http:'200',drawer:'b4'},
+  {id:'7.5',section:'7. Offer Lifecycle',test:'Other pending offers expired on accept',status:'pass',http:'200',drawer:'b4'},
+  {id:'7.6',section:'7. Offer Lifecycle',test:'Double-accept: second driver → 409 Conflict',status:'pass',http:'409',drawer:'b4'},
+  {id:'7.7',section:'7. Offer Lifecycle',test:'Accept after countdown expires → 400',status:'untested',http:'—',drawer:null},
+  {id:'7.8',section:'7. Offer Lifecycle',test:'Decline then attempt accept → error',status:'untested',http:'—',drawer:null},
+  // ── Section 8 ──────────────────────────────────────────────────────────────
+  {id:'8.1',section:'8. Load State Machine',test:'Create DRAFT load',status:'pass',http:'200',drawer:null},
+  {id:'8.2',section:'8. Load State Machine',test:'Driver pickup on DRAFT → 404 (illegal transition)',status:'pass',http:'404',drawer:null},
+  {id:'8.3',section:'8. Load State Machine',test:'Submit DRAFT → OPEN (broadcast initiated)',status:'pass',http:'200',drawer:'b2'},
+  {id:'8.4',section:'8. Load State Machine',test:'DELETE DRAFT load',status:'pass',http:'200',drawer:null},
+  {id:'8.5',section:'8. Load State Machine',test:'Driver tries to delete load → 403',status:'pass',http:'403',drawer:null},
+  {id:'8.6',section:'8. Load State Machine',test:'Admin status override',status:'pass',http:'200',drawer:null},
+  {id:'8.7',section:'8. Load State Machine',test:'DELIVERED → OPEN (illegal backward) → 400',status:'pass',http:'400',drawer:null},
+  // ── Section 9 ──────────────────────────────────────────────────────────────
+  {id:'9.1',section:'9. BOL & Signature',test:'Shipper cannot sign BOL → 403 (B7 fix)',status:'pass',http:'403',drawer:'b7bol'},
+  {id:'9.2',section:'9. BOL & Signature',test:'Driver signs BOL successfully',status:'pass',http:'200',drawer:null},
+  {id:'9.3',section:'9. BOL & Signature',test:'Replay BOL signature rejected',status:'pass',http:'400',drawer:null},
+  {id:'9.4',section:'9. BOL & Signature',test:'GET BOL by bolId → 200',status:'pass',http:'200',drawer:null},
+  {id:'9.5',section:'9. BOL & Signature',test:'Cross-tenant BOL read (IDOR) — shipper2 blocked (B7 fix)',status:'pass',http:'403',drawer:'b7bol'},
+  {id:'9.6',section:'9. BOL & Signature',test:'GET BOL by loadId → 200',status:'pass',http:'200',drawer:null},
+  {id:'9.7',section:'9. BOL & Signature',test:'BOL S3 attachments not publicly readable',status:'untested',http:'—',drawer:null},
+  // ── Section 10 ─────────────────────────────────────────────────────────────
+  {id:'10.1',section:'10. GPS Tracking',test:'Driver posts own location (correct fields)',status:'pass',http:'200',drawer:null},
+  {id:'10.2',section:'10. GPS Tracking',test:'Shipper POSTs to driver/location → 403',status:'pass',http:'403',drawer:null},
+  {id:'10.3',section:'10. GPS Tracking',test:'Garbage coordinates (lat=999) rejected → 400',status:'pass',http:'400',drawer:null},
+  {id:'10.4',section:'10. GPS Tracking',test:'Shipper tracks own load → 200',status:'pass',http:'200',drawer:null},
+  {id:'10.5',section:'10. GPS Tracking',test:'Unrelated shipper tracks another load → 404',status:'pass',http:'404',drawer:null},
+  // ── Section 11 ─────────────────────────────────────────────────────────────
+  {id:'11.1',section:'11. DynamoDB',test:'GET /admin/loads returns AVAILABLE loads',status:'pass',http:'200',drawer:null},
+  {id:'11.2',section:'11. DynamoDB',test:'GET /admin/drivers returns VERIFIED count (=5)',status:'pass',http:'200',drawer:null},
+  {id:'11.3',section:'11. DynamoDB',test:'adminExists B1 fix re-verified',status:'pass',http:'200',drawer:'b1'},
+  {id:'11.4',section:'11. DynamoDB',test:'Pagination with limit=2',status:'pass',http:'200',drawer:null},
+  {id:'11.5',section:'11. DynamoDB',test:'Non-existent loadId returns 404',status:'pass',http:'404',drawer:null},
+  // ── Section 12 ─────────────────────────────────────────────────────────────
+  {id:'12.1',section:'12. Input Validation',test:'Missing required fields → 400',status:'pass',http:'400',drawer:null},
+  {id:'12.2',section:'12. Input Validation',test:'Negative weight → 400',status:'pass',http:'400',drawer:null},
+  {id:'12.3',section:'12. Input Validation',test:'SQL injection in query param — no 500',status:'pass',http:'200',drawer:null},
+  {id:'12.4',section:'12. Input Validation',test:'XSS payload stripped before storage (commodity + instructions)',status:'pass',http:'201',drawer:'i2'},
+  {id:'12.5',section:'12. Input Validation',test:'Invalid date format → 400',status:'pass',http:'400',drawer:null},
+  {id:'12.6',section:'12. Input Validation',test:'Delivery before pickup — rejected with 400',status:'pass',http:'400',drawer:'b6'},
+  {id:'12.7',section:'12. Input Validation',test:'Oversized payload (100KB body) → 400',status:'pass',http:'400',drawer:null},
+  {id:'12.8',section:'12. Input Validation',test:'File upload content-type allowlist',status:'untested',http:'—',drawer:null},
+  // ── Section 13 ─────────────────────────────────────────────────────────────
+  {id:'13.1',section:'13. Infra & CORS',test:'CORS from allowed origin — header present',status:'pass',http:'200',drawer:null},
+  {id:'13.2',section:'13. Infra & CORS',test:'CORS from evil.com — no Allow-Origin header',status:'pass',http:'—',drawer:null},
+  {id:'13.3',section:'13. Infra & CORS',test:'HTTP to API returns 301 → HTTPS (I3 fixed)',status:'pass',http:'301',drawer:'i3'},
+  {id:'13.4',section:'13. Infra & CORS',test:'CORS preflight OPTIONS → 204',status:'pass',http:'204',drawer:null},
+  {id:'13.5',section:'13. Infra & CORS',test:'15 rapid auth failures → 429 returned (I8 fixed)',status:'pass',http:'401→429',drawer:'i8'},
+  {id:'13.6',section:'13. Infra & CORS',test:'.env absent from EB deployment zip',status:'pass',http:'—',drawer:null},
+  // ── Section 14 ─────────────────────────────────────────────────────────────
+  {id:'14.1',section:'14. Failure Modes',test:'Malformed JSON body → 400',status:'pass',http:'400',drawer:null},
+  {id:'14.2',section:'14. Failure Modes',test:'Tampered JWT → 401',status:'pass',http:'401',drawer:null},
+  {id:'14.3',section:'14. Failure Modes',test:'No Authorization header → 401',status:'pass',http:'401',drawer:null},
+  {id:'14.4',section:'14. Failure Modes',test:'Accept already-booked load → 400/409',status:'pass',http:'400',drawer:null},
+  {id:'14.5',section:'14. Failure Modes',test:'Unknown endpoint → 404',status:'pass',http:'404',drawer:null},
+  {id:'14.6',section:'14. Failure Modes',test:'Oversized payload handled gracefully',status:'pass',http:'400',drawer:null},
+  {id:'14.7',section:'14. Failure Modes',test:'Resend down → signup still 201',status:'untested',http:'—',drawer:null},
+  {id:'14.8',section:'14. Failure Modes',test:'Google Maps down → load posting still succeeds',status:'untested',http:'—',drawer:null},
+  {id:'14.9',section:'14. Failure Modes',test:'Push notification fail does not block offer',status:'untested',http:'—',drawer:null},
+  // ── Section 15 ─────────────────────────────────────────────────────────────
+  {id:'15.1',section:'15. Frontend',test:'Frontend loads over HTTPS → 200',status:'pass',http:'200',drawer:null},
+  {id:'15.2',section:'15. Frontend',test:'HTTP → HTTPS redirect on frontend → 301',status:'pass',http:'301',drawer:null},
+  {id:'15.3',section:'15. Frontend',test:'Content-Security-Policy on frontend (I9 fixed)',status:'pass',http:'✅',drawer:'i9'},
+  {id:'15.4',section:'15. Frontend',test:'X-Frame-Options: DENY on frontend (I9 fixed)',status:'pass',http:'✅',drawer:'i9'},
+  {id:'15.5',section:'15. Frontend',test:'Security headers on API — helmet v8 + Nginx (I9 fixed)',status:'pass',http:'✅',drawer:'i9'},
+  {id:'15.6',section:'15. Frontend',test:'JWT returned in body not URL on login',status:'pass',http:'200',drawer:null},
+  {id:'15.7',section:'15. Frontend',test:'Deep-link to /admin/dashboard (SPA) → 200',status:'pass',http:'200',drawer:null},
+  {id:'15.8',section:'15. Frontend',test:'Countdown timer accuracy at offer expiry edge',status:'untested',http:'—',drawer:null},
+  {id:'15.9',section:'15. Frontend',test:'Token expiry mid-session → redirect to login',status:'untested',http:'—',drawer:null},
+  {id:'15.10',section:'15. Frontend',test:'ErrorBoundary catches render failures',status:'untested',http:'—',drawer:null},
+  // ── Section 16/17 ──────────────────────────────────────────────────────────
+  {id:'16.1',section:'16–17. Perf / CI',test:'Fan-out to 100+ drivers — p95 latency',status:'untested',http:'—',drawer:null},
+  {id:'16.2',section:'16–17. Perf / CI',test:'Geohash query perf at scale (1,000+ drivers)',status:'untested',http:'—',drawer:null},
+  {id:'16.3',section:'16–17. Perf / CI',test:'EB autoscaling under burst',status:'untested',http:'—',drawer:null},
+  {id:'17.1',section:'16–17. Perf / CI',test:'Auth matrix wired to CI (blocking)',status:'untested',http:'—',drawer:'setup3'},
+  {id:'17.2',section:'16–17. Perf / CI',test:'Admin bootstrap race wired to CI',status:'untested',http:'—',drawer:'setup3'},
+  {id:'17.3',section:'16–17. Perf / CI',test:'Double-accept race wired to CI',status:'untested',http:'—',drawer:'setup3'},
+  // ── Section 18 — Round 3: Maps & Routes ────────────────────────────────────
+  {id:'18.1',section:'18. Maps & Routes (R3)',test:'Driver GPS → reverse-geocode → location update chain',status:'pass',http:'200',drawer:'geo_chain'},
+  {id:'18.2',section:'18. Maps & Routes (R3)',test:'RouteMapCard renders live Google Maps embed (no placeholder after CloudFront invalidation)',status:'pass',http:'200',drawer:null},
+  {id:'18.3',section:'18. Maps & Routes (R3)',test:'LoadRoutePanel Pickup tab: driver position → pickup address directions',status:'pass',http:'200',drawer:null},
+  {id:'18.4',section:'18. Maps & Routes (R3)',test:'LoadRoutePanel Dropoff tab: pickup→delivery toggle and current→delivery toggle',status:'pass',http:'200',drawer:null},
+  {id:'18.5',section:'18. Maps & Routes (R3)',test:'Google Maps Embed API key: Application=None, API-type=Maps Embed only (no iframe 403)',status:'pass',http:'200',drawer:'geo_chain'},
+  // ── Section 19 — Round 3: Broadcast Pipeline ───────────────────────────────
+  {id:'19.1',section:'19. Broadcast Pipeline (R3)',test:'End-to-end broadcast: Austin→Dallas DRY_VAN → 3 offers on driver loadboard',status:'pass',http:'200',drawer:'br3'},
+  {id:'19.2',section:'19. Broadcast Pipeline (R3)',test:'BR1: minMcMaturityDays=0 respected after || → ?? fix',status:'pass',http:'200',drawer:'br1'},
+  {id:'19.3',section:'19. Broadcast Pipeline (R3)',test:'BR2: equipmentType field correct (trailerType mismatch fixed)',status:'pass',http:'200',drawer:'br2'},
+  {id:'19.4',section:'19. Broadcast Pipeline (R3)',test:'BR3: dockAvailable default false — dry-van drivers no longer excluded',status:'pass',http:'200',drawer:'br3'},
+  // ── Section 20 — Round 3: Load History ─────────────────────────────────────
+  {id:'20.1',section:'20. Load History (R3)',test:'GET /api/driver/history returns accepted loads (auth protected)',status:'pass',http:'200',drawer:null},
+  {id:'20.2',section:'20. Load History (R3)',test:'GET /api/owner-operator/history returns fleet accepted loads (auth protected)',status:'pass',http:'200',drawer:null},
+  {id:'20.3',section:'20. Load History (R3)',test:'GET /api/driver/history without auth → 401',status:'pass',http:'401',drawer:null},
+  {id:'20.4',section:'20. Load History (R3)',test:'"Load History" sidebar nav visible for DRIVER role; dashboard nav uses exact match (no double highlight)',status:'pass',http:'—',drawer:null},
+  {id:'20.5',section:'20. Load History (R3)',test:'"Load History" sidebar nav visible for OWNER_OPERATOR role',status:'pass',http:'—',drawer:null},
+  // ── Section 21 — Round 4: Auth Rate Limiting ───────────────────────────────
+  {id:'21.1',section:'21. Auth Rate Limiting (R4)',test:'16 rapid POST /api/auth/login → 15th returns 401, 16th returns 429',status:'pass',http:'401→429',drawer:'i8'},
+  {id:'21.2',section:'21. Auth Rate Limiting (R4)',test:'RateLimit-Limit and RateLimit-Remaining headers present on auth responses',status:'pass',http:'200',drawer:'i8'},
+  {id:'21.3',section:'21. Auth Rate Limiting (R4)',test:'Direct HTTP api.loadleadapp.com → 301 redirect to HTTPS still intact after redirect fix',status:'pass',http:'301',drawer:'i8'},
+  {id:'21.4',section:'21. Auth Rate Limiting (R4)',test:'CloudFront-proxied HTTPS requests not intercepted by redirect middleware (no redirect loop)',status:'pass',http:'200',drawer:'i8'},
+  {id:'22.1',section:'22. Shipper Profile Gate (R6)',test:'SHIPPER signup wizard shows 4 steps: Role → Organisation → Shipper Profile → Account',status:'pass',http:'—',drawer:'i5'},
+  {id:'22.2',section:'22. Shipper Profile Gate (R6)',test:'POST /api/shipper/loads/draft with no shipper profile → 400 PROFILE_INCOMPLETE (not 404)',status:'pass',http:'400',drawer:'i5'},
+  {id:'22.3',section:'22. Shipper Profile Gate (R6)',test:'GET /api/shipper/loads with no shipper profile → 400 PROFILE_INCOMPLETE with code and hint',status:'pass',http:'400',drawer:'i5'},
+  {id:'22.4',section:'22. Shipper Profile Gate (R6)',test:'New SHIPPER account via 4-step wizard → profile exists on first dashboard load (no 404)',status:'pass',http:'200',drawer:'i5'},
+];
+
+const STATUS_MAP={
+  pass:{label:'✅ Pass',cls:'badge-pass',filter:'pass'},
+  fail:{label:'❌ Fail',cls:'badge-fail',filter:'fail'},
+  risk:{label:'⚠️ Risk',cls:'badge-warn',filter:'risk'},
+  partial:{label:'🔵 Partial',cls:'badge-partial',filter:'partial'},
+  untested:{label:'⏭ Untested',cls:'badge-skip',filter:'untested'},
+};
+
+function buildTable(){
+  const tbody=document.getElementById('resultBody');
+  let lastSection='';
+  RESULTS.forEach(r=>{
+    if(r.section!==lastSection){
+      const hdr=document.createElement('tr');
+      hdr.className='section-row';
+      hdr.setAttribute('data-section',r.section);
+      hdr.innerHTML=`<td colspan="6" class="section-hdr">${r.section}</td>`;
+      tbody.appendChild(hdr);
+      lastSection=r.section;
+    }
+    const s=STATUS_MAP[r.status]||STATUS_MAP.untested;
+    const tr=document.createElement('tr');
+    tr.setAttribute('data-status',s.filter);
+    if(r.drawer) tr.onclick=()=>openDrawer(r.drawer);
+    tr.innerHTML=`
+      <td style="color:#475569;font-size:12px">${r.id}</td>
+      <td style="color:#64748b;font-size:12px">${r.section}</td>
+      <td>${r.test}${r.drawer?'<span style="color:#3b82f6;font-size:11px;margin-left:6px">↗</span>':''}</td>
+      <td><span class="badge ${s.cls}">${s.label}</span></td>
+      <td style="font-family:monospace;font-size:12px;color:#64748b">${r.http}</td>
+      <td style="font-size:11px;color:#334155">${r.drawer?'Click row':'—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterResults(filter,btn){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('#resultBody tr').forEach(tr=>{
+    if(tr.classList.contains('section-row')){tr.style.display='';return;}
+    if(filter==='all'){tr.style.display='';return;}
+    tr.style.display=tr.getAttribute('data-status')===filter?'':'none';
+  });
+  document.querySelectorAll('.section-row').forEach(sHdr=>{
+    let next=sHdr.nextElementSibling;
+    let hasVisible=false;
+    while(next&&!next.classList.contains('section-row')){
+      if(next.style.display!=='none') hasVisible=true;
+      next=next.nextElementSibling;
+    }
+    sHdr.style.display=hasVisible?'':'none';
+  });
+}
+
+buildTable();
+</script>
+
+<!-- ===== Refactor Test Tracker script — merged from test-tracker.html ===== -->
+<script>
+(function(){
+  var STORE='loadlead_test_tracker_v1';
+  var SECTIONS=[
+    {k:'A',name:'Carrier-of-record resolution'},
+    {k:'B',name:'Verification gates'},
+    {k:'C',name:'Org capability & exclusivity'},
+    {k:'D',name:'Owner Operator self-haul'},
+    {k:'E',name:'Driver onboarding & one-parent invariant'},
+    {k:'F',name:'Invoice payee & UI contract'},
+    {k:'G',name:'Authorization / IDOR matrix'},
+    {k:'H',name:'Concurrency races'}
+  ];
+  // id, section, tier, scenario
+  var TESTS=[
+    ['A1','A',1,'Fleet driver resolves to OWNER_OPERATOR'],
+    ['A2','A',1,'OO self-driver resolves to OWNER_OPERATOR'],
+    ['A3','A',1,'Carrier-org member resolves to CARRIER_ORG'],
+    ['A4','A',1,'Member of non-carrier org only → null'],
+    ['A5','A',1,'Unaffiliated driver → null'],
+    ['A6','A',1,'Both parents → OWNER_OPERATOR (precedence)'],
+    ['A7','A',1,'Inactive membership ignored → null'],
+    ['A8','A',1,'Mixed memberships → the carrier org'],
+
+    ['B1','B',1,'Both gates pass → next()'],
+    ['B2','B',1,'Identity PENDING → 403 identity'],
+    ['B3','B',1,'Authority PENDING → 403 carrier'],
+    ['B4','B',1,'Unaffiliated → 403 UNAFFILIATED'],
+    ['B5','B',1,'Expired authority → 403'],
+    ['B6','B',1,'OO self-haul passes both gates → 200'],
+    ['B7','B',1,'isCarrierVerified status passthrough'],
+    ['B8','B',1,'Regression: admin-reject fails carrier'],
+    ['B9','B',1,'idvStatus mirrored onto User'],
+    ['B10','B',1,'submitCarrierDocs fires KYB only'],
+    ['B11','B',1,'submitDriverIdv keyed by userId'],
+
+    ['C1','C',1,'Create [SHIPPER] → ok'],
+    ['C2','C',1,'Create [CARRIER] → ok'],
+    ['C3','C',1,'Create [RECEIVER] → ok'],
+    ['C4','C',1,'Create [SHIPPER,CARRIER] → 400'],
+    ['C5','C',1,'Create [SHIPPER,RECEIVER] → ok'],
+    ['C6','C',1,'Create [CARRIER,RECEIVER] → ok'],
+    ['C7','C',1,'Create [] empty → 400'],
+    ['C8','C',1,'Add CARRIER to [SHIPPER] on update → 400'],
+    ['C9','C',1,'CARRIER-only org posts load → 403'],
+    ['C10','C',1,'SHIPPER-only org onboards driver → 403'],
+    ['C11','C',1,'Capability invariant holds on direct write'],
+
+    ['D1','D',2,'Self-driver auto-created on OO signup'],
+    ['D2','D',2,'Lazy backfill is idempotent (concurrent)'],
+    ['D3','D',2,'Broadcast reaches solo OO via self-driver'],
+    ['D4','D',2,'Accept with no driverId → self-driver'],
+    ['D5','D',2,'Accept with driverId → that fleet driver'],
+    ['D6','D',1,'Self-driver guarded against removal'],
+    ['D7','D',1,'Self-driver cannot be re-parented'],
+    ['D8','D',2,'History includes self-driver loads'],
+
+    ['E1','E',2,'Self-signup → unaffiliated driver'],
+    ['E2','E',1,'Unaffiliated cannot haul'],
+    ['E3','E',2,'Direct org setup creates driver + membership'],
+    ['E4','E',2,'ORG_DRIVER invite requires CARRIER'],
+    ['E5','E',1,'One-parent invariant in acceptInvitation'],
+    ['E6','E',1,'One-parent invariant in fleet/accept-invite'],
+    ['E7','E',1,'Exactly one parent after onboarding'],
+    ['E8','E',2,'IDV required before first accept'],
+
+    ['F1','F',2,'Fleet driver, no factoring → OO payee'],
+    ['F2','F',2,'Carrier-org driver → org payee'],
+    ['F3','F',2,'OO self-driver → OO payee'],
+    ['F4','F',2,'Factoring SUBMITTED → FACTOR payee'],
+    ['F5','F',2,'Returns full CarrierOfRecord entity'],
+    ['F6','F',2,'OO /verification/idv contract exists'],
+
+    ['G1','G',1,'SHIPPER role blocked from accept route'],
+    ['G2','G',1,'Driver A cannot access Driver B load/POD'],
+    ['G3','G',1,'OO cannot accept for non-fleet driver'],
+    ['G4','G',1,'Admin cannot onboard into other org'],
+    ['G5','G',1,'Cross-tenant load access blocked'],
+    ['G6','G',1,'Receiver sees only its loads'],
+    ['G7','G',1,'Non-admin blocked from /api/admin/*'],
+
+    ['H1','H',1,'Double-accept → exactly one wins'],
+    ['H2','H',1,'Self vs fleet accept → exactly one wins'],
+    ['H3','H',1,'Admin bootstrap race → one admin'],
+    ['H4','H',1,'Re-parent race → invariant holds']
+  ];
+  var ORDER=['pending','pass','fail','blocked'];
+  var LABEL={pending:'Pending',pass:'Pass',fail:'Fail',blocked:'Blocked'};
+
+  // ---- state (in-memory is source of truth; localStorage best-effort) ----
+  var state={};
+  try{ var raw=localStorage.getItem(STORE); if(raw) state=JSON.parse(raw)||{}; }catch(e){}
+  TESTS.forEach(function(t){ if(!state[t[0]]) state[t[0]]='pending'; });
+  function persist(){ try{ localStorage.setItem(STORE,JSON.stringify(state)); }catch(e){} }
+
+  var filt={q:'',tier:'all',st:'all'};
+  var $=function(s){return document.querySelector(s)};
+
+  function build(){
+    var list=$('#tt-list'); list.innerHTML='';
+    SECTIONS.forEach(function(sec){
+      var rows=TESTS.filter(function(t){return t[1]===sec.k;});
+      var wrap=document.createElement('div'); wrap.className='tt-section'; wrap.dataset.sec=sec.k;
+      var head=document.createElement('div'); head.className='tt-shead';
+      head.innerHTML='<span class="tt-letter">'+sec.k+'</span><span class="tt-sname">'+sec.name+'</span>'+
+        '<span class="tt-scount" data-c></span><span class="tt-smini"><i data-mini></i></span>';
+      wrap.appendChild(head);
+      rows.forEach(function(t){
+        var r=document.createElement('div'); r.className='tt-row'; r.dataset.id=t[0]; r.dataset.s=state[t[0]];
+        var opts=ORDER.map(function(o){return '<option value="'+o+'"'+(state[t[0]]===o?' selected':'')+'>'+LABEL[o]+'</option>';}).join('');
+        r.innerHTML='<span class="tt-id">'+t[0]+'</span><span class="tt-scn">'+t[3]+'</span>'+
+          '<span class="'+(t[2]===1?'tt-t1':'tt-t2')+'">T'+t[2]+'</span>'+
+          '<select class="tt-status" aria-label="Status for '+t[0]+'">'+opts+'</select>';
+        r.querySelector('select').addEventListener('change',function(e){
+          state[t[0]]=e.target.value; r.dataset.s=e.target.value; persist(); refresh();
+        });
+        wrap.appendChild(r);
+      });
+      list.appendChild(wrap);
+    });
+    refresh();
+  }
+
+  function refresh(){
+    var c={pass:0,fail:0,blocked:0,pending:0};
+    var t1total=0,t1ok=0;
+    TESTS.forEach(function(t){ var s=state[t[0]]; c[s]++; if(t[2]===1){t1total++; if(s==='pass')t1ok++;} });
+    $('#tt-c-pass').textContent=c.pass; $('#tt-c-fail').textContent=c.fail;
+    $('#tt-c-block').textContent=c.blocked; $('#tt-c-pend').textContent=c.pending;
+
+    // gate
+    var anyFail=TESTS.some(function(t){return t[2]===1&&state[t[0]]==='fail';});
+    var green=(t1ok===t1total);
+    var gate=$('#tt-gate'), word=$('#tt-gate-word'), sub=$('#tt-gate-sub'), fill=$('#tt-gate-fill');
+    var col=green?'var(--pass)':(anyFail?'var(--fail)':'var(--block)');
+    gate.style.setProperty('--gate-c',col);
+    word.textContent=green?'GREEN':(anyFail?'RED':'HOLD');
+    sub.textContent=t1ok+' / '+t1total+' Tier-1 passing'+(anyFail?' · '+TESTS.filter(function(t){return t[2]===1&&state[t[0]]==='fail';}).length+' failing':'');
+    fill.style.width=(t1total?Math.round(t1ok/t1total*100):0)+'%';
+
+    // per-section
+    document.querySelectorAll('#tt-root .tt-section').forEach(function(sw){
+      var k=sw.dataset.sec, rows=TESTS.filter(function(t){return t[1]===k;});
+      var done=rows.filter(function(t){return state[t[0]]==='pass';}).length;
+      sw.querySelector('[data-c]').textContent=done+'/'+rows.length;
+      sw.querySelector('[data-mini]').style.width=Math.round(done/rows.length*100)+'%';
+    });
+    applyFilter();
+    $('#tt-foot').textContent=TESTS.length+' tests · '+Math.round(c.pass/TESTS.length*100)+'% passing · last edit saved locally';
+  }
+
+  function applyFilter(){
+    var q=filt.q.toLowerCase();
+    document.querySelectorAll('#tt-root .tt-row').forEach(function(r){
+      var id=r.dataset.id, s=r.dataset.s;
+      var t=TESTS.find(function(x){return x[0]===id;});
+      var hit=(!q||id.toLowerCase().indexOf(q)>=0||t[3].toLowerCase().indexOf(q)>=0)
+        &&(filt.tier==='all'||String(t[2])===filt.tier)
+        &&(filt.st==='all'||s===filt.st);
+      r.classList.toggle('tt-hide',!hit);
+    });
+    document.querySelectorAll('#tt-root .tt-section').forEach(function(sw){
+      var vis=sw.querySelectorAll('.tt-row:not(.tt-hide)').length;
+      sw.style.display=vis?'':'none';
+    });
+  }
+
+  function download(name,type,data){
+    var b=new Blob([data],{type:type}), u=URL.createObjectURL(b), a=document.createElement('a');
+    a.href=u; a.download=name; a.click(); setTimeout(function(){URL.revokeObjectURL(u);},500);
+  }
+  function csv(){
+    var rows=[['ID','Section','Tier','Scenario','Status']];
+    TESTS.forEach(function(t){ rows.push([t[0],t[1],'T'+t[2],'"'+t[3].replace(/"/g,'""')+'"',state[t[0]]]); });
+    download('loadlead-test-tracker.csv','text/csv',rows.map(function(r){return r.join(',');}).join('\n'));
+  }
+  function json(){
+    download('loadlead-test-tracker.json','application/json',
+      JSON.stringify(TESTS.map(function(t){return {id:t[0],section:t[1],tier:t[2],scenario:t[3],status:state[t[0]]};}),null,2));
+  }
+
+  // ---- wire controls ----
+  $('#tt-search').addEventListener('input',function(e){filt.q=e.target.value;applyFilter();});
+  $('#tt-tier').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    filt.tier=b.dataset.tier; [].forEach.call(this.children,function(x){x.setAttribute('aria-pressed',x===b);}); applyFilter();});
+  $('#tt-filter').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    filt.st=b.dataset.st; [].forEach.call(this.children,function(x){x.setAttribute('aria-pressed',x===b);}); applyFilter();});
+  $('#tt-csv').addEventListener('click',csv);
+  $('#tt-json').addEventListener('click',json);
+  $('#tt-reset').addEventListener('click',function(){
+    if(!confirm('Reset every test to Pending?'))return;
+    TESTS.forEach(function(t){state[t[0]]='pending';}); persist(); build();
+  });
+
+  // ---- CI auto-sync: overlay status from test-results.json (CI is source of truth) ----
+  function loadFromCI(){
+    return fetch('./test-results.json',{cache:'no-store'}).then(function(r){
+      if(!r.ok) throw 0; return r.json();
+    }).then(function(data){
+      var meta=data.__meta||{}, n=0;
+      Object.keys(data).forEach(function(id){
+        if(id==='__meta') return;
+        if(state.hasOwnProperty(id)){ state[id]=data[id]; n++; }
+      });
+      persist(); build();
+      var s=$('#tt-sync'); s.hidden=false;
+      s.textContent='Synced from CI · '+n+' ids'+(meta.syncedAt?' · '+new Date(meta.syncedAt).toLocaleString():'');
+      return true;
+    }).catch(function(){ return false; });
+  }
+  $('#tt-sync-btn').addEventListener('click',function(){
+    loadFromCI().then(function(ok){
+      if(!ok){ var s=$('#tt-sync'); s.hidden=false; s.textContent='No test-results.json next to the dashboard — manual mode.'; }
+    });
+  });
+
+  build();
+  loadFromCI(); // silent on miss: stays in manual mode until CI emits the file
+})();
+</script>
+</body>
+</html>

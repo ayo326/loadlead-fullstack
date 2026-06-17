@@ -3,10 +3,21 @@
 // ============================================
 
 export enum UserRole {
-  ADMIN = 'ADMIN',
-  SHIPPER = 'SHIPPER',
-  DRIVER = 'DRIVER',
-  RECEIVER = 'RECEIVER'
+  ADMIN          = 'ADMIN',
+  SHIPPER        = 'SHIPPER',
+  DRIVER         = 'DRIVER',
+  RECEIVER       = 'RECEIVER',
+  OWNER_OPERATOR = 'OWNER_OPERATOR',
+  /**
+   * Administrator persona who runs a Carrier-capability Organization. This
+   * is NOT a carrier entity role — the carrier remains the Organization
+   * (capabilities includes CARRIER). A CARRIER_ADMIN manages/dispatches and
+   * never hauls: no Driver profile, never resolves as carrier of record,
+   * and is excluded from every accept/haul route by the existing
+   * requireDriver/requireOwnerOperator role guards (it's simply not in
+   * either allow-list).
+   */
+  CARRIER_ADMIN  = 'CARRIER_ADMIN',
 }
 
 export enum UserStatus {
@@ -42,11 +53,37 @@ export enum OfferStatus {
 }
 
 export enum TrailerType {
-  DRY_VAN = 'DRY_VAN',
-  REEFER = 'REEFER',
-  FLATBED = 'FLATBED',
-  STEP_DECK = 'STEP_DECK',
-  BOX_TRUCK = 'BOX_TRUCK'
+  // Enclosed
+  DRY_VAN    = 'DRY_VAN',
+  REEFER     = 'REEFER',
+  BOX_TRUCK  = 'BOX_TRUCK',
+  // Open-deck
+  FLATBED    = 'FLATBED',
+  STEP_DECK  = 'STEP_DECK',
+  RGN        = 'RGN',
+  CONESTOGA  = 'CONESTOGA',
+  // Specialized
+  TANKER     = 'TANKER',
+  CAR_HAULER = 'CAR_HAULER',
+  POWER_ONLY = 'POWER_ONLY',
+}
+
+export type FreightFormat = 'PALLETIZED' | 'FLOOR_LOADED' | 'CRATED' | 'DRIVE_ON' | 'LIQUID_BULK';
+
+export interface FacilityProfile {
+  dockAvailable: boolean;
+  forkliftAvailable: boolean;
+  freightFormat: FreightFormat;
+}
+
+/** Derived loading requirements computed from facility profiles (spec §11.3) */
+export interface DerivedLoadingRequirements {
+  requiresLiftgate: boolean;
+  requiresPalletJack: boolean;
+  requiresDockHeight: boolean;
+  requiresRgnOrCarHauler: boolean;
+  requiresTanker: boolean;
+  notes?: string;
 }
 
 export enum CDLClass {
@@ -67,6 +104,13 @@ export interface User {
   profileType?: 'ADMIN' | 'CARRIER' | 'SHIPPER' | 'DRIVER' | 'RECEIVER';
   phone?: string;
 
+  /**
+   * Person-level identity verification (Didit IDV), independent of which
+   * carrier parent (OO or Carrier org) governs their haul authority.
+   * An Owner Operator verifies identity once and it covers their self-driver.
+   */
+  idvStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED' | 'EXPIRED';
+
   createdAt: number;
   updatedAt: number;
 }
@@ -81,11 +125,43 @@ export interface Account {
   updatedAt: number;
 }
 
+// ─── Organisation types (Orgs, Roles & Onboarding spec) ─────────────────────
+
+export enum OrgCapability {
+  CARRIER  = 'CARRIER',
+  SHIPPER  = 'SHIPPER',
+  RECEIVER = 'RECEIVER',
+}
+
+/**
+ * Org roles per spec §3.2.
+ * Hierarchy (permission level): OWNER > ORG_ADMIN > DISPATCHER > ORG_DRIVER = SHIPPER_USER = RECEIVER_USER
+ * Legacy aliases MEMBER / VIEWER kept for backward-compat with older records but not accepted on new invitations.
+ */
+export enum OrgRole {
+  OWNER         = 'OWNER',
+  ORG_ADMIN     = 'ORG_ADMIN',
+  DISPATCHER    = 'DISPATCHER',
+  ORG_DRIVER    = 'ORG_DRIVER',
+  SHIPPER_USER  = 'SHIPPER_USER',
+  RECEIVER_USER = 'RECEIVER_USER',
+  /** @deprecated use ORG_ADMIN */
+  ADMIN  = 'ADMIN',
+  /** @deprecated — not in spec; treated as ORG_DRIVER */
+  MEMBER = 'MEMBER',
+  /** @deprecated — not in spec; treated as RECEIVER_USER */
+  VIEWER = 'VIEWER',
+}
+
+/** Roles that are considered admin-level for permission checks */
+export const ADMIN_ORG_ROLES: OrgRole[] = [OrgRole.OWNER, OrgRole.ORG_ADMIN, OrgRole.ADMIN];
+
 export interface Organization {
   orgId: string;
   legalName: string;
   dba?: string;
-  orgType?: string;
+  /** Bitmask of OrgCapability values the org has enabled */
+  capabilities: OrgCapability[];
   dotNumber?: string;
   mcNumber?: string;
   mcIssueDate?: number;
@@ -94,6 +170,58 @@ export interface Organization {
   state?: string;
   zip?: string;
   country?: string;
+  /** userId of the founding member */
+  ownerId: string;
+  /** Platform Admin can suspend an org, freezing all members */
+  suspended?: boolean;
+  suspendedAt?: number;
+  suspendedBy?: string;  // userId of Platform Admin
+  suspensionReason?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type MembershipStatus = 'ACTIVE' | 'SUSPENDED';
+
+export interface OrgMembership {
+  membershipId: string;
+  orgId: string;
+  userId: string;
+  orgRole: OrgRole;
+  /** Mirror of UserRole so membership can be filtered by role type */
+  userRole: UserRole;
+  /** ACTIVE (default) or SUSPENDED — suspension revokes access without deleting history (spec §6.4) */
+  status: MembershipStatus;
+  joinedAt: number;
+  suspendedAt?: number;
+  suspendedBy?: string;
+}
+
+export interface OrgInvitation {
+  token: string;
+  orgId: string;
+  email: string;
+  orgRole: OrgRole;
+  userRole: UserRole;
+  invitedBy: string;   // userId
+  expiresAt: number;
+  acceptedAt?: number;
+  revokedAt?: number;
+  revokedBy?: string;
+  createdAt: number;
+}
+
+/** Audit log entry for membership changes (spec §6.5) */
+export interface MembershipAuditLog {
+  logId: string;
+  orgId: string;
+  targetUserId: string;
+  actorUserId: string;
+  actorRole: string;      // UserRole of acting user
+  action: 'MEMBER_ADDED' | 'MEMBER_REMOVED' | 'ROLE_CHANGED' | 'MEMBER_SUSPENDED' | 'MEMBER_REINSTATED' | 'INVITE_SENT' | 'INVITE_ACCEPTED' | 'INVITE_REVOKED' | 'ORG_SUSPENDED' | 'ORG_REINSTATED';
+  oldValue?: string;      // e.g. previous orgRole
+  newValue?: string;      // e.g. new orgRole
+  timestamp: number;
 }
 
 export interface CarrierProfile {
@@ -113,6 +241,32 @@ export interface InsurancePolicy {
   autoLiabilityAmount: number;
   cargoCoverageAmount: number;
   expirationDate: number;
+}
+
+// ─── Capacity types ──────────────────────────────────────────────────────────
+
+export type CapacityZone = 'SAFE' | 'BUFFER' | 'DANGER';
+
+export interface CapacityCheck {
+  zone: CapacityZone;
+  /** Remaining bookable weight after this load (lbs) */
+  remainingWeightLbs: number;
+  /** Remaining bookable volume after this load (cu in) */
+  remainingVolumeCuIn: number;
+  /** Human-readable block message (only set in DANGER zone) */
+  blockMessage?: string;
+  /** Human-readable warning (only set in BUFFER zone) */
+  warningMessage?: string;
+}
+
+export interface BufferAuditLog {
+  logId: string;
+  driverId: string;
+  changedBy: string;      // userId
+  changedByRole: string;
+  oldBufferPct: number;
+  newBufferPct: number;
+  timestamp: number;
 }
 
 export interface Driver {
@@ -152,6 +306,32 @@ export interface Driver {
   currentLoadLbs: number;
   specialEquipment: string[];
 
+  // Loading capabilities (spec §11.1)
+  dockHeightCompatible?: boolean;
+  liftgateEquipped?: boolean;
+  palletJackOnboard?: boolean;
+  tempRangeMin?: number;   // °F — reefer only
+  tempRangeMax?: number;   // °F — reefer only
+  securementGear?: string[]; // e.g. ['TARPS','STRAPS','CHAINS']
+
+  // Volume capacity (interior dimensions in inches)
+  interiorLengthIn?: number;
+  interiorWidthIn?: number;
+  interiorHeightIn?: number;
+  /** Derived: interiorLengthIn × interiorWidthIn × interiorHeightIn */
+  usableVolumeCuIn?: number;
+  /** Current onboard volume in cubic inches */
+  currentVolumeCuIn?: number;
+
+  // Safety buffer (5–25%, default 10%). Stored per equipment record.
+  safetyBufferPct?: number;
+  /** Set by system when tightening buffer puts existing loads over limit */
+  overBufferFlag?: boolean;
+  /** userId who last set the buffer (Platform Admin or org Owner per spec §5.1) */
+  bufferSetBy?: string;
+  /** Role of the user who last set the buffer ('ADMIN' | 'OWNER') — drives UI message */
+  bufferSetByRole?: string;
+
   // Authority & Insurance
   mcNumber: string;
   dotNumber: string;
@@ -183,8 +363,84 @@ export interface Driver {
   geohash: string;
   lastLocationUpdate: number;
 
+  /** If set, this driver belongs to an Owner Operator's fleet */
+  ownedByOperatorId?: string;
+  /** True for the dedicated Driver row representing an OO personally hauling */
+  isSelf?: boolean;
+
   createdAt: number;
   updatedAt: number;
+}
+
+// ─── Carrier-of-record resolution ───────────────────────────────────────────
+
+/** The two kinds of carrier parent that can govern haul authority */
+export enum VerificationEntityType {
+  OWNER_OPERATOR = 'OWNER_OPERATOR',
+  CARRIER_ORG    = 'CARRIER_ORG',
+}
+
+export interface CarrierOfRecord {
+  entityType: VerificationEntityType;
+  entityId: string; // operatorId | orgId — Verifications table PK
+  displayName?: string;
+}
+
+// ─── Owner Operator ───────────────────────────────────────────────────────────
+
+/**
+ * Owner Operator — independent truck owner who may drive themselves and/or
+ * manage a small fleet of drivers. Not part of the org/IAM system.
+ */
+export interface OwnerOperator {
+  operatorId: string;   // primary key
+  userId: string;       // FK → Users table
+
+  // Personal / business info
+  legalName: string;
+  dba?: string;
+  phone: string;
+  email?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+
+  // Authority & insurance
+  mcNumber?: string;
+  dotNumber?: string;
+  authorityStartDate?: number;
+  cargoInsuranceAmount?: number;
+  liabilityInsuranceAmount?: number;
+  insuranceCertificate?: string;
+
+  // Equipment (if they drive themselves)
+  cdlClass?: string;
+  endorsements?: string[];
+  truckMake?: string;
+  truckModel?: string;
+  truckYear?: number;
+  truckVIN?: string;
+  trailerType?: string;
+  trailerLength?: number;
+  maxCapacityLbs?: number;
+
+  // Fleet
+  /** driverIds of drivers assigned to this operator's fleet */
+  fleetDriverIds?: string[];
+
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface FleetInvite {
+  inviteId: string;
+  operatorId: string;
+  email: string;
+  token: string;
+  expiresAt: number;
+  acceptedAt?: number;
+  createdAt: number;
 }
 
 export interface Shipper {
@@ -263,6 +519,25 @@ export interface Load {
   length?: number;
   width?: number;
   height?: number;
+  /** Load dimensions in inches for volume matching */
+  dimLengthIn?: number;
+  dimWidthIn?: number;
+  dimHeightIn?: number;
+  /** Derived: dimLengthIn × dimWidthIn × dimHeightIn */
+  loadVolumeCuIn?: number;
+
+  // Equipment matching (spec §11.2)
+  /** One or more acceptable trailer types; driver must match at least one */
+  acceptedEquipmentTypes?: TrailerType[];
+  /** Temperature requirements (reefer loads) */
+  tempRequiredMin?: number;
+  tempRequiredMax?: number;
+
+  // Facility profiles (spec §11.2–11.3)
+  pickupFacility?: FacilityProfile;
+  deliveryFacility?: FacilityProfile;
+  /** System-derived hard filters computed from facility profiles */
+  derivedLoadingRequirements?: DerivedLoadingRequirements;
 
   // Pickup
   pickupCity: string;
@@ -332,6 +607,7 @@ export interface Load {
 }
 
 export interface Offer {
+  offerId: string;        // PK on LoadLead_Offers table
   loadId: string;
   driverId: string;
   status: OfferStatus;
@@ -345,6 +621,13 @@ export interface Offer {
 // ============================================
 // BILL OF LADING TYPES
 // ============================================
+
+export interface PodPhoto {
+  key: string;         // S3 key in loadlead-pod-uploads
+  capturedAt: string;  // ISO 8601
+  lat?: number;
+  lng?: number;
+}
 
 export interface BOLParty {
   name: string;
@@ -470,6 +753,9 @@ export interface BillOfLading {
 
   // Delivery exceptions/damage notes
   deliveryExceptions?: string;
+
+  // Proof of Delivery — photos captured at delivery (S3 keys in loadlead-pod-uploads)
+  podPhotos?: PodPhoto[];
 
   // Audit timeline
   timeline: BOLTimelineEvent[];

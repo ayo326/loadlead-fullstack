@@ -1,5 +1,8 @@
-import { User, UserRole, UserStatus } from '../types';
+import { User, UserRole, UserStatus, OrgCapability, OrgRole, Organization, OrgMembership } from '../types';
+import { OrgService, assertCapabilities } from './orgService';
 import { Database } from '../config/database';
+import { docClient } from '../config/aws';
+import { TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import { AppError } from '../middleware/errorHandler';
@@ -32,7 +35,22 @@ export class AuthService {
     return user.passwordHash ?? user.password ?? user.password_hash ?? user.hashedPassword;
   }
 
-  static async signup(email: string, password: string, role: UserRole): Promise<{ user: User; token: string }> {
+  static async signup(
+    email: string,
+    password: string,
+    role: UserRole,
+    orgParams?: {
+      legalName: string;
+      capabilities: OrgCapability[];
+      dba?: string;
+      dotNumber?: string;
+      mcNumber?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+      country?: string;
+    }
+  ): Promise<{ user: User; token: string; orgId?: string }> {
     try {
       const existingUsers = await Database.query<StoredUser>(
         config.dynamodb.usersTable,
@@ -69,11 +87,140 @@ export class AuthService {
 
       Logger.info(`User signed up: ${email} with role ${role}`);
 
-      return { user: safeUser, token };
+      // Auto-create organisation if org params provided (non-DRIVER, non-ADMIN roles)
+      let orgId: string | undefined;
+      if (orgParams && role !== UserRole.ADMIN) {
+        try {
+          const { org } = await OrgService.createOrg({
+            ...orgParams,
+            ownerId: userId,
+            ownerRole: role,
+          });
+          orgId = org.orgId;
+        } catch (orgErr) {
+          Logger.error('Auto-create org failed (non-fatal)', orgErr);
+        }
+      }
+
+      return { user: safeUser, token, orgId };
     } catch (error) {
       Logger.error('Signup error', error);
       throw error;
     }
+  }
+
+  /**
+   * Carrier signup — a dedicated, atomic path. Creates User(CARRIER_ADMIN) +
+   * Organization(capabilities=[CARRIER]) + OrgMembership(OWNER, ACTIVE) in a
+   * single DynamoDB TransactWriteItems call: either all three rows exist or
+   * none do. Deliberately separate from the generic signup() above, which
+   * creates the org as a best-effort second step (catches and logs org
+   * creation failure as non-fatal) — that is NOT atomic and is intentionally
+   * left alone for the four existing personas. Carrier signup needs the
+   * stronger guarantee because a User with no Organization is a carrier
+   * admin who can never resolve a carrier of record, and an Organization
+   * with no OWNER membership is unmanageable.
+   */
+  static async signupCarrierAdmin(params: {
+    email: string;
+    password: string;
+    legalName: string;
+    dba?: string;
+    mcNumber?: string;
+    dotNumber?: string;
+  }): Promise<{ user: User; token: string; orgId: string }> {
+    const existingUsers = await Database.query<StoredUser>(
+      config.dynamodb.usersTable,
+      'email-index',
+      '#email = :email',
+      { '#email': 'email' },
+      { ':email': params.email },
+    );
+    if (existingUsers.length > 0) {
+      throw new AppError('Email already registered', 400);
+    }
+
+    // Capability exclusivity enforced server-side before the transaction is
+    // even built — a Carrier signup always passes exactly [CARRIER], but
+    // this call is what would catch a future code path trying to sneak
+    // SHIPPER in alongside it.
+    assertCapabilities([OrgCapability.CARRIER]);
+
+    const userId = Helpers.generateId('user');
+    const orgId = Helpers.generateId('org');
+    const membershipId = Helpers.generateId('mbr');
+    const now = Helpers.getCurrentTimestamp();
+    const hashedPassword = await Helpers.hashPassword(params.password);
+
+    const user: StoredUser = {
+      userId,
+      email: params.email,
+      password: hashedPassword,
+      passwordHash: hashedPassword,
+      role: UserRole.CARRIER_ADMIN,
+      status: UserStatus.PENDING_VERIFICATION,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const org: Organization = {
+      orgId,
+      legalName: params.legalName,
+      dba: params.dba,
+      capabilities: [OrgCapability.CARRIER],
+      mcNumber: params.mcNumber,
+      dotNumber: params.dotNumber,
+      ownerId: userId,
+      suspended: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const membership: OrgMembership = {
+      membershipId,
+      orgId,
+      userId,
+      orgRole: OrgRole.OWNER,
+      userRole: UserRole.CARRIER_ADMIN,
+      status: 'ACTIVE',
+      joinedAt: now,
+    };
+
+    try {
+      await docClient.send(new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: config.dynamodb.usersTable,
+              Item: user,
+              ConditionExpression: 'attribute_not_exists(userId)',
+            },
+          },
+          {
+            Put: {
+              TableName: config.dynamodb.orgsTable,
+              Item: org,
+              ConditionExpression: 'attribute_not_exists(orgId)',
+            },
+          },
+          {
+            Put: {
+              TableName: config.dynamodb.membershipsTable,
+              Item: membership,
+              ConditionExpression: 'attribute_not_exists(membershipId)',
+            },
+          },
+        ],
+      }));
+    } catch (error) {
+      Logger.error('Carrier signup transaction failed — rolled back, zero rows created', error);
+      throw new AppError('Could not create carrier account. Please try again.', 500);
+    }
+
+    const token = Helpers.generateToken({ userId, email: params.email, role: UserRole.CARRIER_ADMIN });
+    Logger.info(`Carrier admin signed up: ${params.email}, org ${orgId}`);
+
+    return { user: this.sanitizeUser(user), token, orgId };
   }
 
   static async login(email: string, password: string): Promise<{ user: User; token: string }> {

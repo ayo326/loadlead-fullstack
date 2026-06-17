@@ -17,7 +17,13 @@ async function googleGeocode(address: string, apiKey: string): Promise<Coord | n
     '&key=' +
     encodeURIComponent(apiKey);
 
-  const res = await fetch(url as any);
+  let res: Response;
+  try {
+    res = await fetch(url as any);
+  } catch (err) {
+    console.warn('Geocode network error:', (err as Error).message);
+    return null;
+  }
   const data: any = await res.json().catch(() => ({}));
 
   if (!res.ok || data?.status !== 'OK') {
@@ -51,7 +57,13 @@ async function googleDistanceMiles(origin: Coord, dest: Coord, apiKey: string): 
     '&key=' +
     encodeURIComponent(apiKey);
 
-  const res = await fetch(url as any);
+  let res: Response;
+  try {
+    res = await fetch(url as any);
+  } catch (err) {
+    console.warn('Distance Matrix network error:', (err as Error).message);
+    return null;
+  }
   const data: any = await res.json().catch(() => ({}));
 
   if (!res.ok || data?.status !== 'OK') {
@@ -87,7 +99,13 @@ export class RoutingService {
       '&units=imperial' +
       '&key=' + encodeURIComponent(apiKey);
 
-    const res = await fetch(url as any);
+    let res: Response;
+    try {
+      res = await fetch(url as any);
+    } catch (err) {
+      console.warn('Distance Matrix (ETA) network error:', (err as Error).message);
+      return null;
+    }
     const data: any = await res.json().catch(() => ({}));
     if (!res.ok || data?.status !== 'OK') return null;
 
@@ -137,5 +155,20 @@ export class RoutingService {
       deliveryLng: dest.lng,
       totalMiles,
     };
+  }
+
+  /**
+   * Geocode a single address string → { lat, lng } or null.
+   * Used by BroadcastService as a fallback for loads that were drafted
+   * before coordinates were required at submission time.
+   */
+  static async geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) return null;
+    try {
+      return await googleGeocode(address, apiKey);
+    } catch {
+      return null;
+    }
   }
 }

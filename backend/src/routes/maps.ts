@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { GoogleMapsService } from '../services/googleMapsService';
 
 const router = Router();
 
@@ -73,6 +74,66 @@ router.post(
 
     const totalMiles = Math.round(miles * 10) / 10; // 1 decimal
     res.json({ totalMiles });
+  })
+);
+
+/**
+ * GET /api/maps/geocode?address=...
+ * Returns { lat, lng } for any address string.
+ * Called by the PostLoad form before submitting a draft so coordinates are
+ * always stored on the load and the broadcast radius check never gets null.
+ */
+router.get(
+  '/geocode',
+  asyncHandler(async (req, res) => {
+    const { address } = req.query as { address?: string };
+    if (!address?.trim()) {
+      return res.status(400).json({ error: 'address query param is required' });
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+    if (!apiKey) {
+      return res.status(503).json({ error: 'Server geocoding unavailable — GOOGLE_MAPS_API_KEY not configured' });
+    }
+
+    let coords: LatLng | null = null;
+    try {
+      coords = await googleGeocode(address.trim(), apiKey);
+    } catch (err: any) {
+      return res.status(503).json({ error: `Geocoding failed: ${err.message}` });
+    }
+
+    if (!coords) {
+      return res.status(422).json({
+        error: 'Unable to geocode address — verify street, city, state, and zip are correct',
+      });
+    }
+
+    res.json(coords); // { lat, lng }
+  })
+);
+
+/**
+ * GET /api/maps/reverse-geocode?lat=...&lng=...
+ * Returns { city, state } for GPS coordinates.
+ * Called by the driver app to get a readable location name from browser GPS.
+ */
+router.get(
+  '/reverse-geocode',
+  asyncHandler(async (req, res) => {
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
+
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return res.status(400).json({ error: 'Valid lat and lng query params are required' });
+    }
+
+    const result = await GoogleMapsService.reverseGeocodeCityState(lat, lng);
+    if (!result || (!result.city && !result.state)) {
+      return res.status(422).json({ error: 'Unable to reverse geocode coordinates' });
+    }
+
+    res.json({ city: result.city ?? '', state: result.state ?? '' });
   })
 );
 

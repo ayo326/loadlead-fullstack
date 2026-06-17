@@ -5,12 +5,18 @@ const podS3 = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 import { DriverService } from '../services/driverService';
 import { OfferService } from '../services/offerService';
 import { LoadService } from '../services/loadService';
+import { CapacityService, calcUsableVolume } from '../services/capacityService';
 import { authenticate, requireDriver, AuthRequest } from '../middleware/auth';
-import { asyncHandler } from '../middleware/errorHandler';
+import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { driverValidators } from '../utils/validators';
 import { validate } from '../middleware/validation';
 import { EmailService } from '../services/emailService';
 import { PushService } from '../services/pushService';
+import { requireVerifiedCarrier, submitDriverIdv, getVerification } from '../services/verification';
+import { OwnerOperatorService } from '../services/ownerOperatorService';
+import { OrgMembershipService } from '../services/orgService';
+import { Database } from '../config/database';
+import config from '../config/environment';
 
 const POD_BUCKET = process.env.POD_S3_BUCKET || 'loadlead-pod-uploads';
 
@@ -104,6 +110,7 @@ router.get(
 
 router.post(
   '/offers/:loadId/accept',
+  requireVerifiedCarrier(),
   asyncHandler(async (req: AuthRequest, res) => {
     const { loadId } = req.params;
     const driver = await DriverService.getProfileByUserId(req.user!.userId);
@@ -158,6 +165,20 @@ router.get(
   })
 );
 
+// POST /api/driver/headshot/upload-url — presigned URL to upload profile headshot
+router.post(
+  '/headshot/upload-url',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { fileType = 'image/jpeg' } = req.body;
+    const key = `headshots/${req.user!.userId}.jpg`;
+    const cmd = new PutObjectCommand({ Bucket: POD_BUCKET, Key: key, ContentType: fileType });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const url = await getSignedUrl(podS3 as any, cmd as any, { expiresIn: 300 });
+    const publicUrl = `https://${POD_BUCKET}.s3.amazonaws.com/${key}`;
+    res.json({ uploadUrl: url, key, publicUrl });
+  })
+);
+
 // POST /api/driver/loads/:loadId/pod/upload-url — get presigned S3 URL for photo upload
 router.post(
   '/loads/:loadId/pod/upload-url',
@@ -209,6 +230,132 @@ router.post(
 
     res.json({ message: 'Proof of delivery recorded. Load marked DELIVERED.' });
   })
+);
+
+// POST /api/driver/capacity/check — evaluate a prospective load against driver's current capacity
+router.post(
+  '/capacity/check',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const driver = await DriverService.getProfileByUserId(req.user!.userId);
+    if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
+
+    const { totalWeightLbs = 0, dimLengthIn, dimWidthIn, dimHeightIn } = req.body;
+    const loadVolumeCuIn = calcUsableVolume(dimLengthIn, dimWidthIn, dimHeightIn);
+
+    const fakeLoad = { totalWeightLbs, dimLengthIn, dimWidthIn, dimHeightIn, loadVolumeCuIn,
+      equipmentType: driver.trailerType } as any;
+    const result = CapacityService.evaluateLoad(driver as any, fakeLoad);
+    res.json(result);
+  })
+);
+
+// GET /api/driver/history — loads this driver has accepted (BOOKED / IN_TRANSIT / DELIVERED)
+router.get(
+  '/history',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const driver = await DriverService.getProfileByUserId(req.user!.userId);
+    if (!driver) return res.json({ loads: [] });
+
+    // All offers ever made to this driver
+    const allOffers = await OfferService.getOffersByDriver(driver.driverId);
+    // Keep only accepted ones
+    const accepted = allOffers.filter((o: any) => o.status === 'ACCEPTED');
+
+    const loadsWithOffers = await Promise.all(
+      accepted.map(async (offer: any) => ({
+        load: await LoadService.getLoadById(offer.loadId),
+        offer,
+      }))
+    );
+
+    // Drop loads that were deleted / not found, sort newest-accepted first
+    const result = loadsWithOffers
+      .filter((item) => item.load)
+      .sort((a, b) => (b.offer.acceptedAt ?? 0) - (a.offer.acceptedAt ?? 0));
+
+    res.json({ loads: result });
+  })
+);
+
+// PATCH /api/driver/capacity/buffer — driver views/confirms their buffer (read-only for drivers; only admins change it)
+router.get(
+  '/capacity/buffer',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const driver = await DriverService.getProfileByUserId(req.user!.userId);
+    if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
+    const bufferPct = driver.safetyBufferPct ?? 10;
+    const setByRole = driver.bufferSetByRole ?? 'ADMIN';
+    res.json({
+      safetyBufferPct: bufferPct,
+      overBufferFlag: driver.overBufferFlag ?? false,
+      maxCapacityLbs: driver.maxCapacityLbs,
+      maxOperationalLbs: driver.maxCapacityLbs * (1 - (bufferPct / 100)),
+      bufferSetByRole: setByRole,
+      bufferSetByMessage: setByRole === 'OWNER'
+        ? 'Safety buffer set by your owner.'
+        : 'Safety buffer set by your admin.',
+    });
+  })
+);
+
+// ── Fleet invite acceptance ───────────────────────────────────────────────────
+
+// POST /api/driver/fleet/accept-invite
+// Driver calls this after clicking the invite link sent by an Owner Operator.
+// Body: { token: string }
+// Sets ownedByOperatorId on the driver record and adds them to the OO's fleet.
+router.post(
+  '/fleet/accept-invite',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { token } = req.body;
+    if (!token) throw new AppError('token is required', 400);
+
+    const driver = await DriverService.getProfileByUserId(req.user!.userId);
+    if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
+
+    if (driver.ownedByOperatorId) {
+      throw new AppError('You are already part of a fleet. Leave your current fleet before accepting a new invite.', 409);
+    }
+
+    const { operatorId } = await OwnerOperatorService.acceptFleetInvite(token, driver.driverId);
+
+    // Set ownedByOperatorId on the driver — this is what carrierOfRecord.ts reads
+    // to resolve the governing carrier entity for fleet drivers.
+    await Database.updateItem(
+      config.dynamodb.driversTable,
+      { driverId: driver.driverId },
+      { ownedByOperatorId: operatorId },
+    );
+
+    // One-parent invariant: a fleet driver cannot also hold an active
+    // Carrier-org membership (symmetric to the check in OrgInvitationService).
+    await OrgMembershipService.clearActiveCarrierMembership(driver.userId);
+
+    res.json({ ok: true, operatorId });
+  }),
+);
+
+// ── Verification ─────────────────────────────────────────────────────────────
+
+// GET /api/driver/verification — current IDV status
+// Identity is per-person (User.idvStatus), not per-Driver-row, so it's keyed
+// by userId — this also means it works before a Driver profile even exists.
+router.get(
+  '/verification',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const verification = await getVerification(req.user!.userId);
+    res.json({ verification: verification ?? { verificationStatus: 'UNVERIFIED' } });
+  }),
+);
+
+// POST /api/driver/verification/submit — start IDV for this person
+router.post(
+  '/verification/submit',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const verification = await submitDriverIdv(req.user!.userId);
+    res.status(201).json({ verification });
+    // Didit IDV session is created with vendor_data = req.user.userId
+  }),
 );
 
 export default router;

@@ -2,30 +2,36 @@
 // In production VITE_API_URL is set to https://api.loadleadapp.com
 const BASE = (import.meta.env.VITE_API_URL ?? "") + "/api";
 
-function getToken() {
-  return localStorage.getItem("ll_token");
-}
-
+// Auth uses httpOnly cookies — the browser sends ll_token automatically.
+// `credentials: 'include'` is required for cross-origin cookie delivery.
+// We no longer read from / write to localStorage for auth tokens.
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
     method,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json?.message ?? `${method} ${path} failed (${res.status})`);
+  if (!res.ok) throw new Error(json?.message ?? json?.error ?? `${method} ${path} failed (${res.status})`);
   return json as T;
 }
 
 export const api = {
   // Auth
-  signup: (email: string, password: string, role: string) =>
-    request<{ token: string; user: { userId: string; email: string; role: string } }>(
-      "POST", "/auth/signup", { email, password, role }
+  signup: (email: string, password: string, role: string, orgParams?: Record<string, any>) =>
+    request<{ token: string; user: { userId: string; email: string; role: string }; orgId?: string }>(
+      "POST", "/auth/signup", { email, password, role, orgParams }
+    ),
+
+  // Dedicated atomic carrier signup — separate endpoint from the generic
+  // signup() above (see backend AuthService.signupCarrierAdmin). Does not
+  // share a code path with the four existing personas.
+  signupCarrier: (params: { email: string; password: string; legalName: string; dba?: string; mcNumber?: string; dotNumber?: string }) =>
+    request<{ token: string; user: { userId: string; email: string; role: string }; orgId: string }>(
+      "POST", "/auth/signup/carrier", params
     ),
 
   login: (email: string, password: string) =>
@@ -34,10 +40,12 @@ export const api = {
     ),
 
   me: () => request<{ user: { userId: string; email: string; role: string } }>("GET", "/auth/me"),
+  logout: () => request<{ message: string }>("POST", "/auth/logout"),
 
   // Driver
   getDriverProfile: () => request<{ driver: any }>("GET", "/driver/profile"),
   getDriverLoadboard: () => request<{ loads: any[] }>("GET", "/driver/loadboard"),
+  getDriverHistory: () => request<{ loads: any[] }>("GET", "/driver/history"),
   getDriverOffer: (loadId: string) => request<{ offer: any; load: any }>("GET", `/driver/offers/${loadId}`),
   acceptOffer: (loadId: string) => request<{ message: string }>("POST", `/driver/offers/${loadId}/accept`),
   declineOffer: (loadId: string) => request<{ message: string }>("POST", `/driver/offers/${loadId}/decline`),
@@ -52,6 +60,14 @@ export const api = {
   // Admin
   getAdminDrivers: (status?: string) =>
     request<{ drivers: any[] }>("GET", `/admin/drivers${status ? `?status=${status}` : ""}`),
+  getAdminDriver: (driverId: string) =>
+    request<{ driver: any }>("GET", `/admin/drivers/${driverId}`),
+  adminVerifyDriver: (driverId: string) =>
+    request<{ message: string }>("POST", `/admin/drivers/${driverId}/verify`),
+  adminSuspendDriver: (driverId: string) =>
+    request<{ message: string }>("POST", `/admin/drivers/${driverId}/suspend`),
+  getAdminLoads: (status?: string) =>
+    request<{ loads: any[] }>("GET", `/admin/loads${status ? `?status=${status}` : ""}`),
 
   // Driver profile
   createDriverProfile: (data: unknown) => request<{ driver: any }>("POST", "/driver/profile", data),
@@ -70,6 +86,8 @@ export const api = {
   getReceiverLoad: (loadId: string) => request<{ load: any }>("GET", `/receiver/loads/${loadId}`),
 
   // Auth extras
+  updateMe: (data: { displayName?: string; phone?: string }) =>
+    request<{ user: any }>("PATCH", "/auth/me", data),
   forgotPassword: (email: string) => request("POST", "/auth/forgot-password", { email }),
   resetPassword: (token: string, password: string) => request("POST", "/auth/reset-password", { token, password }),
 
@@ -83,6 +101,28 @@ export const api = {
     request("POST", "/driver/location", { lat, lng, city, state }),
   reverseGeocode: (lat: number, lng: number) =>
     request<{ city: string; state: string }>("GET", `/maps/reverse-geocode?lat=${lat}&lng=${lng}`),
+
+  /** Geocode a full address string → { lat, lng }. Called by PostLoad before submitting a draft. */
+  geocodeAddress: (address: string) =>
+    request<{ lat: number; lng: number }>("GET", `/maps/geocode?address=${encodeURIComponent(address)}`),
+
+  // Capacity
+  checkDriverCapacity: (payload: { totalWeightLbs: number; dimLengthIn?: number; dimWidthIn?: number; dimHeightIn?: number }) =>
+    request<{ zone: string; remainingWeightLbs: number; remainingVolumeCuIn: number; blockMessage?: string; warningMessage?: string }>(
+      "POST", "/driver/capacity/check", payload),
+  getDriverBuffer: () =>
+    request<{ safetyBufferPct: number; overBufferFlag: boolean; maxCapacityLbs: number; maxOperationalLbs: number }>(
+      "GET", "/driver/capacity/buffer"),
+  adminSetDriverBuffer: (driverId: string, safetyBufferPct: number) =>
+    request<{ message: string; overBuffer: boolean; alert?: string }>(
+      "PATCH", `/admin/drivers/${driverId}/buffer`, { safetyBufferPct }),
+  adminGetDriverBuffer: (driverId: string) =>
+    request<{ safetyBufferPct: number; overBufferFlag: boolean; maxCapacityLbs: number; maxOperationalLbs: number; currentLoadLbs: number }>(
+      "GET", `/admin/drivers/${driverId}/buffer`),
+
+  // Headshot
+  getHeadshotUploadUrl: (fileType?: string) =>
+    request<{ uploadUrl: string; key: string; publicUrl: string }>("POST", "/driver/headshot/upload-url", { fileType }),
 
   // Proof of Delivery
   getPodUploadUrl: (loadId: string, fileType?: string) =>
@@ -107,4 +147,99 @@ export const api = {
   disputeBOL: (bolId: string, reason: string) =>
     request<{ bol: any }>("POST", `/bol/${bolId}/dispute`, { reason }),
   updateBOLWMS: (bolId: string, data: any) => request<{ bol: any }>("PUT", `/bol/${bolId}/wms`, data),
+
+  // Organisations
+  createOrg: (data: {
+    legalName: string;
+    capabilities: string[];
+    dba?: string;
+    dotNumber?: string;
+    mcNumber?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  }) => request<{ org: any; membership: any }>("POST", "/org", data),
+
+  getMyOrgs: () => request<{ orgs: any[] }>("GET", "/org"),
+  getOrg: (orgId: string) => request<{ org: any }>("GET", `/org/${orgId}`),
+  updateOrg: (orgId: string, data: any) => request<{ ok: boolean }>("PATCH", `/org/${orgId}`, data),
+
+  getOrgMembers: (orgId: string) => request<{ members: any[] }>("GET", `/org/${orgId}/members`),
+  updateMemberRole: (orgId: string, membershipId: string, orgRole: string) =>
+    request<{ ok: boolean }>("PATCH", `/org/${orgId}/members/${membershipId}`, { orgRole }),
+  removeMember: (orgId: string, membershipId: string) =>
+    request<{ ok: boolean }>("DELETE", `/org/${orgId}/members/${membershipId}`),
+
+  sendInvitation: (orgId: string, data: { email: string; orgRole: string; userRole: string }) =>
+    request<{ token: string; expiresAt: number }>("POST", `/org/${orgId}/invitations`, data),
+  getOrgInvitations: (orgId: string) => request<{ invitations: any[] }>("GET", `/org/${orgId}/invitations`),
+
+  // Public invite preview (no auth needed)
+  getInvitationPreview: (token: string) =>
+    request<{ email: string; orgRole: string; userRole: string; orgName: string; expiresAt: number; alreadyAccepted: boolean }>(
+      "GET", `/org/invitations/${token}`
+    ),
+  acceptInvitation: (token: string) =>
+    request<{ membership: any }>("POST", `/org/invitations/${token}/accept`),
+
+  /** Revoke a pending invitation before it is accepted (spec §4.3) */
+  revokeInvitation: (orgId: string, token: string) =>
+    request<{ ok: boolean }>("DELETE", `/org/${orgId}/invitations/${token}`),
+
+  /** Suspend a membership without deleting history (spec §6.4) */
+  suspendMember: (orgId: string, membershipId: string) =>
+    request<{ ok: boolean }>("POST", `/org/${orgId}/members/${membershipId}/suspend`),
+
+  /** Reinstate a suspended membership */
+  reinstateMember: (orgId: string, membershipId: string) =>
+    request<{ ok: boolean }>("POST", `/org/${orgId}/members/${membershipId}/reinstate`),
+
+  /** Platform Admin: suspend an entire org */
+  suspendOrg: (orgId: string, reason?: string) =>
+    request<{ ok: boolean; message: string }>("POST", `/org/${orgId}/suspend`, { reason }),
+
+  /** Platform Admin: reinstate a suspended org */
+  reinstateOrg: (orgId: string) =>
+    request<{ ok: boolean; message: string }>("POST", `/org/${orgId}/reinstate`),
+
+  /** Owner: set their own driver safety buffer within platform bounds (spec §5.1) */
+  orgOwnerSetBuffer: (orgId: string, safetyBufferPct: number) =>
+    request<{ ok: boolean; safetyBufferPct: number; message: string }>(
+      "PATCH", `/org/${orgId}/buffer`, { safetyBufferPct }
+    ),
+
+  /** Get membership audit log for an org (spec §6.5) */
+  getOrgAuditLog: (orgId: string) =>
+    request<{ logs: any[] }>("GET", `/org/${orgId}/audit`),
+
+  // ── Carrier-org (direct driver setup + company verification) ─────────────────
+  /** POST /api/org/:orgId/drivers — direct driver onboarding (CARRIER orgs only) */
+  createOrgDriver: (orgId: string, data: { email: string; legalName: string; phone?: string }) =>
+    request<{ driver: any; membership: any }>("POST", `/org/${orgId}/drivers`, data),
+
+  getOrgVerification: (orgId: string) =>
+    request<{ verification: any }>("GET", `/org/${orgId}/verification`),
+  submitOrgVerification: (orgId: string, data: { mcNumber?: string; dotNumber?: string }) =>
+    request<{ verification: any }>("POST", `/org/${orgId}/verification/submit`, data),
+
+  // ── Owner Operator ──────────────────────────────────────────────────────────
+  getOwnerOperatorProfile: () =>
+    request<{ ownerOperator: any }>("GET", "/owner-operator/profile"),
+  createOwnerOperatorProfile: (data: unknown) =>
+    request<{ ownerOperator: any }>("POST", "/owner-operator/profile", data),
+  updateOwnerOperatorProfile: (data: unknown) =>
+    request<{ ownerOperator: any }>("PUT", "/owner-operator/profile", data),
+  getOwnerOperatorLoadboard: () =>
+    request<{ loads: any[] }>("GET", "/owner-operator/loadboard"),
+  getOwnerOperatorHistory: () =>
+    request<{ loads: any[] }>("GET", "/owner-operator/history"),
+  getOwnerOperatorFleet: () =>
+    request<{ drivers: any[] }>("GET", "/owner-operator/fleet"),
+  removeFleetDriver: (driverId: string) =>
+    request<{ ok: boolean }>("DELETE", `/owner-operator/fleet/${driverId}`),
+  inviteFleetDriver: (email: string) =>
+    request<{ invite: any }>("POST", "/owner-operator/fleet/invite", { email }),
+  getFleetInvites: () =>
+    request<{ invites: any[] }>("GET", "/owner-operator/fleet/invites"),
 };

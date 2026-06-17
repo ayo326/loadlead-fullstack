@@ -2,10 +2,20 @@ import express from 'express';
 import { DriverService } from '../services/driverService';
 import { ShipperService } from '../services/shipperService';
 import { LoadService } from '../services/loadService';
+import { CapacityService } from '../services/capacityService';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { TrackingService } from '../services/trackingService';
 import { RoutingService } from '../services/routingService';
+import { DriverStatus } from '../types';
+import { GeolocationService } from '../services/geolocationService';
+import { EquipmentService, deriveLoadingRequirements } from '../services/equipmentService';
+import { Helpers } from '../utils/helpers';
+import {
+  getReviewQueue,
+  adminOverride,
+  VerificationStatus,
+} from '../services/verification';
 
 const router = express.Router();
 
@@ -141,11 +151,140 @@ router.put('/loads/:loadId/status', asyncHandler(async (req: AuthRequest, res) =
   res.json({ message: 'Load status updated successfully' });
 }));
 
+// PATCH /api/admin/drivers/:driverId/buffer — admin sets a driver's safety buffer %
+router.patch('/drivers/:driverId/buffer', asyncHandler(async (req: AuthRequest, res) => {
+  const { driverId } = req.params;
+  const { safetyBufferPct } = req.body;
+  if (safetyBufferPct === undefined) return res.status(400).json({ error: 'safetyBufferPct is required' });
+
+  const { overBuffer } = await CapacityService.updateDriverBuffer(
+    driverId,
+    Number(safetyBufferPct),
+    req.user!.userId,
+    req.user!.role,
+    DriverService,
+  );
+
+  res.json({
+    message: `Buffer updated to ${safetyBufferPct}%`,
+    overBuffer,
+    ...(overBuffer && {
+      alert: 'This driver is now Over Buffer. They are blocked from accepting new loads until resolved.',
+    }),
+  });
+}));
+
+// GET /api/admin/drivers/:driverId/buffer — get current buffer + audit trail
+router.get('/drivers/:driverId/buffer', asyncHandler(async (req: AuthRequest, res) => {
+  const { driverId } = req.params;
+  const driver = await DriverService.getProfileById(driverId);
+  if (!driver) return res.status(404).json({ error: 'Driver not found' });
+  const bufferPct = driver.safetyBufferPct ?? 10;
+  const setByRole = driver.bufferSetByRole ?? 'ADMIN';
+  res.json({
+    safetyBufferPct: bufferPct,
+    overBufferFlag: driver.overBufferFlag ?? false,
+    maxCapacityLbs: driver.maxCapacityLbs,
+    maxOperationalLbs: driver.maxCapacityLbs * (1 - (bufferPct / 100)),
+    currentLoadLbs: driver.currentLoadLbs,
+    bufferSetBy: driver.bufferSetBy,
+    bufferSetByRole: setByRole,
+    // Human-readable message per spec §5.1
+    bufferSetByMessage: setByRole === 'OWNER'
+      ? 'Safety buffer set by your owner.'
+      : 'Safety buffer set by your admin.',
+  });
+}));
+
 // GET /api/admin/loads/:loadId/tracking
 router.get('/loads/:loadId/tracking', asyncHandler(async (req: AuthRequest, res) => {
   const { loadId } = req.params;
   const tracking = await TrackingService.getLoadTrackingForAdmin(loadId);
   res.json(tracking);
+}));
+
+// GET /api/admin/debug/broadcast/:loadId — trace why drivers are or aren't matched
+router.get('/debug/broadcast/:loadId', asyncHandler(async (req: AuthRequest, res) => {
+  const { loadId } = req.params;
+  const load = await LoadService.getLoadById(loadId);
+  if (!load) return res.status(404).json({ error: 'Load not found' });
+
+  const verifiedDrivers = await DriverService.getDriversByStatus(DriverStatus.VERIFIED);
+  const availableDrivers = await DriverService.getDriversByStatus(DriverStatus.AVAILABLE);
+  const allDrivers = [...verifiedDrivers, ...availableDrivers];
+
+  const loadWithDerived = {
+    ...load,
+    derivedLoadingRequirements: load.derivedLoadingRequirements
+      ?? deriveLoadingRequirements(undefined, undefined),
+  };
+
+  const trace = allDrivers.map(driver => {
+    const distanceMiles = GeolocationService.calculateDistance(
+      load.pickupLat, load.pickupLng, driver.currentLat, driver.currentLng
+    );
+    const inRadius = distanceMiles <= load.broadcastRadiusMiles;
+    const equipCheck = EquipmentService.checkEquipmentMatch(driver, loadWithDerived as any);
+    const mcMaturityDays = Helpers.calculateMcMaturityDays(driver.authorityStartDate);
+    const cargoOk = driver.cargoInsuranceAmount >= load.minCargoInsurance;
+    const liabilityOk = driver.liabilityInsuranceAmount >= load.minLiabilityInsurance;
+    const mcOk = mcMaturityDays >= load.minMcMaturityDays;
+    const expOk = (driver.experienceYears ?? 0) >= (load.experienceRequired ?? 0);
+    return {
+      driverId: driver.driverId,
+      status: driver.status,
+      trailerType: driver.trailerType,
+      currentLat: driver.currentLat,
+      currentLng: driver.currentLng,
+      distanceMiles,
+      inRadius,
+      equipCheck,
+      mcMaturityDays,
+      mcOk,
+      cargoInsurance: driver.cargoInsuranceAmount,
+      cargoOk,
+      liabilityInsurance: driver.liabilityInsuranceAmount,
+      liabilityOk,
+      experienceYears: driver.experienceYears,
+      expOk,
+    };
+  });
+
+  res.json({
+    load: {
+      loadId, status: load.status, equipmentType: load.equipmentType,
+      acceptedEquipmentTypes: load.acceptedEquipmentTypes,
+      pickupLat: load.pickupLat, pickupLng: load.pickupLng,
+      broadcastRadiusMiles: load.broadcastRadiusMiles,
+      minMcMaturityDays: load.minMcMaturityDays,
+      minCargoInsurance: load.minCargoInsurance,
+      minLiabilityInsurance: load.minLiabilityInsurance,
+      derivedLoadingRequirements: loadWithDerived.derivedLoadingRequirements,
+    },
+    totalDriversScanned: allDrivers.length,
+    driverTrace: trace,
+  });
+}));
+
+// ── Carrier verification queue ────────────────────────────────────────────────
+
+// GET /api/admin/verifications?status=PENDING|REJECTED|EXPIRED
+router.get('/verifications', asyncHandler(async (req: AuthRequest, res) => {
+  const status = (req.query.status as VerificationStatus) ?? VerificationStatus.PENDING;
+  const queue  = await getReviewQueue(status);
+  res.json({ verifications: queue, count: queue.length });
+}));
+
+// POST /api/admin/verifications/:entityId/approve
+router.post('/verifications/:entityId/approve', asyncHandler(async (req: AuthRequest, res) => {
+  const v = await adminOverride(req.params.entityId, 'approve');
+  res.json({ verification: v });
+}));
+
+// POST /api/admin/verifications/:entityId/reject
+router.post('/verifications/:entityId/reject', asyncHandler(async (req: AuthRequest, res) => {
+  const v = await adminOverride(req.params.entityId, 'reject');
+  res.json({ verification: v });
 }));
 
 export default router;
