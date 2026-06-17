@@ -7,6 +7,12 @@
   "A6": "pass",
   "A7": "pass",
   "A8": "pass",
+  "F1": "pass",
+  "F2": "pass",
+  "F3": "pass",
+  "F4": "pass",
+  "F6": "pass",
+  "F5": "pass",
   "C1": "pass",
   "C2": "pass",
   "C3": "pass",
@@ -25,12 +31,6 @@
   "E5": "pass",
   "E7": "pass",
   "E4": "pass",
-  "F1": "pass",
-  "F2": "pass",
-  "F3": "pass",
-  "F4": "pass",
-  "F6": "pass",
-  "F5": "pass",
   "B9": "pass",
   "B9b": "pass",
   "B10": "pass",
@@ -45,7 +45,7 @@
   "B8": "pass",
   "B8b": "pass",
   "__meta": {
-    "syncedAt": "2026-06-17T02:22:59.896Z",
+    "syncedAt": "2026-06-17T09:20:19.391Z",
     "total": 44
   }
 }

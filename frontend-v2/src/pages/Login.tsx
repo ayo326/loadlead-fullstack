@@ -54,6 +54,17 @@ const roles = [
     headline: "Know exactly when your freight arrives.",
     sub:      "Track inbound shipments, get live ETAs, and coordinate dock scheduling — before the truck pulls up.",
   },
+  {
+    key:      "CARRIER_ADMIN",
+    label:    "Carrier",
+    portal:   "carrier portal",
+    icon:     Truck,
+    to:       "/carrier",
+    roleTag:  "CARRIER ACCOUNT",
+    badge:    "Verified company, onboarded drivers, ready to dispatch",
+    headline: "Run your carrier company on one console.",
+    sub:      "Verify FMCSA + KYB, onboard your drivers directly or by invite, and dispatch loads to your fleet.",
+  },
 ] as const;
 
 const roleHome: Record<string, string> = {
@@ -62,6 +73,7 @@ const roleHome: Record<string, string> = {
   SHIPPER:        "/shipper",
   RECEIVER:       "/receiver",
   ADMIN:          "/admin",
+  CARRIER_ADMIN:  "/carrier",
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
