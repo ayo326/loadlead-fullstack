@@ -193,6 +193,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
 
+      - name: Fix ownership of Semgrep output
+        # docker:// actions run as root inside the container, so files written
+        # to the workspace are owned by root. Reset to the runner user so the
+        # downstream normalize step can append to this directory.
+        run: sudo chown -R "$(id -u):$(id -g)" compliance/out || true
+
       - name: Normalize → LL-IDs
         run: |
           # If Semgrep didn't produce a SARIF (container start failure, network
@@ -280,6 +286,8 @@ jobs:
 
               python3 /compliance/extract-oscap-passrate.py /out/oscap.arf.xml > /out/oscap.meta.json
             '
+          # docker writes as root — reset to the runner user so normalize can write here
+          sudo chown -R "$(id -u):$(id -g)" compliance/out || true
           cat compliance/out/oscap.meta.json
 
       - uses: actions/setup-node@v4
