@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { asyncHandler } from '../middleware/errorHandler';
+import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { BOLService } from '../services/bolService';
 import { LoadService } from '../services/loadService';
 import { DriverService } from '../services/driverService';
@@ -11,19 +11,51 @@ import { BOLSignature } from '../types';
 const router = express.Router();
 router.use(authenticate);
 
+// ── BOL access guard ──────────────────────────────────────────────────────────
+// Verifies the requesting user is a legitimate party on the BOL's load:
+//   ADMIN      → always allowed
+//   SHIPPER    → must own the load (load.shipperId === their shipper profile)
+//   DRIVER     → must be assigned to the load (load.assignedDriverId === their driverId)
+//   RECEIVER   → must be the load's receiver (load.receiverId === their receiverId)
+// Throws AppError 403 for everyone else.  asyncHandler catches AppErrors automatically.
+async function requireBOLAccess(req: AuthRequest, bol: any): Promise<void> {
+  if (req.user!.role === 'ADMIN') return;
+
+  const load = await LoadService.getLoadById(bol.loadId);
+  if (!load) throw new AppError('Associated load not found', 404);
+
+  const userId = req.user!.userId;
+  const role   = req.user!.role as string;
+
+  if (role === 'SHIPPER') {
+    const shipper = await ShipperService.getProfileByUserId(userId);
+    if (shipper && load.shipperId === shipper.shipperId) return;
+  } else if (role === 'DRIVER') {
+    const driver = await DriverService.getProfileByUserId(userId);
+    if (driver && load.assignedDriverId === driver.driverId) return;
+  } else if (role === 'RECEIVER') {
+    const receiver = await ReceiverService.getProfileByUserId(userId).catch(() => null);
+    if (receiver && load.receiverId === receiver.receiverId) return;
+  }
+
+  throw new AppError('Forbidden', 403);
+}
+
 // ─── GET /api/bol/:bolId ──────────────────────────────────────────────────────
-// All authenticated roles can view a BOL linked to their load
+// Only parties on the associated load (shipper, assigned driver, receiver, admin).
 router.get('/:bolId', asyncHandler(async (req: AuthRequest, res) => {
   const bol = await BOLService.getBOLById(req.params.bolId);
   if (!bol) return res.status(404).json({ error: 'BOL not found' });
+  await requireBOLAccess(req, bol);   // ← ownership check; throws 403 if not a party
   res.json({ bol });
 }));
 
 // ─── GET /api/bol/load/:loadId ────────────────────────────────────────────────
-// Get BOL by load ID
+// Get BOL by load ID — same party-based access check as GET /:bolId.
 router.get('/load/:loadId', asyncHandler(async (req: AuthRequest, res) => {
   const bol = await BOLService.getBOLByLoadId(req.params.loadId);
   if (!bol) return res.status(404).json({ error: 'BOL not found for this load' });
+  await requireBOLAccess(req, bol);   // ← ownership check
   res.json({ bol });
 }));
 
@@ -78,11 +110,11 @@ router.post('/:bolId/sign', asyncHandler(async (req: AuthRequest, res) => {
   }
 
   const role = req.user!.role as string;
-  let sigRole: 'SHIPPER' | 'DRIVER' | 'RECEIVER';
-  if (role === 'SHIPPER') sigRole = 'SHIPPER';
-  else if (role === 'DRIVER') sigRole = 'DRIVER';
+  // Shippers CREATE the BOL; only the carrier (DRIVER) and consignee (RECEIVER) sign it.
+  let sigRole: 'DRIVER' | 'RECEIVER';
+  if (role === 'DRIVER') sigRole = 'DRIVER';
   else if (role === 'RECEIVER') sigRole = 'RECEIVER';
-  else return res.status(403).json({ error: 'Only Shipper, Driver, or Receiver can sign a BOL' });
+  else return res.status(403).json({ error: 'Only Driver or Receiver can sign a BOL' });
 
   const signature: BOLSignature = {
     signedBy,

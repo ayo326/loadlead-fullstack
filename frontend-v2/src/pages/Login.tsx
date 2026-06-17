@@ -1,76 +1,87 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
-import { ArrowRight, ShieldCheck, Truck, PackagePlus, Warehouse, AlertTriangle } from "lucide-react";
+import {
+  ArrowRight, ShieldCheck, Truck, PackagePlus, Warehouse, AlertTriangle, Briefcase, ShipWheel,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Logo } from "@/components/Logo";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Role tiles — purely for branding on the left panel and submit button label.
-// They do NOT pre-fill credentials. The backend determines the actual role from
-// the account and the JWT; the tile selection has zero effect on auth outcome.
+// ── Role definitions ──────────────────────────────────────────────────────────
+
 const roles = [
   {
-    key: "DRIVER",
-    label: "Driver",
-    icon: Truck,
-    to: "/driver",
-    badge: "47s average time to first match",
+    key:      "OWNER_OPERATOR",
+    label:    "Owner Operator",
+    portal:   "owner operator portal",
+    icon:     Briefcase,
+    to:       "/owner-operator",
+    roleTag:  "OWNER OPERATOR ACCOUNT",
+    badge:    "94.2% average fleet utilization this week",
+    headline: "Maximize your fleet's earning potential.",
+    sub:      "Dispatch drivers, assign high-margin loads, and keep every truck moving — all from one command center.",
+  },
+  {
+    key:      "DRIVER",
+    label:    "Driver",
+    portal:   "driver portal",
+    icon:     ShipWheel,
+    to:       "/driver",
+    roleTag:  "DRIVER ACCOUNT",
+    badge:    "47s average time to first match",
     headline: "Find your next load and hit the road.",
-    sub: "See available freight near you, accept offers instantly, and get moving — all from one dashboard.",
+    sub:      "See available freight near you, accept offers instantly, and get moving — all from one dashboard.",
   },
   {
-    key: "SHIPPER",
-    label: "Shipper",
-    icon: PackagePlus,
-    to: "/shipper",
-    badge: "Live driver matching",
-    headline: "Sign in to dispatch freight in real time.",
-    sub: "Post loads, broadcast to matched drivers, and track every shipment from pickup to delivery.",
+    key:      "SHIPPER",
+    label:    "Shipper",
+    portal:   "shipper portal",
+    icon:     PackagePlus,
+    to:       "/shipper",
+    roleTag:  "SHIPPER ACCOUNT",
+    badge:    "Live driver matching in under 60s",
+    headline: "Dispatch freight to verified drivers instantly.",
+    sub:      "Post loads, broadcast to matched drivers, and track every shipment from pickup to delivery.",
   },
   {
-    key: "RECEIVER",
-    label: "Receiver",
-    icon: Warehouse,
-    to: "/receiver",
-    badge: "Real-time inbound visibility",
+    key:      "RECEIVER",
+    label:    "Receiver",
+    portal:   "receiver portal",
+    icon:     Warehouse,
+    to:       "/receiver",
+    roleTag:  "RECEIVER ACCOUNT",
+    badge:    "Real-time inbound visibility",
     headline: "Know exactly when your freight arrives.",
-    sub: "Track inbound shipments, get live ETAs, and coordinate dock scheduling — before the truck pulls up.",
-  },
-  {
-    key: "ADMIN",
-    label: "Admin",
-    icon: ShieldCheck,
-    to: "/admin",
-    badge: "Full platform control",
-    headline: "Manage operations across every role.",
-    sub: "Oversee drivers, shippers, loads, and platform health from a single command center.",
+    sub:      "Track inbound shipments, get live ETAs, and coordinate dock scheduling — before the truck pulls up.",
   },
 ] as const;
 
 const roleHome: Record<string, string> = {
-  DRIVER: "/driver",
-  SHIPPER: "/shipper",
-  RECEIVER: "/receiver",
-  ADMIN: "/admin",
+  DRIVER:         "/driver",
+  OWNER_OPERATOR: "/owner-operator",
+  SHIPPER:        "/shipper",
+  RECEIVER:       "/receiver",
+  ADMIN:          "/admin",
 };
 
-export default function Login() {
-  const [selectedTile, setSelectedTile] = useState<typeof roles[number]>(roles[0]);
-  const [email, setEmail]       = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
-  const [roleMismatch, setRoleMismatch] = useState<string | null>(null);
-  const [loading, setLoading]   = useState(false);
+// ── Component ─────────────────────────────────────────────────────────────────
 
-  const { login } = useAuth();
-  const navigate  = useNavigate();
+export default function Login() {
+  const [selected, setSelected]     = useState<typeof roles[number]>(roles[0]);
+  const [email, setEmail]           = useState("");
+  const [password, setPassword]     = useState("");
+  const [remember, setRemember]     = useState(false);
+  const [error, setError]           = useState("");
+  const [roleMismatch, setRoleMismatch] = useState<string | null>(null);
+  const [loading, setLoading]       = useState(false);
+
+  const { login }  = useAuth();
+  const navigate   = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect");
 
-  const handleTileSelect = (r: typeof roles[number]) => {
-    setSelectedTile(r);
+  const pick = (r: typeof roles[number]) => {
+    setSelected(r);
     setError("");
     setRoleMismatch(null);
   };
@@ -82,19 +93,11 @@ export default function Login() {
     setLoading(true);
     try {
       const user = await login(email, password);
-
-      // If the user signed in with a tile that doesn't match their actual role,
-      // show a brief mismatch notice before redirecting to the correct dashboard.
-      if (user.role !== selectedTile.key) {
-        setRoleMismatch(
-          `This account is registered as ${user.role}. Taking you to your dashboard…`
-        );
-        setTimeout(() => {
-          navigate(redirectTo ?? roleHome[user.role] ?? "/");
-        }, 1800);
+      if (user.role !== selected.key) {
+        setRoleMismatch(`This account is registered as ${user.role}. Taking you to your dashboard…`);
+        setTimeout(() => navigate(redirectTo ?? roleHome[user.role] ?? "/"), 1800);
         return;
       }
-
       navigate(redirectTo ?? roleHome[user.role] ?? "/");
     } catch (err: any) {
       setError(err.message ?? "Invalid email or password");
@@ -104,133 +107,256 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="min-h-screen flex">
 
-      {/* ── Left brand panel ── */}
-      <div
-        className="relative hidden lg:flex flex-col justify-between p-12 text-primary-foreground overflow-hidden"
-        style={{ background: "var(--gradient-hero)" }}
-      >
+      {/* ── Left: blue brand panel + icon sidebar ──────────────────────────── */}
+      <div className="hidden lg:flex shrink-0" style={{ width: "52%" }}>
+
+        {/* Narrow icon sidebar */}
         <div
-          className="absolute inset-0 opacity-[0.08]"
-          style={{
-            backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
-            backgroundSize: "28px 28px",
-          }}
-        />
-        <div className="relative"><Logo variant="light" /></div>
-        <div className="relative space-y-6 max-w-md">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-3 py-1 text-xs">
-            <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-            {selectedTile.badge}
-          </div>
-          <h2 className="text-4xl font-bold leading-tight tracking-tight">{selectedTile.headline}</h2>
-          <p className="text-primary-foreground/75">{selectedTile.sub}</p>
+          className="flex flex-col items-center py-6 gap-3 shrink-0"
+          style={{ width: 72, background: "hsl(217 91% 26%)" }}
+        >
+          {/* Logo mark */}
+          <Link to="/" className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 transition-colors" title="Back to home">
+            <Truck className="h-5 w-5 text-white" />
+          </Link>
+
+          {/* Role icon buttons */}
+          {roles.map((r) => {
+            const active = selected.key === r.key;
+            return (
+              <button
+                key={r.key}
+                type="button"
+                title={r.label}
+                onClick={() => pick(r)}
+                className={`flex h-11 w-11 items-center justify-center rounded-xl transition-all ${
+                  active
+                    ? "bg-white/20 text-white ring-1 ring-white/30"
+                    : "text-white/50 hover:bg-white/10 hover:text-white/80"
+                }`}
+              >
+                <r.icon className="h-5 w-5" />
+              </button>
+            );
+          })}
         </div>
-        <div className="relative text-xs text-primary-foreground/60">© {new Date().getFullYear()} LoadLead</div>
+
+        {/* Main panel — photo background with blue overlay */}
+        <div className="relative flex flex-1 flex-col overflow-hidden">
+
+          {/* Background photo — royalty-free from Unsplash (truck drivers, freight industry) */}
+          <img
+            src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=1200&q=80"
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+            draggable={false}
+          />
+
+          {/* Brand blue overlay — preserves color identity, keeps text readable */}
+          <div
+            className="absolute inset-0"
+            style={{ background: "hsl(217 91% 22% / 0.82)" }}
+          />
+
+          {/* Subtle dot grid on top of overlay */}
+          <div
+            className="absolute inset-0 opacity-[0.05]"
+            style={{
+              backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+              backgroundSize: "26px 26px",
+            }}
+          />
+
+          {/* Bottom gradient fade for a polished edge */}
+          <div
+            className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none"
+            style={{ background: "linear-gradient(to top, hsl(217 91% 16% / 0.6), transparent)" }}
+          />
+
+          {/* ── Messaging — vertically centered, left-aligned ── */}
+          <div className="relative z-10 flex flex-1 flex-col justify-center px-12">
+            <div className="space-y-5 max-w-sm">
+              <p className="text-[11px] font-semibold tracking-[0.2em] text-white/60 uppercase">
+                {selected.roleTag}
+              </p>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-white/90">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {selected.badge}
+              </div>
+              <h2 className="text-[2.25rem] font-bold leading-[1.15] tracking-tight text-white">
+                {selected.headline}
+              </h2>
+              <p className="text-sm leading-relaxed text-white/65">{selected.sub}</p>
+            </div>
+          </div>
+
+          <p className="absolute bottom-3 left-12 text-[11px] text-white/30 z-10">
+            © {new Date().getFullYear()} LoadLead Inc.
+          </p>
+        </div>
       </div>
 
-      {/* ── Right form ── */}
-      <div className="flex items-center justify-center p-6 lg:p-12 bg-background">
-        <div className="w-full max-w-md">
-          <div className="lg:hidden mb-8"><Logo /></div>
-          <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
-          <p className="mt-2 text-muted-foreground text-sm">
-            Select your role, then sign in with your account credentials.
+      {/* ── Right: form panel ────────────────────────────────────────────────── */}
+      <div className="flex flex-1 items-center justify-center bg-white px-8 py-12">
+        <div className="w-full max-w-[380px]">
+
+          {/* Logo */}
+          <Link to="/" className="mb-8 flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-xl"
+              style={{ background: "hsl(217 91% 32%)" }}
+            >
+              <Truck className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="text-[15px] font-bold leading-none tracking-tight text-gray-900">LoadLead</p>
+              <p className="mt-0.5 text-[10px] font-semibold tracking-[0.15em] text-gray-400 uppercase">
+                Freight, Dispatched Live
+              </p>
+            </div>
+          </Link>
+
+          {/* Heading */}
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Welcome back</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Sign in to your{" "}
+            <span style={{ color: "hsl(217 91% 42%)" }} className="font-medium">
+              {selected.portal}
+            </span>
           </p>
 
-          {/* Role tiles — visual only, no credential pre-fill */}
-          <div className="mt-8 grid grid-cols-2 gap-2">
+          {/* Mobile role picker */}
+          <div className="mt-5 flex flex-wrap gap-2 lg:hidden">
             {roles.map((r) => {
-              const active = selectedTile.key === r.key;
+              const active = selected.key === r.key;
               return (
                 <button
                   key={r.key}
                   type="button"
-                  onClick={() => handleTileSelect(r)}
-                  className={`flex items-center gap-2 rounded-xl border p-3 text-left transition-all ${
+                  onClick={() => pick(r)}
+                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
                     active
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "border-border hover:border-primary/40"
+                      ? "border-primary bg-primary text-white"
+                      : "border-gray-200 text-gray-600 hover:border-primary/40"
                   }`}
                 >
-                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
-                    active ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
-                  }`}>
-                    <r.icon className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">{r.label}</div>
-                    <div className="text-[10px] text-muted-foreground">{r.to}</div>
-                  </div>
+                  <r.icon className="h-3.5 w-3.5" />
+                  {r.label}
                 </button>
               );
             })}
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
+          <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+            {/* Email */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="email"
+                className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-gray-500"
+              >
+                Email Address
+              </label>
+              <input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                required
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
+                placeholder="you@example.com"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="pwd">Password</Label>
-              <Input
+
+            {/* Password */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="pwd"
+                className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-gray-500"
+              >
+                Password
+              </label>
+              <input
                 id="pwd"
                 type="password"
-                placeholder="••••••••"
+                required
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
+                placeholder="••••••••••"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
 
-            {/* Auth error */}
+            {/* Remember + Forgot */}
+            <div className="flex items-center justify-between">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 select-none">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 accent-blue-600"
+                />
+                Remember me
+              </label>
+              <Link
+                to="/forgot-password"
+                className="text-sm font-medium hover:underline"
+                style={{ color: "hsl(217 91% 42%)" }}
+              >
+                Forgot password?
+              </Link>
+            </div>
+
+            {/* Error */}
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
             )}
 
-            {/* Role mismatch — informational, not blocking */}
+            {/* Role mismatch */}
             {roleMismatch && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 text-sm text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-700">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 {roleMismatch}
               </div>
             )}
 
-            <Button type="submit" className="w-full h-11" disabled={loading || !!roleMismatch}>
-              {loading
-                ? "Signing in…"
-                : <>{`Sign in as ${selectedTile.label}`} <ArrowRight className="h-4 w-4 ml-1" /></>
-              }
-            </Button>
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading || !!roleMismatch}
+              className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-all disabled:opacity-60"
+              style={{ background: "hsl(217 91% 32%)" }}
+              onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = "hsl(217 91% 26%)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "hsl(217 91% 32%)"; }}
+            >
+              {loading ? "Signing in…" : (
+                <>Sign in as {selected.label} <ArrowRight className="h-4 w-4" /></>
+              )}
+            </button>
           </form>
 
-          <div className="mt-6 text-sm text-muted-foreground text-center space-y-2">
-            <div>
-              <Link to="/forgot-password" className="hover:text-foreground hover:underline">
-                Forgot your password?
-              </Link>
-            </div>
-            <div>
+          {/* Footer links */}
+          <div className="mt-6 space-y-2 text-center text-sm text-gray-500">
+            <p>
               New to LoadLead?{" "}
-              <Link to="/signup" className="text-primary font-medium hover:underline">
-                Create an account
+              <Link
+                to="/signup"
+                className="font-semibold hover:underline"
+                style={{ color: "hsl(217 91% 42%)" }}
+              >
+                Join the network
               </Link>
-            </div>
-            <div>
-              <Link to="/" className="text-muted-foreground hover:underline">Back to home</Link>
-            </div>
+            </p>
+            <p>
+              <Link to="/" className="text-xs text-gray-400 hover:text-gray-600 hover:underline">
+                ← Back to home
+              </Link>
+            </p>
           </div>
         </div>
       </div>

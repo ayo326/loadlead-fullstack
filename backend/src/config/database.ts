@@ -97,15 +97,18 @@ export class Database {
     }
   }
   
-  static async scan<T>(tableName: string, filterExpression?: string, expressionAttributeValues?: Record<string, any>): Promise<T[]> {
+  static async scan<T>(tableName: string, filterExpression?: string, expressionAttributeValues?: Record<string, any>, expressionAttributeNames?: Record<string, string>): Promise<T[]> {
     try {
       const params: any = {
         TableName: tableName,
       };
-      
+
       if (filterExpression) {
         params.FilterExpression = filterExpression;
         params.ExpressionAttributeValues = expressionAttributeValues;
+        if (expressionAttributeNames) {
+          params.ExpressionAttributeNames = expressionAttributeNames;
+        }
       }
       
       const result = await docClient.send(new ScanCommand(params));

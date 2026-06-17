@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bell, LayoutDashboard, LogOut, PackagePlus, Search, Settings, ShieldCheck, Truck, Warehouse } from "lucide-react";
+import { Bell, History, LayoutDashboard, LogOut, PackagePlus, Search, Settings, ShieldCheck, ShipWheel, Truck, TruckIcon, Warehouse } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -20,10 +20,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const allNav = [
-  { title: "Driver",   url: "/driver",   icon: Truck,       label: "Live Offers", role: "DRIVER"   },
-  { title: "Shipper",  url: "/shipper",  icon: PackagePlus, label: "Loads",       role: "SHIPPER"  },
-  { title: "Receiver", url: "/receiver", icon: Warehouse,   label: "Inbound",     role: "RECEIVER" },
-  { title: "Admin",    url: "/admin",    icon: ShieldCheck, label: "Operations",  role: "ADMIN"    },
+  { title: "Driver",         url: "/driver",                 icon: ShipWheel,   label: "Live Offers",     role: "DRIVER",         exact: true  },
+  { title: "Load History",   url: "/driver/history",         icon: History,     label: "Completed Loads", role: "DRIVER"                       },
+  { title: "Owner Operator", url: "/owner-operator",         icon: TruckIcon,   label: "Dashboard",       role: "OWNER_OPERATOR", exact: true  },
+  { title: "Load History",   url: "/owner-operator/history", icon: History,     label: "Completed Loads", role: "OWNER_OPERATOR"               },
+  { title: "Shipper",        url: "/shipper",                icon: PackagePlus, label: "Loads",           role: "SHIPPER"                      },
+  { title: "Receiver",       url: "/receiver",               icon: Warehouse,   label: "Inbound",         role: "RECEIVER"                     },
+  { title: "Admin",          url: "/admin",                  icon: ShieldCheck, label: "Operations",      role: "ADMIN"                        },
 ];
 
 function AppSidebar({ onLogout }: { onLogout: () => void }) {
@@ -49,7 +52,10 @@ function AppSidebar({ onLogout }: { onLogout: () => void }) {
           <SidebarGroupContent>
             <SidebarMenu>
               {nav.map((item) => {
-                const active = pathname.startsWith(item.url);
+                // exact items only highlight on their own URL or their /loads sub-pages
+                const active = item.exact
+                  ? pathname === item.url || pathname.startsWith(item.url + '/loads')
+                  : pathname.startsWith(item.url);
                 return (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton asChild isActive={active} className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent/60">
@@ -74,8 +80,8 @@ function AppSidebar({ onLogout }: { onLogout: () => void }) {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === "/settings"} className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent/60">
-                  <NavLink to="/settings" className="flex items-center gap-3">
+                <SidebarMenuButton asChild isActive={pathname.startsWith("/settings") || pathname.startsWith("/owner-operator/settings")} className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent/60">
+                  <NavLink to={user?.role === "OWNER_OPERATOR" ? "/owner-operator/settings" : "/settings"} className="flex items-center gap-3">
                     <Settings className="h-4 w-4" />
                     {!collapsed && <span>Settings</span>}
                   </NavLink>
@@ -99,7 +105,7 @@ export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => { logout(); navigate("/login"); };
+  const handleLogout = () => { logout().then(() => navigate("/login")); };
 
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "?";
   const headshotUrl = user?.headshotUrl;

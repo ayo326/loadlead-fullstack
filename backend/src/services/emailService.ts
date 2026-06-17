@@ -1,14 +1,9 @@
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = 'LoadLead <noreply@loadleadapp.com>';
+// The actual Resend call now routes through services/integrations/email.ts
+// — every public method below (welcome, loadMatched, ...) is unchanged.
+import { sendEmail } from './integrations/email';
 
 async function send(to: string, subject: string, html: string) {
-  try {
-    await resend.emails.send({ from: FROM, to, subject, html });
-  } catch (err: any) {
-    console.error('[EmailService] Failed to send email:', err?.message ?? err);
-  }
+  await sendEmail(to, subject, html);
 }
 
 function base(body: string) {
@@ -51,6 +46,12 @@ export const EmailService = {
         sub: "Your admin account is active. Head to the dashboard to manage drivers, shippers, and platform operations.",
         cta: "Go to Dashboard",
         link: "https://loadleadapp.com/admin",
+      },
+      CARRIER_ADMIN: {
+        headline: "Welcome to LoadLead, Carrier!",
+        sub: "Your carrier company is set up. Submit your company verification (FMCSA + KYB), then onboard your drivers to start dispatching loads.",
+        cta: "Go to Carrier Dashboard",
+        link: "https://loadleadapp.com/carrier",
       },
     };
     const m = roleMessages[role] ?? roleMessages.DRIVER;
@@ -118,6 +119,25 @@ export const EmailService = {
         Accept Invitation
       </a>
       <p style="color:#aaa;font-size:12px;margin-top:24px;">If you weren't expecting this, you can safely ignore it.</p>
+    `));
+  },
+
+  async adminSetupInvite(to: string, name: string, setupUrl: string) {
+    await send(to, '🔐 Your LoadLead Admin Setup Link', base(`
+      <h2 style="margin:0 0 8px;color:#1a3a5c;">You requested admin access</h2>
+      <p style="color:#555;margin:0 0 8px;">Hi ${name},</p>
+      <p style="color:#555;margin:0 0 24px;">
+        Click the button below to complete your admin account setup on LoadLead.
+        This link is valid for <strong>24 hours</strong> and can only be used once.
+      </p>
+      <a href="${setupUrl}"
+         style="display:inline-block;background:#1a3a5c;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
+        Complete Admin Setup
+      </a>
+      <p style="color:#aaa;font-size:12px;margin-top:28px;">
+        If you didn't request this, you can safely ignore this email.
+        Once an admin account has been created, this link is permanently disabled.
+      </p>
     `));
   },
 

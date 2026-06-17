@@ -1,4 +1,5 @@
-import express from 'express';
+import express, { Response } from 'express';
+import { body } from 'express-validator';
 import crypto from 'crypto';
 import { AuthService } from '../services/authService';
 import { asyncHandler } from '../middleware/errorHandler';
@@ -16,6 +17,23 @@ const USERS_TABLE = process.env.DYNAMODB_USERS_TABLE || 'LoadLead_Users';
 
 const router = express.Router();
 
+// ── Cookie helper ──────────────────────────────────────────────────────────────
+// Sets the JWT as an httpOnly, Secure, SameSite=Strict cookie.
+// httpOnly prevents JavaScript (including XSS payloads) from reading the token.
+// The token is ALSO returned in the JSON body so callers can decode user info
+// without storing the raw JWT string in any browser storage.
+const COOKIE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (matches JWT exp)
+
+function setAuthCookie(res: Response, token: string) {
+  res.cookie('ll_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: COOKIE_TTL_MS,
+    path: '/',
+  });
+}
+
 // POST /api/auth/signup
 router.post(
   '/signup',
@@ -25,6 +43,30 @@ router.post(
     const result = await AuthService.signup(email, password, role, orgParams);
     // Send role-specific welcome email (non-blocking)
     EmailService.welcome(email, role).catch(() => {});
+    setAuthCookie(res, result.token);
+    res.status(201).json(result);
+  })
+);
+
+// POST /api/auth/signup/carrier
+// Dedicated, atomic carrier-admin signup — separate from the generic
+// signup() above on purpose (see AuthService.signupCarrierAdmin). Does not
+// touch or share code paths with the four existing personas' signup.
+router.post(
+  '/signup/carrier',
+  validate([
+    body('email').isEmail().withMessage('Valid email is required'),
+    body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+    body('legalName').notEmpty().withMessage('Company legal name is required'),
+    body('mcNumber').optional().isString(),
+    body('dotNumber').optional().isString(),
+    body('dba').optional().isString(),
+  ]),
+  asyncHandler(async (req, res) => {
+    const { email, password, legalName, dba, mcNumber, dotNumber } = req.body;
+    const result = await AuthService.signupCarrierAdmin({ email, password, legalName, dba, mcNumber, dotNumber });
+    EmailService.welcome(email, 'CARRIER_ADMIN').catch(() => {});
+    setAuthCookie(res, result.token);
     res.status(201).json(result);
   })
 );
@@ -36,9 +78,21 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const result = await AuthService.login(email, password);
+    setAuthCookie(res, result.token);
     res.json(result);
   })
 );
+
+// POST /api/auth/logout — clears the httpOnly cookie
+router.post('/logout', (_req, res) => {
+  res.clearCookie('ll_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+  });
+  res.json({ message: 'Logged out' });
+});
 
 // GET /api/auth/me
 router.get(

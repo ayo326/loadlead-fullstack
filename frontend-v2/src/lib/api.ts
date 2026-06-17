@@ -2,22 +2,20 @@
 // In production VITE_API_URL is set to https://api.loadleadapp.com
 const BASE = (import.meta.env.VITE_API_URL ?? "") + "/api";
 
-function getToken() {
-  return localStorage.getItem("ll_token");
-}
-
+// Auth uses httpOnly cookies — the browser sends ll_token automatically.
+// `credentials: 'include'` is required for cross-origin cookie delivery.
+// We no longer read from / write to localStorage for auth tokens.
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
     method,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json?.message ?? `${method} ${path} failed (${res.status})`);
+  if (!res.ok) throw new Error(json?.message ?? json?.error ?? `${method} ${path} failed (${res.status})`);
   return json as T;
 }
 
@@ -28,16 +26,26 @@ export const api = {
       "POST", "/auth/signup", { email, password, role, orgParams }
     ),
 
+  // Dedicated atomic carrier signup — separate endpoint from the generic
+  // signup() above (see backend AuthService.signupCarrierAdmin). Does not
+  // share a code path with the four existing personas.
+  signupCarrier: (params: { email: string; password: string; legalName: string; dba?: string; mcNumber?: string; dotNumber?: string }) =>
+    request<{ token: string; user: { userId: string; email: string; role: string }; orgId: string }>(
+      "POST", "/auth/signup/carrier", params
+    ),
+
   login: (email: string, password: string) =>
     request<{ token: string; user: { userId: string; email: string; role: string } }>(
       "POST", "/auth/login", { email, password }
     ),
 
   me: () => request<{ user: { userId: string; email: string; role: string } }>("GET", "/auth/me"),
+  logout: () => request<{ message: string }>("POST", "/auth/logout"),
 
   // Driver
   getDriverProfile: () => request<{ driver: any }>("GET", "/driver/profile"),
   getDriverLoadboard: () => request<{ loads: any[] }>("GET", "/driver/loadboard"),
+  getDriverHistory: () => request<{ loads: any[] }>("GET", "/driver/history"),
   getDriverOffer: (loadId: string) => request<{ offer: any; load: any }>("GET", `/driver/offers/${loadId}`),
   acceptOffer: (loadId: string) => request<{ message: string }>("POST", `/driver/offers/${loadId}/accept`),
   declineOffer: (loadId: string) => request<{ message: string }>("POST", `/driver/offers/${loadId}/decline`),
@@ -93,6 +101,10 @@ export const api = {
     request("POST", "/driver/location", { lat, lng, city, state }),
   reverseGeocode: (lat: number, lng: number) =>
     request<{ city: string; state: string }>("GET", `/maps/reverse-geocode?lat=${lat}&lng=${lng}`),
+
+  /** Geocode a full address string → { lat, lng }. Called by PostLoad before submitting a draft. */
+  geocodeAddress: (address: string) =>
+    request<{ lat: number; lng: number }>("GET", `/maps/geocode?address=${encodeURIComponent(address)}`),
 
   // Capacity
   checkDriverCapacity: (payload: { totalWeightLbs: number; dimLengthIn?: number; dimWidthIn?: number; dimHeightIn?: number }) =>
@@ -200,4 +212,34 @@ export const api = {
   /** Get membership audit log for an org (spec §6.5) */
   getOrgAuditLog: (orgId: string) =>
     request<{ logs: any[] }>("GET", `/org/${orgId}/audit`),
+
+  // ── Carrier-org (direct driver setup + company verification) ─────────────────
+  /** POST /api/org/:orgId/drivers — direct driver onboarding (CARRIER orgs only) */
+  createOrgDriver: (orgId: string, data: { email: string; legalName: string; phone?: string }) =>
+    request<{ driver: any; membership: any }>("POST", `/org/${orgId}/drivers`, data),
+
+  getOrgVerification: (orgId: string) =>
+    request<{ verification: any }>("GET", `/org/${orgId}/verification`),
+  submitOrgVerification: (orgId: string, data: { mcNumber?: string; dotNumber?: string }) =>
+    request<{ verification: any }>("POST", `/org/${orgId}/verification/submit`, data),
+
+  // ── Owner Operator ──────────────────────────────────────────────────────────
+  getOwnerOperatorProfile: () =>
+    request<{ ownerOperator: any }>("GET", "/owner-operator/profile"),
+  createOwnerOperatorProfile: (data: unknown) =>
+    request<{ ownerOperator: any }>("POST", "/owner-operator/profile", data),
+  updateOwnerOperatorProfile: (data: unknown) =>
+    request<{ ownerOperator: any }>("PUT", "/owner-operator/profile", data),
+  getOwnerOperatorLoadboard: () =>
+    request<{ loads: any[] }>("GET", "/owner-operator/loadboard"),
+  getOwnerOperatorHistory: () =>
+    request<{ loads: any[] }>("GET", "/owner-operator/history"),
+  getOwnerOperatorFleet: () =>
+    request<{ drivers: any[] }>("GET", "/owner-operator/fleet"),
+  removeFleetDriver: (driverId: string) =>
+    request<{ ok: boolean }>("DELETE", `/owner-operator/fleet/${driverId}`),
+  inviteFleetDriver: (email: string) =>
+    request<{ invite: any }>("POST", "/owner-operator/fleet/invite", { email }),
+  getFleetInvites: () =>
+    request<{ invites: any[] }>("GET", "/owner-operator/fleet/invites"),
 };

@@ -100,6 +100,9 @@ export class DriverService {
         geohash: data.currentLat && data.currentLng ? Helpers.encodeGeohash(data.currentLat, data.currentLng) : '',
         lastLocationUpdate: now,
 
+        ownedByOperatorId: data.ownedByOperatorId,
+        isSelf: data.isSelf ?? false,
+
         createdAt: now,
         updatedAt: now,
       };
@@ -215,12 +218,13 @@ export class DriverService {
 
   static async getDriversByStatus(status: DriverStatus): Promise<Driver[]> {
     try {
-      return await Database.query<Driver>(
+      // LoadLead_Drivers has no status GSI — use a Scan with FilterExpression.
+      // For small driver tables this is acceptable; add a GSI if the table grows large.
+      return await Database.scan<Driver>(
         config.dynamodb.driversTable,
-        'status-index',
         '#status = :status',
-        { '#status': 'status' },
-        { ':status': status }
+        { ':status': status },
+        { '#status': 'status' }
       );
     } catch (error) {
       Logger.error('Get drivers by status error', error);

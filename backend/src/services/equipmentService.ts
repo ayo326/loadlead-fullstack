@@ -24,8 +24,11 @@ export function deriveLoadingRequirements(
   pickup: FacilityProfile | undefined,
   delivery: FacilityProfile | undefined,
 ): DerivedLoadingRequirements {
-  const p = pickup  ?? { dockAvailable: true, forkliftAvailable: true, freightFormat: 'PALLETIZED' as const };
-  const d = delivery ?? { dockAvailable: true, forkliftAvailable: true, freightFormat: 'PALLETIZED' as const };
+  // When no facility profile is provided (most loads), default to the most permissive
+  // assumption: no dock required, forklift available, palletized freight.
+  // This prevents every load from requiring dock-height trailers by default.
+  const p = pickup  ?? { dockAvailable: false, forkliftAvailable: true, freightFormat: 'PALLETIZED' as const };
+  const d = delivery ?? { dockAvailable: false, forkliftAvailable: true, freightFormat: 'PALLETIZED' as const };
 
   const driveOn   = p.freightFormat === 'DRIVE_ON'   || d.freightFormat === 'DRIVE_ON';
   const liquidBulk = p.freightFormat === 'LIQUID_BULK' || d.freightFormat === 'LIQUID_BULK';

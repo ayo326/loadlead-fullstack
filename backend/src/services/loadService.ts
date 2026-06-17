@@ -93,11 +93,11 @@ export class LoadService {
         temperatureMax: data.temperatureMax,
         
         // Requirements
-        minMcMaturityDays: data.minMcMaturityDays || config.app.minMcMaturity,
-        minCargoInsurance: data.minCargoInsurance || 100000,
-        minLiabilityInsurance: data.minLiabilityInsurance || 1000000,
-        requiredEndorsements: data.requiredEndorsements || [],
-        experienceRequired: data.experienceRequired || 0,
+        minMcMaturityDays: data.minMcMaturityDays ?? config.app.minMcMaturity,
+        minCargoInsurance: data.minCargoInsurance ?? 100000,
+        minLiabilityInsurance: data.minLiabilityInsurance ?? 1000000,
+        requiredEndorsements: data.requiredEndorsements ?? [],
+        experienceRequired: data.experienceRequired ?? 0,
         
         // Broadcast Settings
         broadcastRadiusMiles: data.broadcastRadiusMiles || config.app.broadcastRadius,
@@ -203,7 +203,7 @@ export class LoadService {
     try {
       return await Database.query<Load>(
         config.dynamodb.loadsTable,
-        'status-createdAt-index',
+        'status-index',
         '#status = :status',
         { '#status': 'status' },
         { ':status': status }

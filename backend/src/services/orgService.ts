@@ -1,13 +1,33 @@
 import crypto from 'crypto';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import {
   Organization, OrgMembership, OrgInvitation, MembershipAuditLog,
-  OrgCapability, OrgRole, ADMIN_ORG_ROLES, UserRole,
+  OrgCapability, OrgRole, ADMIN_ORG_ROLES, UserRole, Driver,
 } from '../types';
 import { Database } from '../config/database';
+import { docClient } from '../config/aws';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import { AppError } from '../middleware/errorHandler';
+import { DriverService } from './driverService';
+import { EmailService } from './emailService';
 import Logger from '../utils/logger';
+
+const RESET_TABLE = process.env.DYNAMODB_RESET_TABLE || 'LoadLead_PasswordResets';
+
+// ─── Capability invariant ────────────────────────────────────────────────────
+// SHIPPER and CARRIER are mutually exclusive — a shipper that self-hauls would
+// make self-haul fraud unrepresentable to check at runtime. RECEIVER may
+// coexist with either (e.g. a distribution center that ships and receives).
+// Centralized here and called from every org write path so it can't be
+// bypassed by a new route forgetting to check.
+export function assertCapabilities(caps: OrgCapability[]): void {
+  const set = new Set(caps);
+  if (set.size === 0) throw new AppError('Org needs at least one capability', 400);
+  if (set.has(OrgCapability.SHIPPER) && set.has(OrgCapability.CARRIER)) {
+    throw new AppError('SHIPPER and CARRIER capabilities are mutually exclusive', 400);
+  }
+}
 
 // ─── OrgService ──────────────────────────────────────────────────────────────
 
@@ -27,6 +47,7 @@ export class OrgService {
     zip?: string;
     country?: string;
   }): Promise<{ org: Organization; membership: OrgMembership }> {
+    assertCapabilities(params.capabilities);
     const orgId = Helpers.generateId('org');
     const now = Helpers.getCurrentTimestamp();
 
@@ -74,6 +95,7 @@ export class OrgService {
   }
 
   static async updateOrg(orgId: string, updates: Partial<Organization>): Promise<void> {
+    if (updates.capabilities) assertCapabilities(updates.capabilities);
     await Database.updateItem(config.dynamodb.orgsTable, { orgId }, {
       ...updates,
       updatedAt: Helpers.getCurrentTimestamp(),
@@ -133,6 +155,95 @@ export class OrgService {
         .map(m => OrgService.getOrgById(m.orgId))
     );
     return orgs.filter(Boolean) as Organization[];
+  }
+
+  /**
+   * Direct driver onboarding (spec §5A) — a Carrier org's admin creates the
+   * driver profile + active membership immediately, without an invite round
+   * trip. The driver still completes Didit IDV personally before their first
+   * acceptance (identity cannot be proxied). If no User account exists for
+   * the email yet, one is created and an activation link (reusing the
+   * existing forgot/reset-password flow) is emailed so they can set a
+   * password.
+   */
+  static async createOrgDriver(params: {
+    orgId: string;
+    email: string;
+    legalName: string;
+    phone?: string;
+    invitedBy: string;
+  }): Promise<{ driver: Driver; membership: OrgMembership }> {
+    const now = Helpers.getCurrentTimestamp();
+
+    let user = await Database.query<{ userId: string }>(
+      config.dynamodb.usersTable,
+      'email-index',
+      '#email = :email',
+      { '#email': 'email' },
+      { ':email': params.email },
+    ).then(r => r[0] ?? null);
+
+    let isNewUser = false;
+    if (!user) {
+      isNewUser = true;
+      const userId = Helpers.generateId('user');
+      await Database.putItem(config.dynamodb.usersTable, {
+        userId,
+        email: params.email,
+        password: await Helpers.hashPassword(crypto.randomBytes(24).toString('hex')),
+        role: UserRole.DRIVER,
+        status: 'PENDING_VERIFICATION',
+        createdAt: now,
+        updatedAt: now,
+      });
+      user = { userId };
+    }
+
+    // One-parent invariant: a fleet-bound driver cannot also join a Carrier org.
+    const existingDriver = await DriverService.getProfileByUserId(user.userId);
+    if (existingDriver?.ownedByOperatorId) {
+      throw new AppError(
+        'This person is already part of an Owner Operator fleet. Remove them from the fleet before adding to a Carrier org.',
+        409,
+      );
+    }
+    await OrgMembershipService.clearActiveCarrierMembership(user.userId);
+
+    const driver = existingDriver ?? await DriverService.createProfile(user.userId, {
+      legalName: params.legalName,
+      phone: params.phone ?? '',
+    });
+
+    const membership = await OrgMembershipService.addMember({
+      orgId: params.orgId,
+      userId: user.userId,
+      orgRole: OrgRole.ORG_DRIVER,
+      userRole: UserRole.DRIVER,
+    });
+
+    await OrgAuditService.log({
+      orgId: params.orgId,
+      targetUserId: user.userId,
+      actorUserId: params.invitedBy,
+      actorRole: 'OWNER_OR_ORG_ADMIN',
+      action: 'MEMBER_ADDED',
+      newValue: OrgRole.ORG_DRIVER,
+    });
+
+    // Activation link reuses the existing self-service reset-password flow —
+    // no new token mechanism needed.
+    if (isNewUser) {
+      const token = crypto.randomBytes(32).toString('hex');
+      await docClient.send(new PutCommand({
+        TableName: RESET_TABLE,
+        Item: { token, userId: user.userId, email: params.email, expiresAt: now + 60 * 60 * 1000 },
+      }));
+      const activationUrl = `${process.env.FRONTEND_URL || 'https://loadleadapp.com'}/reset-password?token=${token}`;
+      EmailService.sendOrgInvitation(params.email, 'your new Carrier org', activationUrl).catch(() => {});
+    }
+
+    Logger.info(`Org driver created: ${driver.driverId} in org ${params.orgId}`);
+    return { driver, membership };
   }
 }
 
@@ -285,6 +396,23 @@ export class OrgMembershipService {
     });
   }
 
+  /**
+   * One-parent invariant: remove this user's ACTIVE membership in any
+   * CARRIER-capability org. Called when a driver joins an Owner Operator
+   * fleet, since fleet membership and Carrier-org membership are mutually
+   * exclusive (spec §5, "one parent only").
+   */
+  static async clearActiveCarrierMembership(userId: string): Promise<void> {
+    const memberships = await this.getMembershipsForUser(userId);
+    for (const m of memberships) {
+      if (m.status !== 'ACTIVE') continue;
+      const org = await OrgService.getOrgById(m.orgId);
+      if (org?.capabilities?.includes(OrgCapability.CARRIER)) {
+        await this.removeMember(m.membershipId, userId, 'SYSTEM_ONE_PARENT_INVARIANT');
+      }
+    }
+  }
+
   /** Reinstate a suspended membership */
   static async reinstateMember(
     membershipId: string,
@@ -399,6 +527,26 @@ export class OrgInvitationService {
     if (invite.revokedAt) throw new AppError('Invitation has been revoked', 410);
     if (invite.expiresAt < Helpers.getCurrentTimestamp()) {
       throw new AppError('Invitation has expired', 410);
+    }
+
+    // One-parent invariant: joining a Carrier org as ORG_DRIVER must clear any
+    // existing Owner Operator fleet assignment, and vice versa (driver.ts
+    // fleet/accept-invite calls the symmetric clearActiveCarrierMembership).
+    if (invite.orgRole === OrgRole.ORG_DRIVER) {
+      const org = await OrgService.getOrgById(invite.orgId);
+      if (!org?.capabilities?.includes(OrgCapability.CARRIER)) {
+        throw new AppError('This organisation does not have CARRIER capability', 409);
+      }
+
+      let driver = await DriverService.getProfileByUserId(userId);
+      if (driver?.ownedByOperatorId) {
+        await Database.updateItem(config.dynamodb.driversTable, { driverId: driver.driverId }, {
+          ownedByOperatorId: null,
+        });
+      }
+      if (!driver) {
+        driver = await DriverService.createProfile(userId, { legalName: invite.email, phone: '' });
+      }
     }
 
     const membership = await OrgMembershipService.addMember({

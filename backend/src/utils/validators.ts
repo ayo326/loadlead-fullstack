@@ -1,6 +1,14 @@
 import { body, param } from 'express-validator';
 import { UserRole, TrailerType, CDLClass } from '../types';
 
+// ── HTML sanitizer ─────────────────────────────────────────────────────────────
+// Strips all HTML/SVG tags from a value before it is stored in DynamoDB.
+// Defence-in-depth: prevents stored-XSS payloads even if a frontend render
+// accidentally uses dangerouslySetInnerHTML or innerHTML in the future.
+function stripHtml(value: unknown): string {
+  return String(value ?? '').replace(/<[^>]*>/g, '').trim();
+}
+
 export const authValidators = {
   signup: [
     body('email').isEmail().withMessage('Valid email is required'),
@@ -163,17 +171,40 @@ export const loadValidators = {
     body('dimLengthIn').optional({ checkFalsy: true }).isNumeric(),
     body('dimWidthIn').optional({ checkFalsy: true }).isNumeric(),
     body('dimHeightIn').optional({ checkFalsy: true }).isNumeric(),
+    // Full pickup address (required so geocoding is never skipped)
+    body('pickupAddress').notEmpty().withMessage('Pickup street address is required').customSanitizer(stripHtml),
     body('pickupCity').notEmpty().withMessage('Pickup city is required'),
     body('pickupState').isLength({ min: 2, max: 2 }).withMessage('Valid pickup state is required'),
     body('pickupZip').notEmpty().withMessage('Pickup zip is required'),
+    body('pickupLat').isFloat({ min: -90, max: 90 }).withMessage('Pickup latitude is required — geocode the address before submitting'),
+    body('pickupLng').isFloat({ min: -180, max: 180 }).withMessage('Pickup longitude is required — geocode the address before submitting'),
     body('pickupDate').isInt({ min: 0 }).withMessage('Pickup date must be a unix timestamp (ms)'),
+    // Full delivery address (required so geocoding is never skipped)
+    body('deliveryAddress').notEmpty().withMessage('Delivery street address is required').customSanitizer(stripHtml),
     body('deliveryCity').notEmpty().withMessage('Delivery city is required'),
     body('deliveryState').isLength({ min: 2, max: 2 }).withMessage('Valid delivery state is required'),
     body('deliveryZip').notEmpty().withMessage('Delivery zip is required'),
-    body('deliveryDate').isInt({ min: 0 }).withMessage('Delivery date must be a unix timestamp (ms)'),
+    body('deliveryLat').isFloat({ min: -90, max: 90 }).withMessage('Delivery latitude is required — geocode the address before submitting'),
+    body('deliveryLng').isFloat({ min: -180, max: 180 }).withMessage('Delivery longitude is required — geocode the address before submitting'),
+    body('deliveryDate')
+      .isInt({ min: 0 }).withMessage('Delivery date must be a unix timestamp (ms)')
+      .custom((val, { req }) => {
+        const pickup = Number(req.body?.pickupDate);
+        const delivery = Number(val);
+        if (!isNaN(pickup) && delivery <= pickup) {
+          throw new Error('Delivery date must be after pickup date');
+        }
+        return true;
+      }),
     body('rateAmount').isFloat({ min: 0 }).withMessage('Rate amount must be a positive number'),
     body('minMcMaturityDays').isInt({ min: 0, max: 3650 }).withMessage('Minimum MC maturity must be between 0 and 3650 days'),
-    body('commodityDescription').notEmpty().withMessage('Commodity description is required'),
+    body('commodityDescription')
+      .notEmpty().withMessage('Commodity description is required')
+      .customSanitizer(stripHtml),
+    body('pickupInstructions').optional().customSanitizer(stripHtml),
+    body('deliveryInstructions').optional().customSanitizer(stripHtml),
+    body('specialInstructions').optional().customSanitizer(stripHtml),
+    body('notes').optional().customSanitizer(stripHtml),
     body('broadcastRadiusMiles').isInt({ min: 1, max: 500 }).withMessage('Broadcast radius must be between 1 and 500 miles'),
   ],
 };

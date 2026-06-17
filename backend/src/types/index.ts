@@ -3,10 +3,21 @@
 // ============================================
 
 export enum UserRole {
-  ADMIN = 'ADMIN',
-  SHIPPER = 'SHIPPER',
-  DRIVER = 'DRIVER',
-  RECEIVER = 'RECEIVER'
+  ADMIN          = 'ADMIN',
+  SHIPPER        = 'SHIPPER',
+  DRIVER         = 'DRIVER',
+  RECEIVER       = 'RECEIVER',
+  OWNER_OPERATOR = 'OWNER_OPERATOR',
+  /**
+   * Administrator persona who runs a Carrier-capability Organization. This
+   * is NOT a carrier entity role — the carrier remains the Organization
+   * (capabilities includes CARRIER). A CARRIER_ADMIN manages/dispatches and
+   * never hauls: no Driver profile, never resolves as carrier of record,
+   * and is excluded from every accept/haul route by the existing
+   * requireDriver/requireOwnerOperator role guards (it's simply not in
+   * either allow-list).
+   */
+  CARRIER_ADMIN  = 'CARRIER_ADMIN',
 }
 
 export enum UserStatus {
@@ -92,6 +103,13 @@ export interface User {
   accountId?: string;
   profileType?: 'ADMIN' | 'CARRIER' | 'SHIPPER' | 'DRIVER' | 'RECEIVER';
   phone?: string;
+
+  /**
+   * Person-level identity verification (Didit IDV), independent of which
+   * carrier parent (OO or Carrier org) governs their haul authority.
+   * An Owner Operator verifies identity once and it covers their self-driver.
+   */
+  idvStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED' | 'EXPIRED';
 
   createdAt: number;
   updatedAt: number;
@@ -345,8 +363,84 @@ export interface Driver {
   geohash: string;
   lastLocationUpdate: number;
 
+  /** If set, this driver belongs to an Owner Operator's fleet */
+  ownedByOperatorId?: string;
+  /** True for the dedicated Driver row representing an OO personally hauling */
+  isSelf?: boolean;
+
   createdAt: number;
   updatedAt: number;
+}
+
+// ─── Carrier-of-record resolution ───────────────────────────────────────────
+
+/** The two kinds of carrier parent that can govern haul authority */
+export enum VerificationEntityType {
+  OWNER_OPERATOR = 'OWNER_OPERATOR',
+  CARRIER_ORG    = 'CARRIER_ORG',
+}
+
+export interface CarrierOfRecord {
+  entityType: VerificationEntityType;
+  entityId: string; // operatorId | orgId — Verifications table PK
+  displayName?: string;
+}
+
+// ─── Owner Operator ───────────────────────────────────────────────────────────
+
+/**
+ * Owner Operator — independent truck owner who may drive themselves and/or
+ * manage a small fleet of drivers. Not part of the org/IAM system.
+ */
+export interface OwnerOperator {
+  operatorId: string;   // primary key
+  userId: string;       // FK → Users table
+
+  // Personal / business info
+  legalName: string;
+  dba?: string;
+  phone: string;
+  email?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+
+  // Authority & insurance
+  mcNumber?: string;
+  dotNumber?: string;
+  authorityStartDate?: number;
+  cargoInsuranceAmount?: number;
+  liabilityInsuranceAmount?: number;
+  insuranceCertificate?: string;
+
+  // Equipment (if they drive themselves)
+  cdlClass?: string;
+  endorsements?: string[];
+  truckMake?: string;
+  truckModel?: string;
+  truckYear?: number;
+  truckVIN?: string;
+  trailerType?: string;
+  trailerLength?: number;
+  maxCapacityLbs?: number;
+
+  // Fleet
+  /** driverIds of drivers assigned to this operator's fleet */
+  fleetDriverIds?: string[];
+
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface FleetInvite {
+  inviteId: string;
+  operatorId: string;
+  email: string;
+  token: string;
+  expiresAt: number;
+  acceptedAt?: number;
+  createdAt: number;
 }
 
 export interface Shipper {
@@ -513,6 +607,7 @@ export interface Load {
 }
 
 export interface Offer {
+  offerId: string;        // PK on LoadLead_Offers table
   loadId: string;
   driverId: string;
   status: OfferStatus;
@@ -526,6 +621,13 @@ export interface Offer {
 // ============================================
 // BILL OF LADING TYPES
 // ============================================
+
+export interface PodPhoto {
+  key: string;         // S3 key in loadlead-pod-uploads
+  capturedAt: string;  // ISO 8601
+  lat?: number;
+  lng?: number;
+}
 
 export interface BOLParty {
   name: string;
@@ -651,6 +753,9 @@ export interface BillOfLading {
 
   // Delivery exceptions/damage notes
   deliveryExceptions?: string;
+
+  // Proof of Delivery — photos captured at delivery (S3 keys in loadlead-pod-uploads)
+  podPhotos?: PodPhoto[];
 
   // Audit timeline
   timeline: BOLTimelineEvent[];

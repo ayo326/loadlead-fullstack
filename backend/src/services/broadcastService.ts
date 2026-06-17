@@ -5,6 +5,7 @@ import { OfferService } from './offerService';
 import { CapacityService } from './capacityService';
 import { EquipmentService, deriveLoadingRequirements } from './equipmentService';
 import { GeolocationService } from './geolocationService';
+import { RoutingService } from './routingService';
 import { Helpers } from '../utils/helpers';
 import Logger from '../utils/logger';
 
@@ -16,12 +17,32 @@ export class BroadcastService {
       if (!load) {
         throw new Error('Load not found');
       }
-      
+
+      // ── Geocoding fallback ────────────────────────────────────────────────────
+      // New loads always arrive with coordinates (required at draft time).
+      // This fallback handles historical loads that were drafted before that
+      // requirement was added — so they're not stranded with zero offers.
+      if (!load.pickupLat || !load.pickupLng) {
+        const addr = [load.pickupAddress, load.pickupCity, load.pickupState, load.pickupZip]
+          .filter(Boolean).join(', ');
+        Logger.info(`Load ${loadId} has no pickup coords — attempting geocode: "${addr}"`);
+        const coords = await RoutingService.geocodeAddress(addr);
+        if (!coords) {
+          Logger.warn(`Cannot broadcast load ${loadId}: pickup coords null and geocoding failed/unavailable`);
+          return;
+        }
+        load.pickupLat = coords.lat;
+        load.pickupLng = coords.lng;
+        // Persist so rebroadcast also works
+        await LoadService.updateLoad(loadId, { pickupLat: coords.lat, pickupLng: coords.lng });
+        Logger.info(`Geocoded pickup for load ${loadId}: lat=${coords.lat} lng=${coords.lng}`);
+      }
+
       // Get all VERIFIED and AVAILABLE drivers
       const verifiedDrivers = await DriverService.getDriversByStatus(DriverStatus.VERIFIED);
       const availableDrivers = await DriverService.getDriversByStatus(DriverStatus.AVAILABLE);
       const allEligibleDrivers = [...verifiedDrivers, ...availableDrivers];
-      
+
       // Filter by radius
       const driversInRadius = GeolocationService.filterDriversByRadius(
         allEligibleDrivers,
@@ -29,7 +50,7 @@ export class BroadcastService {
         load.pickupLng,
         load.broadcastRadiusMiles
       );
-      
+
       Logger.info(`Found ${driversInRadius.length} drivers within ${load.broadcastRadiusMiles} miles of load ${loadId}`);
       
       // Filter by capacity and requirements

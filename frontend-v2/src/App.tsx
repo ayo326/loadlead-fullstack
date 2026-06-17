@@ -20,6 +20,12 @@ import SettingsPage from "./pages/settings/SettingsPage.tsx";
 import BillOfLadingPage from "./pages/bol/BillOfLadingPage.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import AcceptInvite from "./pages/AcceptInvite.tsx";
+import SetupAdmin from "./pages/SetupAdmin.tsx";
+import OwnerOperatorDashboard from "./pages/owner-operator/OwnerOperatorDashboard.tsx";
+import OwnerOperatorSettings from "./pages/owner-operator/OwnerOperatorSettings.tsx";
+import OwnerOperatorHistory from "./pages/owner-operator/OwnerOperatorHistory.tsx";
+import CarrierDashboard from "./pages/carrier/CarrierDashboard.tsx";
+import DriverHistory from "./pages/driver/DriverHistory.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 
@@ -33,10 +39,12 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 const roleHome: Record<string, string> = {
-  DRIVER: "/driver",
-  SHIPPER: "/shipper",
-  RECEIVER: "/receiver",
-  ADMIN: "/admin",
+  DRIVER:         "/driver",
+  OWNER_OPERATOR: "/owner-operator",
+  SHIPPER:        "/shipper",
+  RECEIVER:       "/receiver",
+  ADMIN:          "/admin",
+  CARRIER_ADMIN:  "/carrier",
 };
 
 function RequireRole({ role, children }: { role: string; children: React.ReactNode }) {
@@ -62,8 +70,10 @@ const App = () => (
             <Route path="/forgot-password" element={<ResetPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/accept-invite" element={<AcceptInvite />} />
+            <Route path="/setup/admin" element={<SetupAdmin />} />
             <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
               <Route path="/driver"                element={<RequireRole role="DRIVER"><DriverDashboard /></RequireRole>} />
+              <Route path="/driver/history"       element={<RequireRole role="DRIVER"><DriverHistory /></RequireRole>} />
               <Route path="/driver/loads/:loadId" element={<RequireRole role="DRIVER"><DriverLoadDetail /></RequireRole>} />
               <Route path="/shipper"                  element={<RequireRole role="SHIPPER"><ShipperDashboard /></RequireRole>} />
               <Route path="/shipper/post"             element={<RequireRole role="SHIPPER"><ShipperPostLoad /></RequireRole>} />
@@ -71,6 +81,10 @@ const App = () => (
               <Route path="/receiver"            element={<RequireRole role="RECEIVER"><ReceiverDashboard /></RequireRole>} />
               <Route path="/receiver/loads/:loadId" element={<RequireRole role="RECEIVER"><ReceiverLoadDetail /></RequireRole>} />
               <Route path="/admin"        element={<RequireRole role="ADMIN"><AdminDashboard /></RequireRole>} />
+              <Route path="/owner-operator"          element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorDashboard /></RequireRole>} />
+              <Route path="/owner-operator/history"  element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorHistory /></RequireRole>} />
+              <Route path="/owner-operator/settings" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorSettings /></RequireRole>} />
+              <Route path="/carrier" element={<RequireRole role="CARRIER_ADMIN"><CarrierDashboard /></RequireRole>} />
               <Route path="/settings"    element={<SettingsPage />} />
               {/* Bill of Lading — all roles, accessed via their load detail */}
               <Route path="/bol/:loadId" element={<BillOfLadingPage />} />

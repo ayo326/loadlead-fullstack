@@ -7,6 +7,12 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 export const config = {
   port: process.env.PORT || 4000,
   nodeEnv: process.env.NODE_ENV || 'development',
+  // APP_ENV is the deliberate, explicit environment signal — distinct from
+  // NODE_ENV, which EB/npm tooling often forces to "production" for every
+  // environment (dev/staging included) as a build optimization flag. Every
+  // production-lockdown decision (services/integrations) keys off APP_ENV,
+  // never NODE_ENV.
+  appEnv: process.env.APP_ENV || 'development',
 
   aws: {
     region: process.env.AWS_REGION || 'us-east-1',

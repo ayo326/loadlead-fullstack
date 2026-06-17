@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, param } from 'express-validator';
-import { authenticate, AuthRequest, requireRole } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole, requireOrgCapability } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { validate } from '../middleware/validation';
 import {
@@ -11,8 +11,20 @@ import { AppError } from '../middleware/errorHandler';
 import { EmailService } from '../services/emailService';
 import { Database } from '../config/database';
 import config from '../config/environment';
+import { submitCarrierDocs, getVerification, EntityType } from '../services/verification';
 
 const router = express.Router();
+
+// Apply authentication + role guard to every org route.
+// DRIVERs have no org concept and must not access these routes.
+router.use(authenticate);
+router.use(requireRole(
+  UserRole.SHIPPER,
+  UserRole.RECEIVER,
+  UserRole.OWNER_OPERATOR,
+  UserRole.CARRIER_ADMIN,
+  UserRole.ADMIN,
+));
 
 // ─── Org CRUD ────────────────────────────────────────────────────────────────
 
@@ -22,7 +34,6 @@ const router = express.Router();
  */
 router.post(
   '/',
-  authenticate,
   validate([
     body('legalName').notEmpty().withMessage('legalName is required'),
     body('capabilities').isArray({ min: 1 }).withMessage('At least one capability is required'),
@@ -47,7 +58,6 @@ router.post(
  */
 router.get(
   '/',
-  authenticate,
   asyncHandler(async (req: AuthRequest, res) => {
     const orgs = await OrgService.getOrgsForUser(req.user!.userId);
     res.json({ orgs });
@@ -60,7 +70,6 @@ router.get(
  */
 router.get(
   '/:orgId',
-  authenticate,
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId } = req.params;
     const membership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
@@ -79,7 +88,6 @@ router.get(
  */
 router.patch(
   '/:orgId',
-  authenticate,
   validate([
     body('legalName').optional().notEmpty(),
     body('capabilities').optional().isArray({ min: 1 }),
@@ -98,6 +106,57 @@ router.patch(
   })
 );
 
+// ─── Carrier-org verification (FMCSA + Didit KYB, keyed on orgId) ────────────
+// Reuses the exact same submitCarrierDocs/getVerification functions the
+// Owner Operator verification routes call (services/verification.ts) — no
+// forked logic, just a CARRIER-capability org instead of an operatorId.
+
+/**
+ * GET /api/org/:orgId/verification
+ * Current company authority status (FMCSA + KYB). OWNER/ORG_ADMIN only.
+ */
+router.get(
+  '/:orgId/verification',
+  requireOrgCapability(OrgCapability.CARRIER),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { orgId } = req.params;
+    const membership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
+    const canView = req.user!.role === UserRole.ADMIN
+      || (membership && ADMIN_ORG_ROLES.includes(membership.orgRole));
+    if (!canView) throw new AppError('Forbidden', 403);
+
+    const verification = await getVerification(orgId);
+    res.json({ verification: verification ?? { verificationStatus: 'UNVERIFIED' } });
+  })
+);
+
+/**
+ * POST /api/org/:orgId/verification/submit
+ * Submit MC/DOT for company-level verification (FMCSA + KYB). OWNER/ORG_ADMIN
+ * only, and only on a CARRIER-capability org.
+ */
+router.post(
+  '/:orgId/verification/submit',
+  requireOrgCapability(OrgCapability.CARRIER),
+  validate([
+    body('mcNumber').optional().isString(),
+    body('dotNumber').optional().isString(),
+  ]),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { orgId } = req.params;
+    const { mcNumber, dotNumber } = req.body;
+    if (!mcNumber && !dotNumber) throw new AppError('mcNumber or dotNumber is required', 400);
+
+    const membership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
+    const canSubmit = req.user!.role === UserRole.ADMIN
+      || (membership && ADMIN_ORG_ROLES.includes(membership.orgRole));
+    if (!canSubmit) throw new AppError('Forbidden', 403);
+
+    const verification = await submitCarrierDocs(orgId, EntityType.ORGANIZATION, mcNumber ?? '', dotNumber ?? '');
+    res.status(201).json({ verification });
+  })
+);
+
 // ─── Platform Admin: suspend / reinstate an org ───────────────────────────────
 
 /**
@@ -106,7 +165,6 @@ router.patch(
  */
 router.post(
   '/:orgId/suspend',
-  authenticate,
   requireRole(UserRole.ADMIN),
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId } = req.params;
@@ -125,7 +183,6 @@ router.post(
  */
 router.post(
   '/:orgId/reinstate',
-  authenticate,
   requireRole(UserRole.ADMIN),
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId } = req.params;
@@ -144,7 +201,6 @@ router.post(
  */
 router.get(
   '/:orgId/members',
-  authenticate,
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId } = req.params;
     const membership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
@@ -161,7 +217,6 @@ router.get(
  */
 router.patch(
   '/:orgId/members/:membershipId',
-  authenticate,
   validate([
     body('orgRole').isIn(Object.values(OrgRole)).withMessage('Invalid orgRole'),
   ]),
@@ -201,7 +256,6 @@ router.patch(
  */
 router.delete(
   '/:orgId/members/:membershipId',
-  authenticate,
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId, membershipId } = req.params;
     const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
@@ -224,7 +278,6 @@ router.delete(
  */
 router.post(
   '/:orgId/members/:membershipId/suspend',
-  authenticate,
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId, membershipId } = req.params;
     const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
@@ -247,7 +300,6 @@ router.post(
  */
 router.post(
   '/:orgId/members/:membershipId/reinstate',
-  authenticate,
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId, membershipId } = req.params;
     const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
@@ -273,7 +325,6 @@ router.post(
  */
 router.patch(
   '/:orgId/buffer',
-  authenticate,
   validate([
     body('safetyBufferPct')
       .isInt({ min: 5, max: 25 })
@@ -325,6 +376,38 @@ router.patch(
   })
 );
 
+// ─── Direct driver onboarding (spec §5A, CARRIER orgs only) ──────────────────
+
+/**
+ * POST /api/org/:orgId/drivers
+ * A Carrier org admin creates a driver profile + active membership directly
+ * (no invite round trip). Creates the User account if one doesn't exist yet
+ * and emails an activation link. The driver still completes Didit IDV
+ * personally before their first acceptance — identity cannot be proxied.
+ */
+router.post(
+  '/:orgId/drivers',
+  requireOrgCapability(OrgCapability.CARRIER),
+  validate([
+    body('email').isEmail().withMessage('Valid email required'),
+    body('legalName').notEmpty().withMessage('legalName is required'),
+  ]),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { orgId } = req.params;
+    const { email, legalName, phone } = req.body;
+
+    const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
+    const canCreate = req.user!.role === UserRole.ADMIN
+      || (callerMembership && ADMIN_ORG_ROLES.includes(callerMembership.orgRole));
+    if (!canCreate) throw new AppError('Forbidden', 403);
+
+    const { driver, membership } = await OrgService.createOrgDriver({
+      orgId, email, legalName, phone, invitedBy: req.user!.userId,
+    });
+    res.status(201).json({ driver, membership });
+  })
+);
+
 // ─── Invitations ─────────────────────────────────────────────────────────────
 
 /**
@@ -333,7 +416,6 @@ router.patch(
  */
 router.post(
   '/:orgId/invitations',
-  authenticate,
   validate([
     body('email').isEmail().withMessage('Valid email required'),
     body('orgRole').isIn(Object.values(OrgRole)).withMessage('Invalid orgRole'),
@@ -350,6 +432,10 @@ router.post(
 
     const org = await OrgService.getOrgById(orgId);
     if (!org) throw new AppError('Organisation not found', 404);
+
+    if (orgRole === OrgRole.ORG_DRIVER && !org.capabilities?.includes(OrgCapability.CARRIER)) {
+      throw new AppError('ORG_DRIVER invitations require the organisation to have CARRIER capability', 409);
+    }
 
     const invitation = await OrgInvitationService.createInvitation({
       orgId,
@@ -373,7 +459,6 @@ router.post(
  */
 router.get(
   '/:orgId/invitations',
-  authenticate,
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId } = req.params;
     const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
@@ -393,7 +478,6 @@ router.get(
  */
 router.delete(
   '/:orgId/invitations/:token',
-  authenticate,
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId, token } = req.params;
 
@@ -438,7 +522,6 @@ router.get(
  */
 router.post(
   '/invitations/:token/accept',
-  authenticate,
   asyncHandler(async (req: AuthRequest, res) => {
     const { token } = req.params;
     const membership = await OrgInvitationService.acceptInvitation(token, req.user!.userId);
@@ -454,7 +537,6 @@ router.post(
  */
 router.get(
   '/:orgId/audit',
-  authenticate,
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId } = req.params;
     const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
