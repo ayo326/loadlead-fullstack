@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { Truck, Users, Loader2, Send, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SecuritySettings } from "@/components/SecuritySettings";
-import { Shield } from "lucide-react";
+import { OwnerOperatorVerification } from "@/components/OwnerOperatorVerification";
+import { Shield, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -300,6 +301,9 @@ export default function OwnerOperatorSettings() {
             <TabsTrigger value="fleet" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
               <Users className="h-4 w-4 mr-2" />Fleet
             </TabsTrigger>
+            <TabsTrigger value="verification" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+              <ShieldCheck className="h-4 w-4 mr-2" />Verification
+            </TabsTrigger>
             <TabsTrigger value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
               <Shield className="h-4 w-4 mr-2" />Security
             </TabsTrigger>
@@ -308,6 +312,7 @@ export default function OwnerOperatorSettings() {
           <div className="flex-1 min-w-0">
             <TabsContent value="profile"><ProfileTab /></TabsContent>
             <TabsContent value="fleet"><FleetTab /></TabsContent>
+            <TabsContent value="verification"><OwnerOperatorVerification /></TabsContent>
             <TabsContent value="security"><SecuritySettings /></TabsContent>
           </div>
         </Tabs>

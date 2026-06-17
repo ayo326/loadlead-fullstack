@@ -1028,6 +1028,29 @@ function ReceiverSettings({ userId }: { userId: string }) {
   );
 }
 
+// ─── Carrier Admin Settings ─────────────────────────────────────────────────
+// CARRIER_ADMIN profile fields live on the Carrier dashboard's Verification
+// tab (legal name, MC/DOT, etc.). The Settings page only needs Security here —
+// the dispatch console is where company info actually belongs.
+
+function CarrierAdminSettings() {
+  return (
+    <Tabs defaultValue="security" orientation="vertical" className="flex gap-6">
+      <div className="flex flex-col w-48 shrink-0 gap-3">
+        <TabsList className="flex flex-col h-auto w-full rounded-xl bg-secondary p-1 gap-1">
+          <TabsTrigger value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
+        </TabsList>
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <TabsContent value="security">
+          <SecuritySettings />
+        </TabsContent>
+      </div>
+    </Tabs>
+  );
+}
+
 // ─── Admin Settings ─────────────────────────────────────────────────────────
 
 function AdminSettings({ email }: { email: string }) {
@@ -1520,14 +1543,22 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
               <Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Capabilities</Label>
               <div className="flex gap-2 flex-wrap">
                 {ALL_CAPABILITIES.map(cap => {
-                  const active = (editing ? editCaps : selectedOrg.capabilities ?? []).includes(cap.key);
+                  const currentCaps = editing ? editCaps : selectedOrg.capabilities ?? [];
+                  const active = currentCaps.includes(cap.key);
+                  // Server-side invariant: SHIPPER and CARRIER are mutually exclusive.
+                  // Disable the opposite one when the other is active so the user
+                  // can't construct an invalid org and only see the error on save.
+                  const blocked = editing &&
+                    ((cap.key === "SHIPPER" && currentCaps.includes("CARRIER")) ||
+                     (cap.key === "CARRIER" && currentCaps.includes("SHIPPER")));
                   return (
                     <button
                       key={cap.key}
                       type="button"
-                      disabled={!editing}
-                      onClick={() => editing && setEditCaps(prev => prev.includes(cap.key) ? prev.filter(c => c !== cap.key) : [...prev, cap.key])}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${active ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground"} ${editing ? "cursor-pointer hover:border-primary/60" : "cursor-default"}`}
+                      disabled={!editing || blocked}
+                      title={blocked ? "SHIPPER and CARRIER capabilities are mutually exclusive" : undefined}
+                      onClick={() => editing && !blocked && setEditCaps(prev => prev.includes(cap.key) ? prev.filter(c => c !== cap.key) : [...prev, cap.key])}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${active ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground"} ${editing && !blocked ? "cursor-pointer hover:border-primary/60" : "cursor-default"} ${blocked ? "opacity-40" : ""}`}
                     >
                       {active ? <CheckSquare className="h-3 w-3" /> : <Square className="h-3 w-3" />}
                       {cap.label}
@@ -1535,6 +1566,11 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
                   );
                 })}
               </div>
+              {editing && (
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  SHIPPER and CARRIER are mutually exclusive — a shipper-org cannot also be a carrier-org. RECEIVER can pair with either.
+                </p>
+              )}
             </div>
           </SectionCard>
 
@@ -1707,6 +1743,7 @@ export default function SettingsPage() {
         {user.role === "SHIPPER" && <ShipperSettings userId={user.userId} />}
         {user.role === "RECEIVER" && <ReceiverSettings userId={user.userId} />}
         {user.role === "ADMIN" && <AdminSettings email={user.email} />}
+        {user.role === "CARRIER_ADMIN" && <CarrierAdminSettings />}
       </div>
     </>
   );

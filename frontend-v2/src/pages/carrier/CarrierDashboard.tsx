@@ -184,6 +184,37 @@ function DriversTab({ orgId }: { orgId: string }) {
     finally { setCreatingDirect(false); }
   };
 
+  const revoke = async (token: string) => {
+    if (!confirm("Revoke this pending invite?")) return;
+    try {
+      await api.revokeInvitation(orgId, token);
+      toast.success("Invite revoked");
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const remove = async (membershipId: string) => {
+    if (!confirm("Remove this driver from your carrier company? Their account stays active but they'll lose access to your loads.")) return;
+    try {
+      await api.removeMember(orgId, membershipId);
+      toast.success("Driver removed");
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const toggleSuspend = async (m: any) => {
+    try {
+      if (m.status === "SUSPENDED") {
+        await api.reinstateMember(orgId, m.membershipId);
+        toast.success("Driver reinstated");
+      } else {
+        await api.suspendMember(orgId, m.membershipId);
+        toast.success("Driver suspended");
+      }
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
   const sendInvite = async () => {
     if (!inviteEmail.trim()) { toast.error("Enter an email address"); return; }
     setInviting(true);
@@ -250,9 +281,12 @@ function DriversTab({ orgId }: { orgId: string }) {
               {invites.map((inv: any) => {
                 const daysLeft = Math.max(0, Math.ceil((inv.expiresAt - Date.now()) / 86400000));
                 return (
-                  <div key={inv.token} className="flex items-center justify-between text-sm rounded-lg border px-3 py-2">
-                    <span>{inv.email}</span>
-                    <span className="text-xs text-muted-foreground">{daysLeft}d remaining</span>
+                  <div key={inv.token} className="flex items-center justify-between gap-3 text-sm rounded-lg border px-3 py-2">
+                    <span className="truncate">{inv.email}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">{daysLeft}d remaining</span>
+                      <Button variant="outline" size="sm" onClick={() => revoke(inv.token)}>Revoke</Button>
+                    </div>
                   </div>
                 );
               })}
@@ -278,14 +312,20 @@ function DriversTab({ orgId }: { orgId: string }) {
                   <Truck className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm">{m.userId}</p>
+                  <p className="font-medium text-sm truncate">{m.userId}</p>
                   <p className="text-xs text-muted-foreground">ORG_DRIVER</p>
                 </div>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                  m.status === "ACTIVE" ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" : "bg-secondary text-muted-foreground"
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
+                  m.status === "ACTIVE" ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" : "bg-amber-100 text-amber-700"
                 }`}>
                   {m.status}
                 </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => toggleSuspend(m)}>
+                    {m.status === "SUSPENDED" ? "Reinstate" : "Suspend"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => remove(m.membershipId)}>Remove</Button>
+                </div>
               </div>
             ))}
           </div>

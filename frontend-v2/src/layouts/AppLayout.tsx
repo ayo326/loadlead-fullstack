@@ -27,6 +27,7 @@ const allNav = [
   { title: "Owner Operator", url: "/owner-operator",         icon: TruckIcon,   label: "Dashboard",       role: "OWNER_OPERATOR", exact: true  },
   { title: "Load History",   url: "/owner-operator/history", icon: History,     label: "Completed Loads", role: "OWNER_OPERATOR"               },
   { title: "Analytics",      url: "/owner-operator/analytics", icon: BarChart3, label: "Fleet metrics",   role: "OWNER_OPERATOR"               },
+  { title: "Carrier",        url: "/carrier",                icon: Truck,       label: "Verification & roster", role: "CARRIER_ADMIN", exact: true },
   { title: "Shipper",        url: "/shipper",                icon: PackagePlus, label: "Loads",           role: "SHIPPER"                      },
   { title: "Receiver",       url: "/receiver",               icon: Warehouse,   label: "Inbound",         role: "RECEIVER"                     },
   { title: "Admin",          url: "/admin",                  icon: ShieldCheck, label: "Operations",      role: "ADMIN"                        },
