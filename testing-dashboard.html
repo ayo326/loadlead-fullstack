@@ -201,6 +201,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="tab-btn" onclick="switchTab('summary',event)">📋 Summary</button>
   <button class="tab-btn" onclick="switchTab('outstanding',event)">🔮 Outstanding Features</button>
   <button class="tab-btn" onclick="switchTab('refactor',event)">🧬 Refactor Test Tracker</button>
+  <button class="tab-btn" onclick="switchTab('compliance',event)">🛡️ STIG / Compliance</button>
 </div>
 
 <!-- ═══════════════════════════════ OVERVIEW ═══════════════════════════════ -->
@@ -1646,6 +1647,359 @@ buildTable();
 
   build();
   loadFromCI(); // silent on miss: stays in manual mode until CI emits the file
+})();
+</script>
+
+<!-- ═══════════════════════════════ STIG / COMPLIANCE ═══════════════════════════════ -->
+<!--
+  Fed by compliance-results.json (sibling of this file) on tab open.
+  CAT I LL-IDs gate independently of the A1-H4 refactor test gate.
+  Source of truth: LoadLead_STIG_Compliance_Checklist.md.
+-->
+<div id="tab-compliance" class="tab-pane">
+<div id="cc-root">
+  <style>
+    #cc-root{
+      --bg:#0c1016; --panel:#141a22; --panel-2:#1b232d; --line:#26303c;
+      --ink:#e7eef6; --muted:#8a97a6; --faint:#5d6b7a;
+      --pass:#3fb950; --fail:#f85149; --hold:#d29922; --pend:#6e7681;
+      --cat1:#f85149; --cat2:#d29922; --cat3:#8a97a6;
+      --accent:#39c0ed;
+      --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+      --sans:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color:var(--ink); font-family:var(--sans);
+      background:var(--bg); padding:28px; border-radius:14px;
+      line-height:1.45; box-sizing:border-box;
+    }
+    #cc-root *{box-sizing:border-box}
+    #cc-root .cc-eyebrow{font:600 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--faint)}
+    #cc-root h2.cc-title{font:650 22px/1.1 var(--sans);letter-spacing:-.01em;margin:6px 0 0}
+    #cc-root .cc-sub{color:var(--muted);font-size:13px;margin-top:4px}
+
+    /* Top: CAT I gate + stats */
+    #cc-root .cc-top{display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:18px;margin:18px 0 22px}
+    #cc-root .cc-gate{
+      position:relative;border-radius:12px;padding:20px 22px;overflow:hidden;
+      border:1px solid var(--line);background:
+        radial-gradient(120% 140% at 0% 0%, color-mix(in srgb,var(--gate-c) 16%, transparent), transparent 60%),
+        var(--panel);
+      --gate-c:var(--pend);
+    }
+    #cc-root .cc-gate::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--gate-c)}
+    #cc-root .cc-gate-label{font:600 11px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+    #cc-root .cc-gate-state{display:flex;align-items:baseline;gap:12px;margin-top:10px}
+    #cc-root .cc-gate-word{font:800 34px/1 var(--mono);letter-spacing:-.01em;color:var(--gate-c)}
+    #cc-root .cc-gate-sub{font:500 13px/1.3 var(--sans);color:var(--muted)}
+    #cc-root .cc-gate-bar{height:6px;border-radius:99px;background:var(--panel-2);margin-top:16px;overflow:hidden}
+    #cc-root .cc-gate-bar>i{display:block;height:100%;width:0;background:var(--gate-c);transition:width .35s ease}
+
+    #cc-root .cc-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    #cc-root .cc-stat{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:14px 16px}
+    #cc-root .cc-stat b{display:block;font:700 26px/1 var(--mono);letter-spacing:-.02em}
+    #cc-root .cc-stat span{font:500 12px/1.2 var(--sans);color:var(--muted)}
+    #cc-root .cc-stat.pass b{color:var(--pass)}
+    #cc-root .cc-stat.fail b{color:var(--fail)}
+    #cc-root .cc-stat.pend b{color:var(--pend)}
+    #cc-root .cc-stat.host b{color:var(--accent)}
+
+    /* Controls */
+    #cc-root .cc-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+    #cc-root .cc-search{flex:1;min-width:200px;background:var(--panel);border:1px solid var(--line);
+      color:var(--ink);border-radius:8px;padding:9px 12px;font:500 13px var(--sans)}
+    #cc-root .cc-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+    #cc-root .cc-seg button{background:var(--panel);color:var(--muted);border:0;padding:8px 12px;
+      font:600 12px var(--sans);cursor:pointer;border-right:1px solid var(--line)}
+    #cc-root .cc-seg button:last-child{border-right:0}
+    #cc-root .cc-seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink)}
+    #cc-root .cc-act{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+      padding:8px 13px;font:600 12px var(--sans);cursor:pointer}
+    #cc-root .cc-act:hover{border-color:var(--accent)}
+
+    /* Family sections + LL rows */
+    #cc-root .cc-section{border:1px solid var(--line);border-radius:11px;background:var(--panel);margin-bottom:12px;overflow:hidden}
+    #cc-root .cc-shead{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel-2);border-bottom:1px solid var(--line)}
+    #cc-root .cc-fam{font:800 11px/1 var(--mono);color:var(--bg);background:var(--accent);
+      padding:5px 8px;display:grid;place-items:center;border-radius:6px;letter-spacing:.05em}
+    #cc-root .cc-sname{font:650 14px var(--sans)}
+    #cc-root .cc-scount{font:500 12px var(--mono);color:var(--muted);margin-left:auto}
+
+    #cc-root .cc-row{display:grid;grid-template-columns:120px 1fr 46px 110px;gap:12px;align-items:center;
+      padding:10px 16px;border-top:1px solid var(--line)}
+    #cc-root .cc-row:first-child{border-top:0}
+    #cc-root .cc-id{font:700 12px var(--mono);color:var(--accent);white-space:nowrap}
+    #cc-root .cc-desc{font:500 13px var(--sans);color:var(--ink)}
+    #cc-root .cc-cat{font:700 10px/1 var(--mono);letter-spacing:.06em;border-radius:5px;padding:4px 6px;text-align:center;justify-self:start}
+    #cc-root .cc-cat.cat-I{color:var(--cat1);border:1px solid color-mix(in srgb,var(--cat1) 45%,transparent)}
+    #cc-root .cc-cat.cat-II{color:var(--cat2);border:1px solid color-mix(in srgb,var(--cat2) 45%,transparent)}
+    #cc-root .cc-cat.cat-III{color:var(--cat3);border:1px solid color-mix(in srgb,var(--cat3) 45%,transparent)}
+    #cc-root .cc-status{font:700 11px var(--mono);letter-spacing:.04em;text-transform:uppercase;
+      border-radius:7px;padding:7px 9px;border:1px solid var(--line);background:var(--panel-2);text-align:center}
+    #cc-root .cc-row[data-s="Open"]         .cc-status{color:var(--fail);border-color:color-mix(in srgb,var(--fail) 55%,transparent)}
+    #cc-root .cc-row[data-s="NotAFinding"]  .cc-status{color:var(--pass);border-color:color-mix(in srgb,var(--pass) 50%,transparent)}
+    #cc-root .cc-row[data-s="Pending"]      .cc-status{color:var(--pend)}
+    #cc-root .cc-row.cc-hide{display:none}
+
+    #cc-root .cc-sync{display:flex;align-items:center;gap:10px;margin:-2px 0 14px;padding:9px 13px;
+      border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+      background:color-mix(in srgb,var(--accent) 8%,var(--panel));
+      border-radius:8px;font:600 12px var(--mono);color:var(--accent)}
+    #cc-root .cc-foot{margin-top:14px;font:500 12px var(--mono);color:var(--faint)}
+    #cc-root .cc-error{padding:18px;border:1px dashed var(--line);border-radius:10px;
+      color:var(--muted);background:var(--panel);font-size:13px}
+    @media (max-width:720px){
+      #cc-root .cc-top{grid-template-columns:1fr}
+      #cc-root .cc-stats{grid-template-columns:repeat(2,1fr)}
+      #cc-root .cc-row{grid-template-columns:90px 1fr;gap:8px}
+      #cc-root .cc-cat,#cc-root .cc-status{grid-column:1 / -1;justify-self:start}
+    }
+  </style>
+
+  <div class="cc-eyebrow">LoadLead · Security &amp; Compliance</div>
+  <h2 class="cc-title">STIG / Compliance Tracker</h2>
+  <p class="cc-sub">LL-* IDs from <code>LoadLead_STIG_Compliance_Checklist.md</code>. CI populates this on every push.</p>
+
+  <div class="cc-top">
+    <div class="cc-gate" id="cc-gate">
+      <div class="cc-gate-label">CAT&nbsp;I gate (go-live)</div>
+      <div class="cc-gate-state">
+        <span class="cc-gate-word" id="cc-gate-word">—</span>
+        <span class="cc-gate-sub" id="cc-gate-sub">loading</span>
+      </div>
+      <div class="cc-gate-bar"><i id="cc-gate-fill"></i></div>
+    </div>
+    <div class="cc-stats">
+      <div class="cc-stat pass"><b id="cc-c-pass">0</b><span>Not a finding</span></div>
+      <div class="cc-stat fail"><b id="cc-c-fail">0</b><span>Open</span></div>
+      <div class="cc-stat pend"><b id="cc-c-pend">0</b><span>Pending</span></div>
+      <div class="cc-stat host"><b id="cc-c-host">—</b><span>Host CIS pass-rate</span></div>
+    </div>
+  </div>
+
+  <div class="cc-bar">
+    <input class="cc-search" id="cc-search" placeholder="Filter by LL-ID or description…" aria-label="Filter compliance items">
+    <div class="cc-seg" id="cc-cat" role="group" aria-label="CAT filter">
+      <button data-cat="all" aria-pressed="true">All</button>
+      <button data-cat="I"   aria-pressed="false">CAT I</button>
+      <button data-cat="II"  aria-pressed="false">CAT II</button>
+      <button data-cat="III" aria-pressed="false">CAT III</button>
+    </div>
+    <div class="cc-seg" id="cc-st" role="group" aria-label="Status filter">
+      <button data-st="all"         aria-pressed="true">All</button>
+      <button data-st="Open"        aria-pressed="false">Open</button>
+      <button data-st="NotAFinding" aria-pressed="false">Clear</button>
+      <button data-st="Pending"     aria-pressed="false">Pending</button>
+    </div>
+    <button class="cc-act" id="cc-reload">Reload from CI</button>
+  </div>
+
+  <div class="cc-sync" id="cc-sync" hidden></div>
+  <div id="cc-list"></div>
+  <div class="cc-foot" id="cc-foot"></div>
+</div>
+
+<script>
+(function(){
+  // Authoritative catalog from llmap.yaml's cat_levels + titles, kept in sync
+  // by hand here so the page works even before CI has written results. The
+  // CI source of truth lives in compliance/llmap.yaml.
+  var LLIDS = [
+    // [LL-ID, family, CAT, description]
+    ['LL-IA-001','IA','II','Passwords stored as cryptographic hashes (bcrypt rounds ≥ 12)'],
+    ['LL-IA-002','IA','I', 'No hardcoded credentials/secrets in code'],
+    ['LL-IA-003','IA','II','Account lockout / throttling on auth failure'],
+    ['LL-IA-004','IA','II','MFA available/enforced for privileged accounts'],
+    ['LL-IA-005','IA','II','Setup / reset tokens are single-use + TTL'],
+
+    ['LL-SM-001','SM','II','Session cookies httpOnly + Secure + SameSite'],
+    ['LL-SM-002','SM','II','Session expiration + inactivity timeout'],
+    ['LL-SM-003','SM','II','Logout terminates session'],
+
+    ['LL-AC-001','AC','I', 'RBAC / least privilege on every protected route'],
+    ['LL-AC-002','AC','I', 'Object-level authorization (no IDOR)'],
+    ['LL-AC-003','AC','I', 'Domain invariants enforced server-side'],
+    ['LL-AC-004','AC','I', 'Non-privileged users cannot reach /api/admin/*'],
+
+    ['LL-IV-001','IV','I', 'Protected from command injection'],
+    ['LL-IV-002','IV','I', 'Protected from SQL/NoSQL injection'],
+    ['LL-IV-003','IV','II','All input validated'],
+    ['LL-IV-004','IV','II','Protected from XSS / canonicalization'],
+    ['LL-IV-005','IV','II','File uploads validated (MIME/size/magic-byte)'],
+    ['LL-IV-006','IV','II','Protected from SSRF'],
+
+    ['LL-CR-001','CR','I', 'TLS for all data in transit (HSTS, 1.2+)'],
+    ['LL-CR-002','CR','II','Encryption at rest (DynamoDB, S3 SSE)'],
+    ['LL-CR-003','CR','II','PII/KYC data minimized + protected'],
+    ['LL-CR-004','CR','II','Webhook integrity (HMAC) + race-free writes'],
+
+    ['LL-AU-001','AU','II','No sensitive data / stack traces in error responses'],
+    ['LL-AU-002','AU','II','Audit security-relevant events'],
+    ['LL-AU-003','AU','II','Logs contain no secrets/PII'],
+    ['LL-AU-004','AU','III','Log timestamps in UTC + retention defined'],
+
+    ['LL-CM-001','CM','II','No test/stub/debug code in production'],
+    ['LL-CM-002','CM','II','Security headers (Helmet, CSP, HSTS)'],
+    ['LL-CM-003','CM','II','CORS restricted to ALLOWED_ORIGINS'],
+    ['LL-CM-004','CM','II','DoS / resource exhaustion controls'],
+    ['LL-CM-005','CM','III','No verbose version disclosure'],
+
+    ['LL-SC-001','SC','II','No known-vulnerable components'],
+    ['LL-SC-002','SC','III','SBOM produced + reviewed'],
+    ['LL-SC-003','SC','II','Dependency integrity (lockfile + npm ci)'],
+
+    ['LL-AV-001','AV','III','Backups for recovery (DDB PITR, S3 versioning)'],
+    ['LL-AV-002','AV','II','Graceful failure on dependency outage'],
+
+    ['LL-TP-001','TP','II','Non-prod isolated from live external services'],
+    ['LL-TP-002','TP','II','API keys least-privilege + rotated']
+  ];
+
+  var FAMS = {
+    IA:'Identification & Authentication',
+    SM:'Session Management',
+    AC:'Access Control',
+    IV:'Input Validation & Injection',
+    CR:'Cryptography & Data Protection',
+    AU:'Audit & Logging',
+    CM:'Configuration & Hardening',
+    SC:'Supply Chain',
+    AV:'Availability & Resilience',
+    TP:'Third-party Integration'
+  };
+
+  var state = {};  // LL-ID → 'Open'|'NotAFinding'|undefined
+  var meta  = null; // { syncedAt, tools, host_pass_rate, ... }
+  var gate  = null; // { cat1: 'GREEN'|'RED'|'HOLD', open_cat1: [...] }
+  var filt  = { q:'', cat:'all', st:'all' };
+  var $ = function(s){ return document.querySelector(s); };
+
+  function build(){
+    var list = $('#cc-list'); list.innerHTML = '';
+    var byFam = {};
+    LLIDS.forEach(function(t){ (byFam[t[1]] = byFam[t[1]] || []).push(t); });
+    Object.keys(byFam).forEach(function(fam){
+      var rows = byFam[fam];
+      var wrap = document.createElement('div'); wrap.className='cc-section'; wrap.dataset.fam=fam;
+      var head = document.createElement('div'); head.className='cc-shead';
+      head.innerHTML = '<span class="cc-fam">'+fam+'</span><span class="cc-sname">'+FAMS[fam]+'</span><span class="cc-scount" data-c></span>';
+      wrap.appendChild(head);
+      rows.forEach(function(t){
+        var llid=t[0], cat=t[2], desc=t[3];
+        var status = state[llid] || 'Pending';
+        var r = document.createElement('div'); r.className='cc-row';
+        r.dataset.id = llid; r.dataset.cat = cat; r.dataset.s = status;
+        r.innerHTML =
+          '<span class="cc-id">'+llid+'</span>'+
+          '<span class="cc-desc">'+desc+'</span>'+
+          '<span class="cc-cat cat-'+cat+'">CAT&nbsp;'+cat+'</span>'+
+          '<span class="cc-status">'+status+'</span>';
+        wrap.appendChild(r);
+      });
+      list.appendChild(wrap);
+    });
+    refresh();
+  }
+
+  function refresh(){
+    var c = { pass:0, fail:0, pend:0 };
+    LLIDS.forEach(function(t){
+      var s = state[t[0]];
+      if (s === 'Open') c.fail++;
+      else if (s === 'NotAFinding') c.pass++;
+      else c.pend++;
+    });
+    $('#cc-c-pass').textContent = c.pass;
+    $('#cc-c-fail').textContent = c.fail;
+    $('#cc-c-pend').textContent = c.pend;
+    $('#cc-c-host').textContent = (meta && typeof meta.host_pass_rate === 'number')
+      ? Math.round(meta.host_pass_rate * 100) + '%' : '—';
+
+    // Gate: from server's __gate.cat1 if present, otherwise derive
+    var cat1Total = LLIDS.filter(function(t){ return t[2]==='I'; }).length;
+    var cat1Open  = LLIDS.filter(function(t){ return t[2]==='I' && state[t[0]]==='Open'; }).length;
+    var cat1Pass  = LLIDS.filter(function(t){ return t[2]==='I' && state[t[0]]==='NotAFinding'; }).length;
+    var word = gate ? gate.cat1 : (cat1Open ? 'RED' : (cat1Pass===cat1Total ? 'GREEN' : 'HOLD'));
+    var color = word==='GREEN' ? 'var(--pass)' : word==='RED' ? 'var(--fail)' : 'var(--hold)';
+    var gateEl = $('#cc-gate'); gateEl.style.setProperty('--gate-c', color);
+    $('#cc-gate-word').textContent = word;
+    $('#cc-gate-sub').textContent = cat1Pass + ' / ' + cat1Total + ' CAT I cleared'
+      + (cat1Open ? ' · ' + cat1Open + ' open' : '');
+    $('#cc-gate-fill').style.width = (cat1Total ? Math.round(cat1Pass / cat1Total * 100) : 0) + '%';
+
+    document.querySelectorAll('#cc-root .cc-section').forEach(function(sw){
+      var fam = sw.dataset.fam;
+      var rs = LLIDS.filter(function(t){ return t[1]===fam; });
+      var done = rs.filter(function(t){ return state[t[0]]==='NotAFinding'; }).length;
+      sw.querySelector('[data-c]').textContent = done+'/'+rs.length;
+    });
+
+    applyFilter();
+    var n = LLIDS.length;
+    var foot = n + ' LL-IDs · ' + Math.round(c.pass/n*100) + '% clear';
+    if (meta && meta.syncedAt) foot += ' · synced ' + new Date(meta.syncedAt).toLocaleString();
+    $('#cc-foot').textContent = foot;
+  }
+
+  function applyFilter(){
+    var q = filt.q.toLowerCase();
+    document.querySelectorAll('#cc-root .cc-row').forEach(function(r){
+      var id = r.dataset.id, cat = r.dataset.cat, s = r.dataset.s;
+      var t = LLIDS.find(function(x){ return x[0]===id; });
+      var hit = (!q || id.toLowerCase().indexOf(q)>=0 || (t && t[3].toLowerCase().indexOf(q)>=0))
+        && (filt.cat==='all' || cat===filt.cat)
+        && (filt.st==='all'  || s===filt.st);
+      r.classList.toggle('cc-hide', !hit);
+    });
+    document.querySelectorAll('#cc-root .cc-section').forEach(function(sw){
+      var vis = sw.querySelectorAll('.cc-row:not(.cc-hide)').length;
+      sw.style.display = vis ? '' : 'none';
+    });
+  }
+
+  $('#cc-search').addEventListener('input', function(e){ filt.q = e.target.value; applyFilter(); });
+  $('#cc-cat').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    filt.cat = b.dataset.cat;
+    [].forEach.call(this.children, function(x){ x.setAttribute('aria-pressed', x===b); });
+    applyFilter();
+  });
+  $('#cc-st').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    filt.st = b.dataset.st;
+    [].forEach.call(this.children, function(x){ x.setAttribute('aria-pressed', x===b); });
+    applyFilter();
+  });
+  $('#cc-reload').addEventListener('click', function(){ loadFromCI(true); });
+
+  function loadFromCI(verbose){
+    return fetch('./compliance-results.json', { cache: 'no-store' }).then(function(r){
+      if (!r.ok) throw 0; return r.json();
+    }).then(function(data){
+      meta = data.__meta || null;
+      gate = data.__gate || null;
+      var n = 0;
+      Object.keys(data).forEach(function(k){
+        if (k.indexOf('__')===0) return;
+        state[k] = data[k];
+        n++;
+      });
+      build();
+      var s = $('#cc-sync'); s.hidden = false;
+      s.textContent = 'Synced from CI · ' + n + ' LL-IDs'
+        + (meta && meta.syncedAt ? ' · ' + new Date(meta.syncedAt).toLocaleString() : '')
+        + (meta && meta.tools ? ' · tools: ' + meta.tools.join(', ') : '');
+      return true;
+    }).catch(function(){
+      if (verbose) {
+        var s = $('#cc-sync'); s.hidden = false;
+        s.textContent = 'No compliance-results.json next to the dashboard yet — workflow may not have published.';
+      }
+      build();
+      return false;
+    });
+  }
+
+  build();
+  loadFromCI(false);
 })();
 </script>
 </body>

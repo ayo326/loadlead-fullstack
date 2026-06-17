@@ -1,0 +1,186 @@
+# LoadLead — Compliance Map (tool finding → LL-ID)
+# =====================================================================
+# Maps each tool's native rule/finding ID(s) to one or more LL-IDs from
+# LoadLead_STIG_Compliance_Checklist.md. The normalizer (normalize.ts)
+# reads this file and the tool's report, then emits {LL-ID: status}.
+#
+# Status rules:
+#   - Any mapped finding present (count > 0) → LL-ID = Open
+#   - No mapped finding, BUT the tool attests the LL-ID is checkable → NotAFinding
+#   - Tool can't attest the LL-ID → omit (downstream merge treats as "pending")
+#
+# Each LL-ID in cat_levels MUST appear in the checklist. New LL-IDs require
+# checklist authoring first (governance via PR review).
+
+# ── CAT levels straight from the checklist (single source of truth) ──────────
+cat_levels:
+  LL-IA-001: II
+  LL-IA-002: I
+  LL-IA-003: II
+  LL-IA-004: II
+  LL-IA-005: II
+  LL-SM-001: II
+  LL-SM-002: II
+  LL-SM-003: II
+  LL-AC-001: I
+  LL-AC-002: I
+  LL-AC-003: I
+  LL-AC-004: I
+  LL-IV-001: I
+  LL-IV-002: I
+  LL-IV-003: II
+  LL-IV-004: II
+  LL-IV-005: II
+  LL-IV-006: II
+  LL-CR-001: I
+  LL-CR-002: II
+  LL-CR-003: II
+  LL-CR-004: II
+  LL-AU-001: II
+  LL-AU-002: II
+  LL-AU-003: II
+  LL-AU-004: III
+  LL-CM-001: II
+  LL-CM-002: II
+  LL-CM-003: II
+  LL-CM-004: II
+  LL-CM-005: III
+  LL-SC-001: II
+  LL-SC-002: III
+  LL-SC-003: II
+  LL-AV-001: III
+  LL-AV-002: II
+  LL-TP-001: II
+  LL-TP-002: II
+
+# Short human descriptions (rendered on the dashboard hover/expand)
+titles:
+  LL-IA-001: "Passwords stored as cryptographic hashes (bcrypt rounds ≥ 12)"
+  LL-IA-002: "No hardcoded credentials/secrets in code"
+  LL-IA-003: "Account lockout / throttling on auth failure"
+  LL-IA-004: "MFA available/enforced for privileged accounts"
+  LL-IA-005: "Setup / reset tokens are single-use + TTL"
+  LL-SM-001: "Session cookies httpOnly + Secure + SameSite"
+  LL-SM-002: "Session expiration + inactivity timeout"
+  LL-SM-003: "Logout terminates session"
+  LL-AC-001: "RBAC / least privilege on every protected route"
+  LL-AC-002: "Object-level authorization (no IDOR)"
+  LL-AC-003: "Domain invariants enforced server-side"
+  LL-AC-004: "Non-privileged users cannot reach /api/admin/*"
+  LL-IV-001: "Protected from command injection"
+  LL-IV-002: "Protected from SQL/NoSQL injection"
+  LL-IV-003: "All input validated"
+  LL-IV-004: "Protected from XSS / canonicalization"
+  LL-IV-005: "File uploads validated (MIME/size/magic-byte)"
+  LL-IV-006: "Protected from SSRF"
+  LL-CR-001: "TLS for all data in transit (HSTS, 1.2+)"
+  LL-CR-002: "Encryption at rest (DynamoDB, S3 SSE)"
+  LL-CR-003: "PII/KYC data minimized + protected"
+  LL-CR-004: "Webhook integrity (HMAC) + race-free writes"
+  LL-AU-001: "No sensitive data / stack traces in error responses"
+  LL-AU-002: "Audit security-relevant events"
+  LL-AU-003: "Logs contain no secrets/PII"
+  LL-AU-004: "Log timestamps in UTC + retention defined"
+  LL-CM-001: "No test/stub/debug code in production"
+  LL-CM-002: "Security headers (Helmet, CSP, HSTS)"
+  LL-CM-003: "CORS restricted to ALLOWED_ORIGINS"
+  LL-CM-004: "DoS / resource exhaustion controls"
+  LL-CM-005: "No verbose version disclosure (X-Powered-By disabled)"
+  LL-SC-001: "No known-vulnerable components"
+  LL-SC-002: "SBOM produced + reviewed"
+  LL-SC-003: "Dependency integrity (lockfile + npm ci)"
+  LL-AV-001: "Backups for recovery (DDB PITR, S3 versioning)"
+  LL-AV-002: "Graceful failure on dependency outage"
+  LL-TP-001: "Non-prod isolated from live external services"
+  LL-TP-002: "API keys least-privilege + rotated"
+
+# ── Per-tool mappings ───────────────────────────────────────────────────────
+# Each tool has:
+#   attests: [LL-IDs it can attest at all — these get a NotAFinding default if
+#             no matching finding is seen in the tool's report]
+#   rules:  {tool-rule-id-or-pattern: [LL-IDs to flag Open when this fires]}
+
+tools:
+  # ── gitleaks: secret scanning over repo history + built artifact ──────────
+  gitleaks:
+    attests: [LL-IA-002]
+    rules:
+      # gitleaks fires one finding per leaked secret; any finding at all flips
+      # LL-IA-002 to Open. RuleID is in the finding JSON.
+      "*": [LL-IA-002]
+
+  # ── npm audit + CycloneDX SBOM ────────────────────────────────────────────
+  # The deps job parses npm audit's JSON and the SBOM. Mapping is by severity,
+  # not by rule ID, because audit reports advisory IDs not rule IDs.
+  npm-audit:
+    attests: [LL-SC-001, LL-SC-003]
+    severity_rules:
+      high:     [LL-SC-001]
+      critical: [LL-SC-001]
+  sbom:
+    attests: [LL-SC-002]
+    # If a CycloneDX file is emitted at all, LL-SC-002 = NotAFinding.
+    # Absence of file → omit (handled by normalize.ts).
+
+  # ── Semgrep SAST (SARIF) ───────────────────────────────────────────────────
+  # Map Semgrep rule IDs by category. Wildcards supported (handled in normalize).
+  semgrep:
+    attests: [LL-IV-001, LL-IV-002, LL-IV-004, LL-IV-006, LL-IA-002, LL-AC-002]
+    rules:
+      # injection-related → LL-IV-001 (command) + LL-IV-002 (NoSQL/SQL)
+      "javascript.lang.security.audit.exec-detect-child-process.*":  [LL-IV-001]
+      "javascript.lang.security.detect-child-process.*":             [LL-IV-001]
+      "javascript.lang.security.detect-eval-with-expression.*":      [LL-IV-001]
+      "*.command-injection.*":                                       [LL-IV-001]
+      "*.exec-injection.*":                                          [LL-IV-001]
+      "javascript.express.security.injection.tainted-sql-string.*":  [LL-IV-002]
+      "*.sql-injection.*":                                           [LL-IV-002]
+      "*.nosql-injection.*":                                         [LL-IV-002]
+      # XSS family → LL-IV-004
+      "javascript.react.security.audit.react-dangerouslysetinnerhtml.*": [LL-IV-004]
+      "*.xss.*":                                                      [LL-IV-004]
+      "*.dangerouslysetinnerhtml.*":                                  [LL-IV-004]
+      # SSRF family → LL-IV-006
+      "*.ssrf.*":                                                     [LL-IV-006]
+      "javascript.express.security.audit.express-ssrf.*":             [LL-IV-006]
+      # JWT/secret-handling → LL-IA-002 (partial; gitleaks is the primary)
+      "javascript.jsonwebtoken.security.audit.jwt-hardcode.*":        [LL-IA-002]
+      "*.hardcoded-secret.*":                                         [LL-IA-002]
+      "*.secrets.*":                                                  [LL-IA-002]
+      # IDOR / authZ patterns → LL-AC-002 (Semgrep is partial; SEC tests authoritative)
+      "*.broken-authz.*":                                             [LL-AC-002]
+      "*.idor.*":                                                     [LL-AC-002]
+
+  # ── OpenSCAP / CIS AL2023 ──────────────────────────────────────────────────
+  # Host CIS pass-rate is its own gauge on the dashboard (not an LL-ID).
+  # Individual CIS rules that correspond to checklist items can be mapped here
+  # — currently none of the checklist items are 1:1 with a single CIS rule.
+  oscap:
+    attests: []      # contributes pass-rate gauge only
+    rules: {}        # populated by ops as specific CIS rules become mapped
+
+  # ── Prowler (AWS CIS 3.0) ──────────────────────────────────────────────────
+  # Each check_id is a Prowler "check_id" from its JSON output.
+  prowler:
+    attests:
+      - LL-CR-001
+      - LL-CR-002
+      - LL-AV-001
+      - LL-IA-002
+    rules:
+      # S3 SSE + DynamoDB encryption → LL-CR-002
+      "s3_bucket_server_side_encryption":         [LL-CR-002]
+      "s3_bucket_default_encryption":             [LL-CR-002]
+      "dynamodb_tables_kms_cmk_encryption_enabled": [LL-CR-002]
+      "dynamodb_table_protected_by_backup_plan":  [LL-AV-001]
+      # PITR + S3 versioning → LL-AV-001
+      "dynamodb_tables_pitr_enabled":             [LL-AV-001]
+      "s3_bucket_object_versioning":              [LL-AV-001]
+      # CloudFront/ELB TLS → LL-CR-001
+      "cloudfront_distributions_https_enabled":   [LL-CR-001]
+      "cloudfront_distributions_using_deprecated_ssl_protocols": [LL-CR-001]
+      "elb_listeners_using_secure_ssl_protocols": [LL-CR-001]
+      "elbv2_listeners_underneath_ssl":           [LL-CR-001]
+      # Plaintext secrets in EB env props → LL-IA-002
+      "elasticbeanstalk_environment_environment_variables_with_sensitive_data": [LL-IA-002]
+      "secretsmanager_using_kms_key": []  # informational — no LL-ID, but keep attestation

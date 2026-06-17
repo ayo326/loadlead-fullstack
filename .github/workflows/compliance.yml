@@ -1,0 +1,439 @@
+# LoadLead — CI security & compliance pipeline (report-only).
+#
+# Implements the round-trip from LoadLead_STIG_Compliance_Checklist.md
+# §4 ("Execution & automation"). Each tool runs in its own job, produces
+# its NATIVE artifact (SARIF / JSON / ARF / HTML), then normalize.ts maps
+# the findings to {LL-ID: status}. The publish job merges all per-tool
+# outputs into compliance-results.json next to the dashboard and FAILS
+# the workflow on any CAT I LL-ID being Open. CAT II / III are reported
+# only — they appear on the dashboard but do not block.
+#
+# Hard guardrails (do not loosen without checklist update):
+#   - No job modifies application code, infra, or remediates findings.
+#   - Prowler assumes a READ-ONLY IAM role via OIDC; no long-lived keys,
+#     no write permissions. Verified by sts:GetCallerIdentity + a deny
+#     probe in the cloud job.
+#   - Findings never appear in logs verbatim — SARIF + JSON go to
+#     restricted artifacts. The dashboard JSON carries only {LL-ID: status}.
+#   - OpenSCAP runs in an Amazon Linux 2023 container approximating the
+#     EB platform. This is not the deployed AMI; scanning the actual
+#     build AMI is the higher-fidelity follow-up (see job comment).
+
+name: Compliance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend-v2/**'
+      - 'compliance/**'
+      - '.github/workflows/compliance.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+  schedule:
+    # Daily 03:00 UTC catch-up scan (catches drift between merges).
+    - cron: '0 3 * * *'
+
+permissions:
+  contents: read
+  security-events: write   # required for SARIF upload to Code Scanning
+  id-token: write          # required for OIDC role assumption (Prowler)
+
+concurrency:
+  group: compliance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 1. Secrets ───────────────────────────────────────────────────────────
+  secrets:
+    name: secrets / gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # full history — gitleaks scans the past
+
+      - name: Install gitleaks
+        run: |
+          GL_VERSION=8.21.2
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GL_VERSION}/gitleaks_${GL_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp gitleaks
+          sudo install /tmp/gitleaks /usr/local/bin/
+
+      - name: Run gitleaks (history + worktree)
+        run: |
+          mkdir -p compliance/out
+          # --exit-code 0 → never fail the JOB on a finding; the publish job
+          # decides whether the LL-ID gating fails the workflow. Reports only.
+          gitleaks detect \
+            --no-banner \
+            --redact \
+            --report-format json \
+            --report-path compliance/out/gitleaks.raw.json \
+            --exit-code 0
+
+      - name: Normalize → LL-IDs
+        run: |
+          npm --prefix compliance ci
+          npx --prefix compliance tsx compliance/normalize.ts \
+            --tool gitleaks \
+            --report compliance/out/gitleaks.raw.json \
+            --out compliance/out/gitleaks.ll.json \
+            --map compliance/llmap.yaml
+          cat compliance/out/gitleaks.ll.json
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-secrets
+          path: compliance/out/gitleaks.*.json
+          retention-days: 14
+
+  # ── 2. Dependencies (npm audit + CycloneDX SBOM) ─────────────────────────
+  deps:
+    name: deps / npm audit + SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Install backend (lockfile-enforced)
+        working-directory: backend
+        # Respects .npmrc legacy-peer-deps=true. `npm ci` requires the
+        # committed lockfile — this is itself the LL-SC-003 attestation.
+        run: npm ci
+
+      - name: npm audit (JSON)
+        working-directory: backend
+        run: |
+          mkdir -p ../compliance/out
+          # || true: audit fails non-zero on findings; we always emit the
+          # report and let the LL-ID gating decide. Reports only.
+          npm audit --json > ../compliance/out/npm-audit.raw.json || true
+
+      - name: Generate CycloneDX SBOM
+        working-directory: backend
+        run: |
+          npx --yes @cyclonedx/cyclonedx-npm@2.1.0 \
+            --output-format JSON \
+            --output-file ../compliance/out/sbom.cyclonedx.json
+
+      - name: Normalize → LL-IDs
+        run: |
+          npm --prefix compliance ci
+          npx --prefix compliance tsx compliance/normalize.ts \
+            --tool npm-audit \
+            --report compliance/out/npm-audit.raw.json \
+            --out compliance/out/npm-audit.ll.json \
+            --map compliance/llmap.yaml
+          npx --prefix compliance tsx compliance/normalize.ts \
+            --tool sbom \
+            --report compliance/out/sbom.cyclonedx.json \
+            --out compliance/out/sbom.ll.json \
+            --map compliance/llmap.yaml
+          cat compliance/out/npm-audit.ll.json
+          cat compliance/out/sbom.ll.json
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-deps
+          path: |
+            compliance/out/npm-audit.*.json
+            compliance/out/sbom.*.json
+          retention-days: 14
+
+  # ── 3. SAST (Semgrep) ────────────────────────────────────────────────────
+  sast:
+    name: sast / semgrep
+    runs-on: ubuntu-latest
+    container:
+      image: returntocorp/semgrep:1.96.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep (SARIF)
+        # The rulesets cover injection / XSS / SSRF / JWT / secrets / authZ
+        # patterns and map to LL-IV-001/002/004/006, LL-IA-002, LL-AC-002
+        # via llmap.yaml. Semgrep auto-detects the language; we limit to
+        # backend/frontend-v2 source to keep noise low.
+        run: |
+          mkdir -p compliance/out
+          semgrep scan \
+            --config p/owasp-top-ten \
+            --config p/javascript \
+            --config p/typescript \
+            --config p/secrets \
+            --config p/jwt \
+            --sarif \
+            --output compliance/out/semgrep.sarif \
+            --error \
+            --metrics off \
+            backend/src frontend-v2/src || true
+
+      - name: Setup Node for normalize
+        uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Normalize → LL-IDs
+        run: |
+          npm --prefix compliance ci
+          npx --prefix compliance tsx compliance/normalize.ts \
+            --tool semgrep \
+            --report compliance/out/semgrep.sarif \
+            --out compliance/out/semgrep.ll.json \
+            --map compliance/llmap.yaml
+          cat compliance/out/semgrep.ll.json
+
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: compliance/out/semgrep.sarif
+          category: semgrep
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-sast
+          path: compliance/out/semgrep.*
+          retention-days: 14
+
+  # ── 4. Host (OpenSCAP CIS AL2023 in a container) ─────────────────────────
+  # NOTE: This scans an Amazon Linux 2023 container image that approximates
+  # the Elastic Beanstalk platform. It is NOT the deployed AMI — the higher-
+  # fidelity follow-up is to scan the actual build AMI / EB instance image.
+  # We accept the approximation for CI signal; production hardening is
+  # tracked separately under LL-CM-001.
+  host:
+    name: host / openscap CIS AL2023
+    runs-on: ubuntu-latest
+    container:
+      image: amazonlinux:2023
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenSCAP + SCAP Security Guide
+        run: |
+          dnf install -y openscap-scanner scap-security-guide || true
+          # Older AL2023 images may package these under different names.
+          dnf install -y openscap openscap-utils python3 jq xmllint || true
+
+      - name: Run xccdf eval (CIS Level 1 Server)
+        run: |
+          mkdir -p compliance/out
+          DS=/usr/share/xml/scap/ssg/content/ssg-al2023-ds.xml
+          PROFILE=xccdf_org.ssgproject.content_profile_cis_server_l1
+          # --results-arf produces the SCAP ARF (authoritative). --report
+          # produces the human HTML. We surface both as artifacts.
+          set +e
+          oscap xccdf eval \
+            --profile "$PROFILE" \
+            --results-arf compliance/out/oscap.arf.xml \
+            --report compliance/out/oscap.report.html \
+            "$DS"
+          # oscap exit codes: 0 all pass, 1 internal error, 2 some failed.
+          # 2 is expected → keep going. 1 is a real broken job.
+          rc=$?
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then exit "$rc"; fi
+          set -e
+
+      - name: Extract pass-rate summary
+        run: |
+          # Cheap pass-rate extraction without an XML lib in Node land.
+          # ARF has TestResult/rule-result elements with @result.
+          python3 - <<'PY' > compliance/out/oscap.meta.json
+          import json, re, os
+          src = 'compliance/out/oscap.arf.xml'
+          if not os.path.exists(src):
+              print(json.dumps({"host_pass_rate": None, "opened_ll_ids": []}))
+              raise SystemExit(0)
+          with open(src, 'r', encoding='utf-8', errors='ignore') as f:
+              text = f.read()
+          # Match rule-result elements' "result" attribute
+          results = re.findall(r'<result>([^<]+)</result>', text)
+          if not results:
+              # Some ARF flavours nest @result on the element itself
+              results = re.findall(r'rule-result[^>]+result="([^"]+)"', text)
+          passes = sum(1 for r in results if r.strip() in ('pass', 'fixed'))
+          fails  = sum(1 for r in results if r.strip() in ('fail',))
+          total = passes + fails
+          rate  = (passes / total) if total else None
+          print(json.dumps({"host_pass_rate": rate, "opened_ll_ids": []}))
+          PY
+          cat compliance/out/oscap.meta.json
+
+      - name: Setup Node for normalize
+        uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Normalize → LL-IDs
+        run: |
+          npm --prefix compliance ci
+          npx --prefix compliance tsx compliance/normalize.ts \
+            --tool oscap \
+            --report compliance/out/oscap.meta.json \
+            --out compliance/out/oscap.ll.json \
+            --map compliance/llmap.yaml
+          cat compliance/out/oscap.ll.json
+          cat compliance/out/oscap.meta.json
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-host
+          path: |
+            compliance/out/oscap.*
+          retention-days: 14
+
+  # ── 5. Cloud (Prowler AWS CIS 3.0 via OIDC read-only role) ───────────────
+  # The role MUST have only SecurityAudit + ViewOnlyAccess attached (or an
+  # equivalent custom read-only policy). The probe step verifies the role
+  # cannot perform any write operation. If write probe succeeds, the job
+  # fails fast — Prowler must never run with a privileged role.
+  cloud:
+    name: cloud / prowler CIS AWS
+    runs-on: ubuntu-latest
+    if: ${{ vars.AWS_AUDIT_ROLE_ARN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_AUDIT_ROLE_ARN }}
+          aws-region: us-east-1
+          role-session-name: loadlead-compliance-${{ github.run_id }}
+          role-duration-seconds: 1800
+
+      - name: Verify read-only (deny probe)
+        # Try a write op that ANY non-read-only role would let succeed.
+        # Tag manipulation on a real resource is reversible but probably
+        # still over-permissioned for a read-only role — so we use a
+        # synthetic safe call that proves "I cannot write".
+        # iam:CreateRole with a doomed name is blocked by ViewOnlyAccess.
+        run: |
+          set +e
+          aws iam create-role \
+            --role-name loadlead-readonly-probe-DO-NOT-CREATE-$$ \
+            --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Principal":"*","Action":"*","Resource":"*"}]}' \
+            --description "compliance read-only probe" \
+            > /tmp/probe.txt 2>&1
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "::error::Prowler role can CREATE roles — it must be read-only. Aborting."
+            exit 1
+          fi
+          # Confirm we *can* read (sanity)
+          aws sts get-caller-identity > /dev/null
+          echo "✓ role cannot write (probe denied as expected)"
+
+      - name: Install Prowler
+        run: |
+          pipx install prowler==5.6.0 || pip install --user prowler==5.6.0
+          prowler --version
+
+      - name: Run Prowler (CIS 3.0 AWS, JSON-OCSF)
+        run: |
+          mkdir -p compliance/out
+          # -M json-ocsf emits the format normalize.ts expects.
+          # || true: Prowler exits non-zero on FAIL findings; we capture
+          # them all and let the LL-ID gating decide. Reports only.
+          prowler aws \
+            --compliance cis_3.0_aws \
+            --output-formats json-ocsf \
+            --output-directory compliance/out \
+            --output-filename prowler.raw \
+            --no-banner || true
+          # Prowler nests the file path; normalize the name.
+          mv compliance/out/prowler.raw.ocsf.json compliance/out/prowler.raw.json 2>/dev/null || true
+
+      - name: Setup Node for normalize
+        uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Normalize → LL-IDs
+        run: |
+          npm --prefix compliance ci
+          npx --prefix compliance tsx compliance/normalize.ts \
+            --tool prowler \
+            --report compliance/out/prowler.raw.json \
+            --out compliance/out/prowler.ll.json \
+            --map compliance/llmap.yaml
+          cat compliance/out/prowler.ll.json
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-cloud
+          path: compliance/out/prowler.*
+          retention-days: 14
+
+  # ── 6. Publish (merge + dashboard sync + CAT I gate) ─────────────────────
+  publish:
+    name: publish / merge + dashboard
+    needs: [secrets, deps, sast, host, cloud]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Download all per-tool LL outputs
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect outputs
+        run: |
+          mkdir -p compliance/out
+          # Pull each tool's *.ll.json and oscap.meta.json into compliance/out
+          find artifacts -name '*.ll.json' -exec cp {} compliance/out/ \;
+          find artifacts -name 'oscap.meta.json' -exec cp {} compliance/out/ \;
+          ls -la compliance/out/
+
+      - name: Merge → compliance-results.json
+        # Exits non-zero (fails the workflow) if any CAT I LL-ID is Open.
+        run: |
+          npm --prefix compliance ci
+          npx --prefix compliance tsx compliance/merge.ts \
+            compliance/out \
+            compliance-results.json
+
+      - name: Sync to dashboard repo (loadlead-test-dashboard)
+        if: success() || failure()  # publish results even on RED for visibility
+        env:
+          DEPLOY_KEY: ${{ secrets.DASHBOARD_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "DASHBOARD_DEPLOY_KEY not set — skipping sync (artifact still uploaded)."
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          git clone git@github.com:ayo326/loadlead-test-dashboard.git /tmp/dash
+          cp compliance-results.json /tmp/dash/
+          cd /tmp/dash
+          git config user.email "ci@loadlead.dev"
+          git config user.name  "LoadLead CI"
+          if git diff --quiet; then
+            echo "no change in compliance-results.json — skipping push"
+            exit 0
+          fi
+          git add compliance-results.json
+          git commit -m "Compliance sync from ${{ github.sha }}"
+          git push origin main
+
+      - name: Upload merged artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-results
+          path: compliance-results.json
+          retention-days: 30
