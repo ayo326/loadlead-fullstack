@@ -1,0 +1,60 @@
+name: Sync Test Dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/src/**'
+      - 'backend/tests/**'
+      - 'backend/vitest.config.ts'
+      - 'backend/package.json'
+      - '.github/workflows/sync-test-dashboard.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: sync-test-dashboard
+  cancel-in-progress: true
+
+jobs:
+  test-and-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Run tests + emit JSON + sync
+        working-directory: backend
+        run: npm run test:ci
+        continue-on-error: true  # failing tests should still publish results (red on the dashboard)
+
+      - name: Set up SSH for dashboard push
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DASHBOARD_DEPLOY_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Clone dashboard repo
+        run: git clone git@github.com:ayo326/loadlead-test-dashboard.git /tmp/dashboard
+
+      - name: Copy results and push
+        run: |
+          cp test-results.json /tmp/dashboard/test-results.json
+          cd /tmp/dashboard
+          git config user.email "ci@loadlead.dev"
+          git config user.name "LoadLead CI"
+          if git diff --quiet; then
+            echo "No change in test results — nothing to push"
+            exit 0
+          fi
+          git add test-results.json
+          git commit -m "Sync test results from ${{ github.sha }}
+
+          Source: https://github.com/ayo326/loadlead-fullstack/commit/${{ github.sha }}"
+          git push origin main
