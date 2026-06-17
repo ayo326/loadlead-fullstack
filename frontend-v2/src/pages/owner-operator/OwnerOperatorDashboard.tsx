@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { MapPin, Navigation, Truck, Users, Package, ArrowRight, AlertCircle } from "lucide-react";
 import { LoadRoutePanel } from "@/components/LoadRoutePanel";
 import { PageHeader, StatCard } from "@/components/PageHeader";
+import { PushSubscriptionPrompt } from "@/components/PushSubscriptionPrompt";
 import { Button } from "@/components/ui/button";
 import { RouteMapCard } from "@/components/RouteMapCard";
 import { api } from "@/lib/api";
@@ -69,6 +70,7 @@ export default function OwnerOperatorDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      <PushSubscriptionPrompt />
       <PageHeader
         title={`Welcome back, ${profile.legalName ?? user?.email}`}
         subtitle="Owner Operator Dashboard"

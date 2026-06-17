@@ -20,7 +20,8 @@ interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
+  login: (email: string, password: string) => Promise<AuthUser | { needsTwoFactor: true; twoFactorTicket: string }>;
+  twoFactorLogin: (ticket: string, code: string) => Promise<AuthUser>;
   signup: (email: string, password: string, role: string, orgParams?: Record<string, any>) => Promise<AuthUser>;
   signupCarrier: (params: { email: string; password: string; legalName: string; dba?: string; mcNumber?: string; dotNumber?: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
@@ -54,9 +55,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const r = await api.login(email, password);
+    const r: any = await api.login(email, password);
+    // 2FA gate: backend returns a ticket instead of a user/token.
+    if (r.needsTwoFactor) return { needsTwoFactor: true as const, twoFactorTicket: r.twoFactorTicket };
     // Backend sets httpOnly cookie in Set-Cookie header.
-    // We use the returned user object to populate context state.
+    setUser(r.user);
+    return r.user;
+  };
+
+  const twoFactorLogin = async (ticket: string, code: string) => {
+    const r = await api.twoFactorLogin(ticket, code);
     setUser(r.user);
     return r.user;
   };
@@ -90,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((u) => u ? { ...u, ...patch } : u);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, signupCarrier, logout, setHeadshotUrl, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, twoFactorLogin, signup, signupCarrier, logout, setHeadshotUrl, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

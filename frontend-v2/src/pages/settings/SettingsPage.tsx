@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SecuritySettings } from "@/components/SecuritySettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -520,6 +521,7 @@ function DriverSettings({ userId }: { userId: string }) {
           <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
           <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
           <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
+          <TabsTrigger value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
         </TabsList>
       </div>
 
@@ -723,6 +725,9 @@ function DriverSettings({ userId }: { userId: string }) {
         <TabsContent value="organisation">
           <OrgTabErrorBoundary><OrgTab callerUserRole="DRIVER" /></OrgTabErrorBoundary>
         </TabsContent>
+        <TabsContent value="security">
+          <SecuritySettings />
+        </TabsContent>
       </div>
     </Tabs>
   );
@@ -814,6 +819,7 @@ function ShipperSettings({ userId }: { userId: string }) {
         <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
         <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
         <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
+        <TabsTrigger value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
       </TabsList>
 
       <div className="flex-1 min-w-0">
@@ -887,6 +893,9 @@ function ShipperSettings({ userId }: { userId: string }) {
 
         <TabsContent value="biz">
           <BusinessVerification userId={userId} role="SHIPPER" />
+        </TabsContent>
+        <TabsContent value="security">
+          <SecuritySettings />
         </TabsContent>
       </div>
     </Tabs>
@@ -967,6 +976,7 @@ function ReceiverSettings({ userId }: { userId: string }) {
         <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
         <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
         <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
+        <TabsTrigger value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
       </TabsList>
 
       <div className="flex-1 min-w-0">
@@ -1009,6 +1019,9 @@ function ReceiverSettings({ userId }: { userId: string }) {
 
         <TabsContent value="biz">
           <BusinessVerification userId={userId} role="RECEIVER" />
+        </TabsContent>
+        <TabsContent value="security">
+          <SecuritySettings />
         </TabsContent>
       </div>
     </Tabs>
@@ -1146,45 +1159,7 @@ function AdminSettings({ email }: { email: string }) {
 
         {/* ── Security ── */}
         <TabsContent value="security">
-          <SectionCard>
-            <h3 className="text-sm font-semibold mb-1">Password</h3>
-            <p className="text-xs text-muted-foreground mb-5">
-              A reset link will be sent to <strong>{email}</strong>. You'll remain signed in until you use the link.
-            </p>
-            {resetSent ? (
-              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3">
-                <CheckSquare className="h-4 w-4 shrink-0" />
-                Reset link sent — check <strong>{email}</strong>
-              </div>
-            ) : (
-              <Button variant="outline" disabled={resetting} onClick={sendReset} className="h-9">
-                {resetting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Sending…</> : "Send password reset email"}
-              </Button>
-            )}
-
-            <div className="mt-8 pt-6 border-t border-border">
-              <h3 className="text-sm font-semibold mb-1">Active session</h3>
-              <p className="text-xs text-muted-foreground mb-4">
-                JWT tokens expire after 7 days. Signing out clears the token from this browser immediately.
-              </p>
-              <div className="rounded-lg border border-border bg-secondary/50 divide-y divide-border text-sm">
-                <div className="flex justify-between items-center px-4 py-3">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className="flex items-center gap-1.5 text-green-600 font-medium text-xs">
-                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" /> Active
-                  </span>
-                </div>
-                <div className="flex justify-between items-center px-4 py-3">
-                  <span className="text-muted-foreground">Token type</span>
-                  <span className="font-medium">JWT (stateless)</span>
-                </div>
-                <div className="flex justify-between items-center px-4 py-3">
-                  <span className="text-muted-foreground">Expires</span>
-                  <span className="font-medium">7 days from last login</span>
-                </div>
-              </div>
-            </div>
-          </SectionCard>
+          <SecuritySettings />
         </TabsContent>
 
         {/* ── Notifications ── */}

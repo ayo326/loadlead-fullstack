@@ -96,6 +96,21 @@ export const api = {
   subscribePush: (subscription: any) => request("POST", "/notifications/subscribe", { subscription }),
   unsubscribePush: () => request("DELETE", "/notifications/subscribe"),
 
+  // Security (password + 2FA)
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ ok: true }>("POST", "/auth/change-password", { currentPassword, newPassword }),
+  twoFactorStatus: () => request<{ enabled: boolean }>("GET", "/auth/2fa/status"),
+  twoFactorSetup:  () => request<{ secret: string; otpauthUrl: string; qrDataUrl: string }>("POST", "/auth/2fa/setup"),
+  twoFactorVerify: (code: string) => request<{ enabled: true }>("POST", "/auth/2fa/verify", { code }),
+  twoFactorDisable: (password: string) => request<{ enabled: false }>("POST", "/auth/2fa/disable", { password }),
+  twoFactorLogin: (ticket: string, code: string) => request<{ user: any; token: string }>("POST", "/auth/2fa/login", { ticket, code }),
+
+  // In-app notification inbox
+  getNotifications: () => request<{ notifications: any[] }>("GET", "/notifications/inbox"),
+  getUnreadCount:   () => request<{ count: number }>("GET", "/notifications/inbox/unread-count"),
+  markNotificationRead: (id: string) => request<{ ok: true }>("POST", `/notifications/inbox/${id}/read`),
+  markAllRead: () => request<{ marked: number }>("POST", "/notifications/inbox/read-all"),
+
   // Driver location
   updateDriverLocation: (lat: number, lng: number, city: string, state: string) =>
     request("POST", "/driver/location", { lat, lng, city, state }),
@@ -232,6 +247,8 @@ export const api = {
     request<{ ownerOperator: any }>("PUT", "/owner-operator/profile", data),
   getOwnerOperatorLoadboard: () =>
     request<{ loads: any[] }>("GET", "/owner-operator/loadboard"),
+  getOwnerOperatorOffer: (loadId: string) =>
+    request<{ offer: any; load: any; driverId?: string }>("GET", `/owner-operator/offers/${loadId}`),
   getOwnerOperatorHistory: () =>
     request<{ loads: any[] }>("GET", "/owner-operator/history"),
   getOwnerOperatorFleet: () =>

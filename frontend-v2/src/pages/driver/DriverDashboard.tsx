@@ -4,6 +4,7 @@ import { ArrowRight, Bell, Gauge, MapPin, Navigation, Package, TrendingUp, Truck
 import { RouteMapCard } from "@/components/RouteMapCard";
 import { LoadRoutePanel } from "@/components/LoadRoutePanel";
 import { PageHeader, StatCard, StatusPill } from "@/components/PageHeader";
+import { PushSubscriptionPrompt } from "@/components/PushSubscriptionPrompt";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Countdown } from "@/components/Countdown";
@@ -111,6 +112,7 @@ export default function DriverDashboard() {
   return (
     <>
       <AccountHold profileComplete={profileComplete} verificationStatus={verificationStatus} />
+      <PushSubscriptionPrompt />
       <PageHeader
         eyebrow={`Driver · ${displayName}`}
         title="Live load offers"

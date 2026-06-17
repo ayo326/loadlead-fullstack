@@ -75,10 +75,14 @@ export default function Login() {
   const [roleMismatch, setRoleMismatch] = useState<string | null>(null);
   const [loading, setLoading]       = useState(false);
 
-  const { login }  = useAuth();
+  const { login, twoFactorLogin }  = useAuth();
   const navigate   = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect");
+
+  // 2FA second step state
+  const [twoFactorTicket, setTwoFactorTicket] = useState<string | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   const pick = (r: typeof roles[number]) => {
     setSelected(r);
@@ -86,21 +90,44 @@ export default function Login() {
     setRoleMismatch(null);
   };
 
+  function completeLoginRedirect(user: any) {
+    if (user.role !== selected.key) {
+      setRoleMismatch(`This account is registered as ${user.role}. Taking you to your dashboard…`);
+      setTimeout(() => navigate(redirectTo ?? roleHome[user.role] ?? "/"), 1800);
+      return;
+    }
+    navigate(redirectTo ?? roleHome[user.role] ?? "/");
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setRoleMismatch(null);
     setLoading(true);
     try {
-      const user = await login(email, password);
-      if (user.role !== selected.key) {
-        setRoleMismatch(`This account is registered as ${user.role}. Taking you to your dashboard…`);
-        setTimeout(() => navigate(redirectTo ?? roleHome[user.role] ?? "/"), 1800);
+      const result: any = await login(email, password);
+      if (result?.needsTwoFactor) {
+        setTwoFactorTicket(result.twoFactorTicket);
         return;
       }
-      navigate(redirectTo ?? roleHome[user.role] ?? "/");
+      completeLoginRedirect(result);
     } catch (err: any) {
       setError(err.message ?? "Invalid email or password");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTwoFactorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twoFactorTicket) return;
+    setError("");
+    setLoading(true);
+    try {
+      const user = await twoFactorLogin(twoFactorTicket, twoFactorCode);
+      completeLoginRedirect(user);
+    } catch (err: any) {
+      setError(err.message ?? "Invalid 2FA code");
     } finally {
       setLoading(false);
     }
@@ -250,7 +277,50 @@ export default function Login() {
             })}
           </div>
 
-          {/* Form */}
+          {/* 2FA step (shown after a successful password login when the account has 2FA on) */}
+          {twoFactorTicket && (
+            <form onSubmit={handleTwoFactorSubmit} className="mt-7 space-y-4">
+              <div>
+                <h3 className="text-base font-semibold">Two-factor authentication</h3>
+                <p className="text-xs text-gray-500 mt-1">Enter the 6-digit code from your authenticator app.</p>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="otp" className="block text-[11px] font-semibold tracking-[0.12em] uppercase text-gray-500">
+                  6-digit code
+                </label>
+                <input
+                  id="otp"
+                  inputMode="numeric"
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                  required
+                  autoFocus
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="123456"
+                  className="w-full h-12 rounded-xl border border-gray-300 px-4 text-base bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading || twoFactorCode.length !== 6}
+                className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold disabled:opacity-50"
+              >
+                {loading ? "Verifying…" : "Verify and sign in"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTwoFactorTicket(null); setTwoFactorCode(""); setError(""); }}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                ← Back to sign in
+              </button>
+            </form>
+          )}
+
+          {/* Password form (hidden once 2FA step is active) */}
+          {!twoFactorTicket && (
           <form onSubmit={handleSubmit} className="mt-7 space-y-4">
             {/* Email */}
             <div className="space-y-1.5">
@@ -339,6 +409,7 @@ export default function Login() {
               )}
             </button>
           </form>
+          )}
 
           {/* Footer links */}
           <div className="mt-6 space-y-2 text-center text-sm text-gray-500">

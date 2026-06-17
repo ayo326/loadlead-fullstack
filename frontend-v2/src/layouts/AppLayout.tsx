@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bell, History, LayoutDashboard, LogOut, PackagePlus, Search, Settings, ShieldCheck, ShipWheel, Truck, TruckIcon, Warehouse } from "lucide-react";
+import { Bell, History, LayoutDashboard, LogOut, PackagePlus, Search, Settings, ShieldCheck, ShipWheel, Truck, TruckIcon, Warehouse, BarChart3 } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
 import {
   Sidebar,
   SidebarContent,
@@ -22,8 +23,10 @@ import { Input } from "@/components/ui/input";
 const allNav = [
   { title: "Driver",         url: "/driver",                 icon: ShipWheel,   label: "Live Offers",     role: "DRIVER",         exact: true  },
   { title: "Load History",   url: "/driver/history",         icon: History,     label: "Completed Loads", role: "DRIVER"                       },
+  { title: "Analytics",      url: "/driver/analytics",       icon: BarChart3,   label: "Earnings & miles",role: "DRIVER"                       },
   { title: "Owner Operator", url: "/owner-operator",         icon: TruckIcon,   label: "Dashboard",       role: "OWNER_OPERATOR", exact: true  },
   { title: "Load History",   url: "/owner-operator/history", icon: History,     label: "Completed Loads", role: "OWNER_OPERATOR"               },
+  { title: "Analytics",      url: "/owner-operator/analytics", icon: BarChart3, label: "Fleet metrics",   role: "OWNER_OPERATOR"               },
   { title: "Shipper",        url: "/shipper",                icon: PackagePlus, label: "Loads",           role: "SHIPPER"                      },
   { title: "Receiver",       url: "/receiver",               icon: Warehouse,   label: "Inbound",         role: "RECEIVER"                     },
   { title: "Admin",          url: "/admin",                  icon: ShieldCheck, label: "Operations",      role: "ADMIN"                        },
@@ -122,10 +125,7 @@ export default function AppLayout() {
               <Input placeholder="Search loads, drivers, lanes…" className="pl-9 bg-secondary border-0 focus-visible:ring-1" />
             </div>
             <div className="text-xs text-muted-foreground hidden sm:block">{user?.email}</div>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent" />
-            </Button>
+            <NotificationBell />
             <div className="h-9 w-9 rounded-full overflow-hidden bg-gradient-to-br from-primary to-accent text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0">
               {headshotUrl
                 ? <img src={headshotUrl} alt="Profile" className="h-full w-full object-cover" />

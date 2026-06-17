@@ -8,6 +8,7 @@ import { PageHeader, StatCard, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { FleetMap } from "@/components/FleetMap";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -232,6 +233,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [allDrivers, setAllDrivers] = useState<Driver[]>([]);
+
   const load = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true); else setLoading(true);
     try {
@@ -250,6 +253,12 @@ export default function AdminDashboard() {
         SUSPENDED: suspended.drivers.length,
       });
       setDrivers(current.drivers);
+      setAllDrivers([
+        ...pending.drivers,
+        ...verified.drivers,
+        ...available.drivers,
+        ...suspended.drivers,
+      ]);
     } catch (e: any) {
       toast.error(e.message ?? "Failed to load drivers");
     } finally {
@@ -281,6 +290,21 @@ export default function AdminDashboard() {
         title="Operations console"
         subtitle="Real-time view of drivers, loads, and match quality across the network."
       />
+
+      {/* Live fleet map */}
+      <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] p-5 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold">Live fleet map</h2>
+            <p className="text-xs text-muted-foreground">Every driver's last known location, colored by status.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => load(true)} disabled={refreshing}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+        <FleetMap drivers={allDrivers} />
+      </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

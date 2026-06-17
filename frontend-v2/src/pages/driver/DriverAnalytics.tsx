@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { LoadHistoryList } from "@/components/LoadHistoryList";
+import { AnalyticsView } from "@/components/AnalyticsView";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
-export default function DriverHistory() {
+export default function DriverAnalytics() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api
-      .getDriverHistory()
-      .then((res) => setItems(res.loads ?? []))
+    api.getDriverHistory()
+      .then(r => setItems(r.loads ?? []))
       .catch((e: any) => toast.error(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -26,17 +25,9 @@ export default function DriverHistory() {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader
-        title="Load History"
-        subtitle="Loads you've accepted, are hauling, or have delivered"
-      />
-      <div className="max-w-4xl mx-auto p-6">
-        <LoadHistoryList
-          items={items}
-          emptyText="No load history yet. Loads you accept will appear here."
-          loadDetailHref={(load) => `/driver/loads/${load.loadId}`}
-          showPodUpload
-        />
+      <PageHeader title="Analytics" subtitle="Your earnings, miles, and load performance" />
+      <div className="max-w-5xl mx-auto p-6">
+        <AnalyticsView items={items} />
       </div>
     </div>
   );

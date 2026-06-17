@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { RouteMapCard } from "@/components/RouteMapCard";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -153,26 +154,14 @@ export default function ShipperLoadDetail() {
           {/* Live tracking card — only when IN_TRANSIT with location */}
           {load.status === "IN_TRANSIT" && tracking?.driverLocation && (
             <Section title="Live driver location" icon={Navigation}>
-              <div className="aspect-video rounded-xl bg-gradient-to-br from-primary/80 to-accent relative overflow-hidden">
-                <div className="absolute inset-0 opacity-10"
-                  style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "20px 20px" }} />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <div className="relative">
-                    <div className="absolute inset-0 rounded-full bg-white/40 animate-ping" />
-                    <div className="relative h-5 w-5 rounded-full bg-white border-2 border-primary" />
-                  </div>
-                </div>
-                <div className="absolute bottom-4 left-4 text-white">
-                  <div className="text-xs opacity-70">{tracking.driverLocation.state}</div>
-                  <div className="text-sm font-semibold">{tracking.driverLocation.city ?? "En route"}</div>
-                </div>
-                {tracking.etaToDelivery && (
-                  <div className="absolute top-4 right-4 rounded-lg bg-white/20 backdrop-blur border border-white/30 px-3 py-1.5 text-white text-xs">
-                    <div className="opacity-70">ETA to delivery</div>
-                    <div className="font-bold">{tracking.etaToDelivery.durationText}</div>
-                  </div>
-                )}
-              </div>
+              <RouteMapCard
+                pickupAddress={load.pickupAddress ? `${load.pickupAddress}, ${load.pickupCity}, ${load.pickupState} ${load.pickupZip}` : null}
+                deliveryAddress={load.deliveryAddress ? `${load.deliveryAddress}, ${load.deliveryCity}, ${load.deliveryState} ${load.deliveryZip}` : null}
+                currentLat={tracking.driverLocation.lat}
+                currentLng={tracking.driverLocation.lng}
+                currentCity={tracking.driverLocation.city}
+                currentState={tracking.driverLocation.state}
+              />
               <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
                 <div className="rounded-lg bg-secondary p-2.5">
                   <div className="text-muted-foreground">Current city</div>

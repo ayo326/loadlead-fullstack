@@ -95,6 +95,15 @@ ensure_table LoadLead_FleetInvites \
     '[{"IndexName":"operatorId-index","KeySchema":[{"AttributeName":"operatorId","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}},
       {"IndexName":"token-index","KeySchema":[{"AttributeName":"token","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}]'
 
+# Notification inbox (Feature 5 — in-app notification bell)
+ensure_table LoadLead_Notifications \
+  --attribute-definitions \
+    AttributeName=notificationId,AttributeType=S \
+    AttributeName=userId,AttributeType=S \
+  --key-schema AttributeName=notificationId,KeyType=HASH \
+  --global-secondary-indexes \
+    '[{"IndexName":"userId-index","KeySchema":[{"AttributeName":"userId","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}]'
+
 # Membership audit log table (new — spec §6.5)
 ensure_table LoadLead-MembershipAuditLogs \
   --attribute-definitions \

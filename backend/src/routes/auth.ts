@@ -2,6 +2,8 @@ import express, { Response } from 'express';
 import { body } from 'express-validator';
 import crypto from 'crypto';
 import { AuthService } from '../services/authService';
+import { SecurityService } from '../services/securityService';
+import { Helpers } from '../utils/helpers';
 import { asyncHandler } from '../middleware/errorHandler';
 import { authValidators } from '../utils/validators';
 import { validate } from '../middleware/validation';
@@ -78,10 +80,62 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const result = await AuthService.login(email, password);
+
+    // 2FA gate: if the user has 2FA enabled, do not issue a session yet —
+    // return a short-lived ticket the client trades after the second factor.
+    if (await SecurityService.hasTwoFactor(result.user.userId)) {
+      const twoFactorTicket = SecurityService.mintTwoFactorTicket(result.user.userId);
+      return res.json({ needsTwoFactor: true, twoFactorTicket });
+    }
+
     setAuthCookie(res, result.token);
     res.json(result);
   })
 );
+
+// POST /api/auth/2fa/login — second-step exchange of (ticket + code) for token
+router.post('/2fa/login', asyncHandler(async (req, res) => {
+  const { ticket, code } = req.body as { ticket?: string; code?: string };
+  if (!ticket || !code) return res.status(400).json({ error: 'ticket and code required' });
+  const userId = await SecurityService.exchangeTwoFactorTicket(ticket, code);
+  const user = await AuthService.getUserById(userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const token = Helpers.generateToken({ userId: user.userId, email: user.email, role: user.role });
+  setAuthCookie(res, token);
+  res.json({ user, token });
+}));
+
+// ── Authenticated security routes (password + 2FA management) ─────────────
+router.post('/change-password', authenticate, asyncHandler(async (req: any, res) => {
+  const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'currentPassword and newPassword required' });
+  await SecurityService.changePassword(req.user.userId, currentPassword, newPassword);
+  res.json({ ok: true });
+}));
+
+router.post('/2fa/setup', authenticate, asyncHandler(async (req: any, res) => {
+  const result = await SecurityService.setupTwoFactor(req.user.userId, req.user.email);
+  res.json(result);
+}));
+
+router.post('/2fa/verify', authenticate, asyncHandler(async (req: any, res) => {
+  const { code } = req.body as { code?: string };
+  if (!code) return res.status(400).json({ error: 'code required' });
+  await SecurityService.verifyAndEnableTwoFactor(req.user.userId, code);
+  res.json({ enabled: true });
+}));
+
+router.post('/2fa/disable', authenticate, asyncHandler(async (req: any, res) => {
+  const { password } = req.body as { password?: string };
+  if (!password) return res.status(400).json({ error: 'password required' });
+  await SecurityService.disableTwoFactor(req.user.userId, password);
+  res.json({ enabled: false });
+}));
+
+router.get('/2fa/status', authenticate, asyncHandler(async (req: any, res) => {
+  const enabled = await SecurityService.hasTwoFactor(req.user.userId);
+  res.json({ enabled });
+}));
 
 // POST /api/auth/logout — clears the httpOnly cookie
 router.post('/logout', (_req, res) => {

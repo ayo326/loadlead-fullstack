@@ -2,9 +2,32 @@ import express from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { PushService } from '../services/pushService';
+import { NotificationService } from '../services/notificationService';
 
 const router = express.Router();
 router.use(authenticate);
+
+// ── In-app notification inbox ───────────────────────────────────────────────
+
+router.get('/inbox', asyncHandler(async (req: AuthRequest, res) => {
+  const notifications = await NotificationService.listForUser(req.user!.userId);
+  res.json({ notifications });
+}));
+
+router.get('/inbox/unread-count', asyncHandler(async (req: AuthRequest, res) => {
+  const count = await NotificationService.unreadCount(req.user!.userId);
+  res.json({ count });
+}));
+
+router.post('/inbox/:notificationId/read', asyncHandler(async (req: AuthRequest, res) => {
+  await NotificationService.markRead(req.params.notificationId, req.user!.userId);
+  res.json({ ok: true });
+}));
+
+router.post('/inbox/read-all', asyncHandler(async (req: AuthRequest, res) => {
+  const marked = await NotificationService.markAllRead(req.user!.userId);
+  res.json({ marked });
+}));
 
 // GET /api/notifications/vapid-key — frontend fetches this to register SW
 router.get('/vapid-key', (_req, res) => {
