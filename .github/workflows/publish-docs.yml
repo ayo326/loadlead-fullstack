@@ -74,8 +74,10 @@ jobs:
       - name: Install @markdown-confluence/cli
         run: npm install --no-save @markdown-confluence/cli@latest
 
-      - name: Verify required secrets are present (push to main only)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Verify required secrets are present
+        if: |
+          github.event_name == 'push'
+          || (github.event_name == 'workflow_dispatch' && inputs.dry_run != true)
         run: |
           missing=""
           for var in CONFLUENCE_BASE_URL CONFLUENCE_EMAIL CONFLUENCE_API_TOKEN CONFLUENCE_SPACE_KEY; do
@@ -88,24 +90,8 @@ jobs:
           fi
           echo "✓ all required Confluence secrets present"
 
-      - name: Dry-run preview (PRs + workflow_dispatch dry_run + missing secrets)
-        if: |
-          github.event_name == 'pull_request'
-          || (github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
-          || (github.event_name == 'push' && env.CONFLUENCE_API_TOKEN == '')
-        env:
-          # Override job-level env with harmless placeholders so the CLI can
-          # render without calling Confluence.
-          CONFLUENCE_BASE_URL:       https://example.atlassian.net/wiki
-          CONFLUENCE_EMAIL:          dryrun@example.com
-          CONFLUENCE_API_TOKEN:      dryrun
-          CONFLUENCE_SPACE_KEY:      DRY
-          CONFLUENCE_PARENT_PAGE_ID: "0"
+      - name: Front-matter sanity check
         run: |
-          echo "── Dry-run preview ──"
-          npx markdown-confluence --dry-run || true
-          echo ""
-          echo "── Front-matter check ──"
           missing=0
           for f in $(find docs -name '*.md'); do
             if ! head -1 "$f" | grep -q '^---$'; then
@@ -115,15 +101,26 @@ jobs:
           done
           [ "$missing" -gt 0 ] && echo "::warning::$missing file(s) missing front-matter" || echo "✓ all docs have front-matter"
 
+      - name: Render publisher config from secrets
+        if: |
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+          && github.ref == 'refs/heads/main'
+          && env.CONFLUENCE_API_TOKEN != ''
+          && !(github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
+        run: bash scripts/render-confluence-config.sh
+
       - name: Publish to Confluence
         if: |
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
           && github.ref == 'refs/heads/main'
           && env.CONFLUENCE_API_TOKEN != ''
           && !(github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
+        env:
+          # CLI reads the token from this exact env var.
+          ATLASSIAN_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
         run: |
           echo "── Publishing /docs → Confluence ${CONFLUENCE_SPACE_KEY} ──"
-          npx markdown-confluence
+          npx @markdown-confluence/cli
 
       - name: Commit injected connie-page-id values back
         # On first publish the tool writes `connie-page-id: <id>` into each
