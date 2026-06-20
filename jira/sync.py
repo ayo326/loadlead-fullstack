@@ -660,7 +660,8 @@ def apply_plan(plan: Plan, specs: List[JiraIssueSpec], sync_map: Dict[str, dict]
         # Parent must exist before sub-task creation.
         parent_key = None
         if spec.parent_ext_id:
-            parent_key = sync_map.get(spec.parent_ext_id)
+            # sync_map values are dicts; extract the bare key string.
+            parent_key = get_key(sync_map, spec.parent_ext_id)
             if not parent_key:
                 print(f"  skipping {spec.ext_id}: parent {spec.parent_ext_id} not yet synced", file=sys.stderr)
                 continue
