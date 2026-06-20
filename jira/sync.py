@@ -789,13 +789,25 @@ def env_or_die() -> Tuple[str, str, str]:
 
 
 def discover_meta(jira: JiraClient) -> Tuple[Dict[str, str], Dict[str, str]]:
-    """Pull issuetype + priority IDs by querying Jira (no hardcoded guesses)."""
-    meta = jira.get_create_meta(PROJECT_KEY)
+    """Pull issuetype + priority IDs by querying Jira (no hardcoded guesses).
+
+    Atlassian quietly changed the createmeta response shape: for team-managed
+    projects, the legacy GET /createmeta?projectKeys=… returns empty
+    `projects` arrays. The replacement is GET /createmeta/{projectKey}/issuetypes
+    which returns `{ issueTypes: [...] }`. Try both.
+    """
     types: Dict[str, str] = {}
-    projects = meta.get("projects") or []
-    if projects:
-        for it in projects[0].get("issuetypes", []):
+    # Try the new per-project endpoint first (works on team-managed projects)
+    r = jira._req("GET", f"/rest/api/3/issue/createmeta/{PROJECT_KEY}/issuetypes")
+    if r.ok:
+        for it in r.json().get("issueTypes", []):
             types[it["name"]] = it["id"]
+    # Fall back to the legacy endpoint (still works on company-managed projects)
+    if not types:
+        meta = jira.get_create_meta(PROJECT_KEY)
+        for p in (meta.get("projects") or []):
+            for it in p.get("issuetypes", []):
+                types[it["name"]] = it["id"]
     priorities = jira.get_priorities()
     return types, priorities
 
@@ -867,10 +879,16 @@ def main() -> int:
         base, email, token = env_or_die()
         jira = JiraClient(base, email, token)
         issuetype_ids, priority_ids = discover_meta(jira)
-        if not issuetype_ids:
-            print("error: createmeta returned no issuetypes for project — check JIRA_PROJECT_KEY", file=sys.stderr)
+        # issuetypes are only required for creates. A description/priority-only
+        # apply against existing issues doesn't need them.
+        plan_for_create_check = plan_sync(build_specs(), sync_map, None) if not issuetype_ids else None
+        if not issuetype_ids and plan_for_create_check and plan_for_create_check.create:
+            print("error: createmeta returned no issuetypes but plan has creates — check JIRA_PROJECT_KEY and project permissions", file=sys.stderr)
             return 1
-        print(f"discovered issuetypes: {issuetype_ids}")
+        if issuetype_ids:
+            print(f"discovered issuetypes: {issuetype_ids}")
+        else:
+            print("note: no issuetypes from createmeta (team-managed project) — OK because plan has 0 creates")
         print(f"discovered priorities: {sorted(priority_ids.keys())}")
 
     if args.rebuild_map:
