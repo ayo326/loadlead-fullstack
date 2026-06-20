@@ -29,6 +29,170 @@
 # Items are grouped under Epics. The structure here is the contract; the
 # spec docs in the repo are the prose. Updating spec docs does NOT update
 # Jira — updating THIS file does.
+#
+# ── DESCRIPTION + PRIORITY EXTENSIONS ────────────────────────────────────────
+# Every item gets a 3-section Jira description (Context · User Story · Gherkin
+# acceptance criteria) composed by sync.py and rendered as ADF. The content
+# comes from one of:
+#
+#   1. The item's own `context` / `user_story` / `gherkin` fields (highest
+#      priority — explicit per-item override).
+#   2. Its family's template (see `families:` below). The family is the
+#      prefix of ext_id before the first colon: refactor:* / test:* / etc.
+#      Templates use {{title}} / {{ext_id}} / {{family}} substitution.
+#
+# Priority is resolved deterministically from manifest fields by
+# resolve_priority() in sync.py — first matching rule wins:
+#
+#   Highest : ext_id matches CAT-I LL-IDs (LL-IA-002, LL-AC-001/002/003/004,
+#             LL-IV-001/002, LL-CR-001) OR `priority_hint: Highest` override
+#   High    : title contains "[CAT II]" OR family in {refactor} OR
+#             ext_id in TIER_1_TEST_IDS OR `priority_hint: High`
+#   Medium  : title contains "[CAT III]" OR family in {test,dash,hard,jira} OR
+#             `priority_hint: Medium`
+#   Low     : `priority_hint: Low` (for 🔴 telematics / gated items)
+#   Lowest  : `priority_hint: Lowest` (for docs / informational)
+#
+# Per-item `priority_hint` is reviewed in this file before apply; sync.py
+# stores the value it set in sync-map.json under each ext_id. On re-run,
+# sync.py reads Jira's current priority. If it equals the previously-set
+# value → safe to update. If it differs → a human re-prioritized; sync
+# SKIPS + logs. Mirrors the human-owned-state rule for status.
+
+# ── Family templates (Context / UserStory / Gherkin) ────────────────────────
+# {{title}} / {{ext_id}} substitution applied at compose time. Items may
+# override individual fields without redeclaring the rest.
+families:
+
+  refactor:
+    context: |
+      Part of the carrier-of-record refactor (LoadLead_Reference_Refactored.md §12).
+      Ensures the resolved carrier parent (Owner Operator fleet or Carrier-capable
+      Organization) is unambiguous at every haul gate, and that the matching
+      verification / capability / invariant rules are enforced server-side.
+    user_story:
+      as_a: platform engineer
+      i_want: "{{title}} implemented and protected by tests"
+      so_that: every accept route resolves a single carrier of record and gates correctly on both authority and identity
+    gherkin: |
+      Given the refactored domain model is loaded
+      When a driver is resolved via resolveCarrierOfRecord()
+      Then the result is unambiguous (OWNER_OPERATOR | CARRIER_ORG | null) per spec precedence
+      And requireVerifiedCarrier() rejects mismatched authority/identity states
+
+  test:
+    # Test families (sections A-H) and the per-ID sub-tasks share this template.
+    # Per-ID gherkin is composed from the sub-task title at sync time.
+    context: |
+      Vitest unit/integration coverage for the carrier-of-record refactor
+      (LoadLead_Test_Spec.md, section keyed by ext_id). Status auto-syncs from
+      test-results.json: pass → Done, missing/blocked → To Do.
+    user_story:
+      as_a: QA engineer
+      i_want: "{{title}}"
+      so_that: a regression in the refactor invariants is caught before merge
+    gherkin: |
+      Scenario: {{title}}
+        Given the test fixture for {{ext_id}}
+        When the test runs in CI (vitest --coverage)
+        Then it passes deterministically
+        And test-results.json marks {{ext_id}} = "pass"
+
+  e2e:
+    context: |
+      End-to-end / system / UAT / BDD coverage from LoadLead_E2E_System_UAT_BDD_Test_Plan.md.
+      Not yet wired into CI — these stay in TO DO until the suite is implemented
+      so go-live blockers stay visible on the board.
+    user_story:
+      as_a: QA engineer
+      i_want: "{{title}}"
+      so_that: real-traffic and operator workflows are validated end-to-end before release
+    gherkin: |
+      Scenario: {{title}}
+        Given a fully-provisioned staging environment
+        When the {{ext_id}} scenario executes against the live stack
+        Then every step's expected outcome is observed
+        And no degraded-fallback path is silently exercised
+
+  stig:
+    context: |
+      DISA ASD-STIG-style hardening control (LoadLead_STIG_Compliance_Checklist.md).
+      Status auto-syncs from compliance-results.json produced by the CI pipeline
+      (gitleaks/semgrep/oscap/prowler/npm-audit). CAT I open findings are
+      go-live blockers; CAT II/III report-only.
+    user_story:
+      as_a: security engineer
+      i_want: "{{title}}"
+      so_that: the control is verifiable from CI and a regression flips the gate red automatically
+    gherkin: |
+      Scenario: {{ext_id}} compliance check
+        Given the compliance scanner that owns this control has run
+        When normalize.ts maps its findings to {{ext_id}}
+        Then the LL-ID resolves to NotAFinding (no violation present)
+        And merge.ts's gate stays GREEN for CAT I-gated controls
+
+  dash:
+    context: |
+      Carrier & Owner Operator dashboard work (LoadLead_Carrier_OO_Dashboard_Spec.md).
+      Personas remain independent per the spec's Independence Principle; only
+      persona-neutral primitives are shared. 🔴 fields return {available:false}
+      and render "Connect <X>" placeholders — no fabrication.
+    user_story:
+      as_a: Owner Operator or Carrier Admin
+      i_want: "{{title}}"
+      so_that: I can run my haul / fleet / dispatch from one console with honest data states
+    gherkin: |
+      Scenario: {{title}}
+        Given the persona is logged in with a complete profile
+        When their dashboard endpoint is fetched
+        Then every panel renders the spec-shaped payload
+        And unconnected integrations show "Connect <X>", never zero or fabricated values
+
+  hard:
+    context: |
+      Production hardening — boot guards, integration mode resolution, deploy-time
+      contamination scanning, and APP_ENV separation. Ships in every deploy.
+    user_story:
+      as_a: platform engineer
+      i_want: "{{title}}"
+      so_that: a non-live integration mode or stub artifact in a production deploy is refused at boot or at build-time
+    gherkin: |
+      Scenario: {{title}}
+        Given APP_ENV=production is set
+        When the app boots OR the deploy script runs
+        Then any non-live FMCSA/EMAIL/MAPS/PUSH/DIDIT mode triggers BootGuardError + exit 1
+        And the deploy zip is verified to contain no routes/_test or services/integrations/stubs
+
+  jira:
+    context: |
+      The Jira automation pipeline itself (manifest, sync engine, deploy
+      hooks, Smart Commit convention, PR-Jira-ref check). Idempotent by
+      design — second run with no changes makes zero updates.
+    user_story:
+      as_a: platform engineer
+      i_want: "{{title}}"
+      so_that: every commit / deploy / spec item is traceable to its SCRUM issue without manual bookkeeping
+    gherkin: |
+      Scenario: {{title}}
+        Given the Jira automation prerequisites are met (Jira creds in env, GitHub-for-Jira app connected)
+        When a commit lands referencing SCRUM-<n> or the sync runs
+        Then the issue is updated idempotently and human-owned states are not clobbered
+
+  # Epics inherit a thin template — their description is mostly the human-readable
+  # text already in the `epics:` block. We still want the 3-section structure.
+  epic:
+    context: |
+      Top-level workstream — see the per-item description for scope. Stories
+      and sub-tasks below this epic each carry their own 3-section breakdown.
+    user_story:
+      as_a: platform engineer
+      i_want: "{{title}} delivered end-to-end across backend, frontend, and CI"
+      so_that: the workstream is finishable and visibly tracked
+    gherkin: |
+      Scenario: Epic done
+        Given every child Story is Done
+        And every Sub-task under those Stories is Done
+        Then this Epic resolves to Done
 
 # =====================================================================
 # EPICS
