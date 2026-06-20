@@ -378,6 +378,22 @@ def apply_plan(plan: Plan, specs: List[JiraIssueSpec], sync_map: Dict[str, str],
                project_key: str, issuetype_ids: Dict[str, str], status_transitions: Dict[str, str]) -> None:
     by_ext = {s.ext_id: s for s in specs}
 
+    # Resolve issue-type name variants. Jira projects expose sub-tasks under
+    # one of "Sub-task" / "Subtask" / "Sub-Task" depending on project type.
+    # Team-managed projects sometimes don't enable sub-tasks at all — in that
+    # case we fall back to "Task" with a parent link so the hierarchy survives.
+    def resolve_type(t: str) -> Optional[str]:
+        for cand in [t, t.replace("-", ""), t.replace("-", " "),
+                     "Sub-task", "Subtask", "Sub-Task"]:
+            if cand in issuetype_ids:
+                return issuetype_ids[cand]
+        if t in ("Sub-task", "Subtask", "Sub-Task"):
+            fallback = issuetype_ids.get("Task")
+            if fallback:
+                print(f"  ⚠ '{t}' issuetype not in this project — falling back to Task with parent link", file=sys.stderr)
+                return fallback
+        return None
+
     # 1) Create new issues (Epics first, then Stories, then Sub-tasks — so parents exist before children)
     order = {"Epic": 0, "Story": 1, "Task": 2, "Sub-task": 3}
     creates_sorted = sorted(plan.create, key=lambda s: order.get(s.type, 9))
@@ -389,12 +405,16 @@ def apply_plan(plan: Plan, specs: List[JiraIssueSpec], sync_map: Dict[str, str],
             if not parent_key:
                 print(f"  skipping {spec.ext_id}: parent {spec.parent_ext_id} not yet synced", file=sys.stderr)
                 continue
+        typeid = resolve_type(spec.type)
+        if not typeid:
+            print(f"  ✗ no matching issuetype for '{spec.type}' — skipping {spec.ext_id}", file=sys.stderr)
+            continue
         payload: Dict[str, Any] = {
             "fields": {
                 "project": {"key": project_key},
                 "summary": spec.summary,
                 "description": to_adf(spec.description),
-                "issuetype": {"id": issuetype_ids[spec.type]},
+                "issuetype": {"id": typeid},
                 "labels": spec.all_labels,
             }
         }
