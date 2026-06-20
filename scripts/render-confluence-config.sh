@@ -17,6 +17,14 @@ set -euo pipefail
 : "${CONFLUENCE_EMAIL:?missing CONFLUENCE_EMAIL}"
 : "${CONFLUENCE_SPACE_KEY:?missing CONFLUENCE_SPACE_KEY}"
 
+# CONFLUENCE_BASE_URL must be the bare site root (e.g. https://x.atlassian.net)
+# because @markdown-confluence/cli auto-appends /wiki/... — but the REST calls
+# in this script need /wiki explicitly. Normalize both forms so the operator
+# can set either.
+BASE_BARE="${CONFLUENCE_BASE_URL%/}"
+BASE_BARE="${BASE_BARE%/wiki}"
+BASE_REST="${BASE_BARE}/wiki"
+
 PARENT="${CONFLUENCE_PARENT_PAGE_ID:-}"
 : "${CONFLUENCE_API_TOKEN:?missing CONFLUENCE_API_TOKEN (needed to look up space home page)}"
 
@@ -25,7 +33,7 @@ PARENT="${CONFLUENCE_PARENT_PAGE_ID:-}"
 if [ -z "$PARENT" ]; then
   echo "→ no CONFLUENCE_PARENT_PAGE_ID set; resolving home page of space ${CONFLUENCE_SPACE_KEY}…"
   PARENT=$(curl -fsS -u "${CONFLUENCE_EMAIL}:${CONFLUENCE_API_TOKEN}" \
-    "${CONFLUENCE_BASE_URL%/}/api/v2/spaces?keys=${CONFLUENCE_SPACE_KEY}" \
+    "${BASE_REST}/api/v2/spaces?keys=${CONFLUENCE_SPACE_KEY}" \
     | python3 -c 'import json,sys; d=json.load(sys.stdin); r=d.get("results",[]); print(r[0]["homepageId"] if r else "", end="")')
   if [ -z "$PARENT" ]; then
     echo "::error::could not resolve home page for space ${CONFLUENCE_SPACE_KEY}. Verify the space exists and the token can read it."
@@ -38,7 +46,7 @@ cat > .markdown-confluence.json <<JSON
 {
   "folderToPublish": "docs",
   "firstHeadingPageTitle": false,
-  "confluenceBaseUrl": "${CONFLUENCE_BASE_URL}",
+  "confluenceBaseUrl": "${BASE_BARE}",
   "confluenceSpaceKey": "${CONFLUENCE_SPACE_KEY}",
   "atlassianUserName": "${CONFLUENCE_EMAIL}",
   "confluenceParentId": "${PARENT}",
