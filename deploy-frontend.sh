@@ -114,10 +114,14 @@ if [ "$DEPLOY_ENV_TAG" = "prod" ] && [ -z "${DEPLOY_MSG:-}" ]; then
   exit 1
 fi
 DEPLOY_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
-if [ -n "$DEPLOY_SHA" ] && command -v python3 >/dev/null; then
+# Prefer system Python (see deploy-backend.sh for rationale).
+if   [ -x /usr/bin/python3 ];                  then PY=/usr/bin/python3
+elif command -v python3 >/dev/null;            then PY=python3
+else                                                PY=""; fi
+if [ -n "$DEPLOY_SHA" ] && [ -n "$PY" ]; then
   echo ""
   echo "▶  Recording frontend deploy in Jira (best-effort)..."
-  python3 jira/post-deploy.py \
+  "$PY" jira/post-deploy.py \
     --env "$DEPLOY_ENV_TAG" \
     --sha "$DEPLOY_SHA" \
     --message "${DEPLOY_MSG:-}" \

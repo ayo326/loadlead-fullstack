@@ -333,10 +333,16 @@ fi
 
 DEPLOY_ENV_TAG="$APP_ENV"
 DEPLOY_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
-if [ -n "$DEPLOY_SHA" ] && command -v python3 >/dev/null; then
+# Prefer the system Python on macOS — Homebrew Python 3.14 has a broken
+# pyexpat that crashes pyyaml/requests imports. Fall back to whatever
+# python3 is on PATH everywhere else (Linux runners, CI).
+if   [ -x /usr/bin/python3 ];                  then PY=/usr/bin/python3
+elif command -v python3 >/dev/null;            then PY=python3
+else                                                PY=""; fi
+if [ -n "$DEPLOY_SHA" ] && [ -n "$PY" ]; then
   echo ""
   echo "▶  Recording deploy in Jira (best-effort)..."
-  python3 jira/post-deploy.py \
+  "$PY" jira/post-deploy.py \
     --env "$DEPLOY_ENV_TAG" \
     --sha "$DEPLOY_SHA" \
     --message "${DEPLOY_MSG:-}" \
