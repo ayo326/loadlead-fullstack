@@ -1,3 +1,8 @@
+---
+connie-title: Automation — Jira Smart Commits Convention
+connie-publish: true
+---
+
 # Jira Smart Commits — LoadLead Convention
 
 This repo uses Atlassian's [Smart Commits](https://confluence.atlassian.com/fisheye/using-smart-commits-298976812.html)

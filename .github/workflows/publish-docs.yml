@@ -1,0 +1,145 @@
+# Publish /docs to Confluence Cloud on every push to main.
+#
+# Source of truth is the repo. Confluence is a one-way rendered mirror updated
+# only by this workflow. Pages are keyed by the `connie-page-id` injected into
+# each file's front-matter on first publish, so re-runs with no content change
+# create zero new pages and zero new versions.
+#
+# Pull requests trigger a dry-run preview that does NOT call Confluence — the
+# job prints what would be created/updated against a synthetic config, so
+# reviewers can spot front-matter mistakes before merge.
+#
+# Secrets (set as repo secrets, never committed):
+#   CONFLUENCE_BASE_URL        e.g. https://loadlleadllc.atlassian.net/wiki
+#   CONFLUENCE_EMAIL           same as JIRA_EMAIL
+#   CONFLUENCE_API_TOKEN       same token as Jira IF its scopes include
+#                              read:confluence-content.all + write:confluence-content
+#   CONFLUENCE_SPACE_KEY       e.g. ENG
+# Repo variable (optional):
+#   CONFLUENCE_PARENT_PAGE_ID  pin docs under an existing page; if omitted,
+#                              they land at the space root
+
+name: Publish docs to Confluence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.markdown-confluence.json'
+      - '.github/workflows/publish-docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.markdown-confluence.json'
+      - '.github/workflows/publish-docs.yml'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run only (no Confluence calls)?"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # so the bot can commit `connie-page-id` injections back
+  pull-requests: read
+
+concurrency:
+  group: publish-docs
+  cancel-in-progress: false   # never abort a half-publish — let it finish
+
+jobs:
+  publish:
+    name: ${{ github.event_name == 'pull_request' && 'preview (dry-run)' || 'publish' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need write access + the merge commit to push the page-id injections
+          # back after a successful publish.
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Install @markdown-confluence/cli
+        run: npm install --no-save @markdown-confluence/cli@latest
+
+      - name: Verify required secrets are present (push to main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          CONFLUENCE_BASE_URL:   ${{ secrets.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL:      ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN:  ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_SPACE_KEY:  ${{ secrets.CONFLUENCE_SPACE_KEY }}
+        run: |
+          missing=""
+          for var in CONFLUENCE_BASE_URL CONFLUENCE_EMAIL CONFLUENCE_API_TOKEN CONFLUENCE_SPACE_KEY; do
+            if [ -z "${!var:-}" ]; then missing="$missing $var"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::missing required secrets:$missing"
+            echo "Set them at Settings → Secrets → Actions. CONFLUENCE_PARENT_PAGE_ID is optional (repo variable)."
+            exit 1
+          fi
+          echo "✓ all required Confluence secrets present"
+
+      - name: Dry-run preview (PRs + workflow_dispatch dry_run + missing secrets)
+        if: |
+          github.event_name == 'pull_request'
+          || (github.event_name == 'workflow_dispatch' && inputs.dry_run == true)
+          || (github.event_name == 'push' && secrets.CONFLUENCE_API_TOKEN == '')
+        env:
+          # Use harmless placeholders so the CLI can render without calling Confluence
+          CONFLUENCE_BASE_URL:       https://example.atlassian.net/wiki
+          CONFLUENCE_EMAIL:          dryrun@example.com
+          CONFLUENCE_API_TOKEN:      dryrun
+          CONFLUENCE_SPACE_KEY:      DRY
+          CONFLUENCE_PARENT_PAGE_ID: "0"
+        run: |
+          echo "── Dry-run preview ──"
+          npx markdown-confluence --dry-run || true
+          echo ""
+          echo "── Front-matter check ──"
+          missing=0
+          for f in $(find docs -name '*.md'); do
+            if ! head -1 "$f" | grep -q '^---$'; then
+              echo "::warning file=$f::missing front-matter (connie-title / connie-publish)"
+              missing=$((missing+1))
+            fi
+          done
+          [ "$missing" -gt 0 ] && echo "::warning::$missing file(s) missing front-matter" || echo "✓ all docs have front-matter"
+
+      - name: Publish to Confluence
+        if: |
+          github.event_name == 'push'
+          && github.ref == 'refs/heads/main'
+          && secrets.CONFLUENCE_API_TOKEN != ''
+        env:
+          CONFLUENCE_BASE_URL:       ${{ secrets.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL:          ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN:      ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_SPACE_KEY:      ${{ secrets.CONFLUENCE_SPACE_KEY }}
+          CONFLUENCE_PARENT_PAGE_ID: ${{ vars.CONFLUENCE_PARENT_PAGE_ID }}
+        run: |
+          echo "── Publishing /docs → Confluence ${CONFLUENCE_SPACE_KEY} ──"
+          npx markdown-confluence
+
+      - name: Commit injected connie-page-id values back
+        # On first publish the tool writes `connie-page-id: <id>` into each
+        # file's front-matter. Persist those so the NEXT push is idempotent.
+        if: |
+          github.event_name == 'push'
+          && github.ref == 'refs/heads/main'
+          && secrets.CONFLUENCE_API_TOKEN != ''
+        run: |
+          if [ -z "$(git status --porcelain docs)" ]; then
+            echo "no front-matter changes to commit"
+            exit 0
+          fi
+          git config user.name  'loadlead-bot'
+          git config user.email 'ci@loadlead.dev'
+          git add docs
+          git commit -m "docs: persist connie-page-id assignments [skip ci]"
+          git push origin HEAD:main

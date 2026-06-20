@@ -1,3 +1,8 @@
+---
+connie-title: Database & Analytics — Operator Provisioning Checklist
+connie-publish: true
+---
+
 # LoadLead Analytics DB — Operator Provisioning Checklist
 
 > Companion to `LoadLead_Analytics_DB_Spec.md`. The application code does **not**
