@@ -178,6 +178,41 @@ families:
         When a commit lands referencing SCRUM-<n> or the sync runs
         Then the issue is updated idempotently and human-owned states are not clobbered
 
+  analytics:
+    context: |
+      Operator-provisioned analytics infrastructure per docs/analytics-db-provisioning.md.
+      Tier 1 (Geospatial) builds the PostGIS replica fed by DynamoDB Streams; Tier 2
+      (Telematics) is gated on a third-party provider. The application code does not
+      provision infrastructure — these are operator tasks that unblock me to wire the
+      analytics replica and dashboards to real data.
+    user_story:
+      as_a: platform engineer
+      i_want: "{{title}} provisioned and verified"
+      so_that: the analytics replica can ingest from DynamoDB Streams and the build-now dashboards stop computing from raw rows
+    gherkin: |
+      Scenario: {{title}}
+        Given the AWS / provider prerequisites from docs/analytics-db-provisioning.md
+        When the operator completes the steps for this item
+        Then the deliverable artefact (URL / ARN / extension version / handshake)
+          is captured in the ticket and handed to engineering
+
+  admin:
+    context: |
+      Business / legal / go-to-market operational task. Not part of the application
+      build, but tracked in the same backlog so blockers surface alongside engineering
+      work. Once complete, the proof or artefact (filing receipt, license number,
+      contract, plan doc) is attached to the ticket.
+    user_story:
+      as_a: founder / business owner
+      i_want: "{{title}} completed and documented"
+      so_that: LoadLead can operate, market, and bill legally and effectively in the lanes the platform serves
+    gherkin: |
+      Scenario: {{title}}
+        Given the obligation or opportunity that this task addresses
+        When the task is executed by the responsible party
+        Then the artefact / approval / signed agreement is on file
+        And it does not block the dependent engineering or commercial work
+
   # Epics inherit a thin template — their description is mostly the human-readable
   # text already in the `epics:` block. We still want the 3-section structure.
   epic:
@@ -257,6 +292,25 @@ epics:
       All of jira/ + deploy hooks + Smart Commit convention. The
       manifest is itself an issue so the workflow is visible.
     labels: [tooling, jira]
+
+  - ext_id: epic:analytics-db
+    title: Analytics DB (PostGIS replica + telematics integration)
+    description: |
+      Two-tier analytics DB build per LoadLead_Analytics_DB_Spec.md and
+      docs/analytics-db-provisioning.md. Tier 1 (Geospatial) is the build-now
+      PostGIS replica fed by DynamoDB Streams. Tier 2 (Telematics) is gated on
+      third-party providers — until those are connected, every telematics-derived
+      dashboard field renders "Connect <X>" rather than fake zeros.
+    labels: [analytics, infra, postgis]
+
+  - ext_id: epic:admin
+    title: Administrative & Business Operations
+    description: |
+      Non-engineering tasks required to operate, market, and bill. Tracked in the
+      same backlog so legal/commercial blockers stay visible to engineering and
+      vice versa. Each item lands with the artefact (filing receipt, license #,
+      contract, plan doc) attached.
+    labels: [admin, business]
 
 # =====================================================================
 # STORIES + TASKS
@@ -442,3 +496,452 @@ items:
   - { ext_id: jira:deploy-hook, parent_ext_id: epic:jira-automation, type: Story, title: "Deploy-record hooks in deploy-backend.sh + deploy-frontend.sh", status_source: manifest, status: "Done", labels: [tooling, deploy] }
   - { ext_id: jira:smart-commits, parent_ext_id: epic:jira-automation, type: Story, title: ".gitmessage + commit-msg hook + Smart Commit docs", status_source: manifest, status: "Done", labels: [tooling, git] }
   - { ext_id: jira:ci-check,    parent_ext_id: epic:jira-automation, type: Story, title: "CI check: PR must reference SCRUM-<n>",               status_source: manifest, status: "Done", labels: [tooling, ci] }
+
+  # ── EPIC: Analytics DB — Tier 1 (Geospatial, build-now) ────────────────
+  - { ext_id: analytics:tier1, parent_ext_id: epic:analytics-db, type: Story, title: "Tier 1 — Geospatial (PostGIS + DynamoDB Streams, build-now)", status_source: manifest, status: "To Do", labels: [analytics, tier1, infra] }
+  - ext_id: analytics:rds
+    parent_ext_id: analytics:tier1
+    type: Sub-task
+    title: "Provision RDS PostgreSQL 16 with PostGIS (db.t4g.small, gp3 50GB, private VPC)"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, rds]
+    priority_hint: High
+    context: |
+      Stand up the Postgres 16 RDS instance that will host the analytics replica.
+      Same VPC as loadlead-backend-prod, private subnets, no public access.
+      Build-now sizing is db.t4g.small (~$25/mo) — upgrade later if the MV
+      refresh hits CPU limits.
+    user_story:
+      as_a: platform engineer
+      i_want: an RDS instance in the EB VPC with PostGIS available
+      so_that: the stream consumer Lambda can write read models and MVs can be queried by the backend
+    gherkin: |
+      Scenario: RDS PostGIS instance is up
+        Given the AWS Console RDS wizard completed with the build-now config
+        When the DB status reaches "Available"
+        Then `psql` against the endpoint succeeds with the master credentials
+        And `SELECT postgis_full_version();` returns a version string
+  - ext_id: analytics:secret
+    parent_ext_id: analytics:tier1
+    type: Sub-task
+    title: "Store ANALYTICS_DATABASE_URL in Secrets Manager (loadlead/analytics/db)"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, secrets]
+    priority_hint: High
+    context: |
+      Per spec §6 + STIG LL-IA-002: the connection string is a secret. It lives
+      in AWS Secrets Manager (KMS-encrypted), never in `.env` or repo files.
+      The stream consumer Lambda's IAM role reads it via secretsmanager:GetSecretValue
+      scoped to this exact secret ARN.
+    user_story:
+      as_a: security engineer
+      i_want: the DB URL stored in Secrets Manager
+      so_that: no application code or env file ever holds the credential, and rotation can happen without redeploy
+    gherkin: |
+      Scenario: Analytics DB URL is in Secrets Manager
+        Given the RDS instance is Available with the master password issued
+        When the secret loadlead/analytics/db is created with key ANALYTICS_DATABASE_URL
+        Then `aws secretsmanager get-secret-value --secret-id loadlead/analytics/db` returns the URL
+        And no committed file in the repo contains the password
+  - ext_id: analytics:vpc
+    parent_ext_id: analytics:tier1
+    type: Sub-task
+    title: "VPC + security-group rules — port 5432 from EB SG and Lambda SG"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, vpc, networking]
+    priority_hint: High
+    context: |
+      The stream consumer Lambda and the EB backend both need to reach the RDS
+      instance on TCP 5432. The RDS security group only allows traffic from
+      explicitly-trusted SGs. No 0.0.0.0/0.
+    user_story:
+      as_a: platform engineer
+      i_want: tight SG rules allowing only EB + Lambda → RDS:5432
+      so_that: the analytics replica isn't reachable from anywhere else, including the public internet
+    gherkin: |
+      Scenario: SG inbound rules are restrictive
+        Given loadlead-analytics-rds-sg exists
+        When the inbound rules are inspected
+        Then exactly two rules exist (EB SG and Lambda SG), both on TCP 5432
+        And no 0.0.0.0/0 or wide source CIDR is present
+  - ext_id: analytics:iam
+    parent_ext_id: analytics:tier1
+    type: Sub-task
+    title: "IAM role for stream consumer Lambda (read-only DynamoDB + Secrets read)"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, iam, security]
+    priority_hint: High
+    context: |
+      The Lambda function reads DynamoDB Streams and writes to RDS. It must NOT
+      have any write permission on DynamoDB itself — DynamoDB is read-only from
+      the analytics replica's perspective (spec §6, LL-AC-001). Role uses managed
+      policies for VPC + logs plus a tight inline policy for streams + secret.
+    user_story:
+      as_a: security engineer
+      i_want: a Lambda execution role with read-only DynamoDB stream access and a single secret read
+      so_that: a compromised Lambda cannot tamper with the source-of-truth DynamoDB data
+    gherkin: |
+      Scenario: Lambda role is read-only on DynamoDB
+        Given the IAM role loadlead-analytics-stream-consumer-role
+        When its attached policies are inspected
+        Then the inline policy includes ONLY DescribeStream/GetRecords/GetShardIterator/ListStreams + GetSecretValue
+        And no PutItem, UpdateItem, DeleteItem, or wildcard dynamodb:* action is present
+  - ext_id: analytics:streams
+    parent_ext_id: analytics:tier1
+    type: Sub-task
+    title: "Enable DynamoDB Streams on 8 source tables (NEW_AND_OLD_IMAGES)"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, dynamodb, streams]
+    priority_hint: High
+    context: |
+      Tables: LoadLead_Loads, _Offers, _Drivers, _OwnerOperators, _Organizations,
+      _Memberships, _Verifications, _FactoringOptIns. Image type must be
+      NEW_AND_OLD_IMAGES so the consumer can compute deltas. Output: the 8 stream
+      ARNs attached to this ticket — I'll wire each as a Lambda trigger.
+    user_story:
+      as_a: platform engineer
+      i_want: streams enabled on the 8 source tables
+      so_that: every row mutation in DynamoDB flows to the analytics replica within seconds, no polling
+    gherkin: |
+      Scenario: All 8 streams are live with NEW_AND_OLD_IMAGES
+        Given each table has streams enabled via the DynamoDB Console
+        When `aws dynamodb describe-table --table-name <each>` is run
+        Then StreamSpecification.StreamEnabled is true
+        And StreamSpecification.StreamViewType is NEW_AND_OLD_IMAGES
+        And 8 stream ARNs are captured for downstream Lambda wiring
+  - ext_id: analytics:extensions
+    parent_ext_id: analytics:tier1
+    type: Sub-task
+    title: "Enable pg_partman + pg_cron via custom parameter group + reboot"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, postgres, partitioning]
+    priority_hint: Medium
+    context: |
+      Per spec §0: TimescaleDB is not on RDS' allow-list. Use pg_partman (native
+      time-range partitioning for load_status_events) + pg_cron (scheduled MV
+      refresh). Both require shared_preload_libraries on a custom parameter
+      group + a reboot.
+    user_story:
+      as_a: platform engineer
+      i_want: pg_partman + pg_cron available on the analytics DB
+      so_that: load_status_events can be partitioned by time AND the MV refresh schedule runs without an external scheduler
+    gherkin: |
+      Scenario: Extensions are live
+        Given the custom parameter group loadlead-analytics-pg16 is attached and the DB rebooted
+        When `SELECT extname FROM pg_extension WHERE extname IN ('postgis','pg_partman','pg_cron');` runs
+        Then all three rows return
+        And `SELECT postgis_full_version();` returns a non-empty string
+  - ext_id: analytics:build
+    parent_ext_id: analytics:tier1
+    type: Sub-task
+    title: "Build schema migrations + stream consumer Lambda + backfill (engineering)"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, engineering, backend]
+    priority_hint: High
+    context: |
+      Engineering work AFTER the operator-provisioned items above are done.
+      Writes the analytics.* schema (read models, partitioned events, MVs),
+      ships the idempotent stream consumer (upsert keyed by src_version per
+      spec §3), runs the one-time backfill, and wires the OO + Carrier
+      dashboard endpoints to read MVs instead of recomputing per-request.
+    user_story:
+      as_a: platform engineer
+      i_want: the analytics schema + stream consumer + backfill
+      so_that: dashboards switch from per-request recompute to MV-backed reads and stay current within stream lag
+    gherkin: |
+      Scenario: Analytics replica is current
+        Given all Tier 1 provisioning items are Done
+        When the stream consumer Lambda has been running for >10 minutes
+        Then `SELECT count(*) FROM analytics.loads;` is non-zero
+        And the OO dashboard endpoint reads from mv_revenue/mv_rpm_by_lane instead of computing in handler
+
+  # ── EPIC: Analytics DB — Tier 2 (Telematics, gated) ────────────────────
+  - { ext_id: analytics:tier2, parent_ext_id: epic:analytics-db, type: Story, title: "Tier 2 — Telematics (gated on third-party providers)", status_source: manifest, status: "To Do", labels: [analytics, tier2, integration] }
+  - ext_id: analytics:eld
+    parent_ext_id: analytics:tier2
+    type: Sub-task
+    title: "ELD / HOS / GPS provider — pick Motive | Samsara | Geotab | Verizon | Omnitracs | Azuga | Lytx"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, telematics, eld, gated]
+    priority_hint: Low
+    context: |
+      Drives HOS warnings, vehicle GPS, ignition status, idle time, hard-brake
+      events, live ETA. Until the provider is connected, every ELD-derived
+      dashboard field renders {available:false, reason:'integration_not_connected'}.
+      Picking one provider is a commercial decision; I'll integrate whichever
+      you choose.
+    user_story:
+      as_a: founder / business owner
+      i_want: an ELD provider selected, subscribed-to, and credentials handed to engineering
+      so_that: the dashboards' HOS / live-ETA / vehicle-position panels stop showing "Connect ELD"
+    gherkin: |
+      Scenario: ELD provider is live
+        Given a provider is chosen and the sandbox + production credentials are issued
+        When the credentials are stored in Secrets Manager and the adapter ships
+        Then `GET /api/owner-operator/dashboard` returns real hosRemaining / vehiclePosition values
+        And the "Connect ELD" placeholder no longer appears
+  - ext_id: analytics:reefer
+    parent_ext_id: analytics:tier2
+    type: Sub-task
+    title: "Reefer telemetry — Carrier Lynx | Thermo King | ORBCOMM | Skybitz"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, telematics, reefer, gated]
+    priority_hint: Low
+    context: |
+      Drives reefer deviation alerts and cold-chain temperature compliance.
+      Only relevant if you haul refrigerated freight; non-reefer fleets can
+      defer indefinitely without affecting any other dashboard.
+    user_story:
+      as_a: cold-chain shipper / owner operator
+      i_want: trailer-temperature telemetry flowing into the carrier dashboard
+      so_that: a deviation triggers an alert before the freight spoils, not after
+    gherkin: |
+      Scenario: Reefer telemetry is live
+        Given a reefer telemetry provider is connected with device-to-trailer registration done
+        When trailer temperature is sampled
+        Then `alerts.reeferDeviations` returns real readings instead of {available:false}
+  - ext_id: analytics:fuel
+    parent_ext_id: analytics:tier2
+    type: Sub-task
+    title: "Fuel card — Comdata | EFS | WEX | RTS"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, fuel-card, gated]
+    priority_hint: Low
+    context: |
+      Drives fuel-spend and tolls fields in the financial panel. Common
+      providers charge no monthly fee (margin is on transactions); the
+      onboarding gate is underwriting + card issuance (~1 week).
+    user_story:
+      as_a: owner operator / fleet operator
+      i_want: fuel-card transactions ingested into the financial panel
+      so_that: gross revenue is netted against actual fuel cost without manual reconciliation
+    gherkin: |
+      Scenario: Fuel-card data is live
+        Given a provider is connected and merchant code captured
+        When a transaction posts to the card
+        Then it appears in `financial.fuelSpend` within the provider's webhook delay
+  - ext_id: analytics:csa
+    parent_ext_id: analytics:tier2
+    type: Sub-task
+    title: "FMCSA CSA scores — public dataset, no provider"
+    status_source: manifest
+    status: "To Do"
+    labels: [analytics, fmcsa, public-data]
+    priority_hint: Medium
+    context: |
+      Public CSV dataset from FMCSA. Free, no credential. A scheduled job
+      pulls the monthly file, filters to your DOT numbers, and exposes
+      Safety Measurement System scores on the carrier SLA panel. Rate-limited
+      but unblocked end-to-end.
+    user_story:
+      as_a: carrier admin
+      i_want: monthly CSA / SMS scores rendered on the SLA panel
+      so_that: I can monitor BASIC scores trending and intervene before they cross alert thresholds
+    gherkin: |
+      Scenario: CSA scores are ingested
+        Given the FMCSA CSV is downloaded for the current month
+        When the ingest job filters to LoadLead's tracked DOT numbers
+        Then `sla.csaScores` returns real values
+        And the "Connect FMCSA" placeholder is removed
+
+  # ── EPIC: Administrative ────────────────────────────────────────────────
+  - ext_id: admin:reinstate-llc
+    parent_ext_id: epic:admin
+    type: Story
+    title: "Reinstate LLC (file with state, restore good-standing)"
+    status_source: manifest
+    status: "To Do"
+    labels: [admin, legal, business-entity]
+    priority_hint: Highest
+    context: |
+      Restore the LLC to active / good-standing status with the state of
+      formation. Without this, the entity cannot legally contract, hold a
+      brokers license, or accept payments. Blocker for every other admin item.
+    user_story:
+      as_a: founder
+      i_want: the LLC reinstated and the certificate of good standing in hand
+      so_that: every downstream legal / commercial action (brokers license, contracts, banking) can proceed
+    gherkin: |
+      Scenario: LLC is reinstated
+        Given the reinstatement application is filed with the state Secretary of State
+        And any owed back-fees + late penalties are paid
+        When the state issues the reinstatement
+        Then the certificate of good standing is on file
+        And the state's business search shows the LLC as Active
+  - ext_id: admin:brokers-license
+    parent_ext_id: epic:admin
+    type: Story
+    title: "Brokers License (FMCSA MC authority + BMC-84 bond)"
+    status_source: manifest
+    status: "To Do"
+    labels: [admin, legal, regulatory]
+    priority_hint: Highest
+    context: |
+      Federal Motor Carrier Safety Administration property-broker authority.
+      Requires an MC number, the BMC-84 / BMC-85 $75,000 surety bond or trust,
+      a process agent (BOC-3), and ongoing UCR registration. Operating
+      without this is a federal violation and disqualifies the platform from
+      taking any tendered load.
+    user_story:
+      as_a: founder
+      i_want: active MC broker authority and the surety bond posted
+      so_that: LoadLead can lawfully arrange transportation and collect broker fees
+    gherkin: |
+      Scenario: Brokers authority is live
+        Given the OP-1 broker application is filed and FMCSA fee paid
+        And the BMC-84 bond + BOC-3 process agent are filed by the surety/agent
+        When FMCSA's 21-day protest window passes
+        Then the MC number's "broker authority" is shown as ACTIVE on SAFER
+        And UCR registration for the current calendar year is on file
+  - ext_id: admin:legal-compliance
+    parent_ext_id: epic:admin
+    type: Story
+    title: "Legal compliance review (privacy, terms, contracts, claims handling)"
+    status_source: manifest
+    status: "To Do"
+    labels: [admin, legal, compliance]
+    priority_hint: High
+    context: |
+      One-time legal review covering: privacy policy + terms of service shown
+      on loadleadapp.com, broker-carrier contract template, broker-shipper
+      contract template, cargo-claims handling SOP, data-retention policy
+      (matches LL-CR-003), and any state-by-state nexus considerations.
+      Output is a folder of finalised docs + a punch list of compliance gates
+      the engineering side has to honour.
+    user_story:
+      as_a: founder
+      i_want: a freight-broker-aware attorney to sign off on the platform's legal posture
+      so_that: shippers and carriers can be onboarded under defensible contracts and a privacy posture that doesn't expose us
+    gherkin: |
+      Scenario: Legal review is complete
+        Given an attorney with brokerage / freight experience is retained
+        And the policy / contract drafts are reviewed and finalised
+        When the docs are uploaded under the broker auth in DocuSign / equivalent
+        Then privacy policy + ToS are live on loadleadapp.com
+        And the broker-carrier contract is signed by every onboarded carrier before they accept their first load
+  - ext_id: admin:gtm
+    parent_ext_id: epic:admin
+    type: Story
+    title: "GTM strategy (ICP, lanes, segment, channel)"
+    status_source: manifest
+    status: "To Do"
+    labels: [admin, gtm, strategy]
+    priority_hint: Medium
+    context: |
+      Pick the wedge: which freight lane(s), which carrier/shipper segment,
+      which channel mix (direct sales, partner referrals, search). Includes a
+      written go-to-market doc, target shipper list, and a quarterly milestone
+      plan. Feeds the pricing + marketing tickets below.
+    user_story:
+      as_a: founder
+      i_want: a written GTM thesis and target-account list
+      so_that: marketing and sales effort focuses on the wedge that actually converts and the engineering roadmap matches the segment we're selling to
+    gherkin: |
+      Scenario: GTM thesis is documented
+        Given customer-discovery interviews are complete (≥10 shippers + ≥10 carriers in the chosen lane)
+        When the GTM doc is finalised
+        Then it specifies: ICP, lane(s), pricing tier, channel mix, 90-day milestones
+        And the marketing plan + pricing-strategy tickets reference these decisions
+  - ext_id: admin:pricing
+    parent_ext_id: epic:admin
+    type: Story
+    title: "Pricing strategy (broker margin, subscription, factoring tiers)"
+    status_source: manifest
+    status: "To Do"
+    labels: [admin, pricing, monetization]
+    priority_hint: Medium
+    context: |
+      Decide the platform's monetisation model: broker margin %, optional
+      SaaS subscription for carriers/shippers, factoring opt-in margin,
+      premium-feature tiers (analytics MVs, telematics integrations).
+      Includes a comparison vs DAT/Truckstop and a written pricing card.
+    user_story:
+      as_a: founder
+      i_want: a clear pricing card with margins, tiers, and discount thresholds
+      so_that: shippers and carriers know what they pay and Sales can quote without a per-deal escalation
+    gherkin: |
+      Scenario: Pricing card is published
+        Given the GTM thesis (admin:gtm) is in place
+        When the pricing card is finalised and reviewed by legal
+        Then it lists: broker margin %, subscription tiers, factoring margin, discount rules
+        And it is published on loadleadapp.com/pricing
+  - ext_id: admin:factoring
+    parent_ext_id: epic:admin
+    type: Story
+    title: "Factoring partner agreement (BYO + integrated tiers)"
+    status_source: manifest
+    status: "To Do"
+    labels: [admin, factoring, payments]
+    priority_hint: Medium
+    context: |
+      Two-track factoring: BYO (carrier brings their own factor — we just
+      route the invoice) and Integrated (LoadLead has a partnership with a
+      factor and surfaces approval + funded statuses). Requires a partner
+      agreement with a factoring company (e.g. RTS, Apex, OTR). Feeds
+      `factoringPipeline.{submitted,approved,funded}` on the financial panel.
+    user_story:
+      as_a: owner operator / carrier
+      i_want: factoring opt-in available on a load with the partner's rates surfaced
+      so_that: I can choose between quick-pay (factor) and net-30 (direct) at the moment of acceptance
+    gherkin: |
+      Scenario: Integrated factoring is live
+        Given a signed partner agreement with a factor
+        And the partner's API credentials are stored in Secrets Manager
+        When a carrier opts in to factor a delivered load
+        Then `factoringPipeline.submitted` increments
+        And on partner-side approval the issue/comment posts to Jira
+  - ext_id: admin:marketing
+    parent_ext_id: epic:admin
+    type: Story
+    title: "Marketing plan (content, SEO, paid acquisition, partnerships)"
+    status_source: manifest
+    status: "To Do"
+    labels: [admin, marketing]
+    priority_hint: Medium
+    context: |
+      Quarterly marketing plan downstream of GTM: content calendar (broker /
+      carrier audience SEO topics), paid acquisition budget + channel split,
+      partner / referral programme outline, and the success metrics that
+      gate scaling spend.
+    user_story:
+      as_a: founder
+      i_want: a written quarterly marketing plan with channel budgets and KPIs
+      so_that: spend is intentional and we know which channels to double down on after one quarter of data
+    gherkin: |
+      Scenario: Marketing plan is approved
+        Given the GTM thesis defines the ICP and channels
+        When the marketing plan is drafted and reviewed
+        Then it specifies: content calendar, paid budget by channel, partner programme outline, KPIs
+        And it has a kick-off date and a 90-day review checkpoint
+  - ext_id: admin:business-card
+    parent_ext_id: epic:admin
+    type: Story
+    title: "Business cards (founder + sales-ready design + print)"
+    status_source: manifest
+    status: "To Do"
+    labels: [admin, branding]
+    priority_hint: Lowest
+    context: |
+      Printed business cards for in-person meetings (trade shows, shipper
+      visits, carrier expos). Brand-aligned design pulling from the
+      loadleadapp.com palette. Low-priority but quick — typically a same-day
+      order from Moo / Vistaprint once design is approved.
+    user_story:
+      as_a: founder
+      i_want: branded business cards in hand
+      so_that: in-person meetings end with a printed handoff that's brand-consistent
+    gherkin: |
+      Scenario: Business cards delivered
+        Given the design is approved
+        When the print order is placed
+        Then a stack of cards is delivered for the founder + any sales lead
