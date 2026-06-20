@@ -102,3 +102,24 @@ else
   echo "ℹ️  Set CLOUDFRONT_DIST_ID in this script to auto-invalidate cache on future deploys."
   echo "   File is live in S3 but not yet behind CloudFront+SSL."
 fi
+
+# ── Jira deploy record (best-effort) ────────────────────────────────────────
+# Same shape as deploy-backend.sh. Frontend deploys default to env "prod"
+# since this script targets the prod bucket; override via DEPLOY_ENV.
+DEPLOY_ENV_TAG="${DEPLOY_ENV:-prod}"
+if [ "$DEPLOY_ENV_TAG" = "prod" ] && [ -z "${DEPLOY_MSG:-}" ]; then
+  echo ""
+  echo "❌  DEPLOY_MSG is required for production frontend deploys."
+  echo "    Re-run: DEPLOY_MSG=\"why this matters\" bash deploy-frontend.sh"
+  exit 1
+fi
+DEPLOY_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
+if [ -n "$DEPLOY_SHA" ] && command -v python3 >/dev/null; then
+  echo ""
+  echo "▶  Recording frontend deploy in Jira (best-effort)..."
+  python3 jira/post-deploy.py \
+    --env "$DEPLOY_ENV_TAG" \
+    --sha "$DEPLOY_SHA" \
+    --message "${DEPLOY_MSG:-}" \
+    || echo "   (Jira post failed — deploy already succeeded, ignoring)"
+fi

@@ -318,3 +318,27 @@ echo "    FRONTEND_URL               = https://loadleadapp.com"
 echo "    RESEND_API_KEY             = <your-resend-key>"
 
 rm -f "$ZIP"
+
+# ── Jira deploy record ──────────────────────────────────────────────────────
+# Best-effort. The deploy itself has already succeeded by this point — a Jira
+# POST failure will NOT cause the deploy to fail (the script just warns).
+# Prod requires DEPLOY_MSG; the post-deploy script enforces this defensively
+# AND we enforce it here so we don't bother calling Python in the bad case.
+if [ "$APP_ENV" = "production" ] && [ -z "${DEPLOY_MSG:-}" ]; then
+  echo ""
+  echo "❌  DEPLOY_MSG is required for production deploys."
+  echo "    Re-run: DEPLOY_MSG=\"why this matters\" APP_ENV=production bash deploy-backend.sh"
+  exit 1
+fi
+
+DEPLOY_ENV_TAG="$APP_ENV"
+DEPLOY_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
+if [ -n "$DEPLOY_SHA" ] && command -v python3 >/dev/null; then
+  echo ""
+  echo "▶  Recording deploy in Jira (best-effort)..."
+  python3 jira/post-deploy.py \
+    --env "$DEPLOY_ENV_TAG" \
+    --sha "$DEPLOY_SHA" \
+    --message "${DEPLOY_MSG:-}" \
+    || echo "   (Jira post failed — deploy already succeeded, ignoring)"
+fi

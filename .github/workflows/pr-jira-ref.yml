@@ -1,0 +1,55 @@
+# Fail any PR whose commits don't reference at least one SCRUM-<n> key.
+#
+# This is the server-side complement to the local commit-msg hook. The hook
+# only warns (so it never blocks local work); this workflow blocks at the PR
+# gate so merges stay linked to Jira.
+#
+# We scan EVERY commit in the PR's range, not just the head — a SCRUM key
+# anywhere in the range counts.
+name: Jira reference check
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  scrum-key-present:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch the base and head so we can list every commit in the PR range.
+          fetch-depth: 0
+
+      - name: Scan PR commits for SCRUM-<n>
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY:  ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+
+          echo "Scanning $BASE_SHA..$HEAD_SHA for SCRUM-<n> references…"
+          range_log=$(git log "${BASE_SHA}".."${HEAD_SHA}" --pretty=format:'%H%n%s%n%b%n--END--' || true)
+
+          # Combined haystack: commit log + PR title + PR body. A SCRUM key in
+          # any of these counts — PR description references are common when
+          # the commit was authored before the issue existed.
+          haystack=$(printf '%s\n--TITLE--\n%s\n--BODY--\n%s\n' "$range_log" "$PR_TITLE" "$PR_BODY")
+
+          if printf '%s' "$haystack" | grep -Eq 'SCRUM-[0-9]+'; then
+            keys=$(printf '%s' "$haystack" | grep -oE 'SCRUM-[0-9]+' | sort -u | tr '\n' ' ')
+            echo "✓ found SCRUM key(s): $keys"
+            exit 0
+          fi
+
+          echo "::error::No SCRUM-<n> reference found in any commit, PR title, or PR body."
+          echo "Add a key to the PR title or to at least one commit message."
+          echo "Example: 'SCRUM-123: <summary>'"
+          echo "See docs/jira-smart-commits.md for the convention."
+          exit 1

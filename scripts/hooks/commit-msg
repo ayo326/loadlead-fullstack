@@ -1,0 +1,47 @@
+#!/bin/sh
+# LoadLead — commit-msg hook (Smart Commits enforcement).
+#
+# Default behaviour: WARN if the commit message doesn't reference a SCRUM-<n>
+# key. Hard-block only when JIRA_COMMIT_ENFORCE=block is set in the
+# environment (intended for CI / opt-in personal config, not the local repo).
+#
+# Also sanity-checks #command syntax — the GitHub-for-Jira app silently
+# ignores typos, so we catch the common ones early.
+#
+# Install: `bash scripts/hooks/install.sh`
+
+set -e
+
+msg_file="$1"
+msg=$(cat "$msg_file")
+
+# Strip comment lines (the .gitmessage template is full of '# …')
+content=$(printf '%s\n' "$msg" | grep -v '^[[:space:]]*#' || true)
+
+# ── 1. SCRUM key presence ────────────────────────────────────────────────────
+if printf '%s' "$content" | grep -Eq 'SCRUM-[0-9]+'; then
+  : # has a key; fall through
+else
+  printf '\n⚠ no SCRUM-<n> key found in commit message — Jira will not link this commit.\n' >&2
+  printf '  Add a key on the first line: "SCRUM-123: <summary>"\n' >&2
+  if [ "$JIRA_COMMIT_ENFORCE" = "block" ]; then
+    printf '  JIRA_COMMIT_ENFORCE=block is set → refusing the commit.\n' >&2
+    exit 1
+  fi
+  printf '  (Warning only. Set JIRA_COMMIT_ENFORCE=block to require.)\n\n' >&2
+fi
+
+# ── 2. #command syntax sanity check ──────────────────────────────────────────
+# Each #command must be one of the known set. The GitHub-for-Jira app drops
+# unknowns silently, so a typo (#imn-progress) would just not transition.
+valid='comment|time|to-do|in-progress|in-review|done'
+bad=$(printf '%s' "$content" \
+  | grep -oE '#[a-z][a-z-]*' \
+  | grep -vE "^#($valid)$" || true)
+if [ -n "$bad" ]; then
+  printf '⚠ unrecognised Smart Commit command(s): %s\n' "$bad" >&2
+  printf '  Valid: #comment <text> | #time 1h 30m | #to-do | #in-progress | #in-review | #done\n' >&2
+  [ "$JIRA_COMMIT_ENFORCE" = "block" ] && exit 1
+fi
+
+exit 0

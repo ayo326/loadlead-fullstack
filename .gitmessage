@@ -1,0 +1,21 @@
+# SCRUM-<n>: <short summary of what changed>
+#
+# Why this change (the motivation, not a paraphrase of the diff):
+#
+#
+# Optional Smart Commit commands (processed by the GitHub-for-Jira app):
+#   #comment <text>            — adds a comment to the issue
+#   #time 1h 30m <text>        — logs work
+#   #to-do | #in-progress |    — transitions the issue (developer intent)
+#   #in-review | #done
+#
+# Examples:
+#   SCRUM-12 #in-progress wiring carrier-of-record into requireVerifiedCarrier
+#   SCRUM-45 #done #time 2h #comment FMCSA stub added for staging
+#
+# Multiple issues in one commit are fine:
+#   SCRUM-12 SCRUM-45 deploy: staging release
+#
+# Note: Smart Commits require the GitHub-for-Jira app installed on the Jira
+# site and your commit-email linked to your Atlassian account. See
+# docs/jira-smart-commits.md for setup details.

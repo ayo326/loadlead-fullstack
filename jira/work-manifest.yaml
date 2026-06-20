@@ -1,0 +1,280 @@
+# LoadLead — Canonical Work Manifest (Jira Sync Input)
+# =====================================================================
+# Single source of truth for what gets synced into the SCRUM project on
+# Jira Cloud. Each entry has:
+#
+#   ext_id            : stable string identifier — survives across runs,
+#                       so sync is idempotent. Format: <family>:<key>.
+#                       Examples: refactor:carrier-of-record, test:A1,
+#                       stig:LL-IA-002, dashboard:1.4-tendered.
+#   title             : short summary (becomes issue title).
+#   description       : multi-line markdown — sync.py converts to ADF.
+#   type              : Epic | Story | Task | Sub-task
+#   parent_ext_id     : ext_id of parent (Sub-task needs parent;
+#                       Tasks under a Story optionally have one).
+#   labels            : extra labels (extid:<ext_id> is added automatically).
+#   links             : list of ext_ids this issue "relates to".
+#   status_source     :
+#     - manifest      → status field below is authoritative
+#     - test-results  → look up by `lookup_key` in test-results.json
+#                       (pass→Done, fail→To Do, blocked→To Do, absent→To Do)
+#     - compliance    → look up LL-ID in compliance-results.json
+#                       (NotAFinding→Done, Open→To Do, absent→To Do)
+#     - git           → look for `git_marker` in `git log` (present→Done)
+#   lookup_key        : key used when status_source is test-results/compliance
+#   git_marker        : commit subject-line substring search
+#   status            : default status when status_source is manifest
+#                       (To Do | In Progress | Done)
+#
+# Items are grouped under Epics. The structure here is the contract; the
+# spec docs in the repo are the prose. Updating spec docs does NOT update
+# Jira — updating THIS file does.
+
+# =====================================================================
+# EPICS
+# =====================================================================
+epics:
+
+  - ext_id: epic:carrier-refactor
+    title: Carrier-of-record Refactor
+    description: |
+      Restructure the carrier identity model so every haul has an
+      unambiguous carrier-of-record. Resolves precedence between Owner
+      Operator fleets and Carrier organisations, enforces capability
+      exclusivity, two-gate verification, and the one-parent invariant
+      across both halves of the domain.
+      Source: LoadLead_Reference_Refactored.md §12.
+    labels: [refactor, carrier-of-record]
+
+  - ext_id: epic:test-suite
+    title: Refactor Test Suite (A1–H4 matrix)
+    description: |
+      Eight test families covering the refactor's contract end-to-end.
+      Status auto-synced from test-results.json on every run.
+      Source: LoadLead_Test_Spec.md §4 + §8.
+    labels: [tests, refactor-validation]
+
+  - ext_id: epic:e2e-uat
+    title: System / E2E / UAT / BDD Test Plan
+    description: |
+      Full HE2E (Happy E2E), VE2E (Variant E2E), SEC (Security), REL
+      (Reliability) and UAT/BDD scenarios. Not yet implemented in CI —
+      tracked here so go-live blockers are visible.
+      Source: LoadLead_E2E_System_UAT_BDD_Test_Plan.md.
+    labels: [tests, e2e, uat]
+
+  - ext_id: epic:stig-compliance
+    title: STIG / Security Compliance (LL-* IDs)
+    description: |
+      DISA ASD-STIG-style hardening checklist. Status auto-synced from
+      compliance-results.json (gitleaks/semgrep/oscap/prowler/npm-audit).
+      CAT I open findings are go-live blockers.
+      Source: LoadLead_STIG_Compliance_Checklist.md.
+    labels: [security, stig]
+
+  - ext_id: epic:dashboards
+    title: Carrier & Owner Operator Dashboards
+    description: |
+      One aggregation endpoint per persona; dispatcher + exec views.
+      Personas independent — only persona-neutral primitives shared.
+      Source: LoadLead_Carrier_OO_Dashboard_Spec.md.
+    labels: [feature, dashboards]
+
+  - ext_id: epic:env-hardening
+    title: Environment Hardening / Production Lockdown
+    description: |
+      APP_ENV vs NODE_ENV separation, boot guard, integration mode
+      resolver, deploy-time contamination scan, production self-check.
+    labels: [infra, hardening]
+
+  - ext_id: epic:jira-automation
+    title: Jira Automation (this manifest, sync, deploy hook, Smart Commits)
+    description: |
+      All of jira/ + deploy hooks + Smart Commit convention. The
+      manifest is itself an issue so the workflow is visible.
+    labels: [tooling, jira]
+
+# =====================================================================
+# STORIES + TASKS
+# =====================================================================
+items:
+
+  # ── EPIC: Carrier-of-record Refactor ────────────────────────────────
+  - { ext_id: refactor:types,        parent_ext_id: epic:carrier-refactor, type: Story, title: "Types & enums for VerificationEntityType, CarrierOfRecord, idvStatus, isSelf", status_source: git, git_marker: "carrier-of-record refactor", labels: [refactor, types] }
+  - { ext_id: refactor:carrier-of-record, parent_ext_id: epic:carrier-refactor, type: Story, title: "services/carrierOfRecord.ts — resolve(driver) precedence + isCarrierVerified gate", status_source: git, git_marker: "carrier-of-record refactor", labels: [refactor], links: [test:A1, test:A2, test:A3, test:A4, test:A5, test:A6, test:A7, test:A8] }
+  - { ext_id: refactor:gates,        parent_ext_id: epic:carrier-refactor, type: Story, title: "requireVerifiedCarrier two-gate (authority + per-person idvStatus)", status_source: git, git_marker: "carrier-of-record refactor", labels: [refactor], links: [test:B1, test:B2, test:B3, test:B4, test:B5, test:B6, test:B7, test:B8, test:B9, test:B10, test:B11] }
+  - { ext_id: refactor:capabilities, parent_ext_id: epic:carrier-refactor, type: Story, title: "Org capability exclusivity (SHIPPER+CARRIER mutually exclusive)", status_source: git, git_marker: "carrier-of-record refactor", labels: [refactor], links: [test:C1, test:C2, test:C3, test:C4, test:C5, test:C6, test:C7, test:C8, test:C9, test:C10, test:C11] }
+  - { ext_id: refactor:self-driver,  parent_ext_id: epic:carrier-refactor, type: Story, title: "OO self-driver auto-creation + lazy backfill (idempotent)", status_source: git, git_marker: "carrier-of-record refactor", labels: [refactor], links: [test:D1, test:D2, test:D6] }
+  - { ext_id: refactor:one-parent,   parent_ext_id: epic:carrier-refactor, type: Story, title: "One-parent invariant — fleet ⊕ carrier-org membership", status_source: git, git_marker: "carrier-of-record refactor", labels: [refactor], links: [test:E4, test:E5, test:E7] }
+  - { ext_id: refactor:carrier-admin, parent_ext_id: epic:carrier-refactor, type: Story, title: "CARRIER_ADMIN persona — atomic User+Org+Membership signup", status_source: git, git_marker: "carrier-of-record refactor", labels: [refactor] }
+  - { ext_id: refactor:invoice-payee, parent_ext_id: epic:carrier-refactor, type: Story, title: "resolveInvoicePayee routed through carrier-of-record", status_source: git, git_marker: "carrier-of-record refactor", labels: [refactor], links: [test:F1, test:F2, test:F3, test:F4, test:F5, test:F6] }
+
+  # ── EPIC: Refactor Test Suite — Stories per family, Sub-tasks per ID
+  - { ext_id: test:section-A, parent_ext_id: epic:test-suite, type: Story, title: "Section A — Carrier-of-record resolution", labels: [tests, A] }
+  - { ext_id: test:A1, parent_ext_id: test:section-A, type: Sub-task, title: "Fleet driver resolves to OWNER_OPERATOR", status_source: test-results, lookup_key: A1 }
+  - { ext_id: test:A2, parent_ext_id: test:section-A, type: Sub-task, title: "OO self-driver resolves to OWNER_OPERATOR", status_source: test-results, lookup_key: A2 }
+  - { ext_id: test:A3, parent_ext_id: test:section-A, type: Sub-task, title: "Carrier-org member resolves to CARRIER_ORG", status_source: test-results, lookup_key: A3 }
+  - { ext_id: test:A4, parent_ext_id: test:section-A, type: Sub-task, title: "Member of non-carrier org only → null", status_source: test-results, lookup_key: A4 }
+  - { ext_id: test:A5, parent_ext_id: test:section-A, type: Sub-task, title: "Unaffiliated driver → null", status_source: test-results, lookup_key: A5 }
+  - { ext_id: test:A6, parent_ext_id: test:section-A, type: Sub-task, title: "Both parents → OWNER_OPERATOR (precedence)", status_source: test-results, lookup_key: A6 }
+  - { ext_id: test:A7, parent_ext_id: test:section-A, type: Sub-task, title: "Inactive membership ignored → null", status_source: test-results, lookup_key: A7 }
+  - { ext_id: test:A8, parent_ext_id: test:section-A, type: Sub-task, title: "Mixed memberships → the carrier org", status_source: test-results, lookup_key: A8 }
+
+  - { ext_id: test:section-B, parent_ext_id: epic:test-suite, type: Story, title: "Section B — Verification gates", labels: [tests, B] }
+  - { ext_id: test:B1,  parent_ext_id: test:section-B, type: Sub-task, title: "Both gates pass → next()", status_source: test-results, lookup_key: B1 }
+  - { ext_id: test:B2,  parent_ext_id: test:section-B, type: Sub-task, title: "Identity PENDING → 403 identity", status_source: test-results, lookup_key: B2 }
+  - { ext_id: test:B3,  parent_ext_id: test:section-B, type: Sub-task, title: "Authority PENDING → 403 carrier", status_source: test-results, lookup_key: B3 }
+  - { ext_id: test:B4,  parent_ext_id: test:section-B, type: Sub-task, title: "Unaffiliated → 403 UNAFFILIATED", status_source: test-results, lookup_key: B4 }
+  - { ext_id: test:B5,  parent_ext_id: test:section-B, type: Sub-task, title: "Expired authority → 403", status_source: test-results, lookup_key: B5 }
+  - { ext_id: test:B6,  parent_ext_id: test:section-B, type: Sub-task, title: "OO self-haul passes both gates → 200", status_source: test-results, lookup_key: B6 }
+  - { ext_id: test:B7,  parent_ext_id: test:section-B, type: Sub-task, title: "isCarrierVerified status passthrough", status_source: test-results, lookup_key: B7 }
+  - { ext_id: test:B8,  parent_ext_id: test:section-B, type: Sub-task, title: "Regression: admin-reject fails carrier", status_source: test-results, lookup_key: B8 }
+  - { ext_id: test:B9,  parent_ext_id: test:section-B, type: Sub-task, title: "idvStatus mirrored onto User", status_source: test-results, lookup_key: B9 }
+  - { ext_id: test:B10, parent_ext_id: test:section-B, type: Sub-task, title: "submitCarrierDocs fires KYB only", status_source: test-results, lookup_key: B10 }
+  - { ext_id: test:B11, parent_ext_id: test:section-B, type: Sub-task, title: "submitDriverIdv keyed by userId", status_source: test-results, lookup_key: B11 }
+
+  - { ext_id: test:section-C, parent_ext_id: epic:test-suite, type: Story, title: "Section C — Org capability & exclusivity", labels: [tests, C] }
+  - { ext_id: test:C1,  parent_ext_id: test:section-C, type: Sub-task, title: "Create [SHIPPER] → ok",                  status_source: test-results, lookup_key: C1 }
+  - { ext_id: test:C2,  parent_ext_id: test:section-C, type: Sub-task, title: "Create [CARRIER] → ok",                  status_source: test-results, lookup_key: C2 }
+  - { ext_id: test:C3,  parent_ext_id: test:section-C, type: Sub-task, title: "Create [RECEIVER] → ok",                 status_source: test-results, lookup_key: C3 }
+  - { ext_id: test:C4,  parent_ext_id: test:section-C, type: Sub-task, title: "Create [SHIPPER,CARRIER] → 400",         status_source: test-results, lookup_key: C4 }
+  - { ext_id: test:C5,  parent_ext_id: test:section-C, type: Sub-task, title: "Create [SHIPPER,RECEIVER] → ok",         status_source: test-results, lookup_key: C5 }
+  - { ext_id: test:C6,  parent_ext_id: test:section-C, type: Sub-task, title: "Create [CARRIER,RECEIVER] → ok",         status_source: test-results, lookup_key: C6 }
+  - { ext_id: test:C7,  parent_ext_id: test:section-C, type: Sub-task, title: "Create [] empty → 400",                  status_source: test-results, lookup_key: C7 }
+  - { ext_id: test:C8,  parent_ext_id: test:section-C, type: Sub-task, title: "Add CARRIER to [SHIPPER] on update → 400", status_source: test-results, lookup_key: C8 }
+  - { ext_id: test:C9,  parent_ext_id: test:section-C, type: Sub-task, title: "CARRIER-only org posts load → 403",      status_source: test-results, lookup_key: C9 }
+  - { ext_id: test:C10, parent_ext_id: test:section-C, type: Sub-task, title: "SHIPPER-only org onboards driver → 403", status_source: test-results, lookup_key: C10 }
+  - { ext_id: test:C11, parent_ext_id: test:section-C, type: Sub-task, title: "Capability invariant holds on direct write", status_source: test-results, lookup_key: C11 }
+
+  - { ext_id: test:section-D, parent_ext_id: epic:test-suite, type: Story, title: "Section D — Owner Operator self-haul", labels: [tests, D] }
+  - { ext_id: test:D1,  parent_ext_id: test:section-D, type: Sub-task, title: "Self-driver auto-created on OO signup",  status_source: test-results, lookup_key: D1 }
+  - { ext_id: test:D2,  parent_ext_id: test:section-D, type: Sub-task, title: "Lazy backfill is idempotent (concurrent)", status_source: test-results, lookup_key: D2 }
+  - { ext_id: test:D3,  parent_ext_id: test:section-D, type: Sub-task, title: "Broadcast reaches solo OO via self-driver", status_source: test-results, lookup_key: D3 }
+  - { ext_id: test:D4,  parent_ext_id: test:section-D, type: Sub-task, title: "Accept with no driverId → self-driver",  status_source: test-results, lookup_key: D4 }
+  - { ext_id: test:D5,  parent_ext_id: test:section-D, type: Sub-task, title: "Accept with driverId → that fleet driver", status_source: test-results, lookup_key: D5 }
+  - { ext_id: test:D6,  parent_ext_id: test:section-D, type: Sub-task, title: "Self-driver guarded against removal",    status_source: test-results, lookup_key: D6 }
+  - { ext_id: test:D7,  parent_ext_id: test:section-D, type: Sub-task, title: "Self-driver cannot be re-parented",      status_source: test-results, lookup_key: D7 }
+  - { ext_id: test:D8,  parent_ext_id: test:section-D, type: Sub-task, title: "History includes self-driver loads",     status_source: test-results, lookup_key: D8 }
+
+  - { ext_id: test:section-E, parent_ext_id: epic:test-suite, type: Story, title: "Section E — Driver onboarding & one-parent invariant", labels: [tests, E] }
+  - { ext_id: test:E1,  parent_ext_id: test:section-E, type: Sub-task, title: "Self-signup → unaffiliated driver",      status_source: test-results, lookup_key: E1 }
+  - { ext_id: test:E2,  parent_ext_id: test:section-E, type: Sub-task, title: "Unaffiliated cannot haul",               status_source: test-results, lookup_key: E2 }
+  - { ext_id: test:E3,  parent_ext_id: test:section-E, type: Sub-task, title: "Direct org setup creates driver + membership", status_source: test-results, lookup_key: E3 }
+  - { ext_id: test:E4,  parent_ext_id: test:section-E, type: Sub-task, title: "ORG_DRIVER invite requires CARRIER",     status_source: test-results, lookup_key: E4 }
+  - { ext_id: test:E5,  parent_ext_id: test:section-E, type: Sub-task, title: "One-parent invariant in acceptInvitation", status_source: test-results, lookup_key: E5 }
+  - { ext_id: test:E6,  parent_ext_id: test:section-E, type: Sub-task, title: "One-parent invariant in fleet/accept-invite", status_source: test-results, lookup_key: E6 }
+  - { ext_id: test:E7,  parent_ext_id: test:section-E, type: Sub-task, title: "Exactly one parent after onboarding",    status_source: test-results, lookup_key: E7 }
+  - { ext_id: test:E8,  parent_ext_id: test:section-E, type: Sub-task, title: "IDV required before first accept",       status_source: test-results, lookup_key: E8 }
+
+  - { ext_id: test:section-F, parent_ext_id: epic:test-suite, type: Story, title: "Section F — Invoice payee & UI contract", labels: [tests, F] }
+  - { ext_id: test:F1, parent_ext_id: test:section-F, type: Sub-task, title: "Fleet driver, no factoring → OO payee", status_source: test-results, lookup_key: F1 }
+  - { ext_id: test:F2, parent_ext_id: test:section-F, type: Sub-task, title: "Carrier-org driver → org payee",        status_source: test-results, lookup_key: F2 }
+  - { ext_id: test:F3, parent_ext_id: test:section-F, type: Sub-task, title: "OO self-driver → OO payee",             status_source: test-results, lookup_key: F3 }
+  - { ext_id: test:F4, parent_ext_id: test:section-F, type: Sub-task, title: "Factoring SUBMITTED → FACTOR payee",    status_source: test-results, lookup_key: F4 }
+  - { ext_id: test:F5, parent_ext_id: test:section-F, type: Sub-task, title: "Returns full CarrierOfRecord entity",   status_source: test-results, lookup_key: F5 }
+  - { ext_id: test:F6, parent_ext_id: test:section-F, type: Sub-task, title: "OO /verification/idv contract exists",  status_source: test-results, lookup_key: F6 }
+
+  - { ext_id: test:section-G, parent_ext_id: epic:test-suite, type: Story, title: "Section G — Authorization / IDOR matrix", labels: [tests, G, security] }
+  - { ext_id: test:G1, parent_ext_id: test:section-G, type: Sub-task, title: "SHIPPER role blocked from accept route", status_source: test-results, lookup_key: G1 }
+  - { ext_id: test:G2, parent_ext_id: test:section-G, type: Sub-task, title: "Driver A cannot access Driver B load/POD", status_source: test-results, lookup_key: G2 }
+  - { ext_id: test:G3, parent_ext_id: test:section-G, type: Sub-task, title: "OO cannot accept for non-fleet driver",  status_source: test-results, lookup_key: G3 }
+  - { ext_id: test:G4, parent_ext_id: test:section-G, type: Sub-task, title: "Admin cannot onboard into other org",     status_source: test-results, lookup_key: G4 }
+  - { ext_id: test:G5, parent_ext_id: test:section-G, type: Sub-task, title: "Cross-tenant load access blocked",        status_source: test-results, lookup_key: G5 }
+  - { ext_id: test:G6, parent_ext_id: test:section-G, type: Sub-task, title: "Receiver sees only its loads",            status_source: test-results, lookup_key: G6 }
+  - { ext_id: test:G7, parent_ext_id: test:section-G, type: Sub-task, title: "Non-admin blocked from /api/admin/*",     status_source: test-results, lookup_key: G7 }
+
+  - { ext_id: test:section-H, parent_ext_id: epic:test-suite, type: Story, title: "Section H — Concurrency races (Tier 1)", labels: [tests, H, concurrency] }
+  - { ext_id: test:H1, parent_ext_id: test:section-H, type: Sub-task, title: "Double-accept → exactly one wins",        status_source: test-results, lookup_key: H1 }
+  - { ext_id: test:H2, parent_ext_id: test:section-H, type: Sub-task, title: "Self vs fleet accept → exactly one wins", status_source: test-results, lookup_key: H2 }
+  - { ext_id: test:H3, parent_ext_id: test:section-H, type: Sub-task, title: "Admin bootstrap race → one admin",        status_source: test-results, lookup_key: H3 }
+  - { ext_id: test:H4, parent_ext_id: test:section-H, type: Sub-task, title: "Re-parent race → invariant holds",        status_source: test-results, lookup_key: H4 }
+
+  # ── EPIC: System E2E / UAT — kept high-level here. Each test family becomes a Story; tasks are TO DO until CI exists.
+  - { ext_id: e2e:HE2E, parent_ext_id: epic:e2e-uat, type: Story, title: "HE2E — Happy-path E2E (signup → post → match → accept → deliver)", status_source: manifest, status: "To Do", labels: [tests, e2e, happy] }
+  - { ext_id: e2e:VE2E, parent_ext_id: epic:e2e-uat, type: Story, title: "VE2E — Variant E2E (POD, factoring, OO, carrier-admin variants)",   status_source: manifest, status: "To Do", labels: [tests, e2e, variant] }
+  - { ext_id: e2e:SEC,  parent_ext_id: epic:e2e-uat, type: Story, title: "SEC — Security flows (auth, IDOR, headers, XSS, CSRF)",             status_source: manifest, status: "To Do", labels: [tests, security] }
+  - { ext_id: e2e:REL,  parent_ext_id: epic:e2e-uat, type: Story, title: "REL — Reliability (Didit down, Maps down, partial write, push 410)", status_source: manifest, status: "To Do", labels: [tests, reliability] }
+  - { ext_id: e2e:UAT,  parent_ext_id: epic:e2e-uat, type: Story, title: "UAT — Stakeholder acceptance scenarios",                            status_source: manifest, status: "To Do", labels: [tests, uat] }
+  - { ext_id: e2e:BDD,  parent_ext_id: epic:e2e-uat, type: Story, title: "BDD — Gherkin specs against the SEC + UAT scenarios",               status_source: manifest, status: "To Do", labels: [tests, bdd] }
+
+  # ── EPIC: STIG — One Sub-task per LL-ID. Status from compliance-results.json.
+  # CAT level is in the description, family in labels.
+  - { ext_id: stig:family-IA, parent_ext_id: epic:stig-compliance, type: Story, title: "IA — Identification & Authentication", labels: [security, IA] }
+  - { ext_id: stig:LL-IA-001, parent_ext_id: stig:family-IA, type: Sub-task, title: "Passwords stored as cryptographic hashes (bcrypt ≥ 12) [CAT II]", status_source: compliance, lookup_key: LL-IA-001 }
+  - { ext_id: stig:LL-IA-002, parent_ext_id: stig:family-IA, type: Sub-task, title: "No hardcoded credentials/secrets in code [CAT I]",               status_source: compliance, lookup_key: LL-IA-002 }
+  - { ext_id: stig:LL-IA-003, parent_ext_id: stig:family-IA, type: Sub-task, title: "Account lockout / throttling on auth failure [CAT II]",          status_source: compliance, lookup_key: LL-IA-003 }
+  - { ext_id: stig:LL-IA-004, parent_ext_id: stig:family-IA, type: Sub-task, title: "MFA available/enforced for privileged accounts [CAT II]",        status_source: compliance, lookup_key: LL-IA-004 }
+  - { ext_id: stig:LL-IA-005, parent_ext_id: stig:family-IA, type: Sub-task, title: "Setup / reset tokens are single-use + TTL [CAT II]",             status_source: compliance, lookup_key: LL-IA-005 }
+
+  - { ext_id: stig:family-SM, parent_ext_id: epic:stig-compliance, type: Story, title: "SM — Session Management", labels: [security, SM] }
+  - { ext_id: stig:LL-SM-001, parent_ext_id: stig:family-SM, type: Sub-task, title: "Session cookies httpOnly + Secure + SameSite [CAT II]",   status_source: compliance, lookup_key: LL-SM-001 }
+  - { ext_id: stig:LL-SM-002, parent_ext_id: stig:family-SM, type: Sub-task, title: "Session expiration + inactivity timeout [CAT II]",        status_source: compliance, lookup_key: LL-SM-002 }
+  - { ext_id: stig:LL-SM-003, parent_ext_id: stig:family-SM, type: Sub-task, title: "Logout terminates session [CAT II]",                       status_source: compliance, lookup_key: LL-SM-003 }
+
+  - { ext_id: stig:family-AC, parent_ext_id: epic:stig-compliance, type: Story, title: "AC — Access Control / Authorization", labels: [security, AC, CAT-I] }
+  - { ext_id: stig:LL-AC-001, parent_ext_id: stig:family-AC, type: Sub-task, title: "RBAC / least privilege on every protected route [CAT I]", status_source: compliance, lookup_key: LL-AC-001 }
+  - { ext_id: stig:LL-AC-002, parent_ext_id: stig:family-AC, type: Sub-task, title: "Object-level authorization (no IDOR) [CAT I]",            status_source: compliance, lookup_key: LL-AC-002 }
+  - { ext_id: stig:LL-AC-003, parent_ext_id: stig:family-AC, type: Sub-task, title: "Domain invariants enforced server-side [CAT I]",          status_source: compliance, lookup_key: LL-AC-003 }
+  - { ext_id: stig:LL-AC-004, parent_ext_id: stig:family-AC, type: Sub-task, title: "Non-privileged users cannot reach /api/admin/* [CAT I]",  status_source: compliance, lookup_key: LL-AC-004 }
+
+  - { ext_id: stig:family-IV, parent_ext_id: epic:stig-compliance, type: Story, title: "IV — Input Validation & Injection", labels: [security, IV] }
+  - { ext_id: stig:LL-IV-001, parent_ext_id: stig:family-IV, type: Sub-task, title: "Protected from command injection [CAT I]",      status_source: compliance, lookup_key: LL-IV-001 }
+  - { ext_id: stig:LL-IV-002, parent_ext_id: stig:family-IV, type: Sub-task, title: "Protected from SQL/NoSQL injection [CAT I]",    status_source: compliance, lookup_key: LL-IV-002 }
+  - { ext_id: stig:LL-IV-003, parent_ext_id: stig:family-IV, type: Sub-task, title: "All input validated [CAT II]",                  status_source: compliance, lookup_key: LL-IV-003 }
+  - { ext_id: stig:LL-IV-004, parent_ext_id: stig:family-IV, type: Sub-task, title: "Protected from XSS / canonicalization [CAT II]", status_source: compliance, lookup_key: LL-IV-004 }
+  - { ext_id: stig:LL-IV-005, parent_ext_id: stig:family-IV, type: Sub-task, title: "File uploads validated (MIME/size/magic-byte) [CAT II]", status_source: compliance, lookup_key: LL-IV-005 }
+  - { ext_id: stig:LL-IV-006, parent_ext_id: stig:family-IV, type: Sub-task, title: "Protected from SSRF [CAT II]",                  status_source: compliance, lookup_key: LL-IV-006 }
+
+  - { ext_id: stig:family-CR, parent_ext_id: epic:stig-compliance, type: Story, title: "CR — Cryptography & Data Protection", labels: [security, CR] }
+  - { ext_id: stig:LL-CR-001, parent_ext_id: stig:family-CR, type: Sub-task, title: "TLS for all data in transit (HSTS, 1.2+) [CAT I]", status_source: compliance, lookup_key: LL-CR-001 }
+  - { ext_id: stig:LL-CR-002, parent_ext_id: stig:family-CR, type: Sub-task, title: "Encryption at rest (DynamoDB, S3 SSE) [CAT II]",   status_source: compliance, lookup_key: LL-CR-002 }
+  - { ext_id: stig:LL-CR-003, parent_ext_id: stig:family-CR, type: Sub-task, title: "PII/KYC data minimized + protected [CAT II]",      status_source: compliance, lookup_key: LL-CR-003 }
+  - { ext_id: stig:LL-CR-004, parent_ext_id: stig:family-CR, type: Sub-task, title: "Webhook integrity (HMAC) + race-free writes [CAT II]", status_source: compliance, lookup_key: LL-CR-004 }
+
+  - { ext_id: stig:family-AU, parent_ext_id: epic:stig-compliance, type: Story, title: "AU — Audit & Logging", labels: [security, AU] }
+  - { ext_id: stig:LL-AU-001, parent_ext_id: stig:family-AU, type: Sub-task, title: "No sensitive data / stack traces in errors [CAT II]", status_source: compliance, lookup_key: LL-AU-001 }
+  - { ext_id: stig:LL-AU-002, parent_ext_id: stig:family-AU, type: Sub-task, title: "Audit security-relevant events [CAT II]",            status_source: compliance, lookup_key: LL-AU-002 }
+  - { ext_id: stig:LL-AU-003, parent_ext_id: stig:family-AU, type: Sub-task, title: "Logs contain no secrets/PII [CAT II]",               status_source: compliance, lookup_key: LL-AU-003 }
+  - { ext_id: stig:LL-AU-004, parent_ext_id: stig:family-AU, type: Sub-task, title: "Log timestamps UTC + retention defined [CAT III]",   status_source: compliance, lookup_key: LL-AU-004 }
+
+  - { ext_id: stig:family-CM, parent_ext_id: epic:stig-compliance, type: Story, title: "CM — Configuration & Hardening", labels: [security, CM] }
+  - { ext_id: stig:LL-CM-001, parent_ext_id: stig:family-CM, type: Sub-task, title: "No test/stub/debug code in production [CAT II]",  status_source: compliance, lookup_key: LL-CM-001 }
+  - { ext_id: stig:LL-CM-002, parent_ext_id: stig:family-CM, type: Sub-task, title: "Security headers (Helmet, CSP, HSTS) [CAT II]",    status_source: compliance, lookup_key: LL-CM-002 }
+  - { ext_id: stig:LL-CM-003, parent_ext_id: stig:family-CM, type: Sub-task, title: "CORS restricted to ALLOWED_ORIGINS [CAT II]",      status_source: compliance, lookup_key: LL-CM-003 }
+  - { ext_id: stig:LL-CM-004, parent_ext_id: stig:family-CM, type: Sub-task, title: "DoS / resource exhaustion controls [CAT II]",      status_source: compliance, lookup_key: LL-CM-004 }
+  - { ext_id: stig:LL-CM-005, parent_ext_id: stig:family-CM, type: Sub-task, title: "No verbose version disclosure [CAT III]",         status_source: compliance, lookup_key: LL-CM-005 }
+
+  - { ext_id: stig:family-SC, parent_ext_id: epic:stig-compliance, type: Story, title: "SC — Supply Chain", labels: [security, SC] }
+  - { ext_id: stig:LL-SC-001, parent_ext_id: stig:family-SC, type: Sub-task, title: "No known-vulnerable components [CAT II]",          status_source: compliance, lookup_key: LL-SC-001 }
+  - { ext_id: stig:LL-SC-002, parent_ext_id: stig:family-SC, type: Sub-task, title: "SBOM produced + reviewed [CAT III]",               status_source: compliance, lookup_key: LL-SC-002 }
+  - { ext_id: stig:LL-SC-003, parent_ext_id: stig:family-SC, type: Sub-task, title: "Dependency integrity (lockfile + npm ci) [CAT II]", status_source: compliance, lookup_key: LL-SC-003 }
+
+  - { ext_id: stig:family-AV, parent_ext_id: epic:stig-compliance, type: Story, title: "AV — Availability & Resilience", labels: [security, AV] }
+  - { ext_id: stig:LL-AV-001, parent_ext_id: stig:family-AV, type: Sub-task, title: "Backups for recovery (DDB PITR, S3 versioning) [CAT III]", status_source: compliance, lookup_key: LL-AV-001 }
+  - { ext_id: stig:LL-AV-002, parent_ext_id: stig:family-AV, type: Sub-task, title: "Graceful failure on dependency outage [CAT II]",  status_source: compliance, lookup_key: LL-AV-002 }
+
+  - { ext_id: stig:family-TP, parent_ext_id: epic:stig-compliance, type: Story, title: "TP — Third-party Integration", labels: [security, TP] }
+  - { ext_id: stig:LL-TP-001, parent_ext_id: stig:family-TP, type: Sub-task, title: "Non-prod isolated from live external services [CAT II]", status_source: compliance, lookup_key: LL-TP-001 }
+  - { ext_id: stig:LL-TP-002, parent_ext_id: stig:family-TP, type: Sub-task, title: "API keys least-privilege + rotated [CAT II]",      status_source: compliance, lookup_key: LL-TP-002 }
+
+  # ── EPIC: Dashboards — partial work done; rest TO DO
+  - { ext_id: dash:calc-service,   parent_ext_id: epic:dashboards, type: Story, title: "Persona-neutral calc service (RPM, OTP, dwell, payee breakdown, ...)",       status_source: git, git_marker: "Carrier + Owner Operator dashboards", labels: [feature, shared] }
+  - { ext_id: dash:carrier-route,  parent_ext_id: epic:dashboards, type: Story, title: "Carrier dashboard endpoint GET /api/org/:orgId/dashboard",                   status_source: git, git_marker: "Carrier + Owner Operator dashboards", labels: [feature, backend, carrier] }
+  - { ext_id: dash:oo-route,       parent_ext_id: epic:dashboards, type: Story, title: "Owner Operator dashboard endpoint GET /api/owner-operator/dashboard",        status_source: git, git_marker: "Carrier + Owner Operator dashboards", labels: [feature, backend, owner-operator] }
+  - { ext_id: dash:carrier-ui,     parent_ext_id: epic:dashboards, type: Story, title: "Carrier UI — dispatcher + exec views (independent components)",             status_source: manifest, status: "To Do", labels: [feature, frontend, carrier] }
+  - { ext_id: dash:oo-ui,          parent_ext_id: epic:dashboards, type: Story, title: "Owner Operator UI — blended My-haul + fleet/finance/loadboard panels",      status_source: manifest, status: "To Do", labels: [feature, frontend, owner-operator] }
+  - { ext_id: dash:settings,       parent_ext_id: epic:dashboards, type: Story, title: "Separate CarrierSettings + OwnerOperatorSettings (parity by contract)",     status_source: manifest, status: "To Do", labels: [feature, frontend, settings] }
+  - { ext_id: dash:parity-test,    parent_ext_id: epic:dashboards, type: Story, title: "Parity test — assert canonical sections present in both personas",          status_source: manifest, status: "To Do", labels: [tests, parity] }
+
+  # ── EPIC: Env Hardening — all done from prior session
+  - { ext_id: hard:app-env,         parent_ext_id: epic:env-hardening, type: Story, title: "APP_ENV vs NODE_ENV separation",                       status_source: git, git_marker: "production lockdown", labels: [infra] }
+  - { ext_id: hard:boot-guard,      parent_ext_id: epic:env-hardening, type: Story, title: "Boot guard (assertProductionNotContaminated)",          status_source: git, git_marker: "production lockdown", labels: [infra] }
+  - { ext_id: hard:integration-modes, parent_ext_id: epic:env-hardening, type: Story, title: "Integration mode resolver (live/sandbox/stub/test/capture)", status_source: git, git_marker: "integration adapters",  labels: [infra] }
+  - { ext_id: hard:contamination-scan, parent_ext_id: epic:env-hardening, type: Story, title: "Deploy-time contamination scan + physical exclusion",  status_source: git, git_marker: "deploy-backend",        labels: [infra, deploy] }
+
+  # ── EPIC: Jira Automation — built in this PR
+  - { ext_id: jira:manifest,    parent_ext_id: epic:jira-automation, type: Story, title: "jira/work-manifest.yaml — canonical work catalogue", status_source: manifest, status: "Done", labels: [tooling, jira] }
+  - { ext_id: jira:sync,        parent_ext_id: epic:jira-automation, type: Story, title: "jira/sync.py — idempotent Jira sync engine",          status_source: manifest, status: "Done", labels: [tooling, jira] }
+  - { ext_id: jira:deploy-hook, parent_ext_id: epic:jira-automation, type: Story, title: "Deploy-record hooks in deploy-backend.sh + deploy-frontend.sh", status_source: manifest, status: "Done", labels: [tooling, deploy] }
+  - { ext_id: jira:smart-commits, parent_ext_id: epic:jira-automation, type: Story, title: ".gitmessage + commit-msg hook + Smart Commit docs", status_source: manifest, status: "Done", labels: [tooling, git] }
+  - { ext_id: jira:ci-check,    parent_ext_id: epic:jira-automation, type: Story, title: "CI check: PR must reference SCRUM-<n>",               status_source: manifest, status: "Done", labels: [tooling, ci] }
