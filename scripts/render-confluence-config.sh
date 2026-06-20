@@ -18,6 +18,21 @@ set -euo pipefail
 : "${CONFLUENCE_SPACE_KEY:?missing CONFLUENCE_SPACE_KEY}"
 
 PARENT="${CONFLUENCE_PARENT_PAGE_ID:-}"
+: "${CONFLUENCE_API_TOKEN:?missing CONFLUENCE_API_TOKEN (needed to look up space home page)}"
+
+# The CLI requires confluenceParentId. If the operator didn't pin one, fall
+# back to the space's home page ID so docs land at the space root.
+if [ -z "$PARENT" ]; then
+  echo "→ no CONFLUENCE_PARENT_PAGE_ID set; resolving home page of space ${CONFLUENCE_SPACE_KEY}…"
+  PARENT=$(curl -fsS -u "${CONFLUENCE_EMAIL}:${CONFLUENCE_API_TOKEN}" \
+    "${CONFLUENCE_BASE_URL%/}/api/v2/spaces?keys=${CONFLUENCE_SPACE_KEY}" \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin); r=d.get("results",[]); print(r[0]["homepageId"] if r else "", end="")')
+  if [ -z "$PARENT" ]; then
+    echo "::error::could not resolve home page for space ${CONFLUENCE_SPACE_KEY}. Verify the space exists and the token can read it."
+    exit 1
+  fi
+  echo "✓ using space home page ${PARENT} as parent"
+fi
 
 cat > .markdown-confluence.json <<JSON
 {
@@ -25,7 +40,8 @@ cat > .markdown-confluence.json <<JSON
   "firstHeadingPageTitle": false,
   "confluenceBaseUrl": "${CONFLUENCE_BASE_URL}",
   "confluenceSpaceKey": "${CONFLUENCE_SPACE_KEY}",
-  "atlassianUserName": "${CONFLUENCE_EMAIL}"$( [ -n "$PARENT" ] && printf ',\n  "confluenceParentId": "%s"' "$PARENT" || true ),
+  "atlassianUserName": "${CONFLUENCE_EMAIL}",
+  "confluenceParentId": "${PARENT}",
   "ignore": [
     "**/CREDENTIALS.md",
     "**/FINAL_IMPLEMENTATION_CHECKLIST.md",
@@ -34,4 +50,4 @@ cat > .markdown-confluence.json <<JSON
 }
 JSON
 
-echo "✓ rendered .markdown-confluence.json (space=${CONFLUENCE_SPACE_KEY}${PARENT:+ parent=${PARENT}})"
+echo "✓ rendered .markdown-confluence.json (space=${CONFLUENCE_SPACE_KEY} parent=${PARENT})"
