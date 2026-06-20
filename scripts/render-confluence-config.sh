@@ -42,6 +42,10 @@ if [ -z "$PARENT" ]; then
   echo "✓ using space home page ${PARENT} as parent"
 fi
 
+# Inline the token into the config file too. The CLI is supposed to read it
+# from ATLASSIAN_API_TOKEN, but in CI that env var doesn't always make it
+# through to the npx subprocess — pages then come back as the Confluence
+# "Page Not Found" HTML (unauthenticated response).
 cat > .markdown-confluence.json <<JSON
 {
   "folderToPublish": "docs",
@@ -49,6 +53,7 @@ cat > .markdown-confluence.json <<JSON
   "confluenceBaseUrl": "${BASE_BARE}",
   "confluenceSpaceKey": "${CONFLUENCE_SPACE_KEY}",
   "atlassianUserName": "${CONFLUENCE_EMAIL}",
+  "atlassianApiToken": "${CONFLUENCE_API_TOKEN}",
   "confluenceParentId": "${PARENT}",
   "ignore": [
     "**/CREDENTIALS.md",
@@ -57,5 +62,6 @@ cat > .markdown-confluence.json <<JSON
   ]
 }
 JSON
+chmod 600 .markdown-confluence.json
 
 echo "✓ rendered .markdown-confluence.json (space=${CONFLUENCE_SPACE_KEY} parent=${PARENT})"
