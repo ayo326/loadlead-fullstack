@@ -534,6 +534,31 @@ def plan_sync(specs: List[JiraIssueSpec], sync_map: Dict[str, dict], jira: Optio
     plan = Plan()
     by_ext = {s.ext_id: s for s in specs}
 
+    # Safety: if a Jira client is provided and >25% of mapped issues 404,
+    # auth is almost certainly broken (rotated token, wrong scopes, wrong site).
+    # Bail BEFORE planning a wave of re-creates that would duplicate the board.
+    if jira is not None and sync_map:
+        sample = list(sync_map.values())[:5]  # cheap probe — first 5 mappings
+        probe_404s = 0
+        for entry in sample:
+            key = entry["key"] if isinstance(entry, dict) else entry
+            r = jira._req("GET", f"/rest/api/3/issue/{key}?fields=summary")
+            if r.status_code == 404:
+                probe_404s += 1
+            elif r.status_code in (401, 403):
+                print(f"\n❌  Auth check failed: GET {key} returned {r.status_code}.", file=sys.stderr)
+                print("    Token is missing scope or invalid. See https://id.atlassian.com/manage-profile/security/api-tokens", file=sys.stderr)
+                sys.exit(2)
+        if probe_404s >= 3:
+            print(f"\n❌  Auth/site check failed: {probe_404s}/{len(sample)} probe issues returned 404.", file=sys.stderr)
+            print( "    This usually means one of:", file=sys.stderr)
+            print( "      • JIRA_BASE_URL points to a different site than where the issues live", file=sys.stderr)
+            print( "      • JIRA_API_TOKEN was rotated or its scopes don't include read:jira-work", file=sys.stderr)
+            print( "      • JIRA_EMAIL doesn't match the account that created the token", file=sys.stderr)
+            print(f"    Refusing to plan re-creates. Verify with:", file=sys.stderr)
+            print(f"      curl -u \"$JIRA_EMAIL:$JIRA_API_TOKEN\" \"$JIRA_BASE_URL/rest/api/3/myself\"", file=sys.stderr)
+            sys.exit(2)
+
     for spec in specs:
         entry = sync_map.get(spec.ext_id)
         existing_key = entry["key"] if entry else None
