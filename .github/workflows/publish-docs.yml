@@ -104,6 +104,26 @@ jobs:
           done
           [ "$missing" -gt 0 ] && echo "::warning::$missing file(s) missing front-matter" || echo "✓ all docs have front-matter"
 
+      - name: Debug — secret presence + lengths (one-shot)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          # Don't print values — just lengths and trivial sanity bits.
+          echo "BASE_URL len: ${#CONFLUENCE_BASE_URL}"
+          echo "EMAIL    len: ${#CONFLUENCE_EMAIL}  endsWith @gmail.com: $(case "$CONFLUENCE_EMAIL" in *@gmail.com) echo yes;; *) echo NO;; esac)"
+          echo "TOKEN    len: ${#CONFLUENCE_API_TOKEN}  starts with ATA: $(case "$CONFLUENCE_API_TOKEN" in ATA*) echo yes;; *) echo NO;; esac)"
+          echo "SPACE    len: ${#CONFLUENCE_SPACE_KEY}  value: ${CONFLUENCE_SPACE_KEY}"
+          echo "PARENT   len: ${#CONFLUENCE_PARENT_PAGE_ID}  value: ${CONFLUENCE_PARENT_PAGE_ID}"
+          echo ""
+          echo "Probe: GET /wiki/rest/api/space/${CONFLUENCE_SPACE_KEY}"
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -u "${CONFLUENCE_EMAIL}:${CONFLUENCE_API_TOKEN}" \
+            "${CONFLUENCE_BASE_URL%/}/wiki/rest/api/space/${CONFLUENCE_SPACE_KEY}" || true)
+          echo "  HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::Auth combo from CI secrets cannot reach the ENG space. The CLI will see the same response."
+            exit 1
+          fi
+
       - name: Render publisher config from secrets
         if: |
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
