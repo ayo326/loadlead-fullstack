@@ -8,7 +8,10 @@
  */
 
 import { useMemo, useState } from "react";
-import { DollarSign, TrendingUp, Truck, Map, CheckCircle2 } from "lucide-react";
+// Map is aliased to MapIcon to avoid shadowing the global Map constructor used
+// on line ~89. Minified prod builds otherwise rename the icon symbol to something
+// like 'Aa' and `new Map(...)` becomes `new Aa(...)` → "Aa is not a constructor".
+import { DollarSign, TrendingUp, Truck, Map as MapIcon, CheckCircle2 } from "lucide-react";
 
 interface AnalyticsViewProps {
   items: Array<{ load: any; offer?: any }>;
@@ -130,7 +133,7 @@ export function AnalyticsView({ items }: AnalyticsViewProps) {
       {/* KPI grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={DollarSign} label="Total earnings" value={fmtMoney(stats.totalEarnings)} hint={`${stats.totalLoads} loads`} />
-        <StatCard icon={Map}        label="Miles driven"   value={fmtNum(stats.totalMiles)}      hint="Cumulative" />
+        <StatCard icon={MapIcon}    label="Miles driven"   value={fmtNum(stats.totalMiles)}      hint="Cumulative" />
         <StatCard icon={CheckCircle2} label="Delivered"    value={fmtNum(stats.delivered)}       hint={`${stats.inProgress} in progress`} />
         <StatCard icon={TrendingUp} label="Avg $ / mile"   value={fmtMoney(stats.avgRatePerMile)} hint="Across this range" />
       </div>
