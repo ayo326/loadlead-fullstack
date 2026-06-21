@@ -55,14 +55,21 @@ Confluence under the parent **LoadLead Engineering Docs** space root.
 ## How publishing works
 
 1. You edit a `.md` file in `/docs/**` and push to `main`.
-2. The `.github/workflows/publish-docs.yml` workflow runs
-   `markdown-confluence` against the **CONFLUENCE_SPACE_KEY** space using the
-   shared Atlassian token.
-3. The tool writes (or reuses) a Confluence page per `.md`, keyed by the
+2. CI runs a front-matter sanity check and prints a publish reminder in the
+   run summary. **CI does NOT publish** — Atlassian's Free-tier Confluence
+   returns 404 HTML to GitHub-runner IPs at the v1 REST layer, so the call
+   must come from a residential machine.
+3. On the machine that holds your Confluence credentials, after pulling main:
+   ```bash
+   make publish-docs
+   ```
+   Requires these env vars exported (typically in `.zshrc`):
+   `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`,
+   `CONFLUENCE_SPACE_KEY`, `CONFLUENCE_PARENT_PAGE_ID`.
+4. The tool writes (or reuses) a Confluence page per `.md`, keyed by the
    `connie-page-id` it injects into the file's front-matter on first publish.
    Re-running with no content change produces zero new pages and zero new
    versions.
-4. Pull requests show a dry-run preview but do not publish.
 
 Repo file names map 1:1 to Confluence pages; sub-folders nest under the group
 landing pages. The hierarchy is:
@@ -86,13 +93,12 @@ LoadLead Engineering Docs (parent)
     └── Jira Smart Commits Convention
 ```
 
-## Local preview
+## Verifying credentials before publish
 
 ```bash
-cd docs
-npx @markdown-confluence/cli --dry-run \
-  --config ../.markdown-confluence.json
+make publish-docs-check
 ```
 
-That renders each file to ADF and prints what would be created/updated, without
-calling Confluence.
+Hits `GET /wiki/rest/api/space/$CONFLUENCE_SPACE_KEY` with your env. A `200`
+means you're ready to `make publish-docs`. Anything else means re-export your
+env vars before running publish.

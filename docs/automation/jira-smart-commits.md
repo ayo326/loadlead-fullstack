@@ -1,6 +1,7 @@
 ---
 connie-title: Automation — Jira Smart Commits Convention
 connie-publish: true
+connie-page-id: '163993'
 ---
 
 # Jira Smart Commits — LoadLead Convention

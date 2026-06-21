@@ -1,6 +1,7 @@
 ---
 connie-title: Security — STIG / SCAP-Equivalent Compliance Checklist
 connie-publish: true
+connie-page-id: '65946'
 ---
 
 # LoadLead — STIG / SCAP-Equivalent Compliance Checklist
