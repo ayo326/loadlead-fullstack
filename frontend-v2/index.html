@@ -16,6 +16,17 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@LoadLead" />
     <meta name="twitter:image" content="https://loadleadapp.com/placeholder.svg" />
+
+    <!-- Type pairing per design-system/MASTER.md:
+         Dispatch (default, operator surfaces): Inter + JetBrains Mono.
+         Hangar (auth + landing pages only):    headings swap to Manrope.
+         All three are loaded once at root so the auth pages don't FOUC. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700&family=JetBrains+Mono:wght@500;600&display=swap"
+    />
   </head>
 
   <body>
