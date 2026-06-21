@@ -145,10 +145,20 @@ jobs:
           ATLASSIAN_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
         run: |
           echo "── Publishing /docs → Confluence ${CONFLUENCE_SPACE_KEY} ──"
-          echo "── Config sanity (token presence):"
-          node -e 'const c=require("./.markdown-confluence.json"); console.log("  baseUrl:", c.confluenceBaseUrl); console.log("  spaceKey:", c.confluenceSpaceKey); console.log("  parentId:", c.confluenceParentId); console.log("  userName:", c.atlassianUserName); console.log("  tokenLen:", (c.atlassianApiToken||"").length);'
-          echo "── Invoking CLI directly:"
-          node ./node_modules/@markdown-confluence/cli/dist/index.js | tee /tmp/conflu.log
+          echo "── Pre-flight: hit the exact endpoint the CLI's confluence.js uses"
+          # Confluence-js (the lib the CLI bundles) calls /wiki/rest/api/content
+          # to search; if that 401/404s, the CLI's first call also fails.
+          code=$(curl -s -o /tmp/preflight.body -w "%{http_code}" \
+            -u "${CONFLUENCE_EMAIL}:${CONFLUENCE_API_TOKEN}" \
+            -H "Accept: application/json" \
+            "${CONFLUENCE_BASE_URL%/}/wiki/rest/api/content?spaceKey=${CONFLUENCE_SPACE_KEY}&limit=1")
+          echo "  /wiki/rest/api/content?spaceKey=*** -> HTTP $code"
+          head -c 200 /tmp/preflight.body
+          echo ""
+
+          echo "── Invoking CLI with ATLASSIAN_API_TOKEN from same source as curl:"
+          ATLASSIAN_API_TOKEN="${CONFLUENCE_API_TOKEN}" \
+          node ./node_modules/@markdown-confluence/cli/dist/index.js 2>&1 | tee /tmp/conflu.log
           # The CLI sometimes exits non-zero after a final orphan/cleanup call
           # 404s — even when every page published. Treat the run as successful
           # if at least one SUCCESS line came through.
