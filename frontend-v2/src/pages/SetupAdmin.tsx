@@ -51,11 +51,11 @@ export default function SetupAdmin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="font-display-hangar min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden">
 
           {/* Header */}
           <div className="px-8 py-6 flex items-center gap-3" style={{ background: "hsl(217 91% 32%)" }}>

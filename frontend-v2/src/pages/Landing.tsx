@@ -8,7 +8,7 @@ const API = (import.meta.env.VITE_API_URL ?? "https://api.loadleadapp.com") + "/
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="font-display-hangar min-h-screen bg-background text-foreground">
       {/* Nav */}
       <header className="absolute top-0 inset-x-0 z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-5">
@@ -64,7 +64,7 @@ export default function Landing() {
           {/* Offer mockup */}
           <div className="lg:col-span-5 relative">
             <div className="absolute -inset-4 bg-accent/20 blur-3xl rounded-full" />
-            <div className="relative bg-card text-card-foreground rounded-2xl shadow-2xl border border-border overflow-hidden">
+            <div className="relative bg-card text-card-foreground rounded-lg shadow-2xl border border-border overflow-hidden">
               <div className="bg-secondary/60 px-5 py-3 flex items-center justify-between border-b border-border">
                 <div className="flex items-center gap-2 text-xs font-semibold text-primary">
                   <Radio className="h-3.5 w-3.5" /> NEW LOAD OFFER
@@ -140,7 +140,7 @@ export default function Landing() {
             { icon: Radio, title: "Eligible drivers ping", body: "Only trucks within radius, with capacity and the right equipment, get the offer." },
             { icon: Gauge, title: "First accept wins", body: "Load books to the first qualified driver to tap accept inside the 15-min window." },
           ].map((s, i) => (
-            <div key={s.title} className="relative rounded-2xl border border-border bg-card p-7 shadow-[var(--shadow-soft)]">
+            <div key={s.title} className="relative rounded-lg border border-border bg-card p-7">
               <div className="text-xs font-mono text-muted-foreground">0{i + 1}</div>
               <div className="mt-4 h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                 <s.icon className="h-5 w-5" />
@@ -169,8 +169,8 @@ export default function Landing() {
               { icon: MapPin, role: "Receiver", desc: "Inbound visibility — ETAs, signatures, exceptions.", to: "/receiver" },
               { icon: ShieldCheck, role: "Admin", desc: "Platform oversight: users, lanes, compliance, match quality.", to: "/admin" },
             ].map((r) => (
-              <Link key={r.role} to={r.to} className="group rounded-2xl border border-border bg-card p-6 hover:shadow-[var(--shadow-elegant)] hover:-translate-y-0.5 transition-all">
-                <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground flex items-center justify-center">
+              <Link key={r.role} to={r.to} className="group rounded-lg border border-border bg-card p-6 hover:shadow-elev-2 hover:-translate-y-0.5 transition-all">
+                <div className="h-11 w-11 rounded-xl bg-secondary text-primary flex items-center justify-center">
                   <r.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-5 text-lg font-semibold">{r.role}</h3>
@@ -281,7 +281,7 @@ function RequestAdminSection() {
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-2xl border border-border shadow-[var(--shadow-soft)] p-8">
+        <div className="bg-white rounded-lg border border-border p-8">
           {sent ? (
             <div className="text-center space-y-3 py-4">
               <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />

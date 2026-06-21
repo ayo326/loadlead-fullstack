@@ -146,7 +146,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="font-display-hangar min-h-screen flex">
 
       {/* ── Left: blue brand panel + icon sidebar ──────────────────────────── */}
       <div className="hidden lg:flex shrink-0" style={{ width: "52%" }}>
@@ -232,9 +232,11 @@ export default function Login() {
             </div>
           </div>
 
-          <p className="absolute bottom-3 left-12 text-[11px] text-white/30 z-10">
-            © {new Date().getFullYear()} LoadLead Inc.
-          </p>
+          <div className="absolute bottom-3 left-12 z-10 flex items-center gap-3 text-overline font-mono text-white/30">
+            <span>Connect. Load. Drop.</span>
+            <span aria-hidden>·</span>
+            <span>© {new Date().getFullYear()} LoadLead Inc.</span>
+          </div>
         </div>
       </div>
 
@@ -251,9 +253,9 @@ export default function Login() {
               <Truck className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-[15px] font-bold leading-none tracking-tight text-gray-900">LoadLead</p>
-              <p className="mt-0.5 text-[10px] font-semibold tracking-[0.15em] text-gray-400 uppercase">
-                Freight, Dispatched Live
+              <p className="text-h3 font-display leading-none tracking-tight text-foreground">LoadLead</p>
+              <p className="mt-0.5 text-overline font-mono text-muted-foreground">
+                Where loads meet leads.
               </p>
             </div>
           </Link>
