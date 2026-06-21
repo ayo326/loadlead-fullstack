@@ -1,5 +1,6 @@
 import { Load, LoadStatus, TrailerType } from '../types';
 import { deriveLoadingRequirements } from './equipmentService';
+import { deriveOrthogonalFields } from './loadTaxonomy';
 import { Database } from '../config/database';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
@@ -103,11 +104,34 @@ export class LoadService {
         broadcastRadiusMiles: data.broadcastRadiusMiles || config.app.broadcastRadius,
         offerTtlMinutes: data.offerTtlMinutes || config.app.offerTtl,
         offeredDriverCount: 0,
-        
+
+        // ─── Equipment + Load Type Taxonomy (spec §2–§3) ───────────────
+        // New orthogonal fields. Accept whatever the caller sent; the
+        // legacy-to-canonical mapping below fills in anything missing.
+        equipment_required:   data.equipment_required,
+        equipment_model:      data.equipment_model,
+        mode:                 data.mode,
+        service_type:         data.service_type,
+        characteristics:      data.characteristics,
+        commodity:            data.commodity,
+        accessorials:         data.accessorials,
+        trailer_utilization:  data.trailer_utilization,
+        team_driver_required: data.team_driver_required,
+        twic_required:        data.twic_required,
+        load_status:          data.load_status,
+
         createdAt: now,
         updatedAt: now,
       };
-      
+
+      // Backfill orthogonal fields from the legacy shape (equipmentType,
+      // loadSize, hazmat, tempRequired*) so persisted records carry both
+      // views and downstream services can read either.
+      const derived = deriveOrthogonalFields(load);
+      for (const k of Object.keys(derived) as (keyof typeof derived)[]) {
+        if ((load as any)[k] === undefined) (load as any)[k] = derived[k];
+      }
+
       await RoutingService.enrichLoadRoute(load);
 
       await Database.putItem(config.dynamodb.loadsTable, load);

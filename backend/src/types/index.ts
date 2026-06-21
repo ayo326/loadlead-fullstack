@@ -602,8 +602,66 @@ export interface Load {
   assignedDriverId?: string;
   assignedAt?: number;
 
+  // ─── Equipment + Load Type Taxonomy (spec §2–§3) ───────────────────────────
+  // Orthogonal type fields. All optional during migration — existing
+  // equipmentType / loadSize / commodityDescription remain authoritative
+  // until the matching engine fully prefers these. New loads created via
+  // the UI populate these directly.
+  /** Class code from /data/taxonomy/equipment-classes.json (e.g. "R", "F", "BOX26"). */
+  equipment_required?: string;
+  /** "Manufacturer::Model" for the assigned unit. Asset metadata only — matching never reads it. */
+  equipment_model?: string;
+  /** FTL / LTL / Partial / Volume LTL. Mutually exclusive (how much of the truck). */
+  mode?: LoadMode;
+  /** Service level: Standard / Expedited / Hot Shot / Drayage / Final Mile / White Glove. */
+  service_type?: ServiceType;
+  /** Combinable characteristic flags — these mirror equipment attributes exactly. */
+  characteristics?: LoadCharacteristics;
+  /** Commodity code from /data/taxonomy/commodities.json. */
+  commodity?: string;
+  /** Multi-select accessorial codes from /data/taxonomy/accessorials.json. */
+  accessorials?: string[];
+  trailer_utilization?: TrailerUtilization;
+  team_driver_required?: boolean;
+  twic_required?: boolean;
+  /** Extended status per spec §2 operational dimension. Legacy `status` stays in sync via a mapper. */
+  load_status?: LoadStatusV2;
+
   createdAt: number;
   updatedAt: number;
+}
+
+// ─── Taxonomy-aligned type aliases (Equipment & Load Type Taxonomy spec §2) ───
+
+export type LoadMode = 'FTL' | 'LTL' | 'PARTIAL' | 'VOLUME_LTL';
+export type ServiceType = 'STANDARD' | 'EXPEDITED' | 'HOTSHOT' | 'DRAYAGE' | 'FINAL_MILE' | 'WHITE_GLOVE';
+export type TemperatureMode = 'AMBIENT' | 'CHILLED' | 'FROZEN' | 'MULTI_TEMP';
+export type TrailerUtilization = 'FULL' | 'PARTIAL' | 'SHARED';
+export type LoadStatusV2 =
+  | 'TENDERED' | 'ACCEPTED' | 'DISPATCHED' | 'IN_TRANSIT'
+  | 'DELIVERED' | 'POD_RECEIVED' | 'INVOICED';
+
+/**
+ * Load characteristic flags. These are combinable on a single load and mirror
+ * equipment attributes one-for-one so the matcher can do
+ *   load.characteristics.temperature_required → equipment.attributes.temperature_controlled
+ * Setting both `hazmat: true` and `food_grade_required: true` is rare but legal —
+ * a chemical-clean food-grade tanker can satisfy both.
+ */
+export interface LoadCharacteristics {
+  temperature_required?: boolean;
+  min_temp?: number;
+  max_temp?: number;
+  temperature_mode?: TemperatureMode;
+
+  hazmat?: boolean;
+  hazmat_class?: string;   // "1" .. "9" from /data/taxonomy/hazmat-classes.json
+
+  food_grade_required?: boolean;
+  bulk?: boolean;
+  oversized?: boolean;
+  heavy_haul?: boolean;
+  intermodal?: boolean;
 }
 
 export interface Offer {
