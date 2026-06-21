@@ -123,21 +123,25 @@ export function loadingRequirementsMet(driver: Driver, load: Load): { met: boole
   return { met: true };
 }
 
-// ─── Combined equipment check (steps 1 + 2) ──────────────────────────────────
-
+// ─── Combined equipment check ────────────────────────────────────────────────
+//
+// THIN WRAPPER. As of the Equipment & Load Type Taxonomy spec (Phase 5), the
+// canonical eligibility rule lives in services/loadMatcher.ts and incorporates
+// the orthogonal characteristic mirror + endorsement checks that this file's
+// type+requirements pair doesn't see. Existing callers keep the same
+// signature so we don't have to update every call site at once.
 export class EquipmentService {
   static checkEquipmentMatch(
     driver: Driver,
     load: Load,
   ): { eligible: boolean; reason?: string } {
-    // Step 1 — type
-    const typeCheck = equipmentTypeMatches(driver, load);
-    if (!typeCheck.matches) return { eligible: false, reason: typeCheck.reason };
-
-    // Step 2 — loading requirements
-    const reqCheck = loadingRequirementsMet(driver, load);
-    if (!reqCheck.met) return { eligible: false, reason: reqCheck.reason };
-
-    return { eligible: true };
+    // Defer to the shared matcher so broadcast eligibility, the dispatcher
+    // manual-assign confirm, and dashboard guardrails all evaluate the same
+    // rule. Collapse the reasons array into the first message for the
+    // legacy single-reason shape.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { checkLoadMatch } = require('./loadMatcher') as typeof import('./loadMatcher');
+    const r = checkLoadMatch(driver, load);
+    return r.eligible ? { eligible: true } : { eligible: false, reason: r.reasons[0] };
   }
 }

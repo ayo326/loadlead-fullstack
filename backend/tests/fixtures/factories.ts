@@ -3,6 +3,7 @@ import {
   User, Driver, OwnerOperator, Organization, OrgMembership,
   UserRole, DriverStatus, OrgCapability, OrgRole, TrailerType, CDLClass,
   VerificationEntityType, CarrierOfRecord,
+  Load, LoadStatus,
 } from '../../src/types';
 import { Verification, VerificationStatus, EntityType } from '../../src/services/verification';
 
@@ -133,4 +134,67 @@ export function anIdvVerification(userId: string, status: VerificationStatus): V
     entityType: EntityType.DRIVER,
     idvStatus: status === VerificationStatus.VERIFIED ? 'pass' : (status === VerificationStatus.PENDING ? 'pending' : undefined),
   });
+}
+
+// Minimal Load builder for matcher tests. All routing/route-enrichment fields
+// are filled with defensible defaults so the rule under test only sees what
+// the test explicitly overrides.
+export function aLoad(overrides?: Partial<Load>): Load {
+  return {
+    loadId: `load_${uuid()}`,
+    shipperId: `shipper_${uuid()}`,
+    status: LoadStatus.OPEN,
+
+    referenceNumber: `REF-${uuid().slice(0, 8)}`,
+    equipmentType: TrailerType.DRY_VAN,
+    acceptedEquipmentTypes: [TrailerType.DRY_VAN],
+    loadSize: 'FULL',
+    totalWeightLbs: 25000,
+
+    pickupCity: 'Dallas',
+    pickupState: 'TX',
+    pickupZip: '75201',
+    pickupAddress: '100 Main St',
+    pickupLat: 32.7767,
+    pickupLng: -96.7970,
+    pickupDate: ts() + 86400000,
+    pickupTime: '08:00',
+    pickupType: 'FCFS',
+
+    deliveryCity: 'Houston',
+    deliveryState: 'TX',
+    deliveryZip: '77002',
+    deliveryAddress: '200 Main St',
+    deliveryLat: 29.7604,
+    deliveryLng: -95.3698,
+    deliveryDate: ts() + 2 * 86400000,
+    deliveryTime: '14:00',
+    deliveryType: 'LIVE_UNLOAD',
+
+    totalMiles: 240,
+    rateAmount: 800,
+    rateType: 'FLAT_RATE',
+    paymentTerms: 'NET_30',
+
+    commodityDescription: 'General freight',
+    stackable: true,
+    fragile: false,
+    highValue: false,
+    hazmat: false,
+
+    minMcMaturityDays: 90,
+    minCargoInsurance: 100000,
+    minLiabilityInsurance: 1000000,
+    requiredEndorsements: [],
+    experienceRequired: 0,
+
+    broadcastRadiusMiles: 100,
+    offerTtlMinutes: 15,
+    offeredDriverCount: 0,
+
+    createdAt: ts(),
+    updatedAt: ts(),
+
+    ...overrides,
+  };
 }
