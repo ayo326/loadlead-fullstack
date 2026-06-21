@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { ArrowRight, CheckCircle2, Clock, Gauge, MapPin, PackageCheck, Radio, ShieldCheck, Truck, Send } from "lucide-react";
+import { ArrowRight, Briefcase, Building2, CheckCircle2, Clock, Gauge, MapPin, PackageCheck, Radio, ShieldCheck, ShipWheel, Truck, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 
@@ -57,7 +57,7 @@ export default function Landing() {
             <div className="mt-10 flex flex-wrap gap-6 text-sm text-primary-foreground/70">
               <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />Eligibility-aware</div>
               <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />Real-time offers</div>
-              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />4 roles, one platform</div>
+              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />6 roles, one platform</div>
             </div>
           </div>
 
@@ -160,26 +160,48 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 py-24">
           <div className="text-center max-w-2xl mx-auto">
             <div className="text-xs uppercase tracking-widest text-primary font-semibold">For your team</div>
-            <h2 className="mt-3 text-4xl font-bold tracking-tight">One platform. Four purpose-built dashboards.</h2>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight">One platform. Six purpose-built dashboards.</h2>
           </div>
-          <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { icon: Truck, role: "Driver", desc: "Live offers with countdown, capacity-aware filtering, one-tap accept.", to: "/driver" },
-              { icon: PackageCheck, role: "Shipper", desc: "Post loads, watch the broadcast fan-out, track every leg.", to: "/shipper" },
-              { icon: MapPin, role: "Receiver", desc: "Inbound visibility — ETAs, signatures, exceptions.", to: "/receiver" },
-              { icon: ShieldCheck, role: "Admin", desc: "Platform oversight: users, lanes, compliance, match quality.", to: "/admin" },
-            ].map((r) => (
-              <Link key={r.role} to={r.to} className="group rounded-lg border border-border bg-card p-6 hover:shadow-elev-2 hover:-translate-y-0.5 transition-all">
-                <div className="h-11 w-11 rounded-xl bg-secondary text-primary flex items-center justify-center">
-                  <r.icon className="h-5 w-5" />
-                </div>
-                <h3 className="mt-5 text-lg font-semibold">{r.role}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{r.desc}</p>
-                <div className="mt-5 text-sm font-medium text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                  Open dashboard <ArrowRight className="h-4 w-4" />
-                </div>
-              </Link>
-            ))}
+              { icon: Briefcase,   role: "Owner Operator", desc: "Run your one-truck or small fleet with dispatching, IDV and payouts in one place.", to: "/signup?role=OWNER_OPERATOR", cta: "Sign up" },
+              { icon: Building2,   role: "Carrier",        desc: "Verify FMCSA + KYB, onboard drivers, and dispatch loads to your roster.",         to: "/signup?role=CARRIER",        cta: "Sign up" },
+              { icon: ShipWheel,   role: "Driver",         desc: "Live offers with countdown, capacity-aware filtering, one-tap accept.",            to: "/signup?role=DRIVER",         cta: "Sign up" },
+              { icon: PackageCheck,role: "Shipper",        desc: "Post loads, watch the broadcast fan-out, track every leg.",                        to: "/signup?role=SHIPPER",        cta: "Sign up" },
+              { icon: MapPin,      role: "Receiver",       desc: "Inbound visibility: ETAs, signatures, exceptions.",                                to: "/signup?role=RECEIVER",       cta: "Sign up" },
+              {
+                icon: ShieldCheck, role: "Admin",
+                desc: "Platform oversight: users, lanes, compliance, match quality. Invite-only access.",
+                to: "mailto:admin@loadleadapp.com?subject=Admin%20access%20request%20%E2%80%94%20LoadLead&body=Please%20describe%20your%20role%20and%20why%20you%20need%20admin%20access.",
+                cta: "Request access",
+                external: true,
+                eyebrow: "Invite only",
+              },
+            ].map((r) => {
+              const Card = (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="h-11 w-11 rounded-sm bg-secondary text-primary flex items-center justify-center">
+                      <r.icon className="h-5 w-5" strokeWidth={1.75} />
+                    </div>
+                    {r.eyebrow && (
+                      <span className="text-overline font-mono text-muted-foreground">{r.eyebrow}</span>
+                    )}
+                  </div>
+                  <h3 className="mt-5 text-lg font-semibold">{r.role}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{r.desc}</p>
+                  <div className="mt-5 text-sm font-medium text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                    {r.cta} <ArrowRight className="h-4 w-4" />
+                  </div>
+                </>
+              );
+              const className = "group rounded-lg border border-border bg-card p-6 hover:shadow-elev-2 hover:-translate-y-0.5 transition-all cursor-pointer block";
+              return r.external ? (
+                <a key={r.role} href={r.to} className={className}>{Card}</a>
+              ) : (
+                <Link key={r.role} to={r.to} className={className}>{Card}</Link>
+              );
+            })}
           </div>
         </div>
       </section>
