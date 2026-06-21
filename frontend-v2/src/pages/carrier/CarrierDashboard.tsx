@@ -407,17 +407,17 @@ export default function CarrierDashboard() {
 
       <div className="max-w-6xl mx-auto px-6 py-6">
         <Tabs defaultValue="overview" orientation="vertical" className="flex gap-6">
-          <TabsList className="flex flex-col h-auto w-44 shrink-0 rounded-xl bg-secondary p-1 gap-1">
+          <TabsList data-tour="carrier-company" className="flex flex-col h-auto w-44 shrink-0 rounded-xl bg-secondary p-1 gap-1">
             <TabsTrigger value="overview" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
               <Activity className="h-4 w-4 mr-2" />Overview
             </TabsTrigger>
-            <TabsTrigger value="verification" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+            <TabsTrigger data-tour="verification-panel" value="verification" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
               <ShieldCheck className="h-4 w-4 mr-2" />Verification
             </TabsTrigger>
-            <TabsTrigger value="drivers" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+            <TabsTrigger data-tour="onboard-drivers" value="drivers" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
               <Users className="h-4 w-4 mr-2" />Drivers
             </TabsTrigger>
-            <TabsTrigger value="dispatch" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+            <TabsTrigger data-tour="load-board" value="dispatch" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
               <Truck className="h-4 w-4 mr-2" />Dispatch
             </TabsTrigger>
           </TabsList>

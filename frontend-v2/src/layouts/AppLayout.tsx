@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Logo } from "@/components/Logo";
 import { Input } from "@/components/ui/input";
+import { TourMount, TourReplayButton } from "@/tour/LoadLeadTour";
 
 // ─── Navigation model ──────────────────────────────────────────────────────
 // Operator-surface (Dispatch). Items are filtered by the signed-in role.
@@ -205,6 +206,8 @@ function AppSidebar({ onLogout }: { onLogout: () => void }) {
               </div>
               <ChevronRight className="h-4 w-4 text-sidebar-foreground/40" aria-hidden />
             </div>
+            {/* Replay tour — same nav-item language as other rail items. */}
+            <TourReplayButton />
             {/* Primary motto — its quiet home */}
             <p className="px-1 text-overline font-mono text-sidebar-foreground/40">
               Connect. Load. Drop.
@@ -268,6 +271,9 @@ export default function AppLayout() {
             </div>
           </header>
           <main className="flex-1 px-6 py-6 lg:px-8 lg:py-8 overflow-x-hidden">
+            {/* Tour controller — mounts once; auto-starts the right persona's
+                tour on first dashboard visit, persists completion locally. */}
+            <TourMount />
             <Outlet />
           </main>
         </div>

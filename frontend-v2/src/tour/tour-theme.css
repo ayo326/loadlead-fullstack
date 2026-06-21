@@ -1,0 +1,119 @@
+/* LoadLead tour theme — pairs with design-system/MASTER.md.
+ * Shepherd's default CSS is loaded first; we override the surfaces here
+ * so the popover reads as a calm bordered card rather than a tooltip. */
+
+.shepherd-element.loadlead-tour-step {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 24px -8px rgba(15, 23, 42, 0.10),
+              0 4px 8px -4px rgba(15, 23, 42, 0.06);
+  max-width: 22rem;
+}
+
+.loadlead-tour-step .shepherd-header {
+  background: transparent;
+  padding: 1rem 1rem 0.25rem 1rem;
+}
+
+.loadlead-tour-step .shepherd-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  color: hsl(var(--foreground));
+  letter-spacing: -0.01em;
+}
+
+.loadlead-tour-step .shepherd-text {
+  padding: 0.25rem 1rem 0.75rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  color: hsl(var(--foreground));
+}
+
+.loadlead-tour-step .shepherd-text p {
+  margin: 0 0 0.5rem 0;
+}
+.loadlead-tour-step .shepherd-text p:last-child {
+  margin-bottom: 0;
+}
+
+.loadlead-tour-step .shepherd-text .loadlead-tour-hint {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.loadlead-tour-step .shepherd-footer {
+  padding: 0.5rem 1rem 1rem 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  background: transparent;
+}
+
+.loadlead-tour-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  padding: 0 1rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+}
+.loadlead-tour-btn--primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.loadlead-tour-btn--primary:hover {
+  background: hsl(var(--primary) / 0.92);
+}
+.loadlead-tour-btn--secondary {
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+  border-color: hsl(var(--border));
+}
+.loadlead-tour-btn--secondary:hover {
+  background: hsl(var(--secondary) / 0.85);
+}
+.loadlead-tour-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.4);
+}
+
+.loadlead-tour-step .shepherd-cancel-icon {
+  font-size: 1.25rem;
+  color: hsl(var(--muted-foreground));
+  margin: 0.25rem 0.25rem 0 0;
+  cursor: pointer;
+}
+.loadlead-tour-step .shepherd-cancel-icon:hover {
+  color: hsl(var(--foreground));
+}
+
+.loadlead-tour-step .shepherd-arrow::before {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+}
+
+.shepherd-modal-overlay-container {
+  fill: hsl(var(--foreground));
+  opacity: 0.24;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shepherd-element,
+  .shepherd-modal-overlay-container,
+  .loadlead-tour-step,
+  .loadlead-tour-btn {
+    transition: none !important;
+    animation: none !important;
+  }
+}

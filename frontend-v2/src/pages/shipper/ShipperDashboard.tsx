@@ -58,7 +58,7 @@ export default function ShipperDashboard() {
         subtitle="Post a load and we'll broadcast it to qualified drivers in your radius the moment you submit."
         actions={
           <Button asChild className="h-10" disabled={!profileComplete}>
-            <Link to="/shipper/post"><PackagePlus className="h-4 w-4" /> Post a load</Link>
+            <Link data-tour="shipper-post-cta" to="/shipper/post"><PackagePlus className="h-4 w-4" /> Post a load</Link>
           </Button>
         }
       />
@@ -70,7 +70,7 @@ export default function ShipperDashboard() {
         <StatCard label="In transit" value={String(inTransit)} hint="on the road" trend="up" />
       </div>
 
-      <div className="rounded-md border border-border bg-card overflow-hidden">
+      <div data-tour="shipper-tracking" className="rounded-md border border-border bg-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-0">
             <h2 className="text-sm font-semibold">All loads</h2>
