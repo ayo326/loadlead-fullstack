@@ -73,9 +73,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
 
-      # Use npx --yes at publish time instead of pre-installing — matches the
-      # invocation that works locally (npm install --no-save doesn't always
-      # surface the same dependency tree to npx).
+      - name: Install @markdown-confluence/cli
+        run: npm install --no-save @markdown-confluence/cli@5.5.2
 
       - name: Verify required secrets are present
         if: |
@@ -146,7 +145,10 @@ jobs:
           ATLASSIAN_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
         run: |
           echo "── Publishing /docs → Confluence ${CONFLUENCE_SPACE_KEY} ──"
-          npx --yes @markdown-confluence/cli@latest | tee /tmp/conflu.log
+          echo "── Config sanity (token presence):"
+          node -e 'const c=require("./.markdown-confluence.json"); console.log("  baseUrl:", c.confluenceBaseUrl); console.log("  spaceKey:", c.confluenceSpaceKey); console.log("  parentId:", c.confluenceParentId); console.log("  userName:", c.atlassianUserName); console.log("  tokenLen:", (c.atlassianApiToken||"").length);'
+          echo "── Invoking CLI directly:"
+          node ./node_modules/@markdown-confluence/cli/dist/index.js | tee /tmp/conflu.log
           # The CLI sometimes exits non-zero after a final orphan/cleanup call
           # 404s — even when every page published. Treat the run as successful
           # if at least one SUCCESS line came through.
