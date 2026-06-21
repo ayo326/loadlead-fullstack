@@ -60,7 +60,7 @@ function Field({
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] p-6 space-y-5">
+    <div className="rounded-md border border-border bg-card p-6 space-y-5">
       {children}
     </div>
   );
@@ -1106,7 +1106,10 @@ function AdminSettings({ email }: { email: string }) {
       <div className="flex flex-col w-48 shrink-0 gap-3">
         {/* Avatar card */}
         <div className="rounded-xl bg-secondary p-4 flex flex-col items-center gap-3 text-center">
-          <div className="h-16 w-16 rounded-full bg-gradient-to-br from-pink-500 to-violet-600 text-white flex items-center justify-center text-xl font-bold shadow-sm">
+          <div
+            className="h-16 w-16 rounded-sm bg-primary text-primary-foreground flex items-center justify-center font-mono text-h2"
+            aria-hidden
+          >
             {initials}
           </div>
           <div className="min-w-0 w-full">

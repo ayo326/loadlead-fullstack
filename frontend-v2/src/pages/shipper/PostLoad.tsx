@@ -579,7 +579,7 @@ export default function PostLoad() {
             </div>
           </Section>
 
-          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 text-sm">
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-5 text-sm">
             <div className="flex items-center gap-2 font-semibold text-primary">
               <Radio className="h-4 w-4" /> Estimated reach
             </div>
@@ -689,7 +689,7 @@ function AddressBlock({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
+    <div className="rounded-md border border-border bg-card p-6">
       <h3 className="text-sm font-semibold mb-4">{title}</h3>
       {children}
     </div>

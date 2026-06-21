@@ -54,7 +54,7 @@ export default function OwnerOperatorDashboard() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="max-w-md w-full text-center space-y-4">
-          <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+          <div className="h-16 w-16 rounded-md bg-primary/10 flex items-center justify-center mx-auto">
             <Truck className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold">Set Up Your Profile</h1>
@@ -231,7 +231,7 @@ export default function OwnerOperatorDashboard() {
 
           {/* ── Sidebar: route/position map ──────────────────────────────── */}
           <aside>
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+            <div className="rounded-md border border-border bg-card p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <MapPin className="h-4 w-4 text-primary" />

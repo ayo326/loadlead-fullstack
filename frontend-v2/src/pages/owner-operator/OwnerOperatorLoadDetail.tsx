@@ -26,7 +26,7 @@ function Row({ label, value }: { label: string; value?: React.ReactNode }) {
 
 function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] p-6">
+    <div className="rounded-md border border-border bg-card p-6">
       <h3 className="text-sm font-semibold flex items-center gap-2 mb-4">
         <Icon className="h-4 w-4 text-primary" /> {title}
       </h3>

@@ -121,7 +121,7 @@ function DriverRow({ driver, onAction }: { driver: Driver; onAction: () => void 
         {/* Driver name */}
         <td className="px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground flex items-center justify-center text-xs font-semibold shrink-0">
+            <div className="h-9 w-9 rounded-full bg-secondary text-primary flex items-center justify-center text-xs font-semibold shrink-0">
               {initials}
             </div>
             <div className="min-w-0">
@@ -292,7 +292,7 @@ export default function AdminDashboard() {
       />
 
       {/* Live fleet map */}
-      <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] p-5 mb-6">
+      <div className="rounded-md border border-border bg-card p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-sm font-semibold">Live fleet map</h2>
@@ -317,7 +317,7 @@ export default function AdminDashboard() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Driver roster */}
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] overflow-hidden">
+        <div className="lg:col-span-2 rounded-md border border-border bg-card overflow-hidden">
           {/* Header + tabs */}
           <div className="px-5 py-4 border-b border-border">
             <div className="flex items-center justify-between mb-3">
@@ -391,7 +391,7 @@ export default function AdminDashboard() {
         {/* Sidebar */}
         <aside className="space-y-6">
           {/* Compliance health */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+          <div className="rounded-md border border-border bg-card p-5">
             <div className="flex items-center gap-2 text-sm font-semibold mb-4">
               <Shield className="h-4 w-4 text-primary" /> Compliance health
             </div>
@@ -402,7 +402,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Legend */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+          <div className="rounded-md border border-border bg-card p-5">
             <div className="flex items-center gap-2 text-sm font-semibold mb-4">
               <Activity className="h-4 w-4 text-primary" /> Status guide
             </div>
@@ -426,7 +426,7 @@ export default function AdminDashboard() {
 
           {/* Warning card if pending > 0 */}
           {(counts.PENDING_VERIFICATION ?? 0) > 0 && (
-            <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-5">
+            <div className="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-5">
               <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">
                 <AlertTriangle className="h-4 w-4" />
                 {counts.PENDING_VERIFICATION} driver{counts.PENDING_VERIFICATION > 1 ? "s" : ""} pending
@@ -498,7 +498,7 @@ function OrgManagementPanel() {
   }
 
   return (
-    <div className="mt-8 rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] overflow-hidden">
+    <div className="mt-8 rounded-md border border-border bg-card overflow-hidden">
       <div className="px-5 py-4 border-b border-border flex items-center gap-2">
         <Building2 className="h-4 w-4 text-primary" />
         <span className="font-semibold text-sm">Organisations</span>
@@ -587,7 +587,7 @@ function ComplianceBar({ label, drivers, check }: { label: string; drivers: Driv
         <span className={`font-semibold ${pct < 70 ? "text-red-500" : pct < 90 ? "text-amber-500" : "text-green-600"}`}>{pct}%</span>
       </div>
       <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-        <div className={`h-full transition-all ${pct < 70 ? "bg-red-500" : pct < 90 ? "bg-amber-500" : "bg-gradient-to-r from-primary to-accent"}`}
+        <div className={`h-full transition-all ${pct < 70 ? "bg-red-500" : pct < 90 ? "bg-amber-500" : "bg-primary"}`}
           style={{ width: `${pct}%` }} />
       </div>
     </div>

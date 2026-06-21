@@ -153,18 +153,10 @@ export function LoadRoutePanel({
           className="relative rounded-xl overflow-hidden border border-border/50"
           style={{ aspectRatio: "16 / 9" }}
         >
-          {/* Loading skeleton */}
+          {/* Loading skeleton — neutral, no brand gradient */}
           {!miniLoaded && (
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/90 to-accent flex items-center justify-center z-10">
-              <div
-                className="absolute inset-0"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
-                  backgroundSize: "16px 16px",
-                }}
-              />
-              <Loader2 className="h-5 w-5 text-white/70 animate-spin relative z-10" />
+            <div className="absolute inset-0 bg-secondary flex items-center justify-center z-10">
+              <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" aria-hidden />
             </div>
           )}
 
@@ -185,7 +177,7 @@ export function LoadRoutePanel({
               setExpanded(true);
               setFullLoaded(false);
             }}
-            className="absolute top-2 right-2 z-20 h-8 w-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/80 transition-colors shadow-lg"
+            className="absolute top-2 right-2 z-20 h-8 w-8 rounded-sm bg-foreground/80 text-card flex items-center justify-center hover:bg-foreground transition-colors duration-fast ease-soft cursor-pointer"
             title="Expand map"
           >
             <Search className="h-3.5 w-3.5" />
@@ -196,7 +188,7 @@ export function LoadRoutePanel({
       {/* ── Fullscreen modal ──────────────────────────────────────────────── */}
       <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent
-          className="max-w-4xl w-full p-0 overflow-hidden rounded-2xl gap-0"
+          className="max-w-4xl w-full p-0 overflow-hidden rounded-md gap-0"
           style={{ height: "80vh" }}
         >
           {/* Header */}

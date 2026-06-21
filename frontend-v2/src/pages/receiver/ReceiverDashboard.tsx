@@ -44,7 +44,7 @@ export default function ReceiverDashboard() {
             <Link
               key={s.id}
               to={`/receiver/loads/${s.id}`}
-              className="block rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-elegant)] hover:border-primary/30 transition-all group"
+              className="block rounded-md border border-border bg-card p-5 hover:border-primary/30 transition-all group"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -62,7 +62,7 @@ export default function ReceiverDashboard() {
               {s.status === "IN_TRANSIT" ? (
                 <>
                   <div className="relative h-2 rounded-full bg-secondary overflow-hidden">
-                    <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-accent rounded-full" style={{ width: "72%" }} />
+                    <div className="absolute inset-y-0 left-0 bg-primary rounded-sm" style={{ width: "72%" }} />
                   </div>
                   <div className="mt-2 flex justify-between text-xs">
                     <span className="text-muted-foreground">{s.origin}</span>
@@ -78,7 +78,7 @@ export default function ReceiverDashboard() {
         </div>
 
         <aside className="space-y-4">
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+          <div className="rounded-md border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2"><Package className="h-4 w-4 text-primary" /> Today's dock schedule</h3>
             <div className="space-y-3">
               {[
