@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Info, Loader2, MapPin, Radio } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -6,21 +6,43 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { Combobox, MultiCombobox, AsyncCombobox } from "@/components/ui/combobox";
+import {
+  useAccessorials,
+  useEquipmentClasses,
+  useHazmatClasses,
+  useLoadModes,
+  useServiceTypes,
+  taxonomyApi,
+  toAccessorialItems,
+  toEquipmentItems,
+  toHazmatItems,
+  toModeItems,
+  toServiceItems,
+} from "@/services/taxonomy";
 
-const ALL_TRAILER_TYPES = [
-  { value: "DRY_VAN",    label: "Dry Van",                   group: "Enclosed" },
-  { value: "REEFER",     label: "Refrigerated (Reefer)",     group: "Enclosed" },
-  { value: "BOX_TRUCK",  label: "Box Truck",                 group: "Enclosed" },
-  { value: "FLATBED",    label: "Flatbed",                   group: "Open-Deck" },
-  { value: "STEP_DECK",  label: "Step Deck",                 group: "Open-Deck" },
-  { value: "RGN",        label: "Removable Gooseneck (RGN)", group: "Open-Deck" },
-  { value: "CONESTOGA",  label: "Conestoga",                 group: "Open-Deck" },
-  { value: "TANKER",     label: "Tanker",                    group: "Specialized" },
-  { value: "CAR_HAULER", label: "Car Hauler",                group: "Specialized" },
-  { value: "POWER_ONLY", label: "Power Only",                group: "Specialized" },
-];
+/**
+ * Equipment-class code → legacy TrailerType enum (for backward compat with the
+ * existing Load model). The backend also derives the reverse on writes, but the
+ * legacy field still ships on the wire so existing consumers keep working.
+ */
+const CLASS_CODE_TO_TRAILER_TYPE: Record<string, string> = {
+  V: "DRY_VAN", V48: "DRY_VAN", DOUBLES: "DRY_VAN",
+  R: "REEFER", R48: "REEFER", RM: "REEFER", RBOX: "REEFER",
+  F: "FLATBED", F53: "FLATBED", SD: "FLATBED", CN: "FLATBED", DECK: "FLATBED",
+  RGN: "RGN", DD: "RGN", MX: "RGN", REMOVAL: "RGN",
+  TF: "TANKER", TC: "TANKER", TFG: "TANKER", TR: "TANKER", PN: "TANKER", HB: "TANKER",
+  CH: "CAR_HAULER", CHE: "CAR_HAULER",
+  CHS: "DRY_VAN", CHS20: "DRY_VAN", CHS40: "DRY_VAN",
+  DUMP: "FLATBED", LOG: "FLATBED", LIVE: "DRY_VAN",
+  PO: "POWER_ONLY", POE: "POWER_ONLY",
+  BOX26: "BOX_TRUCK", BOX24: "BOX_TRUCK", BOX16: "BOX_TRUCK",
+  STEPVAN: "BOX_TRUCK", CARGOVAN: "BOX_TRUCK", SPRINTER: "BOX_TRUCK",
+  HS: "FLATBED", HSE: "DRY_VAN",
+};
 
 const FREIGHT_FORMATS = [
   { value: "PALLETIZED",   label: "Palletized" },
@@ -52,10 +74,39 @@ export default function PostLoad() {
   const [submitting, setSubmitting] = useState(false);
   const [geocoding, setGeocoding] = useState<"pickup" | "delivery" | null>(null);
 
-  // Equipment multi-select
-  const [acceptedTypes, setAcceptedTypes] = useState<string[]>(["DRY_VAN"]);
-  const toggleType = (v: string) =>
-    setAcceptedTypes((p) => p.includes(v) ? (p.length > 1 ? p.filter((x) => x !== v) : p) : [...p, v]);
+  // ─── Taxonomy-driven selectors ───────────────────────────────────────────
+  // Equipment is a multi-select of *class codes* (from /api/reference/equipment-classes).
+  // Acceptable codes: ["V", "R", "F", "BOX26", ...]. The submit step also derives the
+  // legacy TrailerType from the first selected class so existing consumers keep working.
+  const [equipmentClasses, setEquipmentClasses] = useState<string[]>(["V"]);
+  const [equipmentModel, setEquipmentModel]     = useState<{ value: string; label: string } | null>(null);
+
+  // Orthogonal load-type fields (spec §2)
+  const [mode, setMode]                   = useState<string | null>("FTL");
+  const [serviceType, setServiceType]     = useState<string | null>("STANDARD");
+  const [accessorials, setAccessorials]   = useState<string[]>([]);
+  const [commodity, setCommodity]         = useState<{ value: string; label: string } | null>(null);
+  const [isHazmat, setIsHazmat]           = useState<boolean>(false);
+  const [hazmatClass, setHazmatClass]     = useState<string | null>(null);
+
+  // Reference data
+  const eqClasses = useEquipmentClasses();
+  const modes     = useLoadModes();
+  const services  = useServiceTypes();
+  const access    = useAccessorials();
+  const hazmat    = useHazmatClasses();
+
+  const equipmentItems   = useMemo(() => eqClasses.data ? toEquipmentItems(eqClasses.data) : [], [eqClasses.data]);
+  const modeItems        = useMemo(() => modes.data     ? toModeItems(modes.data)         : [], [modes.data]);
+  const serviceItems     = useMemo(() => services.data  ? toServiceItems(services.data)   : [], [services.data]);
+  const accessorialItems = useMemo(() => access.data    ? toAccessorialItems(access.data) : [], [access.data]);
+  const hazmatItems      = useMemo(() => hazmat.data    ? toHazmatItems(hazmat.data)      : [], [hazmat.data]);
+
+  // Equipment-class-aware UI hints
+  const requiresTempControl = equipmentClasses.some(c => {
+    const cls = eqClasses.data?.find(x => x.code === c);
+    return cls?.attributes.temperature_controlled === "Y";
+  });
 
   // Facility profiles
   const [pickupFacility, setPickupFacility] = useState({ dockAvailable: true, forkliftAvailable: true, freightFormat: "PALLETIZED" });
@@ -69,7 +120,9 @@ export default function PostLoad() {
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const [form, setForm] = useState({
-    commodityDescription: "",
+    // commodityNotes is genuine free text (special handling notes); the
+    // canonical commodity code lives in `commodity` state above.
+    commodityNotes: "",
     weightLbs: "",
     dimLengthIn: "",
     dimWidthIn: "",
@@ -133,8 +186,8 @@ export default function PostLoad() {
     e.preventDefault();
 
     // Validate required fields client-side before geocoding
-    if (!form.commodityDescription.trim()) {
-      toast.error("Commodity description is required");
+    if (!commodity?.value) {
+      toast.error("Pick a commodity from the list");
       return;
     }
     if (!form.pickupDate || !form.deliveryDate) {
@@ -172,11 +225,31 @@ export default function PostLoad() {
       const pickupFullAddress = `${pickup.street}, ${pickup.city}, ${pickup.state} ${pickup.zip}`;
       const deliveryFullAddress = `${delivery.street}, ${delivery.city}, ${delivery.state} ${delivery.zip}`;
 
+      // Translate selected class codes to legacy TrailerType for backward
+      // compat; the backend also persists equipment_required from the new shape.
+      const legacyAccepted = Array.from(new Set(
+        equipmentClasses.map(c => CLASS_CODE_TO_TRAILER_TYPE[c]).filter(Boolean),
+      ));
+
       const draft = await api.createLoadDraft({
         referenceNumber: refNo,
-        equipmentType: acceptedTypes[0],
-        acceptedEquipmentTypes: acceptedTypes,
-        loadSize: "FULL",
+        equipmentType: legacyAccepted[0] ?? "DRY_VAN",
+        acceptedEquipmentTypes: legacyAccepted,
+        loadSize: mode === "PARTIAL" ? "PARTIAL" : mode === "LTL" ? "LTL" : "FULL",
+        // ─── orthogonal load-type fields (spec §2-§3) ───
+        equipment_required: equipmentClasses[0],
+        equipment_model:    equipmentModel?.value,
+        mode:               (mode ?? undefined) as any,
+        service_type:       (serviceType ?? undefined) as any,
+        commodity:          commodity?.value,
+        accessorials,
+        characteristics: {
+          temperature_required: !!(form.tempRequiredMin || form.tempRequiredMax),
+          ...(form.tempRequiredMin ? { min_temp: Number(form.tempRequiredMin) } : {}),
+          ...(form.tempRequiredMax ? { max_temp: Number(form.tempRequiredMax) } : {}),
+          hazmat: isHazmat,
+          ...(hazmatClass ? { hazmat_class: hazmatClass } : {}),
+        },
         pickupFacility,
         deliveryFacility,
         ...(form.tempRequiredMin && { tempRequiredMin: Number(form.tempRequiredMin) }),
@@ -210,11 +283,12 @@ export default function PostLoad() {
         rateAmount:      Number(form.ratePerMile),
         rateType:        "PER_MILE",
         paymentTerms:    "QUICK_PAY",
-        commodityDescription: form.commodityDescription,
+        commodityDescription: form.commodityNotes || commodity?.label || "",
         stackable:  false,
         fragile:    false,
         highValue:  false,
-        hazmat:     false,
+        hazmat:     isHazmat,
+        ...(hazmatClass ? { hazmatClass } : {}),
         minMcMaturityDays:     Number(form.minMcMaturity) * 30,
         minCargoInsurance:     Number(form.minInsurance) * 1_000_000,
         minLiabilityInsurance: 500_000,
@@ -289,50 +363,108 @@ export default function PostLoad() {
             </div>
           </Section>
 
-          {/* ── Freight ───────────────────────────────────────────────────── */}
-          <Section title="Freight">
-            <Field label="Commodity description *">
-              <Input
-                placeholder="e.g. Steel coils, 48 pallets of electronics, lumber…"
-                value={form.commodityDescription}
-                onChange={(e) => set("commodityDescription", e.target.value)}
-                required
+          {/* ── Load type (Equipment & Load Type Taxonomy spec §2-§3) ───── */}
+          <Section title="Load type">
+            <div className="grid md:grid-cols-2 gap-4">
+              <Field label="Load mode *">
+                <Combobox items={modeItems}    value={mode}        onChange={setMode}        placeholder="Mode…" />
+              </Field>
+              <Field label="Service type *">
+                <Combobox items={serviceItems} value={serviceType} onChange={setServiceType} placeholder="Service…" />
+              </Field>
+            </div>
+
+            <Field label="Accepted equipment class(es) *" className="mt-4">
+              <MultiCombobox
+                items={equipmentItems}
+                value={equipmentClasses}
+                onChange={setEquipmentClasses}
+                placeholder="Pick one or more equipment classes…"
               />
             </Field>
 
-            {/* Equipment multi-select */}
-            <div className="space-y-2 mt-4">
-              <Label className="text-xs text-muted-foreground">Accepted Equipment Type(s)</Label>
-              {["Enclosed", "Open-Deck", "Specialized"].map((group) => (
-                <div key={group}>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1 mt-2">{group}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {ALL_TRAILER_TYPES.filter((t) => t.group === group).map((t) => (
-                      <button
-                        key={t.value}
-                        type="button"
-                        onClick={() => toggleType(t.value)}
-                        className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                          acceptedTypes.includes(t.value)
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-secondary text-foreground hover:bg-secondary/80"
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              {acceptedTypes.includes("REEFER") && (
-                <div className="grid grid-cols-2 gap-3 mt-2">
-                  <Field label="Min temp (°F)">
-                    <Input type="number" placeholder="-20" value={form.tempRequiredMin} onChange={(e) => set("tempRequiredMin", e.target.value)} />
-                  </Field>
-                  <Field label="Max temp (°F)">
-                    <Input type="number" placeholder="40" value={form.tempRequiredMax} onChange={(e) => set("tempRequiredMax", e.target.value)} />
-                  </Field>
-                </div>
+            <Field label="Preferred equipment model (optional)" className="mt-4">
+              <AsyncCombobox
+                value={equipmentModel}
+                onChange={setEquipmentModel}
+                disabled={!equipmentClasses[0]}
+                placeholder={equipmentClasses[0] ? "Search models…" : "Pick an equipment class first"}
+                fetchItems={async (q) => {
+                  if (!equipmentClasses[0]) return [];
+                  const items = await taxonomyApi.searchEquipmentModels(equipmentClasses[0], q || "", 25);
+                  return items.map(it => ({
+                    value: `${it.manufacturer}::${it.model}`,
+                    label: it.model,
+                    group: it.manufacturer,
+                  }));
+                }}
+              />
+            </Field>
+
+            {requiresTempControl && (
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <Field label="Min temp (°F)">
+                  <Input type="number" placeholder="-20" value={form.tempRequiredMin} onChange={(e) => set("tempRequiredMin", e.target.value)} />
+                </Field>
+                <Field label="Max temp (°F)">
+                  <Input type="number" placeholder="40" value={form.tempRequiredMax} onChange={(e) => set("tempRequiredMax", e.target.value)} />
+                </Field>
+              </div>
+            )}
+          </Section>
+
+          {/* ── Freight ───────────────────────────────────────────────────── */}
+          <Section title="Freight">
+            <Field label="Commodity *">
+              <AsyncCombobox
+                value={commodity}
+                onChange={setCommodity}
+                placeholder="Search commodities (e.g. produce, fuel, steel)…"
+                fetchItems={async (q) => {
+                  const r = await taxonomyApi.searchCommodities(q || "", 30);
+                  const catNames = Object.fromEntries(r.categories.map(c => [c.code, c.name]));
+                  return r.items.map(c => ({
+                    value: c.code,
+                    label: c.name,
+                    group: catNames[c.category] ?? c.category,
+                    hint:  c.code,
+                  }));
+                }}
+              />
+            </Field>
+
+            <Field label="Commodity handling notes (optional)" className="mt-4">
+              <Textarea
+                placeholder="Anything genuinely freeform — handling instructions, stacking notes, etc."
+                value={form.commodityNotes}
+                onChange={(e) => set("commodityNotes", e.target.value)}
+                rows={2}
+              />
+            </Field>
+
+            <Field label="Accessorials" className="mt-4">
+              <MultiCombobox
+                items={accessorialItems}
+                value={accessorials}
+                onChange={setAccessorials}
+                placeholder="Add accessorials (detention, lumper, tarping…)"
+              />
+            </Field>
+
+            <div className="mt-4 space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={isHazmat} onCheckedChange={(v) => { setIsHazmat(!!v); if (!v) setHazmatClass(null); }} />
+                <span>Hazmat load</span>
+              </label>
+              {isHazmat && (
+                <Field label="Hazmat class *">
+                  <Combobox
+                    items={hazmatItems}
+                    value={hazmatClass}
+                    onChange={setHazmatClass}
+                    placeholder="Pick a DOT hazard class…"
+                  />
+                </Field>
               )}
             </div>
 
@@ -564,9 +696,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Field({ label, children }: { label: string; id?: string; children: React.ReactNode }) {
+function Field({ label, children, className }: { label: string; id?: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className="space-y-1.5">
+    <div className={`space-y-1.5 ${className ?? ""}`}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>

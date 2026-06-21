@@ -17,6 +17,22 @@ import { SecuritySettings } from "@/components/SecuritySettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+// Persona-neutral taxonomy atoms — same primitives PostLoad + OwnerOperatorSettings use.
+import { Combobox, AsyncCombobox } from "@/components/ui/combobox";
+import { useEquipmentClasses, taxonomyApi, toEquipmentItems } from "@/services/taxonomy";
+import { useMemo as useMemoTaxonomy } from "react";
+
+// Class code → legacy TrailerType (kept in sync with PostLoad's mapping).
+const CLASS_CODE_TO_TRAILER_TYPE_SETTINGS: Record<string, string> = {
+  V: "DRY_VAN", V48: "DRY_VAN", R: "REEFER", R48: "REEFER", RM: "REEFER", RBOX: "REEFER",
+  F: "FLATBED", F53: "FLATBED", SD: "FLATBED", CN: "FLATBED",
+  RGN: "RGN", TF: "TANKER", TC: "TANKER", TFG: "TANKER",
+  CH: "CAR_HAULER", PO: "POWER_ONLY",
+  BOX26: "BOX_TRUCK", BOX24: "BOX_TRUCK", BOX16: "BOX_TRUCK",
+};
+const TRAILER_TYPE_TO_CLASS_CODE_SETTINGS: Record<string, string> = Object.fromEntries(
+  Object.entries(CLASS_CODE_TO_TRAILER_TYPE_SETTINGS).map(([k, v]) => [v, k])
+);
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -560,26 +576,12 @@ function DriverSettings({ userId }: { userId: string }) {
           <SectionCard>
             <p className="text-xs text-muted-foreground">Fields marked <span className="text-destructive font-semibold">*</span> are required.</p>
             <div className="grid sm:grid-cols-2 gap-4">
-              {inp("truckMake", "Truck Make", "text", "", true)}
-              {inp("truckModel", "Truck Model", "text", "", true)}
               {inp("truckYear", "Truck Year", "number", "", true)}
               {inp("truckVIN", "Truck VIN (17 chars)", "text", "1FUJGBDV1CLBA0001", true)}
-              <Field label="Trailer Type" id="trailerType" required>
-                <Select value={profile.trailerType} onValueChange={(v) => set("trailerType", v)}>
-                  <SelectTrigger id="trailerType"><SelectValue placeholder="Select type" /></SelectTrigger>
-                  <SelectContent>
-                    {["Enclosed", "Open-Deck", "Specialized"].map((group) => (
-                      <div key={group}>
-                        <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{group}</div>
-                        {TRAILER_TYPES.filter((t) => t.group === group).map((t) => (
-                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                        ))}
-                      </div>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
               {inp("maxCapacityLbs", "Max Weight Capacity (lbs)", "number", "", true)}
+            </div>
+            <TaxonomyEquipmentPicker profile={profile} set={set} />
+            <div className="hidden">{/* anchor — original closing div lives below */}
             </div>
 
             {/* Interior dimensions for volume matching */}
@@ -1746,5 +1748,99 @@ export default function SettingsPage() {
         {user.role === "CARRIER_ADMIN" && <CarrierAdminSettings />}
       </div>
     </>
+  );
+}
+
+// Persona-neutral equipment picker. Same atoms used by PostLoad and OO settings.
+// Drops the old free-text Truck Make / Truck Model inputs and the grouped
+// Trailer Type Select, replacing them with searchable comboboxes fed from
+// /api/reference/*. Keeps the legacy `trailerType` field in sync so existing
+// backend consumers don't break.
+function TaxonomyEquipmentPicker({
+  profile,
+  set,
+}: {
+  profile: Record<string, any>;
+  set: (k: string, v: unknown) => void;
+}) {
+  const eqClasses = useEquipmentClasses();
+  const equipmentItems = useMemoTaxonomy(
+    () => (eqClasses.data ? toEquipmentItems(eqClasses.data) : []),
+    [eqClasses.data]
+  );
+
+  const classCode: string | null =
+    profile.equipment_class_code ??
+    (profile.trailerType ? TRAILER_TYPE_TO_CLASS_CODE_SETTINGS[profile.trailerType] ?? null : null);
+
+  const tractorValue =
+    profile.truckMake && profile.truckModel
+      ? { value: `${profile.truckMake}::${profile.truckModel}`, label: profile.truckModel }
+      : null;
+
+  const trailerModelValue = profile.trailer_model
+    ? { value: profile.trailer_model, label: String(profile.trailer_model).split("::").pop() ?? profile.trailer_model }
+    : null;
+
+  return (
+    <div className="pt-4 border-t border-border space-y-3">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Equipment (from taxonomy)</p>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Field label="Equipment class" id="equipment_class_code" required>
+          <Combobox
+            items={equipmentItems}
+            value={classCode}
+            onChange={(v) => {
+              set("equipment_class_code", v);
+              if (v) set("trailerType", CLASS_CODE_TO_TRAILER_TYPE_SETTINGS[v] ?? "DRY_VAN");
+            }}
+            placeholder="Pick an equipment class…"
+          />
+        </Field>
+
+        <Field label="Tractor (manufacturer/model)" id="truck_model" required>
+          <AsyncCombobox
+            value={tractorValue}
+            onChange={(sel) => {
+              if (!sel) {
+                set("truckMake", "");
+                set("truckModel", "");
+                return;
+              }
+              const [mfg, model] = sel.value.split("::");
+              set("truckMake", mfg);
+              set("truckModel", model);
+            }}
+            placeholder="Search tractors (Freightliner, Kenworth…)"
+            fetchItems={async (q) => {
+              const items = await taxonomyApi.searchEquipmentModels("PO", q || "", 25);
+              return items.map((it) => ({
+                value: `${it.manufacturer}::${it.model}`,
+                label: it.model,
+                group: it.manufacturer,
+              }));
+            }}
+          />
+        </Field>
+
+        <Field label="Trailer (manufacturer/model)" id="trailer_model" required={false}>
+          <AsyncCombobox
+            value={trailerModelValue}
+            onChange={(sel) => set("trailer_model", sel?.value ?? "")}
+            disabled={!classCode}
+            placeholder={classCode ? "Search trailer models…" : "Pick an equipment class first"}
+            fetchItems={async (q) => {
+              if (!classCode) return [];
+              const items = await taxonomyApi.searchEquipmentModels(classCode, q || "", 25);
+              return items.map((it) => ({
+                value: `${it.manufacturer}::${it.model}`,
+                label: it.model,
+                group: it.manufacturer,
+              }));
+            }}
+          />
+        </Field>
+      </div>
+    </div>
   );
 }

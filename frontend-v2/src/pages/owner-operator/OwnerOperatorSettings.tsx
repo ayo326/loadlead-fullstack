@@ -10,6 +10,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+// Persona-neutral taxonomy atoms — same primitives the Carrier settings screen uses.
+import { Combobox, AsyncCombobox } from "@/components/ui/combobox";
+import { useEquipmentClasses, taxonomyApi, toEquipmentItems } from "@/services/taxonomy";
+import { useMemo } from "react";
+
+// Equipment class code → legacy TrailerType (matches PostLoad's mapping).
+const CLASS_CODE_TO_TRAILER_TYPE: Record<string, string> = {
+  V: "DRY_VAN", V48: "DRY_VAN", R: "REEFER", R48: "REEFER", RM: "REEFER", RBOX: "REEFER",
+  F: "FLATBED", F53: "FLATBED", SD: "FLATBED", CN: "FLATBED",
+  RGN: "RGN", TF: "TANKER", TC: "TANKER", TFG: "TANKER",
+  CH: "CAR_HAULER", PO: "POWER_ONLY",
+  BOX26: "BOX_TRUCK", BOX24: "BOX_TRUCK", BOX16: "BOX_TRUCK",
+};
+// Reverse: legacy TrailerType → first canonical class code (for round-tripping).
+const TRAILER_TYPE_TO_CLASS_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(CLASS_CODE_TO_TRAILER_TYPE).map(([k, v]) => [v, k])
+);
 
 // ── Reusable helpers ─────────────────────────────────────────────────────────
 
@@ -107,24 +124,91 @@ function ProfileTab() {
         </div>
       </SectionCard>
 
-      <SectionCard>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Equipment (if you drive)</p>
-        <div className="grid sm:grid-cols-2 gap-4">
-          {inp("cdlClass", "CDL Class")}
-          {inp("truckMake", "Truck Make")}
-          {inp("truckModel", "Truck Model")}
-          {inp("truckYear", "Truck Year", false, "number")}
-          {inp("truckVIN", "VIN")}
-          {inp("trailerType", "Trailer Type")}
-          {inp("trailerLength", "Trailer Length (ft)", false, "number")}
-          {inp("maxCapacityLbs", "Max Capacity (lbs)", false, "number")}
-        </div>
-      </SectionCard>
+      <EquipmentSection profile={profile} set={set} inp={inp} />
 
       <div className="flex justify-end">
         <Button onClick={save} disabled={saving}>
           {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving…</> : "Save Profile"}
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// Persona-neutral equipment section: class + tractor + trailer model from the
+// canonical taxonomy. Same primitives the Carrier and Driver settings use.
+function EquipmentSection({ profile, set, inp }: {
+  profile: Record<string, any>;
+  set: (k: string, v: unknown) => void;
+  inp: (id: string, label: string, req?: boolean, type?: string) => React.ReactElement;
+}) {
+  const eqClasses = useEquipmentClasses();
+  const equipmentItems = useMemo(() => eqClasses.data ? toEquipmentItems(eqClasses.data) : [], [eqClasses.data]);
+
+  // The persisted shape still uses TrailerType for backward compat; keep the
+  // class code in form state and translate on save.
+  const classCode: string | null = profile.equipment_class_code
+    ?? (profile.trailerType ? TRAILER_TYPE_TO_CLASS_CODE[profile.trailerType] ?? null : null);
+
+  const tractorValue = profile.truckMake && profile.truckModel
+    ? { value: `${profile.truckMake}::${profile.truckModel}`, label: profile.truckModel }
+    : null;
+
+  const trailerModelValue = profile.trailer_model
+    ? { value: profile.trailer_model, label: profile.trailer_model.split("::").pop() ?? profile.trailer_model }
+    : null;
+
+  return (
+    <div className="rounded-xl border bg-card p-5 space-y-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Equipment (if you drive)</p>
+      <div className="grid sm:grid-cols-2 gap-4">
+        {inp("cdlClass", "CDL Class")}
+        {inp("truckYear", "Truck Year", false, "number")}
+        {inp("truckVIN", "VIN")}
+        {inp("trailerLength", "Trailer Length (ft)", false, "number")}
+        {inp("maxCapacityLbs", "Max Capacity (lbs)", false, "number")}
+
+        <Field label="Equipment class" id="equipment_class_code">
+          <Combobox
+            items={equipmentItems}
+            value={classCode}
+            onChange={(v) => {
+              set("equipment_class_code", v);
+              if (v) set("trailerType", CLASS_CODE_TO_TRAILER_TYPE[v] ?? "DRY_VAN");
+            }}
+            placeholder="Pick an equipment class…"
+          />
+        </Field>
+
+        <Field label="Tractor (manufacturer/model)" id="truck_model">
+          <AsyncCombobox
+            value={tractorValue}
+            onChange={(sel) => {
+              if (!sel) { set("truckMake", ""); set("truckModel", ""); return; }
+              const [mfg, model] = sel.value.split("::");
+              set("truckMake", mfg); set("truckModel", model);
+            }}
+            placeholder="Search tractors (Freightliner, Kenworth…)"
+            fetchItems={async (q) => {
+              const items = await taxonomyApi.searchEquipmentModels("PO", q || "", 25);
+              return items.map(it => ({ value: `${it.manufacturer}::${it.model}`, label: it.model, group: it.manufacturer }));
+            }}
+          />
+        </Field>
+
+        <Field label="Trailer (manufacturer/model)" id="trailer_model">
+          <AsyncCombobox
+            value={trailerModelValue}
+            onChange={(sel) => set("trailer_model", sel?.value ?? "")}
+            disabled={!classCode}
+            placeholder={classCode ? "Search trailer models…" : "Pick an equipment class first"}
+            fetchItems={async (q) => {
+              if (!classCode) return [];
+              const items = await taxonomyApi.searchEquipmentModels(classCode, q || "", 25);
+              return items.map(it => ({ value: `${it.manufacturer}::${it.model}`, label: it.model, group: it.manufacturer }));
+            }}
+          />
+        </Field>
       </div>
     </div>
   );
