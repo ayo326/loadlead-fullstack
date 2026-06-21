@@ -46,6 +46,7 @@ import ownerOperatorRoutes from './routes/ownerOperator';
 import setupRoutes from './routes/setup';
 import { diditWebhookHandler } from './services/verification';
 import factoringRoutes from './routes/factoring';
+import referenceRoutes from './routes/reference';
 const app: Application = express();
 
 // Tell Express to trust the one proxy in front of it (Classic ELB).
@@ -208,6 +209,7 @@ app.use('/api/maps', mapsRouter);
 app.use('/api/org', orgRoutes);
 app.use('/api/setup', setupRoutes);
 app.use('/api/factoring', factoringRoutes);
+app.use('/api/reference', referenceRoutes);
 
 // Didit webhook — PUBLIC (no JWT); signature verified inside the handler
 app.post('/api/webhooks/didit', diditWebhookHandler);
