@@ -1,44 +1,105 @@
 import { ReactNode } from "react";
 
-export function PageHeader({ eyebrow, title, subtitle, actions }: { eyebrow?: string; title: string; subtitle?: string; actions?: ReactNode }) {
+// Dispatch page header. See design-system/MASTER.md §9.
+//   - 56px tall surface (`h-page-header`), 1px bottom border
+//   - eyebrow above title in JetBrains Mono uppercase
+//   - title in `text-h1`, subtitle in `text-body` muted
+//   - actions cluster right; at most one primary
+export function PageHeader({
+  eyebrow,
+  title,
+  subtitle,
+  actions,
+}: {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+  actions?: ReactNode;
+}) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-      <div>
-        {eyebrow && <div className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">{eyebrow}</div>}
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
-        {subtitle && <p className="mt-1.5 text-muted-foreground max-w-xl">{subtitle}</p>}
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
+      <div className="min-w-0">
+        {eyebrow && (
+          <div className="mb-2 text-overline font-mono text-muted-foreground">{eyebrow}</div>
+        )}
+        <h1 className="text-h1 font-display text-foreground">{title}</h1>
+        {subtitle && <p className="mt-1.5 max-w-2xl text-body text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
   );
 }
 
-export function StatCard({ label, value, hint, trend }: { label: string; value: string; hint?: string; trend?: "up" | "down" | "flat" }) {
-  const trendColor = trend === "up" ? "text-success" : trend === "down" ? "text-destructive" : "text-muted-foreground";
+// KPI tile. Calmer than the old big-number variant; built for dashboards
+// that show 4–6 of these side by side. See MASTER §9.
+export function StatCard({
+  label,
+  value,
+  hint,
+  trend,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  trend?: "up" | "down" | "flat";
+}) {
+  const trendColor =
+    trend === "up" ? "text-success" : trend === "down" ? "text-destructive" : "text-muted-foreground";
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
-      <div className="text-xs uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className="mt-2 text-3xl font-bold tracking-tight text-foreground">{value}</div>
-      {hint && <div className={`mt-1 text-xs ${trendColor}`}>{hint}</div>}
+    <div className="rounded-md border border-border bg-card p-5">
+      <div className="text-overline font-mono text-muted-foreground">{label}</div>
+      <div className="mt-2 font-display text-h1 tabular text-foreground">{value}</div>
+      {hint && <div className={`mt-1 text-label ${trendColor}`}>{hint}</div>}
     </div>
   );
 }
 
+// Status pill — load lifecycle. Maps every known status to a tonal variant
+// using the new Badge atom. Dispatch uses sharp 4px radius (not pill round).
+const STATUS_TO_VARIANT: Record<
+  string,
+  { tone: "neutral" | "info" | "success" | "warning" | "destructive"; pulse?: boolean; dot?: boolean }
+> = {
+  OPEN:       { tone: "info",        dot: true },
+  TENDERED:   { tone: "info",        dot: true },
+  BROADCAST:  { tone: "warning",     dot: true, pulse: true },
+  BOOKED:     { tone: "info",        dot: true },
+  ACCEPTED:   { tone: "success",     dot: true },
+  DISPATCHED: { tone: "info",        dot: true },
+  IN_TRANSIT: { tone: "info",        dot: true, pulse: true },
+  DELIVERED:  { tone: "success",     dot: true },
+  AVAILABLE:  { tone: "success",     dot: true },
+  ON_LOAD:    { tone: "info",        dot: true, pulse: true },
+  OFFLINE:    { tone: "neutral",     dot: true },
+  CANCELLED:  { tone: "destructive", dot: true },
+  REJECTED:   { tone: "destructive", dot: true },
+  DRAFT:      { tone: "neutral" },
+};
+
 export function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    OPEN: "bg-secondary text-secondary-foreground",
-    BROADCAST: "bg-warning/15 text-warning border border-warning/30",
-    BOOKED: "bg-primary/10 text-primary border border-primary/20",
-    IN_TRANSIT: "bg-accent/15 text-accent border border-accent/30",
-    DELIVERED: "bg-success/15 text-success border border-success/30",
-    AVAILABLE: "bg-success/15 text-success border border-success/30",
-    ON_LOAD: "bg-accent/15 text-accent border border-accent/30",
-    OFFLINE: "bg-muted text-muted-foreground border border-border",
-  };
+  const v = STATUS_TO_VARIANT[status] ?? { tone: "neutral" as const };
+  const toneClass =
+    v.tone === "info"
+      ? "bg-primary/10 text-primary"
+      : v.tone === "success"
+        ? "bg-success/15 text-success"
+        : v.tone === "warning"
+          ? "bg-warning/15 text-[hsl(var(--warning))]"
+          : v.tone === "destructive"
+            ? "bg-destructive/10 text-destructive"
+            : "bg-secondary text-secondary-foreground";
+
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${map[status] ?? "bg-secondary"}`}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-      {status.replace("_", " ")}
+    <span
+      className={`inline-flex items-center gap-1.5 h-5 rounded-sm px-2 text-overline uppercase ${toneClass}`}
+    >
+      {v.dot && (
+        <span
+          className={`status-dot ${v.pulse ? "animate-status-pulse" : ""}`}
+          aria-hidden
+        />
+      )}
+      {status.replace(/_/g, " ")}
     </span>
   );
 }
