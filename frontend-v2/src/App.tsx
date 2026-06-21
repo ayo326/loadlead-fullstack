@@ -31,6 +31,7 @@ import CarrierDashboard from "./pages/carrier/CarrierDashboard.tsx";
 import DriverHistory from "./pages/driver/DriverHistory.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
+import TaxonomySandbox from "./pages/sandbox/TaxonomySandbox.tsx";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,8 @@ const App = () => (
           <ErrorBoundary>
           <Routes>
             <Route path="/" element={<Landing />} />
+            {/* Dev-only — taxonomy dropdown sandbox. No auth wrapper. */}
+            <Route path="/sandbox/taxonomy" element={<TaxonomySandbox />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ResetPassword />} />
