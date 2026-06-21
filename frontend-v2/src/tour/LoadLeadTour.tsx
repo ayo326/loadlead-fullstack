@@ -55,28 +55,44 @@ interface PersonaTour {
   steps: StepDef[];
 }
 
+/** Tour variant — separates the dashboard tour from a settings sub-tour
+ * so each completion is tracked independently in localStorage. */
+type TourVariant = "dashboard" | "settings";
+
 /* ─── helpers ───────────────────────────────────────────────────────────── */
 
 const STORAGE_PREFIX = "loadlead.tour.completed.";
+const storageKey = (persona: Persona, variant: TourVariant) =>
+  `${STORAGE_PREFIX}${persona}.${variant}`;
 
 const storage = {
-  get(persona: Persona): boolean {
+  get(persona: Persona, variant: TourVariant = "dashboard"): boolean {
     try {
-      return localStorage.getItem(STORAGE_PREFIX + persona) === "1";
+      // Back-compat: the original key didn't include the variant suffix.
+      const legacy = localStorage.getItem(STORAGE_PREFIX + persona);
+      if (variant === "dashboard" && legacy === "1") return true;
+      return localStorage.getItem(storageKey(persona, variant)) === "1";
     } catch {
       return false;
     }
   },
-  set(persona: Persona) {
+  set(persona: Persona, variant: TourVariant = "dashboard") {
     try {
-      localStorage.setItem(STORAGE_PREFIX + persona, "1");
+      localStorage.setItem(storageKey(persona, variant), "1");
     } catch {
       /* private mode etc. */
     }
   },
-  clear(persona: Persona) {
+  clear(persona: Persona, variant?: TourVariant) {
     try {
-      localStorage.removeItem(STORAGE_PREFIX + persona);
+      if (!variant) {
+        // Clear all variants for this persona, including the legacy key.
+        localStorage.removeItem(STORAGE_PREFIX + persona);
+        localStorage.removeItem(storageKey(persona, "dashboard"));
+        localStorage.removeItem(storageKey(persona, "settings"));
+      } else {
+        localStorage.removeItem(storageKey(persona, variant));
+      }
     } catch {
       /* noop */
     }
@@ -336,12 +352,248 @@ const receiver: PersonaTour = {
   ],
 };
 
+/* ─── universal rail steps appended to every persona's dashboard tour ─── */
+
+const railSteps: StepDef[] = [
+  {
+    id: "rail-nav",
+    title: "Your menu",
+    text: "Every place you go in LoadLead is one click away from this rail. Items here change with your role — you only see what's yours.",
+    attachTo: { element: '[data-tour="rail-nav"]', on: "right" },
+    waitFor: '[data-tour="rail-nav"]',
+  },
+  {
+    id: "rail-settings",
+    title: "Settings",
+    text: "Your profile, equipment, identity verification (IDV), business verification, organisation, and security live in Settings.",
+    attachTo: { element: '[data-tour="rail-settings"]', on: "right" },
+    waitFor: '[data-tour="rail-settings"]',
+    hint: "We'll walk you through Settings the first time you open it.",
+  },
+  {
+    id: "rail-account",
+    title: "Your account",
+    text: "Your email, role, and sign-out live here at the bottom of the rail. The Replay tour link below brings this guide back any time.",
+    attachTo: { element: '[data-tour="rail-account"]', on: "right" },
+    waitFor: '[data-tour="rail-account"]',
+  },
+];
+
+// Append rail steps to each persona's dashboard tour so every persona ends
+// the same way — covering the menus + the door into Settings.
+[carrierAdmin, ownerOperator, driver, shipper, receiver].forEach((t) => {
+  t.steps = [...t.steps, ...railSteps];
+});
+
 const TOURS: Record<Persona, PersonaTour> = {
   CARRIER_ADMIN: carrierAdmin,
   OWNER_OPERATOR: ownerOperator,
   DRIVER: driver,
   SHIPPER: shipper,
   RECEIVER: receiver,
+};
+
+/* ─── Settings sub-tours ────────────────────────────────────────────────── */
+//
+// One per persona. Triggers the first time the user lands on the matching
+// /settings path. Targets the Settings page's tablist + key tabs.
+
+const settingsTours: Record<Persona, PersonaTour> = {
+  CARRIER_ADMIN: {
+    persona: "CARRIER_ADMIN",
+    label: "Carrier admin settings",
+    steps: [
+      {
+        id: "intro",
+        title: "Your settings",
+        text: "Six tabs cover everything the carrier company needs. We'll walk through the ones operators use most.",
+      },
+      {
+        id: "settings-tabs",
+        title: "The tab rail",
+        text: "Each tab is independent — changes in one don't leak into another. Pick a tab any time.",
+        attachTo: { element: '[data-tour="settings-tabs"]', on: "right" },
+        waitFor: '[data-tour="settings-tabs"]',
+      },
+      {
+        id: "settings-tab-company",
+        title: "Company",
+        text: "Your legal name, MC/DOT, address, contact, and main operating info.",
+        attachTo: { element: '[data-tour="settings-tab-company"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-company"]',
+      },
+      {
+        id: "settings-tab-biz",
+        title: "Business verification",
+        text: "Five-state panel for FMCSA + KYB + AML. You can't broadcast loads to your roster until this lands on Verified.",
+        attachTo: { element: '[data-tour="settings-tab-biz"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-biz"]',
+      },
+      {
+        id: "settings-tab-security",
+        title: "Security",
+        text: "Password, 2FA, active sessions. Add 2FA before you onboard your first driver.",
+        attachTo: { element: '[data-tour="settings-tab-security"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-security"]',
+      },
+    ],
+  },
+  OWNER_OPERATOR: {
+    persona: "OWNER_OPERATOR",
+    label: "Owner Operator settings",
+    steps: [
+      {
+        id: "intro",
+        title: "Your settings",
+        text: "Four tabs: Profile, Fleet, Verification, Security. As an OO you cover both the company and the driver in one place.",
+      },
+      {
+        id: "settings-tabs",
+        title: "The tab rail",
+        text: "Each tab is its own panel — independent from the rest. Pick any one.",
+        attachTo: { element: '[data-tour="settings-tabs"]', on: "right" },
+        waitFor: '[data-tour="settings-tabs"]',
+      },
+      {
+        id: "settings-tab-profile",
+        title: "Profile",
+        text: "Legal name, DBA, contact, address — plus your own equipment + CDL block at the bottom (you're a driver too).",
+        attachTo: { element: '[data-tour="settings-tab-profile"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-profile"]',
+      },
+      {
+        id: "settings-tab-fleet",
+        title: "Fleet",
+        text: "Manage your drivers (incl. yourself), invite new ones, and review their IDV status.",
+        attachTo: { element: '[data-tour="settings-tab-fleet"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-fleet"]',
+      },
+      {
+        id: "settings-tab-security",
+        title: "Security",
+        text: "Password + 2FA. Owner Operators should enable 2FA before going live.",
+        attachTo: { element: '[data-tour="settings-tab-security"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-security"]',
+      },
+    ],
+  },
+  DRIVER: {
+    persona: "DRIVER",
+    label: "Driver settings",
+    steps: [
+      {
+        id: "intro",
+        title: "Your settings",
+        text: "Seven tabs cover your driver record. You'll spend most time in Profile, Equipment, and ID Verification.",
+      },
+      {
+        id: "settings-tabs",
+        title: "The tab rail",
+        text: "Each tab is its own panel — independent from the rest.",
+        attachTo: { element: '[data-tour="settings-tabs"]', on: "right" },
+        waitFor: '[data-tour="settings-tabs"]',
+      },
+      {
+        id: "settings-tab-profile",
+        title: "Profile",
+        text: "Legal name, CDL, contact, current location. This is what every potential carrier sees about you.",
+        attachTo: { element: '[data-tour="settings-tab-profile"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-profile"]',
+      },
+      {
+        id: "settings-tab-equipment",
+        title: "Equipment",
+        text: "Your truck + trailer + capacity. This drives load matching: if your equipment doesn't fit a load, you won't see the offer.",
+        attachTo: { element: '[data-tour="settings-tab-equipment"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-equipment"]',
+      },
+      {
+        id: "settings-tab-id",
+        title: "ID Verification",
+        text: "Complete IDV once. Identity verified does NOT mean you can haul — you still need to be affiliated with a carrier or OO.",
+        attachTo: { element: '[data-tour="settings-tab-id"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-id"]',
+      },
+      {
+        id: "settings-tab-security",
+        title: "Security",
+        text: "Password + 2FA. Required before you take live offers.",
+        attachTo: { element: '[data-tour="settings-tab-security"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-security"]',
+      },
+    ],
+  },
+  SHIPPER: {
+    persona: "SHIPPER",
+    label: "Shipper settings",
+    steps: [
+      {
+        id: "intro",
+        title: "Your settings",
+        text: "Settings for a shipper account. Profile + business verification + security are the three that matter for going live.",
+      },
+      {
+        id: "settings-tabs",
+        title: "The tab rail",
+        text: "Pick any tab to manage that surface independently.",
+        attachTo: { element: '[data-tour="settings-tabs"]', on: "right" },
+        waitFor: '[data-tour="settings-tabs"]',
+      },
+      {
+        id: "settings-tab-profile",
+        title: "Profile",
+        text: "Your shipper company info: legal name, contact, default pickup facility, billing email.",
+        attachTo: { element: '[data-tour="settings-tab-profile"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-profile"]',
+      },
+      {
+        id: "settings-tab-biz",
+        title: "Business verification",
+        text: "We verify your business so carriers can trust the offers. Some lanes won't broadcast until you're verified.",
+        attachTo: { element: '[data-tour="settings-tab-biz"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-biz"]',
+      },
+      {
+        id: "settings-tab-security",
+        title: "Security",
+        text: "Password + 2FA. Enable 2FA on any account that posts loads.",
+        attachTo: { element: '[data-tour="settings-tab-security"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-security"]',
+      },
+    ],
+  },
+  RECEIVER: {
+    persona: "RECEIVER",
+    label: "Receiver settings",
+    steps: [
+      {
+        id: "intro",
+        title: "Your settings",
+        text: "Receivers skip the FMCSA/KYB flow. Just facility info + security.",
+      },
+      {
+        id: "settings-tabs",
+        title: "The tab rail",
+        text: "Each tab is its own panel — pick what you need.",
+        attachTo: { element: '[data-tour="settings-tabs"]', on: "right" },
+        waitFor: '[data-tour="settings-tabs"]',
+      },
+      {
+        id: "settings-tab-profile",
+        title: "Profile",
+        text: "Facility name, address, dock availability, forklift, freight format. This is what shippers tell drivers about your dock.",
+        attachTo: { element: '[data-tour="settings-tab-profile"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-profile"]',
+      },
+      {
+        id: "settings-tab-security",
+        title: "Security",
+        text: "Password + 2FA. Enable 2FA for anyone confirming POD on inbound loads.",
+        attachTo: { element: '[data-tour="settings-tab-security"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-security"]',
+      },
+    ],
+  },
 };
 
 /* ─── tour controller ───────────────────────────────────────────────────── */
@@ -359,7 +611,7 @@ function roleToPersona(role: string | undefined): Persona | null {
   }
 }
 
-function buildTour(personaTour: PersonaTour): Tour {
+function buildTour(personaTour: PersonaTour, variant: TourVariant = "dashboard"): Tour {
   // @ts-expect-error — shepherd's default export typing isn't great in v14
   const tour: Tour = new Shepherd.Tour({
     useModalOverlay: true,
@@ -414,8 +666,8 @@ function buildTour(personaTour: PersonaTour): Tour {
     });
   });
 
-  tour.on("complete", () => storage.set(personaTour.persona));
-  tour.on("cancel", () => storage.set(personaTour.persona));
+  tour.on("complete", () => storage.set(personaTour.persona, variant));
+  tour.on("cancel", () => storage.set(personaTour.persona, variant));
 
   return tour;
 }
@@ -423,9 +675,9 @@ function buildTour(personaTour: PersonaTour): Tour {
 /* ─── React surface ─────────────────────────────────────────────────────── */
 
 interface TourCtxValue {
-  start: (opts?: { force?: boolean }) => void;
-  reset: () => void;
-  hasCompleted: () => boolean;
+  start: (opts?: { force?: boolean; variant?: TourVariant }) => void;
+  reset: (variant?: TourVariant) => void;
+  hasCompleted: (variant?: TourVariant) => boolean;
   persona: Persona | null;
 }
 
@@ -454,27 +706,32 @@ export function TourMount() {
   const location = useLocation();
 
   const start = useCallback(
-    (opts?: { force?: boolean }) => {
+    (opts?: { force?: boolean; variant?: TourVariant }) => {
       if (!persona) return;
-      if (!opts?.force && storage.get(persona)) return;
+      const variant = opts?.variant ?? "dashboard";
+      if (!opts?.force && storage.get(persona, variant)) return;
       // Late-bind: build a fresh tour each start so cancelled-then-replayed
       // tours don't reuse stale Shepherd state.
-      const t = buildTour(TOURS[persona]);
+      const config = variant === "settings" ? settingsTours[persona] : TOURS[persona];
+      const t = buildTour(config, variant);
       tourRef.current = t;
       t.start();
     },
     [persona],
   );
 
-  const reset = useCallback(() => {
-    if (!persona) return;
-    storage.clear(persona);
-    tourRef.current?.cancel();
-    tourRef.current = null;
-  }, [persona]);
+  const reset = useCallback(
+    (variant?: TourVariant) => {
+      if (!persona) return;
+      storage.clear(persona, variant);
+      tourRef.current?.cancel();
+      tourRef.current = null;
+    },
+    [persona],
+  );
 
   const hasCompleted = useCallback(
-    () => (persona ? storage.get(persona) : false),
+    (variant?: TourVariant) => (persona ? storage.get(persona, variant ?? "dashboard") : false),
     [persona],
   );
 
@@ -489,12 +746,23 @@ export function TourMount() {
 
   useEffect(() => {
     if (!persona) return;
-    const onDashboard = location.pathname.startsWith(dashboardPaths[persona]);
-    if (!onDashboard) return;
-    if (storage.get(persona)) return;
-    // Slight delay so the dashboard's own data has had a chance to land.
-    const t = setTimeout(() => start(), 700);
-    return () => clearTimeout(t);
+    const path = location.pathname;
+    const onDashboard = path.startsWith(dashboardPaths[persona]);
+    const onSettings = path.startsWith("/settings") || path.startsWith("/owner-operator/settings");
+
+    // Auto-start the SETTINGS tour the first time the user lands on Settings —
+    // wins precedence over the dashboard tour because the user is clearly here.
+    if (onSettings && !storage.get(persona, "settings")) {
+      const t = setTimeout(() => start({ variant: "settings" }), 700);
+      return () => clearTimeout(t);
+    }
+
+    if (onDashboard && !storage.get(persona, "dashboard")) {
+      const t = setTimeout(() => start(), 700);
+      return () => clearTimeout(t);
+    }
+
+    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persona, location.pathname]);
 
@@ -517,16 +785,23 @@ export function TourMount() {
   return null;
 }
 
-/** Drop into the rail footer / account menu. */
+/** Drop into the rail footer / account menu. Replays whichever tour is
+ *  contextual to the current route: settings tour on /settings*, otherwise
+ *  the persona's dashboard tour. */
 export function TourReplayButton({ className }: { className?: string }) {
   const tour = useTour();
+  const location = useLocation();
   if (!tour.persona) return null;
+  const onSettings =
+    location.pathname.startsWith("/settings") ||
+    location.pathname.startsWith("/owner-operator/settings");
+  const variant: TourVariant = onSettings ? "settings" : "dashboard";
   return (
     <button
       type="button"
       onClick={() => {
-        tour.reset();
-        tour.start({ force: true });
+        tour.reset(variant);
+        tour.start({ force: true, variant });
       }}
       className={
         className ??

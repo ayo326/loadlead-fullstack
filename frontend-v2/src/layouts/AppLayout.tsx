@@ -93,7 +93,7 @@ function AppSidebar({ onLogout }: { onLogout: () => void }) {
               Workspace
             </SidebarGroupLabel>
           )}
-          <SidebarGroupContent>
+          <SidebarGroupContent data-tour="rail-nav">
             <SidebarMenu>
               {nav.map((item) => {
                 const active = item.exact
@@ -151,7 +151,7 @@ function AppSidebar({ onLogout }: { onLogout: () => void }) {
           )}
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
+              <SidebarMenuItem data-tour="rail-settings">
                 <SidebarMenuButton
                   asChild
                   isActive={settingsActive}
@@ -191,7 +191,7 @@ function AppSidebar({ onLogout }: { onLogout: () => void }) {
         {!collapsed ? (
           <div className="flex flex-col gap-2">
             {/* Persona chip */}
-            <div className="flex items-center gap-2 rounded-sm bg-sidebar-accent px-2 py-2">
+            <div data-tour="rail-account" className="flex items-center gap-2 rounded-sm bg-sidebar-accent px-2 py-2">
               <div
                 className="flex h-8 w-8 items-center justify-center rounded-sm bg-sidebar-primary text-sidebar-primary-foreground text-overline font-mono"
                 aria-hidden

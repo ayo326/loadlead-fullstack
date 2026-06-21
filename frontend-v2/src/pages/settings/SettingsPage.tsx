@@ -530,14 +530,14 @@ function DriverSettings({ userId }: { userId: string }) {
         <div className="rounded-xl bg-secondary p-3">
           <HeadshotUploader />
         </div>
-        <TabsList className="flex flex-col h-auto w-full rounded-xl bg-secondary p-1 gap-1">
-          <TabsTrigger value="profile" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Profile</TabsTrigger>
-          <TabsTrigger value="equipment" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Equipment</TabsTrigger>
+        <TabsList data-tour="settings-tabs" className="flex flex-col h-auto w-full rounded-xl bg-secondary p-1 gap-1">
+          <TabsTrigger data-tour="settings-tab-profile" value="profile" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Profile</TabsTrigger>
+          <TabsTrigger data-tour="settings-tab-equipment" value="equipment" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Equipment</TabsTrigger>
           <TabsTrigger value="authority" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Authority & Insurance</TabsTrigger>
-          <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
-          <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
+          <TabsTrigger data-tour="settings-tab-id" value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
+          <TabsTrigger data-tour="settings-tab-biz" value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
           <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
-          <TabsTrigger value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
+          <TabsTrigger data-tour="settings-tab-security" value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
         </TabsList>
       </div>
 
@@ -815,8 +815,8 @@ function ShipperSettings({ userId }: { userId: string }) {
 
   return (
     <Tabs defaultValue="company" orientation="vertical" className="flex gap-6">
-      <TabsList className="flex flex-col h-auto w-48 shrink-0 rounded-xl bg-secondary p-1 gap-1">
-        <TabsTrigger value="company" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Company</TabsTrigger>
+      <TabsList data-tour="settings-tabs" className="flex flex-col h-auto w-48 shrink-0 rounded-xl bg-secondary p-1 gap-1">
+        <TabsTrigger data-tour="settings-tab-company" value="company" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Company</TabsTrigger>
         <TabsTrigger value="operations" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Operations</TabsTrigger>
         <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
         <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
