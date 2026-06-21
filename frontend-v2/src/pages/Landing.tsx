@@ -32,7 +32,7 @@ export default function Landing() {
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
+      <section className="relative overflow-hidden bg-sidebar text-sidebar-foreground">
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "32px 32px" }} />
         <div className="relative max-w-7xl mx-auto px-6 pt-36 pb-28 grid lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-7 text-primary-foreground">
@@ -186,7 +186,7 @@ export default function Landing() {
 
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-6 py-24">
-        <div className="rounded-3xl p-12 md:p-16 text-primary-foreground relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
+        <div className="rounded-lg p-12 md:p-16 text-sidebar-foreground relative overflow-hidden bg-sidebar">
           <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "28px 28px" }} />
           <div className="relative max-w-2xl">
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight">Ready to dispatch like it's 2026?</h2>
