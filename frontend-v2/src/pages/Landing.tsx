@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { ArrowRight, CheckCircle2, Clock, Gauge, MapPin, PackageCheck, Radio, ShieldCheck, Truck, Send } from "lucide-react";
+import { ArrowRight, Briefcase, Building2, CheckCircle2, Clock, Gauge, MapPin, PackageCheck, Radio, ShieldCheck, ShipWheel, Truck, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 
@@ -8,7 +8,7 @@ const API = (import.meta.env.VITE_API_URL ?? "https://api.loadleadapp.com") + "/
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="font-display-hangar min-h-screen bg-background text-foreground">
       {/* Nav */}
       <header className="absolute top-0 inset-x-0 z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-5">
@@ -32,7 +32,7 @@ export default function Landing() {
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
+      <section className="relative overflow-hidden bg-sidebar text-sidebar-foreground">
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "32px 32px" }} />
         <div className="relative max-w-7xl mx-auto px-6 pt-36 pb-28 grid lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-7 text-primary-foreground">
@@ -57,14 +57,14 @@ export default function Landing() {
             <div className="mt-10 flex flex-wrap gap-6 text-sm text-primary-foreground/70">
               <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />Eligibility-aware</div>
               <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />Real-time offers</div>
-              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />4 roles, one platform</div>
+              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />6 roles, one platform</div>
             </div>
           </div>
 
           {/* Offer mockup */}
           <div className="lg:col-span-5 relative">
             <div className="absolute -inset-4 bg-accent/20 blur-3xl rounded-full" />
-            <div className="relative bg-card text-card-foreground rounded-2xl shadow-2xl border border-border overflow-hidden">
+            <div className="relative bg-card text-card-foreground rounded-lg shadow-2xl border border-border overflow-hidden">
               <div className="bg-secondary/60 px-5 py-3 flex items-center justify-between border-b border-border">
                 <div className="flex items-center gap-2 text-xs font-semibold text-primary">
                   <Radio className="h-3.5 w-3.5" /> NEW LOAD OFFER
@@ -140,7 +140,7 @@ export default function Landing() {
             { icon: Radio, title: "Eligible drivers ping", body: "Only trucks within radius, with capacity and the right equipment, get the offer." },
             { icon: Gauge, title: "First accept wins", body: "Load books to the first qualified driver to tap accept inside the 15-min window." },
           ].map((s, i) => (
-            <div key={s.title} className="relative rounded-2xl border border-border bg-card p-7 shadow-[var(--shadow-soft)]">
+            <div key={s.title} className="relative rounded-lg border border-border bg-card p-7">
               <div className="text-xs font-mono text-muted-foreground">0{i + 1}</div>
               <div className="mt-4 h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                 <s.icon className="h-5 w-5" />
@@ -160,33 +160,55 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 py-24">
           <div className="text-center max-w-2xl mx-auto">
             <div className="text-xs uppercase tracking-widest text-primary font-semibold">For your team</div>
-            <h2 className="mt-3 text-4xl font-bold tracking-tight">One platform. Four purpose-built dashboards.</h2>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight">One platform. Six purpose-built dashboards.</h2>
           </div>
-          <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { icon: Truck, role: "Driver", desc: "Live offers with countdown, capacity-aware filtering, one-tap accept.", to: "/driver" },
-              { icon: PackageCheck, role: "Shipper", desc: "Post loads, watch the broadcast fan-out, track every leg.", to: "/shipper" },
-              { icon: MapPin, role: "Receiver", desc: "Inbound visibility — ETAs, signatures, exceptions.", to: "/receiver" },
-              { icon: ShieldCheck, role: "Admin", desc: "Platform oversight: users, lanes, compliance, match quality.", to: "/admin" },
-            ].map((r) => (
-              <Link key={r.role} to={r.to} className="group rounded-2xl border border-border bg-card p-6 hover:shadow-[var(--shadow-elegant)] hover:-translate-y-0.5 transition-all">
-                <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground flex items-center justify-center">
-                  <r.icon className="h-5 w-5" />
-                </div>
-                <h3 className="mt-5 text-lg font-semibold">{r.role}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{r.desc}</p>
-                <div className="mt-5 text-sm font-medium text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                  Open dashboard <ArrowRight className="h-4 w-4" />
-                </div>
-              </Link>
-            ))}
+              { icon: Briefcase,   role: "Owner Operator", desc: "Run your one-truck or small fleet with dispatching, IDV and payouts in one place.", to: "/signup?role=OWNER_OPERATOR", cta: "Sign up" },
+              { icon: Building2,   role: "Carrier",        desc: "Verify FMCSA + KYB, onboard drivers, and dispatch loads to your roster.",         to: "/signup?role=CARRIER",        cta: "Sign up" },
+              { icon: ShipWheel,   role: "Driver",         desc: "Live offers with countdown, capacity-aware filtering, one-tap accept.",            to: "/signup?role=DRIVER",         cta: "Sign up" },
+              { icon: PackageCheck,role: "Shipper",        desc: "Post loads, watch the broadcast fan-out, track every leg.",                        to: "/signup?role=SHIPPER",        cta: "Sign up" },
+              { icon: MapPin,      role: "Receiver",       desc: "Inbound visibility: ETAs, signatures, exceptions.",                                to: "/signup?role=RECEIVER",       cta: "Sign up" },
+              {
+                icon: ShieldCheck, role: "Admin",
+                desc: "Platform oversight: users, lanes, compliance, match quality. Invite-only access.",
+                to: "mailto:admin@loadleadapp.com?subject=Admin%20access%20request%20%E2%80%94%20LoadLead&body=Please%20describe%20your%20role%20and%20why%20you%20need%20admin%20access.",
+                cta: "Request access",
+                external: true,
+                eyebrow: "Invite only",
+              },
+            ].map((r) => {
+              const Card = (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="h-11 w-11 rounded-sm bg-secondary text-primary flex items-center justify-center">
+                      <r.icon className="h-5 w-5" strokeWidth={1.75} />
+                    </div>
+                    {r.eyebrow && (
+                      <span className="text-overline font-mono text-muted-foreground">{r.eyebrow}</span>
+                    )}
+                  </div>
+                  <h3 className="mt-5 text-lg font-semibold">{r.role}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{r.desc}</p>
+                  <div className="mt-5 text-sm font-medium text-primary inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                    {r.cta} <ArrowRight className="h-4 w-4" />
+                  </div>
+                </>
+              );
+              const className = "group rounded-lg border border-border bg-card p-6 hover:shadow-elev-2 hover:-translate-y-0.5 transition-all cursor-pointer block";
+              return r.external ? (
+                <a key={r.role} href={r.to} className={className}>{Card}</a>
+              ) : (
+                <Link key={r.role} to={r.to} className={className}>{Card}</Link>
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-6 py-24">
-        <div className="rounded-3xl p-12 md:p-16 text-primary-foreground relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
+        <div className="rounded-lg p-12 md:p-16 text-sidebar-foreground relative overflow-hidden bg-sidebar">
           <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "28px 28px" }} />
           <div className="relative max-w-2xl">
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight">Ready to dispatch like it's 2026?</h2>
@@ -281,7 +303,7 @@ function RequestAdminSection() {
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-2xl border border-border shadow-[var(--shadow-soft)] p-8">
+        <div className="bg-white rounded-lg border border-border p-8">
           {sent ? (
             <div className="text-center space-y-3 py-4">
               <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />

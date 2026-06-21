@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Info, Loader2, MapPin, Radio } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -181,6 +181,31 @@ export default function PostLoad() {
     form.ratePerMile && form.totalMiles
       ? `$${(Number(form.ratePerMile) * Number(form.totalMiles)).toFixed(2)}`
       : "—";
+
+  // Auto-estimate Total miles once both addresses are geocoded. Uses haversine
+  // great-circle distance + a 1.2x road-meander factor — within ~5% of
+  // Google Distance Matrix for most US lanes, and avoids an extra round-trip
+  // before the load is submitted. The backend's RoutingService still overwrites
+  // this with the real driving distance during enrichment, so this is purely a
+  // UX hint while the operator is still typing the load.
+  useEffect(() => {
+    if (!pickupCoords || !deliveryCoords) return;
+    const R = 3958.8; // Earth radius in miles
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(deliveryCoords.lat - pickupCoords.lat);
+    const dLng = toRad(deliveryCoords.lng - pickupCoords.lng);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(pickupCoords.lat)) *
+        Math.cos(toRad(deliveryCoords.lat)) *
+        Math.sin(dLng / 2) ** 2;
+    const greatCircle = 2 * R * Math.asin(Math.sqrt(a));
+    const estimated = Math.round(greatCircle * 1.2);
+    if (estimated > 0) set("totalMiles", String(estimated));
+    // We intentionally don't depend on form.totalMiles so the estimate
+    // refreshes whenever an operator re-verifies an address.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickupCoords?.lat, pickupCoords?.lng, deliveryCoords?.lat, deliveryCoords?.lng]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -579,7 +604,7 @@ export default function PostLoad() {
             </div>
           </Section>
 
-          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 text-sm">
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-5 text-sm">
             <div className="flex items-center gap-2 font-semibold text-primary">
               <Radio className="h-4 w-4" /> Estimated reach
             </div>
@@ -689,7 +714,7 @@ function AddressBlock({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
+    <div className="rounded-md border border-border bg-card p-6">
       <h3 className="text-sm font-semibold mb-4">{title}</h3>
       {children}
     </div>

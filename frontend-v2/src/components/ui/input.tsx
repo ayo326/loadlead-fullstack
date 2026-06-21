@@ -2,13 +2,24 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+// Dispatch input. See design-system/MASTER.md §9.
+//   - 36px height (matches buttons + table rows)
+//   - sharp radius (4px / rounded-sm)
+//   - focus: 1px primary border + 3px outer ring at 18% — no shadow glow
+//   - placeholder uses muted-foreground; never primary tint
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   ({ className, type, ...props }, ref) => {
     return (
       <input
         type={type}
         className={cn(
-          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          "flex h-9 w-full rounded-sm border border-border bg-card px-3 text-body text-foreground",
+          "placeholder:text-muted-foreground",
+          "transition-colors duration-fast ease-soft",
+          "file:border-0 file:bg-transparent file:text-body file:font-medium file:text-foreground",
+          "focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0",
+          "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive/30",
+          "disabled:cursor-not-allowed disabled:bg-secondary/60 disabled:opacity-70",
           className,
         )}
         ref={ref}

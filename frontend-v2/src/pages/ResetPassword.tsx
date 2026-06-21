@@ -45,7 +45,7 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f2033] via-[#1a3a5c] to-[#0f2033] flex items-center justify-center p-4">
+    <div className="font-display-hangar min-h-screen bg-sidebar flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex items-center gap-2 mb-8 justify-center">
@@ -55,7 +55,7 @@ export default function ResetPassword() {
           <span className="text-white font-bold text-xl">LoadLead</span>
         </div>
 
-        <div className="bg-white/10 backdrop-blur rounded-2xl p-8 border border-white/10">
+        <div className="bg-white/10 backdrop-blur rounded-lg p-8 border border-white/10">
           {/* Forgot password — request form */}
           {mode === "forgot" && !sent && (
             <>

@@ -21,7 +21,7 @@ function Row({ label, value }: { label: string; value?: React.ReactNode }) {
 
 function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] p-6">
+    <div className="rounded-md border border-border bg-card p-6">
       <h3 className="text-sm font-semibold flex items-center gap-2 mb-4">
         <Icon className="h-4 w-4 text-primary" /> {title}
       </h3>
@@ -104,7 +104,7 @@ export default function ShipperLoadDetail() {
       />
 
       {/* Status bar */}
-      <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] p-5 mb-6">
+      <div className="rounded-md border border-border bg-card p-5 mb-6">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -128,7 +128,7 @@ export default function ShipperLoadDetail() {
         {/* Progress bar */}
         <div className="relative h-2 rounded-full bg-secondary overflow-hidden">
           <div
-            className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-700"
+            className="absolute inset-y-0 left-0 bg-primary rounded-sm transition-all duration-slow ease-soft"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -226,7 +226,10 @@ export default function ShipperLoadDetail() {
           <Section title="Assigned driver" icon={User}>
             {load.assignedDriverId ? (
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground flex items-center justify-center text-sm font-semibold">
+                <div
+                  className="h-10 w-10 rounded-sm bg-secondary text-primary flex items-center justify-center text-overline font-mono"
+                  aria-hidden
+                >
                   DR
                 </div>
                 <div>

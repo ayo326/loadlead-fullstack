@@ -129,7 +129,7 @@ export default function DriverDashboard() {
                 <Bell className="h-3.5 w-3.5" /> Enable alerts
               </Button>
             )}
-            <div className="flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-[var(--shadow-soft)]">
+            <div className="flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2">
               <span className={`h-2.5 w-2.5 rounded-full ${online ? "bg-success animate-pulse" : "bg-muted-foreground"}`} />
               <span className="text-sm font-medium">{online ? "Online · Accepting" : "Offline"}</span>
               <Switch checked={online} onCheckedChange={setOnline} />
@@ -150,7 +150,7 @@ export default function DriverDashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {/* Weight capacity meter */}
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
+        <div className="rounded-md border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Weight capacity</p>
           <p className="text-xl font-bold">{availCap} <span className="text-sm font-normal text-muted-foreground">lbs bookable</span></p>
           <div className="mt-2 h-2 rounded-full bg-secondary overflow-hidden">
@@ -163,7 +163,7 @@ export default function DriverDashboard() {
         </div>
 
         {/* Volume capacity meter */}
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
+        <div className="rounded-md border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Volume capacity</p>
           {availVolCuFt !== null ? (
             <>
@@ -209,7 +209,7 @@ export default function DriverDashboard() {
                 tabIndex={0}
                 onClick={() => navigate(`/driver/loads/${load.loadId}`)}
                 onKeyDown={(e) => e.key === "Enter" && navigate(`/driver/loads/${load.loadId}`)}
-                className="rounded-2xl border border-border bg-card overflow-hidden shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-elegant)] hover:border-primary/30 transition-all cursor-pointer group"
+                className="rounded-md border border-border bg-card overflow-hidden hover:border-primary/30 transition-all cursor-pointer group"
               >
                 <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-secondary/40">
                   <div className="flex items-center gap-3">
@@ -302,7 +302,7 @@ export default function DriverDashboard() {
           })}
 
           {!loading && offers.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+            <div className="rounded-md border border-dashed border-border bg-card p-12 text-center">
               <Truck className="h-8 w-8 mx-auto text-muted-foreground" />
               <p className="mt-3 text-sm text-muted-foreground">No live offers. We'll show them here the moment one matches.</p>
             </div>
@@ -310,7 +310,7 @@ export default function DriverDashboard() {
         </div>
 
         <aside className="space-y-6">
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+          <div className="rounded-md border border-border bg-card p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <MapPin className="h-4 w-4 text-primary" />
@@ -343,7 +343,7 @@ export default function DriverDashboard() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+          <div className="rounded-md border border-border bg-card p-5">
             <div className="flex items-center gap-2 text-sm font-semibold mb-4"><TrendingUp className="h-4 w-4 text-primary" /> Profile summary</div>
             <Row icon={Package} label="Experience" value={`${profile?.experienceYears ?? "—"} yrs`} />
             <Row icon={Gauge} label="CDL class" value={profile ? `Class ${profile.cdlClass}` : "—"} />

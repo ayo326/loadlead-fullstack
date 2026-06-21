@@ -21,7 +21,7 @@ function Row({ label, value }: { label: string; value?: React.ReactNode }) {
 
 function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] p-6">
+    <div className="rounded-md border border-border bg-card p-6">
       <h3 className="text-sm font-semibold flex items-center gap-2 mb-4">
         <Icon className="h-4 w-4 text-primary" /> {title}
       </h3>
@@ -123,7 +123,7 @@ export default function DriverLoadDetail() {
       />
 
       {/* Offer header bar */}
-      <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] px-5 py-4 mb-6 flex items-center justify-between flex-wrap gap-3">
+      <div className="rounded-md border border-border bg-card px-5 py-4 mb-6 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <StatusPill status={offerActive ? "BROADCAST" : offer?.status ?? "OPEN"} />
           <span className="text-xs text-muted-foreground font-mono">{load.referenceNumber}</span>
@@ -137,7 +137,7 @@ export default function DriverLoadDetail() {
       </div>
 
       {/* Payout hero */}
-      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 mb-6 flex flex-wrap items-center justify-between gap-6">
+      <div className="rounded-md border border-primary/20 bg-primary/5 p-6 mb-6 flex flex-wrap items-center justify-between gap-6">
         <div className="flex gap-6">
           <div>
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Weight</div>

@@ -18,7 +18,7 @@ import { toast } from "sonner";
 
 function Card({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] p-6">
+    <div className="rounded-md border border-border bg-card p-6">
       <h3 className="text-sm font-semibold flex items-center gap-2 mb-5">
         <Icon className="h-4 w-4 text-primary" /> {title}
       </h3>

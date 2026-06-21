@@ -56,7 +56,7 @@ function defaultCaps(roleKey: string): string[] {
 
 function Stepper({ steps, current }: { steps: string[]; current: number }) {
   return (
-    <div className="flex items-center gap-0 mb-8">
+    <div className="font-display-hangar flex items-center gap-0 mb-8">
       {steps.map((label, i) => {
         const done    = i < current;
         const active  = i === current;
@@ -283,7 +283,7 @@ export default function Signup() {
           </div>
           <div>
             <p className="text-[15px] font-bold text-white leading-none">LoadLead</p>
-            <p className="text-[10px] font-semibold tracking-[0.15em] text-white/50 uppercase mt-0.5">Freight, Dispatched Live</p>
+            <p className="text-[10px] font-semibold tracking-[0.15em] text-white/50 uppercase mt-0.5">Where loads meet leads.</p>
           </div>
         </Link>
 

@@ -70,7 +70,7 @@ export default function ShipperDashboard() {
         <StatCard label="In transit" value={String(inTransit)} hint="on the road" trend="up" />
       </div>
 
-      <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)] overflow-hidden">
+      <div className="rounded-md border border-border bg-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-0">
             <h2 className="text-sm font-semibold">All loads</h2>
@@ -141,12 +141,12 @@ export default function ShipperDashboard() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
+      <div className="mt-6 rounded-md border border-border bg-card p-6">
         <div className="flex items-center gap-2 text-sm font-semibold"><TrendingUp className="h-4 w-4 text-primary" /> Match velocity (7 days)</div>
         <div className="mt-6 flex items-end gap-2 h-40">
           {[40, 55, 38, 70, 62, 88, 75].map((h, i) => (
             <div key={i} className="flex-1 flex flex-col items-center gap-2">
-              <div className="w-full rounded-t-md bg-gradient-to-t from-primary to-accent" style={{ height: `${h}%` }} />
+              <div className="w-full rounded-t-md bg-primary" style={{ height: `${h}%` }} />
               <div className="text-[10px] text-muted-foreground">{["M","T","W","T","F","S","S"][i]}</div>
             </div>
           ))}

@@ -124,7 +124,7 @@ export function RouteMapCard({
       <div className="relative mt-4 rounded-xl overflow-hidden border border-border/50" style={{ aspectRatio: "1 / 1" }}>
         {/* Loading skeleton */}
         {!miniLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/90 to-accent flex items-center justify-center z-10">
+          <div className="absolute inset-0 bg-secondary flex items-center justify-center z-10">
             <div
               className="absolute inset-0"
               style={{
@@ -177,7 +177,7 @@ export function RouteMapCard({
       {/* ── Fullscreen modal ─────────────────────────────────────────────── */}
       <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent
-          className="max-w-4xl w-full p-0 overflow-hidden rounded-2xl gap-0"
+          className="max-w-4xl w-full p-0 overflow-hidden rounded-md gap-0"
           style={{ height: "80vh" }}
         >
           {/* Header */}
@@ -233,7 +233,7 @@ export function RouteMapCard({
 function Placeholder({ currentCity, currentState }: Pick<RouteMapCardProps, "currentCity" | "currentState">) {
   return (
     <div
-      className="mt-4 aspect-square rounded-xl bg-gradient-to-br from-primary/90 to-accent relative overflow-hidden"
+      className="mt-4 aspect-square rounded-xl bg-secondary relative overflow-hidden"
     >
       <div
         className="absolute inset-0"

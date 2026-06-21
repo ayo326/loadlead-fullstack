@@ -63,10 +63,10 @@ export default function AcceptInvite() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+    <div className="font-display-hangar min-h-screen flex flex-col items-center justify-center p-6 bg-background">
       <div className="mb-8"><Logo /></div>
 
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-sm p-8 space-y-6">
+      <div className="w-full max-w-md rounded-lg border border-border bg-card shadow-sm p-8 space-y-6">
 
         {/* Loading */}
         {state.status === "loading" && (
