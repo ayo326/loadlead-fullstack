@@ -1,0 +1,14 @@
+{
+  "$comment": "Template — copy to .markdown-confluence.json and fill in. Real values must never be committed. The publish script renders this file at runtime from env vars; this template exists for editor reference only.",
+  "folderToPublish": "docs",
+  "firstHeadingPageTitle": false,
+  "confluenceBaseUrl": "https://YOUR-SITE.atlassian.net",
+  "confluenceSpaceKey": "YOUR_SPACE",
+  "atlassianUserName": "you@example.com",
+  "confluenceParentId": "PAGE_ID",
+  "ignore": [
+    "**/CREDENTIALS.md",
+    "**/FINAL_IMPLEMENTATION_CHECKLIST.md",
+    "**/node_modules/**"
+  ]
+}
