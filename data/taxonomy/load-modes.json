@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "lastReviewed": "2026-06-20",
+  "notes": "Mutually exclusive — how much of the truck the load takes.",
+  "modes": [
+    { "code": "FTL",        "name": "Full Truckload",   "description": "One shipper occupies the entire trailer end-to-end." },
+    { "code": "LTL",        "name": "Less than Truckload","description": "Multiple shipments share the trailer; usually rated by linear feet or pallet count." },
+    { "code": "PARTIAL",    "name": "Partial Truckload", "description": "More than LTL, less than FTL — typically 6+ pallets or 12+ linear feet." },
+    { "code": "VOLUME_LTL", "name": "Volume LTL",        "description": "LTL pricing for loads that exceed standard LTL size limits but don't require a full truckload." }
+  ]
+}

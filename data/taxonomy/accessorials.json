@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "lastReviewed": "2026-06-20",
+  "notes": "Multi-select on the load. Pricing is per-occurrence/per-hour by contract — kept out of the taxonomy.",
+  "accessorials": [
+    { "code": "DETENTION",      "name": "Detention",      "category": "time",     "description": "Driver wait beyond the free time at pickup or delivery." },
+    { "code": "LAYOVER",        "name": "Layover",        "category": "time",     "description": "Overnight delay at shipper/consignee causing a missed dispatch." },
+    { "code": "LUMPER",         "name": "Lumper",         "category": "handling", "description": "Third-party labor charged to load/unload at the facility." },
+    { "code": "TARPING",        "name": "Tarping",        "category": "handling", "description": "Cargo requires tarp coverage; flat/step-deck only." },
+    { "code": "ESCORT",         "name": "Escort",         "category": "permit",   "description": "Oversize/overweight load requires pilot car or police escort." },
+    { "code": "LIFTGATE_PU",    "name": "Liftgate — Pickup","category": "handling","description": "Mechanical liftgate required at pickup." },
+    { "code": "LIFTGATE_DEL",   "name": "Liftgate — Delivery","category": "handling","description": "Mechanical liftgate required at delivery." },
+    { "code": "RESIDENTIAL_PU", "name": "Residential — Pickup","category": "site","description": "Pickup is at a residence (limited access, smaller equipment)." },
+    { "code": "RESIDENTIAL_DEL","name": "Residential — Delivery","category": "site","description": "Delivery is at a residence (limited access, smaller equipment)." },
+    { "code": "INSIDE_PU",      "name": "Inside Pickup",  "category": "handling", "description": "Driver moves freight past the dock/threshold at pickup." },
+    { "code": "INSIDE_DEL",     "name": "Inside Delivery","category": "handling", "description": "Driver moves freight past the dock/threshold at delivery." },
+    { "code": "APPT_PU",        "name": "Appointment — Pickup","category": "site","description": "Strict pickup appointment window." },
+    { "code": "APPT_DEL",       "name": "Appointment — Delivery","category": "site","description": "Strict delivery appointment window." },
+    { "code": "SORT_SEGREGATE", "name": "Sort & Segregate","category": "handling","description": "Driver/carrier sorts freight at delivery." },
+    { "code": "FUEL_SURCHARGE", "name": "Fuel Surcharge", "category": "fee",      "description": "Diesel-indexed surcharge; usually contracted, not per-load." },
+    { "code": "STOPOFF",        "name": "Stop Off",       "category": "route",    "description": "Additional pickup/delivery beyond the first two stops." },
+    { "code": "PERMITS",        "name": "Permits",        "category": "permit",   "description": "Oversize/overweight permits required across crossed states." },
+    { "code": "TONU",           "name": "TONU (Truck Order Not Used)","category":"fee","description":"Reservation fee when a booked load is canceled at the last minute." }
+  ]
+}

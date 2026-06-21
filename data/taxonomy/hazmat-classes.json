@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "lastReviewed": "2026-06-20",
+  "source": "49 CFR §172.101 — US DOT Hazard Class system",
+  "notes": "Top-level DOT hazard classes 1–9. Divisions (e.g., 1.1, 4.2) are valid sub-codes; record them on the load via 'division' when known.",
+  "classes": [
+    { "code": "1", "name": "Explosives", "divisions": ["1.1","1.2","1.3","1.4","1.5","1.6"], "examples": "ammunition, fireworks, blasting agents", "endorsementRequired": "H" },
+    { "code": "2", "name": "Gases", "divisions": ["2.1","2.2","2.3"], "examples": "propane, oxygen, chlorine", "endorsementRequired": "H or X (with tanker)" },
+    { "code": "3", "name": "Flammable Liquids", "divisions": ["3"], "examples": "gasoline, ethanol, jet fuel", "endorsementRequired": "H (or X with tanker)" },
+    { "code": "4", "name": "Flammable Solids", "divisions": ["4.1","4.2","4.3"], "examples": "matches, sodium, calcium carbide", "endorsementRequired": "H" },
+    { "code": "5", "name": "Oxidizers & Organic Peroxides", "divisions": ["5.1","5.2"], "examples": "ammonium nitrate, hydrogen peroxide", "endorsementRequired": "H" },
+    { "code": "6", "name": "Toxic & Infectious Substances", "divisions": ["6.1","6.2"], "examples": "pesticides, medical waste, cyanide", "endorsementRequired": "H" },
+    { "code": "7", "name": "Radioactive Materials", "divisions": ["7"], "examples": "uranium, medical isotopes", "endorsementRequired": "H + special authorization" },
+    { "code": "8", "name": "Corrosives", "divisions": ["8"], "examples": "battery acid, sodium hydroxide", "endorsementRequired": "H" },
+    { "code": "9", "name": "Miscellaneous Dangerous Goods", "divisions": ["9"], "examples": "lithium batteries, dry ice, asbestos", "endorsementRequired": "H (case-by-case)" }
+  ]
+}

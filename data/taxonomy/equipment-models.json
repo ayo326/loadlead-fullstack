@@ -1,0 +1,161 @@
+{
+  "version": "1.0.0",
+  "lastReviewed": "2026-06-20",
+  "notes": "Asset metadata only — never read by matching. Indexed class_code -> manufacturer -> models[]. Year ranges represent typical production windows; specific year of a unit lives on the asset record.",
+  "_codeVerifiedAgainst": null,
+  "powerUnits": {
+    "Freightliner": ["Cascadia", "Cascadia Evolution", "Cascadia PT126", "Columbia", "Coronado", "Argosy", "M2 106", "M2 112", "114SD", "122SD"],
+    "Kenworth": ["T680", "T680 Next Gen", "T880", "T800", "W900", "W990", "T270", "T370", "T440"],
+    "Peterbilt": ["579", "579 EPIQ", "589", "567", "365", "337", "220"],
+    "Volvo": ["VNL 760", "VNL 860", "VNL 740", "VNL 660", "VNR 640", "VNR 660", "VHD"],
+    "Mack": ["Anthem", "Pinnacle", "Granite", "MD7", "MD6"],
+    "International": ["LT", "LT625", "RH", "HX", "HV", "MV", "CV"],
+    "Western Star": ["5700XE", "4900", "47X", "49X", "57X"],
+    "Sterling": ["A-Line", "Acterra"]
+  },
+  "trailers": {
+    "V": {
+      "Great Dane": ["Champion CL", "Champion SE", "Champion CP", "Everest CL Dry Van"],
+      "Wabash National": ["DuraPlate", "DuraPlate HD", "ArcticLite (dry)"],
+      "Utility": ["3000R Dry Van", "4000DX"],
+      "Hyundai Translead": ["HT Composite", "Composite Dry Van"],
+      "Stoughton": ["ZGard Dry Van", "Tall Dry Van"],
+      "Strick": ["Composite Plate", "Sheet & Post"]
+    },
+    "R": {
+      "Great Dane": ["Everest Reefer", "Everest SS", "Everest TL"],
+      "Utility": ["3000R Reefer", "3000R Multi-Temp"],
+      "Wabash National": ["ArcticLite", "MSC Reefer"],
+      "Hyundai Translead": ["ThermoTech Reefer"]
+    },
+    "RM": {
+      "Utility": ["3000R Multi-Temp"],
+      "Great Dane": ["Everest Multi-Temp"]
+    },
+    "F": {
+      "Great Dane": ["Champion Flatbed", "Freedom XP"],
+      "Utility": ["4000A Flatbed", "4000AE Combo"],
+      "Reitnouer": ["MaxMiser", "Big Bubba"],
+      "Fontaine": ["Revolution AL", "Magnitude (lowboy)"],
+      "Wilson": ["Roadbrute Flatbed"],
+      "Manac": ["Aluminum Flatbed"]
+    },
+    "SD": {
+      "Fontaine": ["Infinity Step Deck", "Renegade Step Deck"],
+      "Transcraft": ["Eagle Step Deck"],
+      "Talbert": ["38-Ton Step Deck"]
+    },
+    "RGN": {
+      "Fontaine": ["Magnitude 55L", "Magnitude 60L"],
+      "Talbert": ["55SA-RG-T3", "55SA-RG-T4"],
+      "Trail King": ["TK110HDG", "TK160HDG"]
+    },
+    "CN": {
+      "Conestoga": ["Standard Conestoga", "Drop Deck Conestoga"],
+      "Aero Industries": ["Conestoga Tarp System"]
+    },
+    "TF": {
+      "Polar Tank": ["Crude Tanker", "Petroleum Tanker"],
+      "Heil Trailer": ["Heil 9200", "Heil 4200"],
+      "Brenner": ["Crude Petroleum"]
+    },
+    "TC": {
+      "Heil Trailer": ["Stainless Steel Chemical"],
+      "Polar Tank": ["Stainless Chemical"],
+      "Tremcar": ["Chemical Tanker"]
+    },
+    "TFG": {
+      "Brenner": ["Food Grade Tanker"],
+      "Polar Tank": ["Food Grade"],
+      "Walker Stainless": ["Food Tanker"]
+    },
+    "TR": {
+      "Polar Tank": ["Insulated Tanker"],
+      "Brenner": ["Insulated Food"]
+    },
+    "HB": {
+      "Wilson": ["Pacesetter Hopper"],
+      "Timpte": ["Super Hopper"],
+      "Jet Co.": ["AL Aluminum Hopper"]
+    },
+    "PN": {
+      "Heil Trailer": ["Pneumatic Tank"],
+      "Polar Tank": ["Pneumatic Dry Bulk"]
+    },
+    "CH": {
+      "Cottrell": ["CX-09", "CX-11", "CX-13"],
+      "Boydstun": ["Stinger Steer", "Auto Hauler 9-car"],
+      "Sun Coast": ["Multi-Car Hauler"]
+    },
+    "CHE": {
+      "Kaufman": ["Enclosed Car Hauler"],
+      "United Trailers": ["Enclosed Stacker"]
+    },
+    "CHS": {
+      "CIE": ["CHASSIS-20", "CHASSIS-40"],
+      "Strick": ["Chassis 40'"]
+    },
+    "DUMP": {
+      "Mac Trailer": ["End Dump", "Aluminum End Dump"],
+      "Trail King": ["Bottom Dump", "Side Dump"],
+      "Smithco": ["Side Dump"]
+    },
+    "LOG": {
+      "Pitts": ["Log Trailer"],
+      "Magnolia": ["Pole Trailer"]
+    },
+    "LIVE": {
+      "Wilson": ["Silver Star Livestock"],
+      "Merritt": ["Cattle Trailer"]
+    },
+    "DECK": {
+      "Manac": ["Combo Flatbed/Stepdeck"],
+      "Fontaine": ["Combination Deck"]
+    }
+  },
+  "boxTrucks": {
+    "BOX26": {
+      "Isuzu": ["FTR", "FVR", "FTR Diesel"],
+      "Freightliner": ["M2 106 Box", "M2 112 Box"],
+      "Hino": ["L7", "L8"],
+      "International": ["MV Box"]
+    },
+    "BOX24": {
+      "Isuzu": ["NRR", "NPR-HD"],
+      "Freightliner": ["M2 106 24'"],
+      "Hino": ["L6"],
+      "Mitsubishi Fuso": ["FE180"]
+    },
+    "BOX16": {
+      "Isuzu": ["NPR Gas", "NPR Diesel"],
+      "Hino": ["155"],
+      "Mitsubishi Fuso": ["FE160"]
+    },
+    "RBOX": {
+      "Morgan Olson": ["Refrigerated Body"],
+      "Supreme Corporation": ["Iner-City Reefer"],
+      "Johnson Truck Bodies": ["Refrigerated Body"]
+    },
+    "STEPVAN": {
+      "Morgan Olson": ["Route Star", "MT-45"],
+      "Utilimaster": ["Aeromaster", "Velocity"]
+    },
+    "CARGOVAN": {
+      "Mercedes-Benz": ["Sprinter 2500", "Sprinter 3500"],
+      "Ford": ["Transit 250", "Transit 350"],
+      "Ram": ["ProMaster 1500", "ProMaster 2500"],
+      "Nissan": ["NV2500", "NV3500"]
+    },
+    "SPRINTER": {
+      "Mercedes-Benz": ["Sprinter 2500 144\"", "Sprinter 3500 170\""],
+      "Ram": ["ProMaster 159\""],
+      "Ford": ["Transit Extended 148\""]
+    }
+  },
+  "refrigerationUnits": {
+    "Thermo King": ["Precedent S-600", "Precedent S-700", "C-600", "T-1080S", "T-1280R", "Direct-Drive"],
+    "Carrier Transicold": ["X4 7300", "X4 7500", "Vector 8500", "Vector 8600 MT", "Supra HE 19"],
+    "Mitsubishi Heavy Industries": ["TJ-100 Series"],
+    "Zanotti": ["UNO-150", "DFZ-260"]
+  }
+}

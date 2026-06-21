@@ -1,0 +1,291 @@
+{
+  "$schema": "./schemas/equipment-classes.schema.json",
+  "version": "1.0.0",
+  "lastReviewed": "2026-06-20",
+  "codesReconciledAgainst": ["DAT (informally — flag any mismatch before load-board integration)"],
+  "notes": "The matching unit. Both load requirements and carrier/driver capabilities reference this list. articulated = trailer is the matching unit; straight = the truck is the class. Codes prefer DAT/Truckstop conventions where commonly published.",
+  "classes": [
+    {
+      "code": "V",
+      "name": "Dry Van",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "opt", "oversize_capable": "N", "team_driver_required": "opt", "length_ft": 53 },
+      "category": "van"
+    },
+    {
+      "code": "V48",
+      "name": "Dry Van 48'",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "opt", "oversize_capable": "N", "team_driver_required": "opt", "length_ft": 48 },
+      "category": "van"
+    },
+    {
+      "code": "R",
+      "name": "Reefer",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "Y", "hazmat_capable": "opt", "food_grade": "opt", "liftgate": "opt", "oversize_capable": "N", "team_driver_required": "opt", "length_ft": 53 },
+      "category": "reefer"
+    },
+    {
+      "code": "R48",
+      "name": "Reefer 48'",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "Y", "hazmat_capable": "opt", "food_grade": "opt", "liftgate": "opt", "oversize_capable": "N", "team_driver_required": "opt", "length_ft": 48 },
+      "category": "reefer"
+    },
+    {
+      "code": "RM",
+      "name": "Reefer Multi-Temp",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "Y", "hazmat_capable": "opt", "food_grade": "opt", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "opt", "length_ft": 53 },
+      "category": "reefer"
+    },
+    {
+      "code": "F",
+      "name": "Flatbed",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "Y", "team_driver_required": "N", "length_ft": 48 },
+      "category": "flatbed"
+    },
+    {
+      "code": "F53",
+      "name": "Flatbed 53'",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "Y", "team_driver_required": "N", "length_ft": 53 },
+      "category": "flatbed"
+    },
+    {
+      "code": "SD",
+      "name": "Step Deck",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "Y", "team_driver_required": "N", "length_ft": 48 },
+      "category": "flatbed"
+    },
+    {
+      "code": "RGN",
+      "name": "Double Drop / Lowboy (RGN)",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "Y", "team_driver_required": "N", "length_ft": 53 },
+      "category": "specialized"
+    },
+    {
+      "code": "DD",
+      "name": "Double Drop",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "Y", "team_driver_required": "N", "length_ft": 48 },
+      "category": "specialized"
+    },
+    {
+      "code": "CN",
+      "name": "Conestoga",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "Y", "team_driver_required": "N", "length_ft": 48 },
+      "category": "flatbed"
+    },
+    {
+      "code": "MX",
+      "name": "Maxi (Stretch Flatbed)",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "Y", "team_driver_required": "N", "length_ft": 80 },
+      "category": "specialized"
+    },
+    {
+      "code": "TF",
+      "name": "Fuel Tanker",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "Y", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 45 },
+      "category": "tanker"
+    },
+    {
+      "code": "TC",
+      "name": "Chemical Tanker",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "Y", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 45 },
+      "category": "tanker"
+    },
+    {
+      "code": "TFG",
+      "name": "Food Grade Tanker",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "Y", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 45 },
+      "category": "tanker"
+    },
+    {
+      "code": "TR",
+      "name": "Insulated Tanker",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "opt", "hazmat_capable": "opt", "food_grade": "opt", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 45 },
+      "category": "tanker"
+    },
+    {
+      "code": "HB",
+      "name": "Hopper Bottom",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "opt", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 42 },
+      "category": "bulk"
+    },
+    {
+      "code": "PN",
+      "name": "Pneumatic Tank",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "opt", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 42 },
+      "category": "bulk"
+    },
+    {
+      "code": "CH",
+      "name": "Car Hauler",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 75 },
+      "category": "specialized"
+    },
+    {
+      "code": "CHE",
+      "name": "Enclosed Car Hauler",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 53 },
+      "category": "specialized"
+    },
+    {
+      "code": "CHS",
+      "name": "Intermodal Chassis",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 53 },
+      "category": "intermodal"
+    },
+    {
+      "code": "CHS20",
+      "name": "Intermodal Chassis 20'",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 20 },
+      "category": "intermodal"
+    },
+    {
+      "code": "CHS40",
+      "name": "Intermodal Chassis 40'",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 40 },
+      "category": "intermodal"
+    },
+    {
+      "code": "DUMP",
+      "name": "Dump Trailer",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 40 },
+      "category": "bulk"
+    },
+    {
+      "code": "LOG",
+      "name": "Logging Trailer",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "Y", "team_driver_required": "N", "length_ft": 45 },
+      "category": "specialized"
+    },
+    {
+      "code": "LIVE",
+      "name": "Livestock Trailer",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 53 },
+      "category": "specialized"
+    },
+    {
+      "code": "PO",
+      "name": "Power Only",
+      "type": "tractor",
+      "attributes": { "temperature_controlled": "n/a", "hazmat_capable": "n/a", "food_grade": "n/a", "liftgate": "n/a", "oversize_capable": "n/a", "team_driver_required": "opt", "length_ft": null },
+      "category": "tractor",
+      "notes": "Tractor providing motive power for shipper-owned or third-party trailers; no attributes inherited from the unit."
+    },
+    {
+      "code": "POE",
+      "name": "Power Only — Expedited",
+      "type": "tractor",
+      "attributes": { "temperature_controlled": "n/a", "hazmat_capable": "n/a", "food_grade": "n/a", "liftgate": "n/a", "oversize_capable": "n/a", "team_driver_required": "Y", "length_ft": null },
+      "category": "tractor"
+    },
+    {
+      "code": "BOX26",
+      "name": "Box Truck 26'",
+      "type": "straight",
+      "attributes": { "temperature_controlled": "opt", "hazmat_capable": "N", "food_grade": "N", "liftgate": "opt", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 26 },
+      "category": "box"
+    },
+    {
+      "code": "BOX24",
+      "name": "Box Truck 24'",
+      "type": "straight",
+      "attributes": { "temperature_controlled": "opt", "hazmat_capable": "N", "food_grade": "N", "liftgate": "opt", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 24 },
+      "category": "box"
+    },
+    {
+      "code": "BOX16",
+      "name": "Box Truck 16'",
+      "type": "straight",
+      "attributes": { "temperature_controlled": "opt", "hazmat_capable": "N", "food_grade": "N", "liftgate": "opt", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 16 },
+      "category": "box"
+    },
+    {
+      "code": "RBOX",
+      "name": "Refrigerated Box Truck",
+      "type": "straight",
+      "attributes": { "temperature_controlled": "Y", "hazmat_capable": "N", "food_grade": "opt", "liftgate": "opt", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 24 },
+      "category": "box"
+    },
+    {
+      "code": "STEPVAN",
+      "name": "Step Van",
+      "type": "straight",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 14 },
+      "category": "box"
+    },
+    {
+      "code": "CARGOVAN",
+      "name": "Cargo Van",
+      "type": "straight",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 11 },
+      "category": "box"
+    },
+    {
+      "code": "SPRINTER",
+      "name": "Sprinter Van",
+      "type": "straight",
+      "attributes": { "temperature_controlled": "opt", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 14 },
+      "category": "box"
+    },
+    {
+      "code": "HS",
+      "name": "Hot Shot (gooseneck)",
+      "type": "straight",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "opt", "team_driver_required": "N", "length_ft": 40 },
+      "category": "specialized"
+    },
+    {
+      "code": "HSE",
+      "name": "Hot Shot — Enclosed",
+      "type": "straight",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "N", "length_ft": 40 },
+      "category": "specialized"
+    },
+    {
+      "code": "DECK",
+      "name": "Deck Trailer",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "Y", "team_driver_required": "N", "length_ft": 48 },
+      "category": "flatbed"
+    },
+    {
+      "code": "REMOVAL",
+      "name": "Removable Gooseneck (RGN)",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "N", "food_grade": "N", "liftgate": "N", "oversize_capable": "Y", "team_driver_required": "N", "length_ft": 53 },
+      "category": "specialized"
+    },
+    {
+      "code": "DOUBLES",
+      "name": "Doubles / Triples",
+      "type": "articulated",
+      "attributes": { "temperature_controlled": "N", "hazmat_capable": "opt", "food_grade": "N", "liftgate": "N", "oversize_capable": "N", "team_driver_required": "opt", "length_ft": 28 },
+      "category": "van",
+      "notes": "Requires doubles/triples endorsement (T)."
+    }
+  ]
+}

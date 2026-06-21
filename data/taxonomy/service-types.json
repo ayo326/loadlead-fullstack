@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "lastReviewed": "2026-06-20",
+  "notes": "Service level / delivery character. Single-select.",
+  "services": [
+    { "code": "STANDARD",   "name": "Standard",    "description": "Normal pickup-to-delivery transit; standard transit times." },
+    { "code": "EXPEDITED",  "name": "Expedited",   "description": "Faster than standard; may require team drivers and tighter dispatch." },
+    { "code": "HOTSHOT",    "name": "Hot Shot",    "description": "Time-critical small shipments via gooseneck/HS rig." },
+    { "code": "DRAYAGE",    "name": "Drayage",     "description": "Short-haul port/rail-ramp container moves." },
+    { "code": "FINAL_MILE", "name": "Final Mile",  "description": "Last-leg residential or business delivery, often inside-delivery or threshold." },
+    { "code": "WHITE_GLOVE","name": "White Glove", "description": "Inside delivery + unpack/install; high-touch service." }
+  ]
+}
