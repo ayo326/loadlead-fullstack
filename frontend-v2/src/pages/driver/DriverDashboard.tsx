@@ -118,7 +118,7 @@ export default function DriverDashboard() {
         title="Live load offers"
         subtitle="Only loads matching your equipment, capacity, and radius show here. Tap accept before the timer runs out."
         actions={
-          <div className="flex items-center gap-2 flex-wrap">
+          <div data-tour="driver-idv" className="flex items-center gap-2 flex-wrap">
             {locationCity && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground border border-border rounded-full px-3 py-1.5 bg-card">
                 <MapPin className="h-3 w-3 text-primary" /> {locationCity}
@@ -148,7 +148,7 @@ export default function DriverDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div data-tour="driver-affiliation" className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {/* Weight capacity meter */}
         <div className="rounded-md border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Weight capacity</p>
@@ -187,7 +187,7 @@ export default function DriverDashboard() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
+          <div data-tour="driver-offers" className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Zap className="h-4 w-4 text-warning" />
               {loading ? "Loading…" : `${offers.length} live offer${offers.length !== 1 ? "s" : ""}`}

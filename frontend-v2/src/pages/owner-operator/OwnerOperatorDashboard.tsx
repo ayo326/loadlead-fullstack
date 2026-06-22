@@ -90,7 +90,7 @@ export default function OwnerOperatorDashboard() {
         <OwnerOperatorDashboardView />
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" id="oo-stats">
+        <div data-tour="oo-verification" className="grid grid-cols-1 sm:grid-cols-3 gap-4" id="oo-stats">
           <StatCard
             label="Active Load Offers"
             value={loads.length}
@@ -113,7 +113,7 @@ export default function OwnerOperatorDashboard() {
           <div className="lg:col-span-2 space-y-6">
 
             {/* Load offers */}
-            <div className="rounded-xl border bg-card">
+            <div data-tour="oo-loadboard" className="rounded-xl border bg-card">
               <div className="flex items-center justify-between px-5 py-4 border-b">
                 <h2 className="font-semibold">Available Loads</h2>
                 <span className="text-xs text-muted-foreground">{loads.length} offered</span>
@@ -185,7 +185,7 @@ export default function OwnerOperatorDashboard() {
             </div>
 
             {/* Fleet */}
-            <div className="rounded-xl border bg-card">
+            <div data-tour="oo-fleet" className="rounded-xl border bg-card">
               <div className="flex items-center justify-between px-5 py-4 border-b">
                 <h2 className="font-semibold">Your Fleet</h2>
                 <Button size="sm" variant="outline" onClick={() => navigate("/owner-operator/settings?tab=fleet")}>

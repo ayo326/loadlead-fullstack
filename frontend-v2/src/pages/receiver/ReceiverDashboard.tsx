@@ -31,7 +31,7 @@ export default function ReceiverDashboard() {
         subtitle="Track every truck rolling toward your dock, with live ETAs and signed PODs."
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div data-tour="receiver-facility" className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard label="Arriving today" value="6" hint="3 within 2 hrs" />
         <StatCard label="In transit" value="14" hint="Across 9 lanes" />
         <StatCard label="Delivered (30d)" value="284" hint="98.6% on time" trend="up" />
@@ -39,7 +39,7 @@ export default function ReceiverDashboard() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
+        <div data-tour="inbound-loads" className="lg:col-span-2 space-y-4">
           {receiverShipments.map((s) => (
             <Link
               key={s.id}
@@ -77,7 +77,7 @@ export default function ReceiverDashboard() {
           ))}
         </div>
 
-        <aside className="space-y-4">
+        <aside data-tour="confirm-delivery" className="space-y-4">
           <div className="rounded-md border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2"><Package className="h-4 w-4 text-primary" /> Today's dock schedule</h3>
             <div className="space-y-3">

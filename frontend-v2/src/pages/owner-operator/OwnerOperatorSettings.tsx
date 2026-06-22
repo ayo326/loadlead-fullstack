@@ -378,11 +378,11 @@ export default function OwnerOperatorSettings() {
 
       <div className="max-w-5xl mx-auto px-6 py-6">
         <Tabs defaultValue={defaultTab} orientation="vertical" className="flex gap-6">
-          <TabsList className="flex flex-col h-auto w-44 shrink-0 rounded-xl bg-secondary p-1 gap-1">
-            <TabsTrigger value="profile" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+          <TabsList data-tour="settings-tabs" className="flex flex-col h-auto w-44 shrink-0 rounded-xl bg-secondary p-1 gap-1">
+            <TabsTrigger data-tour="settings-tab-profile" value="profile" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
               <Truck className="h-4 w-4 mr-2" />Profile
             </TabsTrigger>
-            <TabsTrigger value="fleet" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+            <TabsTrigger data-tour="settings-tab-fleet" value="fleet" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
               <Users className="h-4 w-4 mr-2" />Fleet
             </TabsTrigger>
             <TabsTrigger value="verification" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">

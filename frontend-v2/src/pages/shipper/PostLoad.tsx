@@ -389,6 +389,7 @@ export default function PostLoad() {
           </Section>
 
           {/* ── Load type (Equipment & Load Type Taxonomy spec §2-§3) ───── */}
+          <div data-tour="post-load-type">
           <Section title="Load type">
             <div className="grid md:grid-cols-2 gap-4">
               <Field label="Load mode *">
@@ -438,7 +439,10 @@ export default function PostLoad() {
             )}
           </Section>
 
+          </div>
+
           {/* ── Freight ───────────────────────────────────────────────────── */}
+          <div data-tour="post-commodity">
           <Section title="Freight">
             <Field label="Commodity *">
               <AsyncCombobox
@@ -586,6 +590,7 @@ export default function PostLoad() {
               </Field>
             </div>
           </Section>
+        </div>
         </div>
 
         {/* ── Sidebar ─────────────────────────────────────────────────────── */}
