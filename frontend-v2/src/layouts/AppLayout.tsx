@@ -52,6 +52,7 @@ const allNav: {
   { title: "Load History",  url: "/owner-operator/history",    icon: History,     hint: "Completed loads",          role: "OWNER_OPERATOR"               },
   { title: "Analytics",     url: "/owner-operator/analytics",  icon: BarChart3,   hint: "Fleet metrics",            role: "OWNER_OPERATOR"               },
   { title: "Carrier",       url: "/carrier",                   icon: Truck,       hint: "Verification + roster",    role: "CARRIER_ADMIN",  exact: true  },
+  { title: "Members",       url: "/carrier/members",           icon: Users,       hint: "Invite + manage team",     role: "CARRIER_ADMIN"                },
   { title: "Shipper",       url: "/shipper",                   icon: PackagePlus, hint: "Active loads",             role: "SHIPPER"                      },
   { title: "Receiver",      url: "/receiver",                  icon: Warehouse,   hint: "Inbound",                  role: "RECEIVER"                     },
   { title: "Admin",         url: "/admin",                     icon: ShieldCheck, hint: "Operations",               role: "ADMIN"                        },

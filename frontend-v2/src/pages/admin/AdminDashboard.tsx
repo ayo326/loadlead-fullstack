@@ -7,6 +7,7 @@ import {
 import { PageHeader, StatCard, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { OrgManagementPanel } from "@/components/admin/OrgManagementPanel";
 import { Badge } from "@/components/ui/badge";
 import { FleetMap } from "@/components/FleetMap";
 import { api } from "@/lib/api";
@@ -314,6 +315,9 @@ export default function AdminDashboard() {
         <StatCard label="Verified" value={String(counts.VERIFIED ?? "—")} hint="Awaiting activation" trend="up" />
         <StatCard label="Suspended" value={String(counts.SUSPENDED ?? "—")} hint="Inactive" trend="down" />
       </div>
+
+      {/* Platform IAM overrides: list / suspend / reinstate / revoke-admin */}
+      <OrgManagementPanel />
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Driver roster */}

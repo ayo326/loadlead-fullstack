@@ -7,7 +7,12 @@ import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { TrackingService } from '../services/trackingService';
 import { RoutingService } from '../services/routingService';
-import { DriverStatus } from '../types';
+import { OrgService, OrgMembershipService, OrgAuditService } from '../services/orgService';
+import { Database } from '../config/database';
+import { docClient } from '../config/aws';
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
+import config from '../config/environment';
+import { DriverStatus, OrgRole, UserRole, type Organization } from '../types';
 import { GeolocationService } from '../services/geolocationService';
 import { EquipmentService, deriveLoadingRequirements } from '../services/equipmentService';
 import { Helpers } from '../utils/helpers';
@@ -285,6 +290,144 @@ router.post('/verifications/:entityId/approve', asyncHandler(async (req: AuthReq
 router.post('/verifications/:entityId/reject', asyncHandler(async (req: AuthRequest, res) => {
   const v = await adminOverride(req.params.entityId, 'reject');
   res.json({ verification: v });
+}));
+
+// ─── Platform override (LoadLead_Admin_Carrier_IAM_Spec.md §5) ──────────────
+// Every route below: exact-ADMIN gated (via the router.use(requireAdmin) at
+// the top of the file), requires a `reason`, audit-logs via OrgAuditService.
+
+/**
+ * GET /api/admin/orgs?status=active|suspended&limit=50&cursor=...
+ * Paginated list of every Organization with member count + suspension state.
+ */
+router.get('/orgs', asyncHandler(async (req: AuthRequest, res) => {
+  const status = String(req.query.status ?? 'all').toLowerCase();
+  const limit  = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? '50'), 10) || 50));
+  const cursor = req.query.cursor as string | undefined;
+
+  // DynamoDB scan with optional pagination. Filter happens after the page
+  // pull, which is fine for the moderate size of the orgs table.
+  const result = await docClient.send(new ScanCommand({
+    TableName: config.dynamodb.orgsTable,
+    Limit: limit,
+    ExclusiveStartKey: cursor ? { orgId: cursor } : undefined,
+  }));
+
+  let items = (result.Items ?? []) as Organization[];
+  if (status === 'suspended') items = items.filter((o) => o.suspended === true);
+  if (status === 'active')    items = items.filter((o) => !o.suspended);
+
+  // Enrich with member count. Parallelize but cap fan-out.
+  const enriched = await Promise.all(items.slice(0, limit).map(async (o) => {
+    const members = await OrgMembershipService.getMembersOfOrg(o.orgId).catch(() => []);
+    return {
+      orgId: o.orgId,
+      legalName: o.legalName,
+      dba: o.dba,
+      capabilities: o.capabilities,
+      suspended: o.suspended === true,
+      suspendedAt: o.suspendedAt ?? null,
+      suspendedBy: o.suspendedBy ?? null,
+      memberCount: members.length,
+      ownerUserId: members.find((m) => m.orgRole === OrgRole.OWNER)?.userId ?? null,
+      createdAt: o.createdAt,
+    };
+  }));
+
+  res.json({
+    items: enriched,
+    nextCursor: result.LastEvaluatedKey?.orgId ?? null,
+  });
+}));
+
+function requireReason(req: AuthRequest, res: any): string | null {
+  const reason = String(req.body?.reason ?? '').trim();
+  if (reason.length < 6) {
+    res.status(400).json({ error: 'reason is required (at least 6 characters)' });
+    return null;
+  }
+  return reason;
+}
+
+/** POST /api/admin/orgs/:orgId/suspend  body { reason } */
+router.post('/orgs/:orgId/suspend', asyncHandler(async (req: AuthRequest, res) => {
+  const reason = requireReason(req, res);
+  if (!reason) return;
+  await OrgService.suspendOrg(req.params.orgId, req.user!.userId, reason);
+  res.json({ ok: true, orgId: req.params.orgId, suspended: true });
+}));
+
+/** POST /api/admin/orgs/:orgId/reinstate  body { reason } */
+router.post('/orgs/:orgId/reinstate', asyncHandler(async (req: AuthRequest, res) => {
+  const reason = requireReason(req, res);
+  if (!reason) return;
+  await OrgService.reinstateOrg(req.params.orgId, req.user!.userId);
+  await OrgAuditService.log({
+    orgId: req.params.orgId,
+    targetUserId: req.params.orgId,
+    actorUserId: req.user!.userId,
+    actorRole: UserRole.ADMIN,
+    action: 'ORG_REINSTATED',
+    newValue: reason,
+  });
+  res.json({ ok: true, orgId: req.params.orgId, suspended: false });
+}));
+
+/**
+ * POST /api/admin/users/:userId/revoke-admin  body { reason }
+ *
+ * Strip OWNER/CARRIER_ADMIN privileges from a user. If the user is the SOLE
+ * OWNER of any org, suspend that org rather than orphan it; the spec calls
+ * this out explicitly. Audit per affected org.
+ */
+router.post('/users/:userId/revoke-admin', asyncHandler(async (req: AuthRequest, res) => {
+  const reason = requireReason(req, res);
+  if (!reason) return;
+  const targetUserId = req.params.userId;
+  const actorUserId  = req.user!.userId;
+
+  // Find every org the target is an OWNER of.
+  const memberships = await OrgMembershipService.getMembershipsForUser(targetUserId);
+  const ownedOrgs = memberships.filter((m) => m.orgRole === OrgRole.OWNER && (m.status ?? 'ACTIVE') === 'ACTIVE');
+
+  const suspendedOrgs: string[] = [];
+  for (const m of ownedOrgs) {
+    const members = await OrgMembershipService.getMembersOfOrg(m.orgId);
+    const otherOwners = members.filter((x: any) =>
+      x.userId !== targetUserId && x.orgRole === OrgRole.OWNER && (x.status ?? 'ACTIVE') === 'ACTIVE');
+    if (otherOwners.length === 0) {
+      // Sole owner — suspend the org rather than orphan it.
+      await OrgService.suspendOrg(m.orgId, actorUserId, `Admin revoke: ${reason}`);
+      suspendedOrgs.push(m.orgId);
+    }
+  }
+
+  // Demote the user's CARRIER_ADMIN role on every owned membership.
+  for (const m of memberships) {
+    if (m.orgRole === OrgRole.OWNER || m.orgRole === OrgRole.MANAGER) {
+      await Database.updateItem(
+        config.dynamodb.membershipsTable,
+        { orgId: m.orgId, userId: targetUserId },
+        { orgRole: OrgRole.ORG_DRIVER, updatedAt: Date.now() },
+      );
+      await OrgAuditService.log({
+        orgId: m.orgId,
+        targetUserId,
+        actorUserId,
+        actorRole: UserRole.ADMIN,
+        action: 'ROLE_CHANGED',
+        oldValue: m.orgRole,
+        newValue: OrgRole.ORG_DRIVER,
+      });
+    }
+  }
+
+  res.json({
+    ok: true,
+    userId: targetUserId,
+    revokedMemberships: memberships.length,
+    suspendedOrgs,
+  });
 }));
 
 export default router;

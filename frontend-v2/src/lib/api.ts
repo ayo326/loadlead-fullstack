@@ -66,6 +66,24 @@ export const api = {
     request<{ message: string }>("POST", `/admin/drivers/${driverId}/verify`),
   adminSuspendDriver: (driverId: string) =>
     request<{ message: string }>("POST", `/admin/drivers/${driverId}/suspend`),
+
+  // Platform IAM overrides (LoadLead_Admin_Carrier_IAM_Spec.md §5)
+  adminListOrgs: (params?: { status?: 'all' | 'active' | 'suspended'; limit?: number; cursor?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.limit)  q.set('limit', String(params.limit));
+    if (params?.cursor) q.set('cursor', params.cursor);
+    const qs = q.toString();
+    return request<{ items: any[]; nextCursor: string | null }>(
+      'GET', `/admin/orgs${qs ? `?${qs}` : ''}`);
+  },
+  adminSuspendOrg: (orgId: string, reason: string) =>
+    request<{ ok: true }>('POST', `/admin/orgs/${orgId}/suspend`, { reason }),
+  adminReinstateOrg: (orgId: string, reason: string) =>
+    request<{ ok: true }>('POST', `/admin/orgs/${orgId}/reinstate`, { reason }),
+  adminRevokeUserAdmin: (userId: string, reason: string) =>
+    request<{ ok: true; revokedMemberships: number; suspendedOrgs: string[] }>(
+      'POST', `/admin/users/${userId}/revoke-admin`, { reason }),
   getAdminLoads: (status?: string) =>
     request<{ loads: any[] }>("GET", `/admin/loads${status ? `?status=${status}` : ""}`),
 

@@ -7,6 +7,7 @@ import {
   OrgService, OrgMembershipService, OrgInvitationService, OrgAuditService,
 } from '../services/orgService';
 import { OrgCapability, OrgRole, ADMIN_ORG_ROLES, UserRole } from '../types';
+import { hasPermission } from '../services/orgPermissions';
 import { AppError } from '../middleware/errorHandler';
 import { EmailService } from '../services/emailService';
 import { Database } from '../config/database';
@@ -432,8 +433,9 @@ router.post(
     const { email, orgRole, userRole } = req.body;
 
     const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
-    const canInvite = req.user!.role === UserRole.ADMIN
-      || (callerMembership && ADMIN_ORG_ROLES.includes(callerMembership.orgRole));
+    const canInvite =
+      req.user!.role === UserRole.ADMIN ||
+      (callerMembership && hasPermission(callerMembership.orgRole, 'members:invite'));
     if (!canInvite) throw new AppError('Forbidden', 403);
 
     const org = await OrgService.getOrgById(orgId);
@@ -468,8 +470,9 @@ router.get(
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId } = req.params;
     const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
-    const canView = req.user!.role === UserRole.ADMIN
-      || (callerMembership && ADMIN_ORG_ROLES.includes(callerMembership.orgRole));
+    const canView =
+      req.user!.role === UserRole.ADMIN ||
+      (callerMembership && hasPermission(callerMembership.orgRole, 'members:invite'));
     if (!canView) throw new AppError('Forbidden', 403);
 
     const invitations = await OrgInvitationService.getInvitationsForOrg(orgId);
@@ -488,8 +491,9 @@ router.delete(
     const { orgId, token } = req.params;
 
     const callerMembership = await OrgMembershipService.getMembership(orgId, req.user!.userId);
-    const canRevoke = req.user!.role === UserRole.ADMIN
-      || (callerMembership && ADMIN_ORG_ROLES.includes(callerMembership.orgRole));
+    const canRevoke =
+      req.user!.role === UserRole.ADMIN ||
+      (callerMembership && hasPermission(callerMembership.orgRole, 'members:invite'));
     if (!canRevoke) throw new AppError('Forbidden', 403);
 
     await OrgInvitationService.revokeInvitation(token, req.user!.userId);
