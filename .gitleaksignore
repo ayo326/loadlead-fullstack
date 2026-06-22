@@ -11,3 +11,9 @@
 # line covers worktree scans; this fingerprint covers the historical
 # commit (gitleaks scans full git history by design).
 18f7130ada0283512a6a06352169f02eb01d06cc:Makefile:curl-auth-user:18
+
+# Self-reference: an earlier draft of THIS file (commit c909cd2) quoted the
+# Makefile pattern verbatim in its explanation, which then matched the same
+# rule against the .gitleaksignore. The current file paraphrases the pattern;
+# this fingerprint allowlists the bad-comment commit still in git history.
+c909cd26b655e252aa2fc02d16e01780ac3c1d5d:.gitleaksignore:curl-auth-user:7
