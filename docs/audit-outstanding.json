@@ -1,0 +1,119 @@
+{
+  "_comment": "Outstanding work from the Part D audit, in Jira work-manifest shape so jira/sync.py can pick it up. Each entry has the same shape as items in jira/work-manifest.yaml: extId (stable slug), title, context (one-paragraph rationale), status. Priority hints follow the existing CAT/Tier convention.",
+  "_generatedAt": "2026-06-22T00:50:00Z",
+  "_basedOnAudit": "docs/AUDIT.md",
+  "items": [
+    {
+      "extId": "audit:driver-idv-route",
+      "title": "Add explicit /driver/verification/idv route + affiliation-gate banner",
+      "context": "Backend already stores per-user idvStatus and Settings has an ID Verification tab. The driver-side dedicated /verification/idv route called out in the test plan is not yet a discrete page. Add one, plus an 'Awaiting affiliation' banner on /driver when fleet membership is empty so the gate is visible without opening the tour.",
+      "family": "refactor",
+      "status": "TO DO",
+      "priority_hint": "Medium"
+    },
+    {
+      "extId": "audit:unaffiliated-driver-banner",
+      "title": "Render 'Awaiting affiliation' banner on DriverDashboard when no fleet links",
+      "context": "When a driver has completed IDV but is not yet affiliated with any carrier/OO, the dashboard shows live-offer scaffolding with zero offers and no explanation. Add a persistent banner explaining the affiliation gate and a CTA to share their driver-id with a dispatcher.",
+      "family": "refactor",
+      "status": "TO DO",
+      "priority_hint": "Medium"
+    },
+    {
+      "extId": "audit:e2e-tests",
+      "title": "Author E2E (HE2E + VE2E) suites for the five personas",
+      "context": "Plan exists at docs/testing/e2e-uat-bdd-test-plan.md; no tests/e2e/ directory present. Stand up Playwright + write the 5 critical paths: carrier verification + driver onboarding + dispatch; OO self-haul; driver accept + status + POD; shipper post + track; receiver confirm-delivery.",
+      "family": "e2e",
+      "status": "TO DO",
+      "priority_hint": "Medium"
+    },
+    {
+      "extId": "audit:sec-tests",
+      "title": "Author SEC system tests",
+      "context": "Plan covers SEC system tests (security boundary, auth, RBAC) not yet implemented. After E2E baseline is in place, layer SEC tests on top covering CARRIER_ADMIN -> 403 on /api/admin/*, IDV-required gating, and verified-org gating.",
+      "family": "e2e",
+      "status": "TO DO",
+      "priority_hint": "Medium"
+    },
+    {
+      "extId": "audit:rel-tests",
+      "title": "Author REL (reliability) system tests",
+      "context": "Plan covers REL: broadcast under load, offer-expiry race, status idempotency, POD upload retry. Author after E2E baseline.",
+      "family": "e2e",
+      "status": "TO DO",
+      "priority_hint": "Low"
+    },
+    {
+      "extId": "audit:uat-bdd",
+      "title": "Author UAT + BDD suites",
+      "context": "Plan covers UAT (acceptance) and BDD (gherkin) flows. Author after E2E + SEC + REL baselines are stable.",
+      "family": "e2e",
+      "status": "TO DO",
+      "priority_hint": "Low"
+    },
+    {
+      "extId": "audit:unit-tests-h-cross-persona",
+      "title": "Author H series unit tests (cross-persona contracts)",
+      "context": "Test spec includes H1-H4 covering cross-persona contracts (shipper -> driver matching, carrier -> driver assignment, OO self-haul, receiver -> POD chain). No tests matching H1/H2/H3/H4 names exist today.",
+      "family": "test",
+      "status": "TO DO",
+      "priority_hint": "Medium"
+    },
+    {
+      "extId": "audit:compliance-ci-status",
+      "title": "Verify compliance CI is green for OpenSCAP/Prowler/Semgrep/gitleaks",
+      "context": "Workflow .github/workflows/compliance.yml has the 6 jobs configured, but pass/fail status on the latest run on main has not been confirmed in this audit. Run: gh run list --workflow=compliance.yml -L 5; investigate any red jobs.",
+      "family": "stig",
+      "status": "TO DO",
+      "priority_hint": "Medium"
+    },
+    {
+      "extId": "audit:ll-controls-status",
+      "title": "Document per-LL-control DONE/PARTIAL status in stig-checklist.md",
+      "context": "compliance/llmap.yaml lists every LL-* control and the normalize/merge tooling exists. The actual per-control implementation status across the codebase has not been catalogued. Walk the list and tag each as DONE/PARTIAL/NOT STARTED with evidence.",
+      "family": "stig",
+      "status": "TO DO",
+      "priority_hint": "Medium"
+    },
+    {
+      "extId": "audit:dashboard-coming-soon",
+      "title": "Verify dashboard 'Coming soon' tiles obey no-fabrication rule",
+      "context": "Spec requires NULL / 'Coming soon' / 'Connect <X>' rather than fabricated zeros for unconnected integrations (ELD, reefer telemetry, fuel cards, FMCSA SMS). Inspect every dashboard tile and confirm fabricated values are absent.",
+      "family": "dash",
+      "status": "TO DO",
+      "priority_hint": "Medium"
+    },
+    {
+      "extId": "audit:analytics-postgis-schema",
+      "title": "Provision PostGIS analytics replica + author initial schema",
+      "context": "Analytics DB spec (docs/database-analytics/analytics-db-spec.md) describes a PostGIS read-replica fed by DynamoDB Streams. Nothing has been provisioned. Provision the RDS instance, run the schema DDL, and document credentials in CREDENTIALS.md.",
+      "family": "analytics",
+      "status": "TO DO",
+      "priority_hint": "Medium"
+    },
+    {
+      "extId": "audit:analytics-streams-consumer",
+      "title": "Build DynamoDB-Streams -> PostGIS Lambda consumer",
+      "context": "Once the PostGIS schema exists, build the Lambda that consumes DynamoDB Streams, transforms records, and writes to PostGIS. Provisioning checklist in docs/database-analytics/analytics-db-provisioning.md.",
+      "family": "analytics",
+      "status": "TO DO",
+      "priority_hint": "Medium"
+    },
+    {
+      "extId": "audit:analytics-read-models",
+      "title": "Author analytics read models + materialized views",
+      "context": "After the Streams consumer is writing, layer read models and refresh-able materialized views per the build-now tier of the spec. Defer 'gated' tier items (ELD/reefer/fuel/CSA telemetry).",
+      "family": "analytics",
+      "status": "TO DO",
+      "priority_hint": "Low"
+    },
+    {
+      "extId": "audit:bootstrap-lockdown-deploy",
+      "title": "Merge feat/admin-bootstrap-lockdown to main + deploy",
+      "context": "Branch ready and tested. Removes the CAT-I public admin bootstrap form, env-gates the route, adds atomic singleton + rate limit + audit log, plus persona-card cleanup. Merge to main, deploy frontend + backend.",
+      "family": "stig",
+      "status": "READY TO MERGE",
+      "priority_hint": "Highest"
+    }
+  ]
+}
