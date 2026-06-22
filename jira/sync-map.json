@@ -1,158 +1,897 @@
 {
-  "dash:calc-service": "SCRUM-44",
-  "dash:carrier-route": "SCRUM-45",
-  "dash:carrier-ui": "SCRUM-47",
-  "dash:oo-route": "SCRUM-46",
-  "dash:oo-ui": "SCRUM-48",
-  "dash:parity-test": "SCRUM-50",
-  "dash:settings": "SCRUM-49",
-  "e2e:BDD": "SCRUM-33",
-  "e2e:HE2E": "SCRUM-28",
-  "e2e:REL": "SCRUM-31",
-  "e2e:SEC": "SCRUM-30",
-  "e2e:UAT": "SCRUM-32",
-  "e2e:VE2E": "SCRUM-29",
-  "epic:carrier-refactor": "SCRUM-5",
-  "epic:dashboards": "SCRUM-9",
-  "epic:e2e-uat": "SCRUM-7",
-  "epic:env-hardening": "SCRUM-10",
-  "epic:jira-automation": "SCRUM-11",
-  "epic:stig-compliance": "SCRUM-8",
-  "epic:test-suite": "SCRUM-6",
-  "hard:app-env": "SCRUM-51",
-  "hard:boot-guard": "SCRUM-52",
-  "hard:contamination-scan": "SCRUM-54",
-  "hard:integration-modes": "SCRUM-53",
-  "jira:ci-check": "SCRUM-59",
-  "jira:deploy-hook": "SCRUM-57",
-  "jira:manifest": "SCRUM-55",
-  "jira:smart-commits": "SCRUM-58",
-  "jira:sync": "SCRUM-56",
-  "refactor:capabilities": "SCRUM-15",
-  "refactor:carrier-admin": "SCRUM-18",
-  "refactor:carrier-of-record": "SCRUM-13",
-  "refactor:gates": "SCRUM-14",
-  "refactor:invoice-payee": "SCRUM-19",
-  "refactor:one-parent": "SCRUM-17",
-  "refactor:self-driver": "SCRUM-16",
-  "refactor:types": "SCRUM-12",
-  "stig:LL-AC-001": "SCRUM-131",
-  "stig:LL-AC-002": "SCRUM-132",
-  "stig:LL-AC-003": "SCRUM-133",
-  "stig:LL-AC-004": "SCRUM-134",
-  "stig:LL-AU-001": "SCRUM-145",
-  "stig:LL-AU-002": "SCRUM-146",
-  "stig:LL-AU-003": "SCRUM-147",
-  "stig:LL-AU-004": "SCRUM-148",
-  "stig:LL-AV-001": "SCRUM-157",
-  "stig:LL-AV-002": "SCRUM-158",
-  "stig:LL-CM-001": "SCRUM-149",
-  "stig:LL-CM-002": "SCRUM-150",
-  "stig:LL-CM-003": "SCRUM-151",
-  "stig:LL-CM-004": "SCRUM-152",
-  "stig:LL-CM-005": "SCRUM-153",
-  "stig:LL-CR-001": "SCRUM-141",
-  "stig:LL-CR-002": "SCRUM-142",
-  "stig:LL-CR-003": "SCRUM-143",
-  "stig:LL-CR-004": "SCRUM-144",
-  "stig:LL-IA-001": "SCRUM-123",
-  "stig:LL-IA-002": "SCRUM-124",
-  "stig:LL-IA-003": "SCRUM-125",
-  "stig:LL-IA-004": "SCRUM-126",
-  "stig:LL-IA-005": "SCRUM-127",
-  "stig:LL-IV-001": "SCRUM-135",
-  "stig:LL-IV-002": "SCRUM-136",
-  "stig:LL-IV-003": "SCRUM-137",
-  "stig:LL-IV-004": "SCRUM-138",
-  "stig:LL-IV-005": "SCRUM-139",
-  "stig:LL-IV-006": "SCRUM-140",
-  "stig:LL-SC-001": "SCRUM-154",
-  "stig:LL-SC-002": "SCRUM-155",
-  "stig:LL-SC-003": "SCRUM-156",
-  "stig:LL-SM-001": "SCRUM-128",
-  "stig:LL-SM-002": "SCRUM-129",
-  "stig:LL-SM-003": "SCRUM-130",
-  "stig:LL-TP-001": "SCRUM-159",
-  "stig:LL-TP-002": "SCRUM-160",
-  "stig:family-AC": "SCRUM-36",
-  "stig:family-AU": "SCRUM-39",
-  "stig:family-AV": "SCRUM-42",
-  "stig:family-CM": "SCRUM-40",
-  "stig:family-CR": "SCRUM-38",
-  "stig:family-IA": "SCRUM-34",
-  "stig:family-IV": "SCRUM-37",
-  "stig:family-SC": "SCRUM-41",
-  "stig:family-SM": "SCRUM-35",
-  "stig:family-TP": "SCRUM-43",
-  "test:A1": "SCRUM-60",
-  "test:A2": "SCRUM-61",
-  "test:A3": "SCRUM-62",
-  "test:A4": "SCRUM-63",
-  "test:A5": "SCRUM-64",
-  "test:A6": "SCRUM-65",
-  "test:A7": "SCRUM-66",
-  "test:A8": "SCRUM-67",
-  "test:B1": "SCRUM-68",
-  "test:B10": "SCRUM-77",
-  "test:B11": "SCRUM-78",
-  "test:B2": "SCRUM-69",
-  "test:B3": "SCRUM-70",
-  "test:B4": "SCRUM-71",
-  "test:B5": "SCRUM-72",
-  "test:B6": "SCRUM-73",
-  "test:B7": "SCRUM-74",
-  "test:B8": "SCRUM-75",
-  "test:B9": "SCRUM-76",
-  "test:C1": "SCRUM-79",
-  "test:C10": "SCRUM-88",
-  "test:C11": "SCRUM-89",
-  "test:C2": "SCRUM-80",
-  "test:C3": "SCRUM-81",
-  "test:C4": "SCRUM-82",
-  "test:C5": "SCRUM-83",
-  "test:C6": "SCRUM-84",
-  "test:C7": "SCRUM-85",
-  "test:C8": "SCRUM-86",
-  "test:C9": "SCRUM-87",
-  "test:D1": "SCRUM-90",
-  "test:D2": "SCRUM-91",
-  "test:D3": "SCRUM-92",
-  "test:D4": "SCRUM-93",
-  "test:D5": "SCRUM-94",
-  "test:D6": "SCRUM-95",
-  "test:D7": "SCRUM-96",
-  "test:D8": "SCRUM-97",
-  "test:E1": "SCRUM-98",
-  "test:E2": "SCRUM-99",
-  "test:E3": "SCRUM-100",
-  "test:E4": "SCRUM-101",
-  "test:E5": "SCRUM-102",
-  "test:E6": "SCRUM-103",
-  "test:E7": "SCRUM-104",
-  "test:E8": "SCRUM-105",
-  "test:F1": "SCRUM-106",
-  "test:F2": "SCRUM-107",
-  "test:F3": "SCRUM-108",
-  "test:F4": "SCRUM-109",
-  "test:F5": "SCRUM-110",
-  "test:F6": "SCRUM-111",
-  "test:G1": "SCRUM-112",
-  "test:G2": "SCRUM-113",
-  "test:G3": "SCRUM-114",
-  "test:G4": "SCRUM-115",
-  "test:G5": "SCRUM-116",
-  "test:G6": "SCRUM-117",
-  "test:G7": "SCRUM-118",
-  "test:H1": "SCRUM-119",
-  "test:H2": "SCRUM-120",
-  "test:H3": "SCRUM-121",
-  "test:H4": "SCRUM-122",
-  "test:section-A": "SCRUM-20",
-  "test:section-B": "SCRUM-21",
-  "test:section-C": "SCRUM-22",
-  "test:section-D": "SCRUM-23",
-  "test:section-E": "SCRUM-24",
-  "test:section-F": "SCRUM-25",
-  "test:section-G": "SCRUM-26",
-  "test:section-H": "SCRUM-27"
+  "admin:brokers-license": {
+    "description_hash": "f253e76f3b27eb2440cec848fe5a5e98d31eccddb0cc79de944870556106730f",
+    "key": "SCRUM-166",
+    "priority_set_by_sync": "Highest"
+  },
+  "admin:business-card": {
+    "description_hash": "42f4de96583a4fa971a3779e5b2c4c89771e10d36c982aa038cf853e45d8a40d",
+    "key": "SCRUM-172",
+    "priority_set_by_sync": "Lowest"
+  },
+  "admin:factoring": {
+    "description_hash": "d8076f0618e683a1377fd370f951160a44f334d23c03a700b722eaf02d102ab7",
+    "key": "SCRUM-170",
+    "priority_set_by_sync": "Medium"
+  },
+  "admin:gtm": {
+    "description_hash": "38b2a6609728f4b65d7b89ee1ff5fccec0303365e8e23303741762b0014a03bb",
+    "key": "SCRUM-168",
+    "priority_set_by_sync": "Medium"
+  },
+  "admin:legal-compliance": {
+    "description_hash": "8dceb5b6b8dce927ade84ffc97f901e5024f8f83d9c6dc5f3b0c2a08dda49b09",
+    "key": "SCRUM-167",
+    "priority_set_by_sync": "High"
+  },
+  "admin:marketing": {
+    "description_hash": "ec8e3cd80120d85df0b0c945561a21bf85729df944ca07aa643a9f45b1d86420",
+    "key": "SCRUM-171",
+    "priority_set_by_sync": "Medium"
+  },
+  "admin:pricing": {
+    "description_hash": "e6d28a8a34068a46ab70e7e3e7dcb6c3956e9aab89c3ae6d1b17ea42c15ba51c",
+    "key": "SCRUM-169",
+    "priority_set_by_sync": "Medium"
+  },
+  "admin:reinstate-llc": {
+    "description_hash": "2651ec565e1924e5172d74728ca5521550bae3b094b91d1b2be8de9bf55548ed",
+    "key": "SCRUM-165",
+    "priority_set_by_sync": "Highest"
+  },
+  "analytics:build": {
+    "description_hash": "f6879c33fdb4e2623632d04285b943d8d0ecaaf9a9321ae348135d0389001e53",
+    "key": "SCRUM-179",
+    "priority_set_by_sync": "High"
+  },
+  "analytics:csa": {
+    "description_hash": "3cdd49262595c1a94987ddfacf6853d1d046b99f9b3f54de6d52b5c76264c1d7",
+    "key": "SCRUM-183",
+    "priority_set_by_sync": "Medium"
+  },
+  "analytics:eld": {
+    "description_hash": "fd16d80f0cd40c2c7ae205309ddcab90f6ee72e155488136ea55f18c9f1b0557",
+    "key": "SCRUM-180",
+    "priority_set_by_sync": "Low"
+  },
+  "analytics:extensions": {
+    "description_hash": "493a4ea6b0a70bdabcfad1158ae6371fee12ddc2f334b4be2373175852bd0d16",
+    "key": "SCRUM-178",
+    "priority_set_by_sync": "Medium"
+  },
+  "analytics:fuel": {
+    "description_hash": "d525593f28c982085040f8721ce2dbf9c69bd494e7eb4963ad7da2d05c79c162",
+    "key": "SCRUM-182",
+    "priority_set_by_sync": "Low"
+  },
+  "analytics:iam": {
+    "description_hash": "b79a220f72f082ddb99301ca990109675bf19f1f235156946f836cffc7f1a9e2",
+    "key": "SCRUM-176",
+    "priority_set_by_sync": "High"
+  },
+  "analytics:rds": {
+    "description_hash": "d3a39ef06deaed4f7a5666bb2aa04dab0ffc4800691bf5dee5b9723ff3c7695c",
+    "key": "SCRUM-173",
+    "priority_set_by_sync": "High"
+  },
+  "analytics:reefer": {
+    "description_hash": "417cb6276cf0384dd4c98ce559117e0889aed650f061d656f60014b150a69d85",
+    "key": "SCRUM-181",
+    "priority_set_by_sync": "Low"
+  },
+  "analytics:secret": {
+    "description_hash": "879d4d992b4a120aa5f8e50beddec29f83bc5cb58073397d5eb15c376d6f6746",
+    "key": "SCRUM-174",
+    "priority_set_by_sync": "High"
+  },
+  "analytics:streams": {
+    "description_hash": "a927dbdea07593139e77076891ea95bcaa78ee9bb389a0900ed70ed1065fc347",
+    "key": "SCRUM-177",
+    "priority_set_by_sync": "High"
+  },
+  "analytics:tier1": {
+    "description_hash": "4a581499c63c32494660a5fa7338a23f2a43b4c333d60363b22e0e9b641df932",
+    "key": "SCRUM-163",
+    "priority_set_by_sync": "Medium"
+  },
+  "analytics:tier2": {
+    "description_hash": "8054575277d642328667e4ea109880d3b2c57ccb091b0cf47b7e5be893a4f128",
+    "key": "SCRUM-164",
+    "priority_set_by_sync": "Medium"
+  },
+  "analytics:vpc": {
+    "description_hash": "b450a11f4bbbef877ec226dea4e65094bc4c8f251de28f47160b29423df87be4",
+    "key": "SCRUM-175",
+    "priority_set_by_sync": "High"
+  },
+  "dash:calc-service": {
+    "description_hash": "e24f3d78306cbea1b0f3c9c86dc46874525a683596304592e5c17da9a7024214",
+    "key": "SCRUM-44",
+    "priority_set_by_sync": ""
+  },
+  "dash:carrier-route": {
+    "description_hash": "d55bc6ca5de565aec361bcfccb15eb8ac9d190eb634de417154e59a85c58919d",
+    "key": "SCRUM-45",
+    "priority_set_by_sync": ""
+  },
+  "dash:carrier-ui": {
+    "description_hash": "ce165facfad71c0c047933e8a18b919cef270304dd013dcfdd0e6168f5d45b9d",
+    "key": "SCRUM-47",
+    "priority_set_by_sync": ""
+  },
+  "dash:oo-route": {
+    "description_hash": "bfaafb5b166d60d1e429fe3a56d36440f1764579c1ba248c33ad07c1f0dc5b7a",
+    "key": "SCRUM-46",
+    "priority_set_by_sync": ""
+  },
+  "dash:oo-ui": {
+    "description_hash": "8b5e26e9d60c01e79c3ffdc4dfa1edb8f68723df41de2e3dbc2272b315cd370f",
+    "key": "SCRUM-48",
+    "priority_set_by_sync": ""
+  },
+  "dash:parity-test": {
+    "description_hash": "7e2b8fe76f88546fa1a601a0a2b9be24149941d8e72d57d7eb7a88a5c901e366",
+    "key": "SCRUM-50",
+    "priority_set_by_sync": ""
+  },
+  "dash:settings": {
+    "description_hash": "28583da5c7e226320b6abd370104bb63f77586ecd51a1277261b1c70a7a3e56e",
+    "key": "SCRUM-49",
+    "priority_set_by_sync": ""
+  },
+  "e2e:BDD": {
+    "description_hash": "7a513e3b55ee6562301a33d95aa48a2094ce852d08c06e51e9ab438ca1bf6188",
+    "key": "SCRUM-33",
+    "priority_set_by_sync": ""
+  },
+  "e2e:HE2E": {
+    "description_hash": "cd3d289010f92566c4e8bd9a500f640ca7d63dba3886ea96d1b0727364e593e1",
+    "key": "SCRUM-28",
+    "priority_set_by_sync": ""
+  },
+  "e2e:REL": {
+    "description_hash": "b27224645fa055ac7fecc0639132a20343f38dce6204fbfbd5ba18089ea93395",
+    "key": "SCRUM-31",
+    "priority_set_by_sync": ""
+  },
+  "e2e:SEC": {
+    "description_hash": "2d1880991316f188b5905be25a8d93fdfd901744aec6d06c5870ea52a325720e",
+    "key": "SCRUM-30",
+    "priority_set_by_sync": ""
+  },
+  "e2e:UAT": {
+    "description_hash": "ee9af58ce6598ba3f527138a91604dd52de31e4fd232ca006b93a0d5d5c29e36",
+    "key": "SCRUM-32",
+    "priority_set_by_sync": ""
+  },
+  "e2e:VE2E": {
+    "description_hash": "2456f303b655185ba72813b75537ea847df77b059a116f4bcf1734be447f377d",
+    "key": "SCRUM-29",
+    "priority_set_by_sync": ""
+  },
+  "epic:admin": {
+    "description_hash": "5602b9fb8ad70fdfb0ee64deca99cbe1f6ad8284c1b9c52d066ae55592846f07",
+    "key": "SCRUM-162",
+    "priority_set_by_sync": "Medium"
+  },
+  "epic:analytics-db": {
+    "description_hash": "3bf94649c132ac026c31a1261edc2272fd636ff554e5f4b8eafbcb7303d7f421",
+    "key": "SCRUM-161",
+    "priority_set_by_sync": "Medium"
+  },
+  "epic:carrier-refactor": {
+    "description_hash": "e2c33f17e23cd39c4673e3ca02aeac49756b4e6bce9f25a6ce2e766770b5ade5",
+    "key": "SCRUM-5",
+    "priority_set_by_sync": ""
+  },
+  "epic:dashboards": {
+    "description_hash": "6a52973271c467011ae4e80a07a5f209ebb62beae34cfedbe8f08b56911bcbee",
+    "key": "SCRUM-9",
+    "priority_set_by_sync": ""
+  },
+  "epic:e2e-uat": {
+    "description_hash": "1879b93d20803a72f7eb558d8dde0bdd2c1d5f4b8d24115940414cb6f3b8ed99",
+    "key": "SCRUM-7",
+    "priority_set_by_sync": ""
+  },
+  "epic:env-hardening": {
+    "description_hash": "7d403b97045d54a92963c80925bfc3166a67bb0355352be97f5c914489a21655",
+    "key": "SCRUM-10",
+    "priority_set_by_sync": ""
+  },
+  "epic:jira-automation": {
+    "description_hash": "9d0fca2313010f0f61ce6ede5baed61b52f4a1000c2a6196dc0f2a519df3f7a1",
+    "key": "SCRUM-11",
+    "priority_set_by_sync": ""
+  },
+  "epic:stig-compliance": {
+    "description_hash": "e65e31a360ac5fb19589e0e540dd4068ef9ccba2a383d0ad9d7c94b1255ce10d",
+    "key": "SCRUM-8",
+    "priority_set_by_sync": ""
+  },
+  "epic:test-suite": {
+    "description_hash": "3daa140c121c07e9e69eaac3cf8900c17a1829107ff064b796bd52e7ad2e72b8",
+    "key": "SCRUM-6",
+    "priority_set_by_sync": ""
+  },
+  "hard:app-env": {
+    "description_hash": "48ce69f29a4f304fe95d151bcbe1bd3c0aaab6174265f73766df51d0506aa3e8",
+    "key": "SCRUM-51",
+    "priority_set_by_sync": ""
+  },
+  "hard:boot-guard": {
+    "description_hash": "6cad1c2b507617278b143221dc3f5c28af5ee9230a7601a27b4731b901fec716",
+    "key": "SCRUM-52",
+    "priority_set_by_sync": ""
+  },
+  "hard:contamination-scan": {
+    "description_hash": "ce6717a17d6bc7c0112967c46fbe2d66994464ed80f4ee7dffe473a956120262",
+    "key": "SCRUM-54",
+    "priority_set_by_sync": ""
+  },
+  "hard:integration-modes": {
+    "description_hash": "dca0e912e45d472134dde758ef2040a35edd9aa3228c675d287bcbff1f496898",
+    "key": "SCRUM-53",
+    "priority_set_by_sync": ""
+  },
+  "jira:ci-check": {
+    "description_hash": "fa93d0076371e55f68a0a71ff2bcbf6cd73909af58ab973c91930b8cc1e43c80",
+    "key": "SCRUM-59",
+    "priority_set_by_sync": ""
+  },
+  "jira:deploy-hook": {
+    "description_hash": "4c358d2a684b801b7bdf4c2247a40b9a4a130950a89abe620472c1edf2ab685b",
+    "key": "SCRUM-57",
+    "priority_set_by_sync": ""
+  },
+  "jira:manifest": {
+    "description_hash": "4e5c4335cf499afc6ec0438ecad041d2519d9fdd2a374f8698b98e198b4754e0",
+    "key": "SCRUM-55",
+    "priority_set_by_sync": ""
+  },
+  "jira:smart-commits": {
+    "description_hash": "05736ba53095174fa640c4aade662d0d68a86a89e46e30acf58ec5bf9fa3348d",
+    "key": "SCRUM-58",
+    "priority_set_by_sync": ""
+  },
+  "jira:sync": {
+    "description_hash": "6d8e3f407ae0c8b0df92ff2b2c6a704c5432c665b13319cfac18db69eaff79fc",
+    "key": "SCRUM-56",
+    "priority_set_by_sync": ""
+  },
+  "refactor:capabilities": {
+    "description_hash": "366d0a65ec46068bf0d8409393d1e785c9907e4a2b55df5b7f4b46132d98c6a4",
+    "key": "SCRUM-15",
+    "priority_set_by_sync": "High"
+  },
+  "refactor:carrier-admin": {
+    "description_hash": "fee3130b7a4604a508ccf5461e60a1dabe0a72467d6adb761863810468660379",
+    "key": "SCRUM-18",
+    "priority_set_by_sync": "High"
+  },
+  "refactor:carrier-of-record": {
+    "description_hash": "b31ef04e982b37576dbcc1154128e7ada8d93d1130dd03fa09d918348884609e",
+    "key": "SCRUM-13",
+    "priority_set_by_sync": "High"
+  },
+  "refactor:gates": {
+    "description_hash": "a4fb21002676414a5c9569dc93191f55903105399184b2fbac0b01ec66aa7452",
+    "key": "SCRUM-14",
+    "priority_set_by_sync": "High"
+  },
+  "refactor:invoice-payee": {
+    "description_hash": "0542d6365677b2baadf1e03af7c9ee52bcf1a1e5c18c376aaf9beff26bc383f8",
+    "key": "SCRUM-19",
+    "priority_set_by_sync": "High"
+  },
+  "refactor:one-parent": {
+    "description_hash": "54c1539a39c8589b035d03964bf55a3f7c01dcbb1dccc6035f037b4b12cdb9a6",
+    "key": "SCRUM-17",
+    "priority_set_by_sync": "High"
+  },
+  "refactor:self-driver": {
+    "description_hash": "6c3ea14824d05d7a52035d30def2e975fa9a8f1dd7a47e55563966e77c3a8110",
+    "key": "SCRUM-16",
+    "priority_set_by_sync": "High"
+  },
+  "refactor:types": {
+    "description_hash": "d85039272ccf016f3455d454924997a876dd73bf6cb43e5fc66101328803e256",
+    "key": "SCRUM-12",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-AC-001": {
+    "description_hash": "aa743b7db502de606cc4ce92cff413fa1296d273259018c183b6752043a6e46d",
+    "key": "SCRUM-131",
+    "priority_set_by_sync": "Highest"
+  },
+  "stig:LL-AC-002": {
+    "description_hash": "faf5e52fab9d30a42aea0f649a1ba7e49150e79de00d06af92c1cbac7264b3ce",
+    "key": "SCRUM-132",
+    "priority_set_by_sync": "Highest"
+  },
+  "stig:LL-AC-003": {
+    "description_hash": "637b38e091e23b4969cc6d7e0b007cc13d6848d040d8ae50e82e77719a89a6e4",
+    "key": "SCRUM-133",
+    "priority_set_by_sync": "Highest"
+  },
+  "stig:LL-AC-004": {
+    "description_hash": "e153897832ee149b667c83af311c05a1a1be4567ad8df77bbdeec01a6b74f1e3",
+    "key": "SCRUM-134",
+    "priority_set_by_sync": "Highest"
+  },
+  "stig:LL-AU-001": {
+    "description_hash": "0c12c8f8a676dbac99d37a28a7017a131cf4ef8fc341eafac446885d0004f2c5",
+    "key": "SCRUM-145",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-AU-002": {
+    "description_hash": "7534882358c0b88b2a599d0e6d3c5b7f61c03a0c6604cac833ce46ab8b3a758a",
+    "key": "SCRUM-146",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-AU-003": {
+    "description_hash": "9c40214eb9ef3d09b81d213efaf444d8d0259268723695f7314938d637addc20",
+    "key": "SCRUM-147",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-AU-004": {
+    "description_hash": "7784626422a389f9bfc562cd61d2eac4f53e2878855ace39e13f405ccee519af",
+    "key": "SCRUM-148",
+    "priority_set_by_sync": ""
+  },
+  "stig:LL-AV-001": {
+    "description_hash": "97dfed07e5529c7395bf2cf108964073ada3fc0a1fb3ff3d93b1728e7b19f25b",
+    "key": "SCRUM-157",
+    "priority_set_by_sync": ""
+  },
+  "stig:LL-AV-002": {
+    "description_hash": "5229b91f11d01d0842043a2f1cf6b546c5ac4eef030c056f018572b19d15b389",
+    "key": "SCRUM-158",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-CM-001": {
+    "description_hash": "9691a2ed619d2502f98fb850bd87ab0e76197f4087dfccb18caa4d69b7331864",
+    "key": "SCRUM-149",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-CM-002": {
+    "description_hash": "b145896609ceef64f7b60ac6eb26a0ee9a14edba3da61754ef367318a2e50f0c",
+    "key": "SCRUM-150",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-CM-003": {
+    "description_hash": "562a3098afd413cc08279740574e130958329002c384e3d81bb5a2277b05032c",
+    "key": "SCRUM-151",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-CM-004": {
+    "description_hash": "9e645eb6726cad8fcd41dcddf63ad10cbf227f9141961a8a211dd6e42afe3bc1",
+    "key": "SCRUM-152",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-CM-005": {
+    "description_hash": "8c6c9a1c82649671c2f9b6d7a63b1f674c35f3144f331567c077a1ccbcd3b675",
+    "key": "SCRUM-153",
+    "priority_set_by_sync": ""
+  },
+  "stig:LL-CR-001": {
+    "description_hash": "bd2138dc04f6974e26ea0a8e54a57547c4f555a1576c810642839c3a1a16c227",
+    "key": "SCRUM-141",
+    "priority_set_by_sync": "Highest"
+  },
+  "stig:LL-CR-002": {
+    "description_hash": "20f3ca231b1c577da18967dfe234062945954e31bc1103905d1914a11b6cf138",
+    "key": "SCRUM-142",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-CR-003": {
+    "description_hash": "a41a5d82c99afab2264289427b9636a3e6a478dc48e6229d6c2d00bdc1d96624",
+    "key": "SCRUM-143",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-CR-004": {
+    "description_hash": "7037c887361bd922d5ac1c957ea8d56808dcbc1b4535ef859e5a0a935a845d94",
+    "key": "SCRUM-144",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-IA-001": {
+    "description_hash": "7e1115fa67a9b88605414ad767bdb7e7ff577be34103ff5e632731706fa577c2",
+    "key": "SCRUM-123",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-IA-002": {
+    "description_hash": "a1c615714b9c1909487eeb08c11b4a581b90fda0f066dac5ee3a3b7be4d0869e",
+    "key": "SCRUM-124",
+    "priority_set_by_sync": "Highest"
+  },
+  "stig:LL-IA-003": {
+    "description_hash": "73586799d7a16b2e71cf8e26d40c17456a2847022c7b6b84b35960753b6ca771",
+    "key": "SCRUM-125",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-IA-004": {
+    "description_hash": "7bafc1458fa07e5660febcfc42faa3bbcc0b4ac25d2cb2d01a4bb7b7ebec1ca4",
+    "key": "SCRUM-126",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-IA-005": {
+    "description_hash": "4826a2955e2ff9a245af83a77d66d8005c4b11836eb6cf8de61c26e08b5688a6",
+    "key": "SCRUM-127",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-IV-001": {
+    "description_hash": "b27d0c08db64bab7faf01b93427a6e3f3c4e115326d113a607d31421abdb7b82",
+    "key": "SCRUM-135",
+    "priority_set_by_sync": "Highest"
+  },
+  "stig:LL-IV-002": {
+    "description_hash": "f826f978186d647919741b002adafd11b54664ee10210c4d30e6fb89d9c684e5",
+    "key": "SCRUM-136",
+    "priority_set_by_sync": "Highest"
+  },
+  "stig:LL-IV-003": {
+    "description_hash": "968b07a8e43d21e7bf29174f20fdd744231005c5ccb4794ce7baa20b6dcd87fe",
+    "key": "SCRUM-137",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-IV-004": {
+    "description_hash": "cb284972820727a871509bb027990b893e612a791f99548194a899031f2d9292",
+    "key": "SCRUM-138",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-IV-005": {
+    "description_hash": "c856f2710f433b1181b7550f4f1278131125e491ab30d6aa1ffcf7f58ce48cca",
+    "key": "SCRUM-139",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-IV-006": {
+    "description_hash": "ad00aa56c14341469aad3defc995c9ea1468a79a43d7bd7427bcf883e336fd5b",
+    "key": "SCRUM-140",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-SC-001": {
+    "description_hash": "6044985fd6baa508714c59e14509988b6e216e59f087ece18c8f27bcf688341f",
+    "key": "SCRUM-154",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-SC-002": {
+    "description_hash": "a00d39595cd2db11d5cb03e93e8e1cd8c5b5fc9801b26663c60ee5f6a50413ef",
+    "key": "SCRUM-155",
+    "priority_set_by_sync": ""
+  },
+  "stig:LL-SC-003": {
+    "description_hash": "285db96ba5392048802f2bea2baf37eb94bb9ea94ad8fb08f540bfb8ce0dfa00",
+    "key": "SCRUM-156",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-SM-001": {
+    "description_hash": "f5a6ba6ae9b7dd1f08962c92487ddf3cfd6ebe9a65e6e3a9cef7c87a9f936cfb",
+    "key": "SCRUM-128",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-SM-002": {
+    "description_hash": "6c90cdaa6cbc0a536e755c537d1bbd778b3166543b403675e4b23cf41d910bb4",
+    "key": "SCRUM-129",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-SM-003": {
+    "description_hash": "65d45a7b5399598c16a5588fe16aaf97b54d160cc37c68d51f97119aea61aec6",
+    "key": "SCRUM-130",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-TP-001": {
+    "description_hash": "ceb0c9fd452caa336f297921245d27929d105f7c48dec44c0658d63eb527fa75",
+    "key": "SCRUM-159",
+    "priority_set_by_sync": "High"
+  },
+  "stig:LL-TP-002": {
+    "description_hash": "54b067395fbab0c9770b7cdeac13e8119350b939d11572312df4fd5dfb33d714",
+    "key": "SCRUM-160",
+    "priority_set_by_sync": "High"
+  },
+  "stig:family-AC": {
+    "description_hash": "11ef6ef0443629a647603c9d1202dec18cec0a576efd96674c53d3251771d88a",
+    "key": "SCRUM-36",
+    "priority_set_by_sync": ""
+  },
+  "stig:family-AU": {
+    "description_hash": "cc4a227cba9ad0e7dc951f214213dc4d303d3932781120fd8ce2819eb82cb765",
+    "key": "SCRUM-39",
+    "priority_set_by_sync": ""
+  },
+  "stig:family-AV": {
+    "description_hash": "1f9a15935a6768f492afe3356a922082d812b995c2468d1c519bfc668a3d4d85",
+    "key": "SCRUM-42",
+    "priority_set_by_sync": ""
+  },
+  "stig:family-CM": {
+    "description_hash": "7a2493a5392b1ac406d4437206873383bbb83df9c31561756371844c8b1fd3ce",
+    "key": "SCRUM-40",
+    "priority_set_by_sync": ""
+  },
+  "stig:family-CR": {
+    "description_hash": "fb7d9f47a8ba8438a2de3be8745c9435e0de0442f197f6b6ff6dbd334fe4af5e",
+    "key": "SCRUM-38",
+    "priority_set_by_sync": ""
+  },
+  "stig:family-IA": {
+    "description_hash": "b41347f4cd8a19112843144365937e4b5abfb83837687e01f474f99f2e140f79",
+    "key": "SCRUM-34",
+    "priority_set_by_sync": ""
+  },
+  "stig:family-IV": {
+    "description_hash": "8d46d14dfe7a128a0a87f0e966ead3191a71bae2b1b357f0f2cb8c69640bcb97",
+    "key": "SCRUM-37",
+    "priority_set_by_sync": ""
+  },
+  "stig:family-SC": {
+    "description_hash": "952314af4d86b44b6d7201250b390be5fedb551b4e1c6791e293b87de2497a8f",
+    "key": "SCRUM-41",
+    "priority_set_by_sync": ""
+  },
+  "stig:family-SM": {
+    "description_hash": "1dddb8f723f77f8e0ea5aacdbf17a8bbad813e23637ba84b939c2645d056ef54",
+    "key": "SCRUM-35",
+    "priority_set_by_sync": ""
+  },
+  "stig:family-TP": {
+    "description_hash": "c7e01262a2438de674eec1ccc164960b904ed06f9ea4dfab57c40cce466cd1d1",
+    "key": "SCRUM-43",
+    "priority_set_by_sync": ""
+  },
+  "test:A1": {
+    "description_hash": "ccf445d4e5415a472aa592fe467f5cd57286f8903031791081e7d84498642f7e",
+    "key": "SCRUM-60",
+    "priority_set_by_sync": "High"
+  },
+  "test:A2": {
+    "description_hash": "bccd3227936eab4bee4ba5eb8c4884951f6e49271cbae0cea96f3d909fd39db0",
+    "key": "SCRUM-61",
+    "priority_set_by_sync": "High"
+  },
+  "test:A3": {
+    "description_hash": "5ed138ae27d328722ee6e2f1070c8561694cc00d3b1086d5d681d2f75917667d",
+    "key": "SCRUM-62",
+    "priority_set_by_sync": "High"
+  },
+  "test:A4": {
+    "description_hash": "1d35628e0794b4f7389f3670ceda95ca90a170c428d6198f096601fffe90b38d",
+    "key": "SCRUM-63",
+    "priority_set_by_sync": "High"
+  },
+  "test:A5": {
+    "description_hash": "61d679887cd387effb3515f55b3bf7f6d9c2d935088420e99fe78412e916a291",
+    "key": "SCRUM-64",
+    "priority_set_by_sync": "High"
+  },
+  "test:A6": {
+    "description_hash": "792b8bfadde5f3c83276a2b8358e8b99907ab9a0b69d15aa1e0e424d10502ffc",
+    "key": "SCRUM-65",
+    "priority_set_by_sync": "High"
+  },
+  "test:A7": {
+    "description_hash": "e7a779b1756475dc3368552c1ef288c55e6fc30963cddebf687a0b7377d28378",
+    "key": "SCRUM-66",
+    "priority_set_by_sync": "High"
+  },
+  "test:A8": {
+    "description_hash": "b10c5eda3cf8f320778bbc3d7ff7310787122fe2453871dc409407cb0c329dc9",
+    "key": "SCRUM-67",
+    "priority_set_by_sync": "High"
+  },
+  "test:B1": {
+    "description_hash": "91570696fc5fe07cbaf59350093edf07cbd234f9d25d5dbe5c899e137b364139",
+    "key": "SCRUM-68",
+    "priority_set_by_sync": "High"
+  },
+  "test:B10": {
+    "description_hash": "57846d68b8033d1370361740853ec4a8d1f6861c284fec862cfb53b390f302ab",
+    "key": "SCRUM-77",
+    "priority_set_by_sync": "High"
+  },
+  "test:B11": {
+    "description_hash": "afdb5841b90a5835608fad93808ccf89d62955d966902fc3725e27f2fcc556b5",
+    "key": "SCRUM-78",
+    "priority_set_by_sync": "High"
+  },
+  "test:B2": {
+    "description_hash": "c7903016de4ef948ba097d24792041f07c6a6e469abd0362e31dd54a07b80ab7",
+    "key": "SCRUM-69",
+    "priority_set_by_sync": "High"
+  },
+  "test:B3": {
+    "description_hash": "8d03a39b5dd4575cfd180c755dc1ac1f6979c2623f36a4812ef9d0894791c70a",
+    "key": "SCRUM-70",
+    "priority_set_by_sync": "High"
+  },
+  "test:B4": {
+    "description_hash": "8bcf38592bcae07580136bb0f4975cc4e3d096dbe99bd5c1bcb47a4a6f8ea1f3",
+    "key": "SCRUM-71",
+    "priority_set_by_sync": "High"
+  },
+  "test:B5": {
+    "description_hash": "91dfb6edb3c975d7655f856ff3da17836017eff9d3ef2b1bf3069d5ce862869e",
+    "key": "SCRUM-72",
+    "priority_set_by_sync": "High"
+  },
+  "test:B6": {
+    "description_hash": "98d5aa65c96398e39c438e2ff783611689a5dbff06fbf0c99d08eb43d293a1df",
+    "key": "SCRUM-73",
+    "priority_set_by_sync": "High"
+  },
+  "test:B7": {
+    "description_hash": "7bfad978af67e44fd0f308b430ad1af02403fc85a76be5bee393397109ec7da6",
+    "key": "SCRUM-74",
+    "priority_set_by_sync": "High"
+  },
+  "test:B8": {
+    "description_hash": "139da080fba8195ebeec848b1ac4b254a699e5e1d793926e8ff551543d477078",
+    "key": "SCRUM-75",
+    "priority_set_by_sync": "High"
+  },
+  "test:B9": {
+    "description_hash": "ecf5e461253c27defca4c078a8d34a43aabe0724cce0f77c26e2648edbf4eb46",
+    "key": "SCRUM-76",
+    "priority_set_by_sync": "High"
+  },
+  "test:C1": {
+    "description_hash": "43776fe2762b3e0fc2222f93664e51916d6fd48a99d4b3293886a6846caef898",
+    "key": "SCRUM-79",
+    "priority_set_by_sync": "High"
+  },
+  "test:C10": {
+    "description_hash": "6442f771856535184617e8a036eaebbb9170242fcd1cde071beb7385bbfe7fbb",
+    "key": "SCRUM-88",
+    "priority_set_by_sync": "High"
+  },
+  "test:C11": {
+    "description_hash": "7ba301ac95941330a79760a7ee9f552592ba4203a505504dbd4830f742cf2c18",
+    "key": "SCRUM-89",
+    "priority_set_by_sync": "High"
+  },
+  "test:C2": {
+    "description_hash": "060f9ae7858c381979911ad375265b727c80420ea3433d0e9e346b12c38eea42",
+    "key": "SCRUM-80",
+    "priority_set_by_sync": "High"
+  },
+  "test:C3": {
+    "description_hash": "dc7e40ad22f434d2b4f09aad5ef6d81d5d03bfaf31bf42c7d21de79aae7ff128",
+    "key": "SCRUM-81",
+    "priority_set_by_sync": "High"
+  },
+  "test:C4": {
+    "description_hash": "346c7c5f2bfd7d43f0a3b2b9a984c9d9394fa8690e0a4d5643315d4982e2727d",
+    "key": "SCRUM-82",
+    "priority_set_by_sync": "High"
+  },
+  "test:C5": {
+    "description_hash": "e92e16009dc3a7497e741921812f6b3b97a9cd4d31fcbe91cff69c0da104a80b",
+    "key": "SCRUM-83",
+    "priority_set_by_sync": "High"
+  },
+  "test:C6": {
+    "description_hash": "d4c6efa2e0743a409df89f1a7212b18571f370a8524c6f5b93251389243e4564",
+    "key": "SCRUM-84",
+    "priority_set_by_sync": "High"
+  },
+  "test:C7": {
+    "description_hash": "d0b381c9fb97aa1a0a146b7ef0131ac4b587bab745c957453767c9b276e6980f",
+    "key": "SCRUM-85",
+    "priority_set_by_sync": "High"
+  },
+  "test:C8": {
+    "description_hash": "cda7cd1378642628d5c76931125048b2b676ccc0ec87ad99e646411f0b08ff1e",
+    "key": "SCRUM-86",
+    "priority_set_by_sync": "High"
+  },
+  "test:C9": {
+    "description_hash": "0437b018fc481555c047d4630bc9ac90d88b43e43410841249f57bfccc3fcd35",
+    "key": "SCRUM-87",
+    "priority_set_by_sync": "High"
+  },
+  "test:D1": {
+    "description_hash": "5876eb7db921e52fedc632d1c552e48e345d960f2080d6f78f6cc83d1c44a7ae",
+    "key": "SCRUM-90",
+    "priority_set_by_sync": ""
+  },
+  "test:D2": {
+    "description_hash": "c68baed106381ff90e78385adfcd4ee3c45210457a89c4654f2b51f45cc997dc",
+    "key": "SCRUM-91",
+    "priority_set_by_sync": ""
+  },
+  "test:D3": {
+    "description_hash": "0ee59eb441128ae614d212de1a1af0b2ccef99053c78f17d03c5d46147a026f1",
+    "key": "SCRUM-92",
+    "priority_set_by_sync": ""
+  },
+  "test:D4": {
+    "description_hash": "4bbd0896d5244f467a9328e63678fa0c6347b0b29752754dbcc6014809a8f067",
+    "key": "SCRUM-93",
+    "priority_set_by_sync": ""
+  },
+  "test:D5": {
+    "description_hash": "868a264739ac71525d3f1b1d9619f558c4cdcb51cecf5476312120403076d0eb",
+    "key": "SCRUM-94",
+    "priority_set_by_sync": ""
+  },
+  "test:D6": {
+    "description_hash": "3850c37e1b241b59d6f6c8d701152f9f7ab03b47cdc07992a1d04a9a9963f2be",
+    "key": "SCRUM-95",
+    "priority_set_by_sync": "High"
+  },
+  "test:D7": {
+    "description_hash": "27fa3b8ca1e44b46fad89fd672d35a8385a29ee505aa978e938ab604a984e7ee",
+    "key": "SCRUM-96",
+    "priority_set_by_sync": "High"
+  },
+  "test:D8": {
+    "description_hash": "905ee91df542294b1c97dfa80280ec363695595f4c0c10799162fb05417e262a",
+    "key": "SCRUM-97",
+    "priority_set_by_sync": ""
+  },
+  "test:E1": {
+    "description_hash": "a037ddfc316b9ab840b47e337d8a2996b50000f77c9e7e326acc521715d4f834",
+    "key": "SCRUM-98",
+    "priority_set_by_sync": ""
+  },
+  "test:E2": {
+    "description_hash": "4a50f954bb30888df5a427b9e4d4bbabab5c4ebbc70a5a9c82190e3989cec385",
+    "key": "SCRUM-99",
+    "priority_set_by_sync": "High"
+  },
+  "test:E3": {
+    "description_hash": "fa0310bda401d455fa8754cca638435967c9ef317f1759d04cf66a84850b23c2",
+    "key": "SCRUM-100",
+    "priority_set_by_sync": ""
+  },
+  "test:E4": {
+    "description_hash": "2612748a7f9fdbc2ab1ccc4e408e8856503831ddaa63938bfc6d092763bb21db",
+    "key": "SCRUM-101",
+    "priority_set_by_sync": ""
+  },
+  "test:E5": {
+    "description_hash": "140672efaf81e64f9558882c858baa0068534f0ab92895d8f0279c5a19907c2f",
+    "key": "SCRUM-102",
+    "priority_set_by_sync": "High"
+  },
+  "test:E6": {
+    "description_hash": "c7c3100d54c274d18f5881538160a56dda841618e466f1e92519bc8064217e69",
+    "key": "SCRUM-103",
+    "priority_set_by_sync": "High"
+  },
+  "test:E7": {
+    "description_hash": "22204006231ed03de9dd86ef5fc78ed745166ab46db832b4dbf07e6fdcc44989",
+    "key": "SCRUM-104",
+    "priority_set_by_sync": "High"
+  },
+  "test:E8": {
+    "description_hash": "4f6fa4e01eb3d61b47c2cac5cbfc1613df9bb6ac598ae3337b5132382db8ba2f",
+    "key": "SCRUM-105",
+    "priority_set_by_sync": ""
+  },
+  "test:F1": {
+    "description_hash": "2e90e7d5b0e22e05d9f7c98e71b9728e485e9d6352c7aa059f845b505b9d8147",
+    "key": "SCRUM-106",
+    "priority_set_by_sync": ""
+  },
+  "test:F2": {
+    "description_hash": "e59512d26be8836f4cdc38b943f1b501a6d3e8ddacf30e0466502c509a3af948",
+    "key": "SCRUM-107",
+    "priority_set_by_sync": ""
+  },
+  "test:F3": {
+    "description_hash": "230cf624ddf3fde6852b9cb74bcfec36a43c22e758c03d95da3ba8ffea2d1873",
+    "key": "SCRUM-108",
+    "priority_set_by_sync": ""
+  },
+  "test:F4": {
+    "description_hash": "48c94a58dad18fe92b19c26e51e040dd7d123ada9576951a1bb3db8d75559ffc",
+    "key": "SCRUM-109",
+    "priority_set_by_sync": ""
+  },
+  "test:F5": {
+    "description_hash": "01bdd8edf762fafd3d408db0918f2ce5b03c1cf80f098df63472cf71976380ef",
+    "key": "SCRUM-110",
+    "priority_set_by_sync": ""
+  },
+  "test:F6": {
+    "description_hash": "3791c1566a417338885db625610158766a627ab0f0a337e328bcf57c071185ac",
+    "key": "SCRUM-111",
+    "priority_set_by_sync": ""
+  },
+  "test:G1": {
+    "description_hash": "9d548de7da769d613fe7fd4afa9cca742056a928a1cb6c82312faf61a6a4bb31",
+    "key": "SCRUM-112",
+    "priority_set_by_sync": "High"
+  },
+  "test:G2": {
+    "description_hash": "4f130379260aacb1970943848a6b1652e71b631f819b8c923d7b463d25b9d49f",
+    "key": "SCRUM-113",
+    "priority_set_by_sync": "High"
+  },
+  "test:G3": {
+    "description_hash": "fd5d3d28c6b627f0189ef565d39a320ad38ff69cbd2269c579e7bb0bcee90dd2",
+    "key": "SCRUM-114",
+    "priority_set_by_sync": "High"
+  },
+  "test:G4": {
+    "description_hash": "b5309dbd2f20cc46d717e70ce415fbc8aa1b8b4b7621a570a5f1f16524028ccd",
+    "key": "SCRUM-115",
+    "priority_set_by_sync": "High"
+  },
+  "test:G5": {
+    "description_hash": "8c2251576ddcca6bacf1f9d3dcf0e162a49f0fe058834e53a8ecfbcd134a6725",
+    "key": "SCRUM-116",
+    "priority_set_by_sync": "High"
+  },
+  "test:G6": {
+    "description_hash": "7f4a39d64afaa444b189ed586841c05a3f43b47f33fdebb23ebc6a3062fc568c",
+    "key": "SCRUM-117",
+    "priority_set_by_sync": "High"
+  },
+  "test:G7": {
+    "description_hash": "f8e619c71be9575d6f7e70ddc278f18e1ffce92490086d889be0d8148cc67123",
+    "key": "SCRUM-118",
+    "priority_set_by_sync": "High"
+  },
+  "test:H1": {
+    "description_hash": "0a487ef605fbb90f24d5c4b031385324dcac624730d82e78e2e2516b8df346f7",
+    "key": "SCRUM-119",
+    "priority_set_by_sync": "High"
+  },
+  "test:H2": {
+    "description_hash": "2b1367f73257f52a29fd26acc1c0e40a66d26b7493fecca97a59dbe6da00d732",
+    "key": "SCRUM-120",
+    "priority_set_by_sync": "High"
+  },
+  "test:H3": {
+    "description_hash": "ae024af2b82341fa77d81ce08025635b46608c6c616fa8f8b019cecb0df1b2d6",
+    "key": "SCRUM-121",
+    "priority_set_by_sync": "High"
+  },
+  "test:H4": {
+    "description_hash": "e0cc3115d72a842e3693a8f5479fc0bdd72768442dc8d6c6ef5fb892640d74ef",
+    "key": "SCRUM-122",
+    "priority_set_by_sync": "High"
+  },
+  "test:section-A": {
+    "description_hash": "d0a3333a0668ed95d71e176ded2dfe00ee9114840bde35d6783da94650088b1d",
+    "key": "SCRUM-20",
+    "priority_set_by_sync": ""
+  },
+  "test:section-B": {
+    "description_hash": "d754b4ff905a4a21b88e5722bd6a8901ab1a0d3d579adb49736b01ced2316947",
+    "key": "SCRUM-21",
+    "priority_set_by_sync": ""
+  },
+  "test:section-C": {
+    "description_hash": "8c04883ffe767dc40e90bd80b37798aec821f39db25583539cb4d9fd4cec1d75",
+    "key": "SCRUM-22",
+    "priority_set_by_sync": ""
+  },
+  "test:section-D": {
+    "description_hash": "91bd6a4bbee3bc923e7afe7fe14661e9fd9073b2a4b33aba3ab5dc3055f2e81f",
+    "key": "SCRUM-23",
+    "priority_set_by_sync": ""
+  },
+  "test:section-E": {
+    "description_hash": "c8e5a1a5ce3483222b341cbbca08f5ccf026fa6f54b55599fe87cce7a2582ec7",
+    "key": "SCRUM-24",
+    "priority_set_by_sync": ""
+  },
+  "test:section-F": {
+    "description_hash": "aff49d57015142ac7b2f12f0171ccd965a4733f5bfc162109ba714a0633d82fc",
+    "key": "SCRUM-25",
+    "priority_set_by_sync": ""
+  },
+  "test:section-G": {
+    "description_hash": "88651a128488c57a7bf48e6a953ee72a1749c5e84268455675b4db212a36e7c4",
+    "key": "SCRUM-26",
+    "priority_set_by_sync": ""
+  },
+  "test:section-H": {
+    "description_hash": "f7dc45e56e7ac5166bc8a4af0bc45494f9bea1f1f103511800ccfc45338f919f",
+    "key": "SCRUM-27",
+    "priority_set_by_sync": ""
+  }
 }

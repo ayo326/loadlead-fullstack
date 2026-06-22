@@ -134,27 +134,65 @@ export enum OrgCapability {
 }
 
 /**
- * Org roles per spec §3.2.
- * Hierarchy (permission level): OWNER > ORG_ADMIN > DISPATCHER > ORG_DRIVER = SHIPPER_USER = RECEIVER_USER
- * Legacy aliases MEMBER / VIEWER kept for backward-compat with older records but not accepted on new invitations.
+ * Org roles per LoadLead_Admin_Carrier_IAM_Spec.md.
+ *
+ * Hierarchy (permission level):
+ *   OWNER > MANAGER > DISPATCHER > ORG_DRIVER = SHIPPER_USER = RECEIVER_USER
+ *
+ * The previous primary admin-tier role was named ORG_ADMIN. It is RENAMED to
+ * MANAGER to remove the "admin" substring entirely from tenant roles, so a
+ * loose check can never collapse a tenant role into the platform ADMIN even
+ * by accident. Legacy values (ORG_ADMIN, ADMIN, MEMBER, VIEWER) are accepted
+ * on READ only via `normalizeOrgRole()` below; new invitations and writes
+ * must use the canonical set: OWNER / MANAGER / DISPATCHER / ORG_DRIVER /
+ * SHIPPER_USER / RECEIVER_USER.
  */
 export enum OrgRole {
   OWNER         = 'OWNER',
-  ORG_ADMIN     = 'ORG_ADMIN',
+  MANAGER       = 'MANAGER',
   DISPATCHER    = 'DISPATCHER',
   ORG_DRIVER    = 'ORG_DRIVER',
   SHIPPER_USER  = 'SHIPPER_USER',
   RECEIVER_USER = 'RECEIVER_USER',
-  /** @deprecated use ORG_ADMIN */
-  ADMIN  = 'ADMIN',
-  /** @deprecated — not in spec; treated as ORG_DRIVER */
-  MEMBER = 'MEMBER',
-  /** @deprecated — not in spec; treated as RECEIVER_USER */
-  VIEWER = 'VIEWER',
+  /** @deprecated read-only alias — use MANAGER on new writes */
+  ORG_ADMIN     = 'ORG_ADMIN',
+  /** @deprecated read-only legacy — never written, treated as MANAGER */
+  ADMIN         = 'ADMIN',
+  /** @deprecated read-only legacy — treated as ORG_DRIVER */
+  MEMBER        = 'MEMBER',
+  /** @deprecated read-only legacy — treated as RECEIVER_USER */
+  VIEWER        = 'VIEWER',
 }
 
-/** Roles that are considered admin-level for permission checks */
-export const ADMIN_ORG_ROLES: OrgRole[] = [OrgRole.OWNER, OrgRole.ORG_ADMIN, OrgRole.ADMIN];
+/**
+ * Normalize legacy org role values to the canonical set on read. Returns
+ * the same role when already canonical. Use this anywhere a Membership
+ * is loaded from storage before applying the permissions matrix.
+ */
+export function normalizeOrgRole(role: string | OrgRole | null | undefined): OrgRole | null {
+  if (!role) return null;
+  switch (role) {
+    case OrgRole.ORG_ADMIN:
+    case OrgRole.ADMIN:
+      return OrgRole.MANAGER;
+    case OrgRole.MEMBER:
+      return OrgRole.ORG_DRIVER;
+    case OrgRole.VIEWER:
+      return OrgRole.RECEIVER_USER;
+    case OrgRole.OWNER:
+    case OrgRole.MANAGER:
+    case OrgRole.DISPATCHER:
+    case OrgRole.ORG_DRIVER:
+    case OrgRole.SHIPPER_USER:
+    case OrgRole.RECEIVER_USER:
+      return role as OrgRole;
+    default:
+      return null;
+  }
+}
+
+/** Roles that are considered admin-level for org permission checks. */
+export const ADMIN_ORG_ROLES: OrgRole[] = [OrgRole.OWNER, OrgRole.MANAGER];
 
 export interface Organization {
   orgId: string;
