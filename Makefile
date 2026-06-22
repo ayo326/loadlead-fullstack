@@ -17,6 +17,7 @@ publish-docs-check:
 	@: $${CONFLUENCE_PARENT_PAGE_ID?missing}
 	@code=$$(curl -s -o /dev/null -w "%{http_code}" \
 	  -u "$$CONFLUENCE_EMAIL:$$CONFLUENCE_API_TOKEN" \
+	  `# gitleaks:allow -- both halves are shell env-var refs, not literals` \
 	  -H "Accept: application/json" \
 	  "$${CONFLUENCE_BASE_URL%/}/wiki/rest/api/space/$$CONFLUENCE_SPACE_KEY"); \
 	  echo "GET /wiki/rest/api/space/$$CONFLUENCE_SPACE_KEY -> HTTP $$code"; \

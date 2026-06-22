@@ -1,0 +1,12 @@
+# gitleaks history-scan allowlist.
+#
+# Each line is a fingerprint from `gitleaks detect` output. Add a finding
+# here ONLY when it is a confirmed false positive. Each entry MUST be
+# explained inline (the rule, the file, why it is safe).
+
+# Makefile, line 18 (commit 18f7130): curl -u "$$CONFLUENCE_EMAIL:$$CONFLUENCE_API_TOKEN"
+# Both halves are shell env-var references inside a Make recipe, not
+# hardcoded credentials. The `# gitleaks:allow` directive on the current
+# line covers worktree scans; this fingerprint covers the historical
+# commit (gitleaks scans full git history by design).
+18f7130ada0283512a6a06352169f02eb01d06cc:Makefile:curl-auth-user:18
