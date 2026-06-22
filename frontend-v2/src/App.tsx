@@ -28,6 +28,7 @@ import OwnerOperatorLoadDetail from "./pages/owner-operator/OwnerOperatorLoadDet
 import OwnerOperatorAnalytics from "./pages/owner-operator/OwnerOperatorAnalytics.tsx";
 import DriverAnalytics from "./pages/driver/DriverAnalytics.tsx";
 import CarrierDashboard from "./pages/carrier/CarrierDashboard.tsx";
+import { CarrierMembers } from "./pages/carrier/CarrierMembers.tsx";
 import DriverHistory from "./pages/driver/DriverHistory.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
@@ -94,6 +95,7 @@ const App = () => (
               <Route path="/driver/analytics" element={<RequireRole role="DRIVER"><DriverAnalytics /></RequireRole>} />
               <Route path="/owner-operator/settings" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorSettings /></RequireRole>} />
               <Route path="/carrier" element={<RequireRole role="CARRIER_ADMIN"><CarrierDashboard /></RequireRole>} />
+              <Route path="/carrier/members" element={<RequireRole role="CARRIER_ADMIN"><CarrierMembers /></RequireRole>} />
               <Route path="/settings"    element={<SettingsPage />} />
               {/* Bill of Lading — all roles, accessed via their load detail */}
               <Route path="/bol/:loadId" element={<BillOfLadingPage />} />
