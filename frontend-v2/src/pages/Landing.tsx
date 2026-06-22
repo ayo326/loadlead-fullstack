@@ -215,3 +215,13 @@ export default function Landing() {
     </div>
   );
 }
+
+// Small stat block used inside the hero load-card mockup.
+function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="space-y-0.5">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className={`text-base font-semibold ${accent ? "text-accent" : ""}`}>{value}</div>
+    </div>
+  );
+}
