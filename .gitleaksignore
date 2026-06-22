@@ -4,8 +4,9 @@
 # here ONLY when it is a confirmed false positive. Each entry MUST be
 # explained inline (the rule, the file, why it is safe).
 
-# Makefile, line 18 (commit 18f7130): curl -u "$$CONFLUENCE_EMAIL:$$CONFLUENCE_API_TOKEN"
-# Both halves are shell env-var references inside a Make recipe, not
+# Makefile, line 18 (commit 18f7130): curl with -u flag whose argument
+# is the form $$VAR1:$$VAR2 (shell env-var references inside a Make recipe).
+# Both halves are env-var references, not
 # hardcoded credentials. The `# gitleaks:allow` directive on the current
 # line covers worktree scans; this fingerprint covers the historical
 # commit (gitleaks scans full git history by design).
