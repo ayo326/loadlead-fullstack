@@ -1,0 +1,36 @@
+# Frontend lint guard. Currently enforces a single rule:
+# react/jsx-no-undef. That rule would have caught the runtime
+# ReferenceErrors we hit on /carrier/members (Users icon) and post-
+# signup Landing (Stat helper) where a JSX identifier was used
+# without being imported or declared. The TypeScript build did not
+# catch either of them because JSX compiles to React.createElement,
+# and the symbol is looked up at runtime from module scope.
+
+name: frontend / lint
+on:
+  pull_request:
+    paths:
+      - 'frontend-v2/**'
+      - '.github/workflows/frontend-lint.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend-v2/**'
+      - '.github/workflows/frontend-lint.yml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend-v2/package-lock.json
+      - run: npm ci
+      - name: ESLint (react/jsx-no-undef + react-hooks)
+        run: npx eslint src/ --max-warnings 999
