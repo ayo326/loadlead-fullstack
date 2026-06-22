@@ -1,5 +1,5 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
 import {
   ArrowRight, ArrowLeft, PackagePlus, Warehouse,
   Building2, TruckIcon, ShipWheel, Check, Truck, Phone, Mail, MapPin, User,
@@ -127,6 +127,16 @@ export default function Signup() {
   const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Optional redirect target (e.g. /accept-invite?token=...) and email
+  // prefill when the user lands here from an invite acceptance flow.
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
+  useEffect(() => {
+    const inviteEmail = searchParams.get("email");
+    if (inviteEmail) setEmail(inviteEmail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // needsOrg covers ONLY the two existing personas with the generic
   // capabilities-picker org step (SHIPPER, RECEIVER) — unchanged from before.
   const needsOrg            = role.key === "SHIPPER" || role.key === "RECEIVER";
@@ -220,7 +230,7 @@ export default function Signup() {
           mcNumber:  carrierMc  || undefined,
           dotNumber: carrierDot || undefined,
         });
-        navigate(role.to);
+        navigate(redirectTo ?? role.to);
         return;
       }
 
@@ -247,7 +257,7 @@ export default function Signup() {
         });
       }
 
-      navigate(role.to);
+      navigate(redirectTo ?? role.to);
     } catch (err: any) {
       setError(err.message ?? "Sign up failed");
     } finally {

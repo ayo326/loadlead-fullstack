@@ -114,15 +114,38 @@ export default function AcceptInvite() {
               </div>
             </div>
 
-            {!user && (
-              <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2 border border-amber-200 dark:border-amber-800">
-                You'll need to log in (or create an account) before accepting.
-              </p>
+            {!user ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  To accept this invitation, sign in to your LoadLead account
+                  or create a new one with <strong>{state.email}</strong>.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    className="flex-1 h-11"
+                    onClick={() => navigate(
+                      `/signup?redirect=${encodeURIComponent(`/accept-invite?token=${token}`)}` +
+                      `&email=${encodeURIComponent(state.email)}`
+                    )}
+                  >
+                    Create account
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-11"
+                    onClick={() => navigate(
+                      `/login?redirect=${encodeURIComponent(`/accept-invite?token=${token}`)}`
+                    )}
+                  >
+                    Sign in
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Button className="w-full h-11" onClick={handleAccept} disabled={accepting}>
+                {accepting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Accepting…</> : "Accept invitation"}
+              </Button>
             )}
-
-            <Button className="w-full h-11" onClick={handleAccept} disabled={accepting}>
-              {accepting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Accepting…</> : "Accept invitation"}
-            </Button>
           </>
         )}
 
