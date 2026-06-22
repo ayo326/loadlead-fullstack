@@ -125,7 +125,9 @@ export default function AcceptInvite() {
                     className="flex-1 h-11"
                     onClick={() => navigate(
                       `/signup?redirect=${encodeURIComponent(`/accept-invite?token=${token}`)}` +
-                      `&email=${encodeURIComponent(state.email)}`
+                      `&email=${encodeURIComponent(state.email)}` +
+                      `&role=${encodeURIComponent(state.userRole)}` +
+                      `&invite=1`
                     )}
                   >
                     Create account

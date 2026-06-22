@@ -127,15 +127,40 @@ export default function Signup() {
   const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Optional redirect target (e.g. /accept-invite?token=...) and email
-  // prefill when the user lands here from an invite acceptance flow.
+  // Optional redirect target (e.g. /accept-invite?token=...), email
+  // prefill, and invite-driven minimal-signup mode. When an invitee
+  // arrives here from AcceptInvite, we skip the role + org-creation
+  // wizard entirely: the invite already specifies their user role,
+  // and the org membership comes from accepting the invitation
+  // (not from creating a new org here).
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect");
+  const inviteMode = searchParams.get("invite") === "1";
+  const inviteRole = searchParams.get("role") || "DRIVER";   // backend UserRole
   useEffect(() => {
     const inviteEmail = searchParams.get("email");
     if (inviteEmail) setEmail(inviteEmail);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Compact-form submit handler for the invite path. Bypasses the
+  // multi-step wizard entirely. The accept handler will bind the
+  // org membership after this returns.
+  async function handleInviteSignup(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
+    if (password !== confirm) { setError("Passwords don't match"); return; }
+    setLoading(true);
+    try {
+      await signup(email, password, inviteRole as any);
+      navigate(redirectTo ?? "/");
+    } catch (err: any) {
+      setError(err.message ?? "Sign up failed");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // needsOrg covers ONLY the two existing personas with the generic
   // capabilities-picker org step (SHIPPER, RECEIVER) — unchanged from before.
@@ -274,6 +299,76 @@ export default function Signup() {
     step === 1            ? 1 :
     step === 2 && needsShipperProfile ? 2 :
     steps.length - 1;
+
+  // ── Invite-driven compact signup ────────────────────────────────────────
+  // Rendered before the wizard when the user arrived from AcceptInvite.
+  // Collects email + password only; role comes from the invite, org
+  // membership comes from accepting the invitation after signup.
+  if (inviteMode) {
+    return (
+      <div className="font-display-hangar min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+        <Link to="/" className="mb-8 flex items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+            <Truck className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <span className="text-lg font-semibold">LoadLead</span>
+        </Link>
+
+        <form
+          onSubmit={handleInviteSignup}
+          className="w-full max-w-md rounded-lg border border-border bg-card shadow-sm p-8 space-y-5"
+        >
+          <div>
+            <h1 className="text-xl font-semibold">Create your account</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Finish setup, then accept your invitation.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="invite-email">Email</Label>
+            <Input id="invite-email" type="email" value={email}
+              onChange={e => setEmail(e.target.value)} disabled />
+            <p className="text-xs text-muted-foreground">
+              Matches the address your invitation was sent to.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="invite-pwd">Password</Label>
+            <Input id="invite-pwd" type="password" value={password}
+              onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="invite-pwd2">Confirm password</Label>
+            <Input id="invite-pwd2" type="password" value={confirm}
+              onChange={e => setConfirm(e.target.value)} />
+          </div>
+
+          {error && (
+            <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <Button type="submit" className="w-full h-11" disabled={loading}>
+            {loading ? "Creating account…" : "Create account & continue"}
+          </Button>
+
+          <p className="text-xs text-muted-foreground text-center">
+            Already have an account?{" "}
+            <Link
+              to={`/login?redirect=${encodeURIComponent(redirectTo ?? "/")}`}
+              className="text-primary hover:underline"
+            >
+              Sign in instead
+            </Link>
+          </p>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
