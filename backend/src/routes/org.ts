@@ -22,7 +22,37 @@ import { LoadStatus, OfferStatus, Driver, Load, Offer } from '../types';
 
 const router = express.Router();
 
-// Apply authentication + role guard to every org route.
+// ─── Public invitation preview (no auth) ─────────────────────────────────────
+// MUST be declared before the authenticate middleware below: the email
+// recipient hasn't signed in yet, so this single read-only endpoint runs
+// without auth. Idempotent, takes a one-time token as the secret. Spec
+// allows it; see Sec §4.3.
+//
+// Acceptance still requires auth (router.post('/invitations/:token/accept',
+// ...) below the auth gate), so this preview cannot mint a membership on
+// its own.
+router.get(
+  '/invitations/:token',
+  asyncHandler(async (req, res) => {
+    const { token } = req.params;
+    const invitation = await OrgInvitationService.getInvitationByToken(token);
+    if (!invitation) throw new AppError('Invitation not found', 404);
+    if (invitation.revokedAt) throw new AppError('Invitation has been revoked', 410);
+    if (invitation.expiresAt < Date.now()) throw new AppError('Invitation has expired', 410);
+
+    const org = await OrgService.getOrgById(invitation.orgId);
+    res.json({
+      email: invitation.email,
+      orgRole: invitation.orgRole,
+      userRole: invitation.userRole,
+      orgName: org?.legalName,
+      expiresAt: invitation.expiresAt,
+      alreadyAccepted: !!invitation.acceptedAt,
+    });
+  })
+);
+
+// Apply authentication + role guard to every org route declared BELOW.
 // DRIVERs have no org concept and must not access these routes.
 router.use(authenticate);
 router.use(requireRole(
@@ -498,31 +528,6 @@ router.delete(
 
     await OrgInvitationService.revokeInvitation(token, req.user!.userId);
     res.json({ ok: true });
-  })
-);
-
-/**
- * GET /api/org/invitations/:token
- * Preview an invitation (public — used on accept-invite page before login).
- */
-router.get(
-  '/invitations/:token',
-  asyncHandler(async (req, res) => {
-    const { token } = req.params;
-    const invitation = await OrgInvitationService.getInvitationByToken(token);
-    if (!invitation) throw new AppError('Invitation not found', 404);
-    if (invitation.revokedAt) throw new AppError('Invitation has been revoked', 410);
-    if (invitation.expiresAt < Date.now()) throw new AppError('Invitation has expired', 410);
-
-    const org = await OrgService.getOrgById(invitation.orgId);
-    res.json({
-      email: invitation.email,
-      orgRole: invitation.orgRole,
-      userRole: invitation.userRole,
-      orgName: org?.legalName,
-      expiresAt: invitation.expiresAt,
-      alreadyAccepted: !!invitation.acceptedAt,
-    });
   })
 );
 
