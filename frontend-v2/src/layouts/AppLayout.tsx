@@ -12,6 +12,7 @@ import {
   ShipWheel,
   Truck,
   TruckIcon,
+  Users,
   Warehouse,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
