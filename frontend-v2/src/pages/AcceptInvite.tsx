@@ -157,7 +157,17 @@ export default function AcceptInvite() {
             <CheckCircle2 className="h-12 w-12 text-green-500" />
             <h2 className="text-xl font-semibold">You're in!</h2>
             <p className="text-muted-foreground text-sm">You've successfully joined the organisation.</p>
-            <Button onClick={() => navigate("/")}>Go to dashboard</Button>
+            <Button onClick={() => {
+              const home: Record<string, string> = {
+                DRIVER: "/driver",
+                OWNER_OPERATOR: "/owner-operator",
+                SHIPPER: "/shipper",
+                RECEIVER: "/receiver",
+                CARRIER_ADMIN: "/carrier",
+                ADMIN: "/admin",
+              };
+              navigate(home[user?.role ?? ""] ?? "/");
+            }}>Go to dashboard</Button>
           </div>
         )}
 

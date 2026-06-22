@@ -41,8 +41,9 @@ router.post(
   '/signup',
   validate(authValidators.signup),
   asyncHandler(async (req, res) => {
-    const { email, password, role, orgParams } = req.body;
-    const result = await AuthService.signup(email, password, role, orgParams);
+    const { email, password, role, orgParams, firstName, lastName, phone } = req.body;
+    const result = await AuthService.signup(email, password, role, orgParams,
+      { firstName, lastName, phone });
     // Send role-specific welcome email (non-blocking)
     EmailService.welcome(email, role).catch(() => {});
     setAuthCookie(res, result.token);

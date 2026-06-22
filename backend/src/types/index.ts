@@ -104,6 +104,12 @@ export interface User {
   profileType?: 'ADMIN' | 'CARRIER' | 'SHIPPER' | 'DRIVER' | 'RECEIVER';
   phone?: string;
 
+  // Display fields collected at signup. Optional for back-compat with
+  // pre-2026-06 user records that predate the profile-on-signup change.
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+
   /**
    * Person-level identity verification (Didit IDV), independent of which
    * carrier parent (OO or Carrier org) governs their haul authority.

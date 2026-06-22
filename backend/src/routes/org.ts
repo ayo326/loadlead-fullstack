@@ -244,7 +244,29 @@ router.get(
     if (!membership && req.user!.role !== UserRole.ADMIN) throw new AppError('Forbidden', 403);
 
     const members = await OrgMembershipService.getMembersOfOrg(orgId);
-    res.json({ members });
+    // Enrich each membership row with the user's display fields so the
+    // Members UI can render a real name instead of the userId hash.
+    // Hidden fields (password, etc) are NOT spread -- we cherry-pick.
+    const enriched = await Promise.all(members.map(async (m) => {
+      try {
+        const user = await Database.getItem<any>(
+          config.dynamodb.usersTable,
+          { userId: m.userId },
+        );
+        return {
+          ...m,
+          email:     user?.email     ?? null,
+          fullName:  user?.fullName  ?? ([user?.firstName, user?.lastName].filter(Boolean).join(' ') || null),
+          firstName: user?.firstName ?? null,
+          lastName:  user?.lastName  ?? null,
+          phone:     user?.phone     ?? null,
+          idvStatus: user?.idvStatus ?? null,
+        };
+      } catch {
+        return m;
+      }
+    }));
+    res.json({ members: enriched });
   })
 );
 

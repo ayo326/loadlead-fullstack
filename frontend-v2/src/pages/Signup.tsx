@@ -124,6 +124,11 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
 
+  // Profile fields (collected on invite-driven compact signup).
+  const [firstName, setFirstName] = useState("");
+  const [lastName,  setLastName]  = useState("");
+  const [phone,     setPhone]     = useState("");
+
   const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -149,11 +154,16 @@ export default function Signup() {
   async function handleInviteSignup(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!firstName.trim() || !lastName.trim()) { setError("Please enter your first and last name"); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
     if (password !== confirm) { setError("Passwords don't match"); return; }
     setLoading(true);
     try {
-      await signup(email, password, inviteRole as any);
+      await signup(email, password, inviteRole as any, undefined, {
+        firstName: firstName.trim(),
+        lastName:  lastName.trim(),
+        phone:     phone.trim() || undefined,
+      });
       navigate(redirectTo ?? "/");
     } catch (err: any) {
       setError(err.message ?? "Sign up failed");
@@ -332,6 +342,25 @@ export default function Signup() {
             <p className="text-xs text-muted-foreground">
               Matches the address your invitation was sent to.
             </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="invite-fname">First name</Label>
+              <Input id="invite-fname" value={firstName}
+                onChange={e => setFirstName(e.target.value)} autoComplete="given-name" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-lname">Last name</Label>
+              <Input id="invite-lname" value={lastName}
+                onChange={e => setLastName(e.target.value)} autoComplete="family-name" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="invite-phone">Phone <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Input id="invite-phone" type="tel" value={phone}
+              onChange={e => setPhone(e.target.value)} autoComplete="tel" placeholder="555-555-5555" />
           </div>
 
           <div className="space-y-2">

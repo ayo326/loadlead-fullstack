@@ -21,9 +21,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export const api = {
   // Auth
-  signup: (email: string, password: string, role: string, orgParams?: Record<string, any>) =>
+  signup: (email: string, password: string, role: string, orgParams?: Record<string, any>,
+          profile?: { firstName?: string; lastName?: string; phone?: string }) =>
     request<{ token: string; user: { userId: string; email: string; role: string }; orgId?: string }>(
-      "POST", "/auth/signup", { email, password, role, orgParams }
+      "POST", "/auth/signup", { email, password, role, orgParams, ...profile }
     ),
 
   // Dedicated atomic carrier signup — separate endpoint from the generic

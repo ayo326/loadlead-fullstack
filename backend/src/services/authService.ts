@@ -49,7 +49,8 @@ export class AuthService {
       state?: string;
       zip?: string;
       country?: string;
-    }
+    },
+    profile?: { firstName?: string; lastName?: string; phone?: string }
   ): Promise<{ user: User; token: string; orgId?: string }> {
     try {
       const existingUsers = await Database.query<StoredUser>(
@@ -69,6 +70,9 @@ export class AuthService {
       const now = Helpers.getCurrentTimestamp();
 
       // Persist both keys so old and new records authenticate reliably.
+      const firstName = profile?.firstName?.trim();
+      const lastName  = profile?.lastName?.trim();
+      const fullName  = [firstName, lastName].filter(Boolean).join(' ') || undefined;
       const user: StoredUser = {
         userId,
         email,
@@ -76,6 +80,10 @@ export class AuthService {
         passwordHash: hashedPassword,
         role,
         status: UserStatus.PENDING_VERIFICATION,
+        firstName,
+        lastName,
+        fullName,
+        phone: profile?.phone?.trim(),
         createdAt: now,
         updatedAt: now,
       };

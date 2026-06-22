@@ -22,7 +22,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<AuthUser | { needsTwoFactor: true; twoFactorTicket: string }>;
   twoFactorLogin: (ticket: string, code: string) => Promise<AuthUser>;
-  signup: (email: string, password: string, role: string, orgParams?: Record<string, any>) => Promise<AuthUser>;
+  signup: (email: string, password: string, role: string, orgParams?: Record<string, any>, profile?: { firstName?: string; lastName?: string; phone?: string }) => Promise<AuthUser>;
   signupCarrier: (params: { email: string; password: string; legalName: string; dba?: string; mcNumber?: string; dotNumber?: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   setHeadshotUrl: (url: string) => void;
@@ -69,8 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return r.user;
   };
 
-  const signup = async (email: string, password: string, role: string, orgParams?: Record<string, any>) => {
-    const r = await api.signup(email, password, role, orgParams);
+  const signup = async (email: string, password: string, role: string, orgParams?: Record<string, any>, profile?: { firstName?: string; lastName?: string; phone?: string }) => {
+    const r = await api.signup(email, password, role, orgParams, profile);
     // Backend sets httpOnly cookie in Set-Cookie header.
     setUser(r.user);
     return r.user;
