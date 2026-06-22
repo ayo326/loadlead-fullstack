@@ -5,6 +5,8 @@ node_modules/
 # Build outputs
 dist/
 **/dist/
+dist-admin/
+**/dist-admin/
 build/
 .next/
 **/.next/
