@@ -307,23 +307,50 @@ export class OrgMembershipService {
     actorRole: string,
     oldRole: string,
   ): Promise<void> {
-    await Database.updateItem(config.dynamodb.membershipsTable, { membershipId }, { orgRole });
-    // Fetch the updated record to get orgId/userId for audit
-    const membership = await this.getMembershipById(membershipId);
-    if (membership) {
-      await OrgAuditService.log({
-        orgId: membership.orgId,
-        targetUserId: membership.userId,
-        actorUserId,
-        actorRole,
-        action: 'ROLE_CHANGED',
-        oldValue: oldRole,
-        newValue: orgRole,
-      });
+    const target = await this.getMembershipById(membershipId);
+    if (!target) throw new AppError('Membership not found', 404);
+
+    // Self-edit guard. You cannot change your own role; that path goes
+    // through Transfer Ownership (OWNER-only) or removeMember.
+    if (target.userId === actorUserId && actorRole !== UserRole.ADMIN) {
+      throw new AppError('You cannot change your own role.', 403);
     }
+
+    // Only OWNER (or platform ADMIN) can promote to OWNER or demote an
+    // existing OWNER. MANAGER cannot touch OWNER memberships at all.
+    const isOwnerTouched = oldRole === OrgRole.OWNER || orgRole === OrgRole.OWNER;
+    if (isOwnerTouched && actorRole !== OrgRole.OWNER && actorRole !== UserRole.ADMIN) {
+      throw new AppError('Only an Owner can change ownership.', 403);
+    }
+
+    // Last-owner guard for demotions.
+    if (oldRole === OrgRole.OWNER && orgRole !== OrgRole.OWNER) {
+      const all = await this.getMembersOfOrg(target.orgId);
+      const otherOwners = all.filter(m =>
+        m.membershipId !== membershipId
+        && m.orgRole === OrgRole.OWNER
+        && (m.status ?? 'ACTIVE') === 'ACTIVE');
+      if (otherOwners.length === 0) {
+        throw new AppError(
+          'Cannot demote the last Owner. Promote another member to Owner first.',
+          409,
+        );
+      }
+    }
+
+    await Database.updateItem(config.dynamodb.membershipsTable, { membershipId }, { orgRole });
+    await OrgAuditService.log({
+      orgId: target.orgId,
+      targetUserId: target.userId,
+      actorUserId,
+      actorRole,
+      action: 'ROLE_CHANGED',
+      oldValue: oldRole,
+      newValue: orgRole,
+    });
   }
 
-  /** Remove a member. Enforces last-owner guard (spec §7). */
+  /** Remove a member. Enforces spec §7 (last-owner, self, owner-protection). */
   static async removeMember(
     membershipId: string,
     actorUserId: string,
@@ -331,6 +358,27 @@ export class OrgMembershipService {
   ): Promise<void> {
     const membership = await this.getMembershipById(membershipId);
     if (!membership) throw new AppError('Membership not found', 404);
+
+    // Self-removal guard. A member cannot kick themselves; if they want
+    // to leave they must use a separate Leave Org flow, or have someone
+    // else remove them. This prevents the "I deleted myself by accident
+    // and now I have no org" trap that surfaced in prod.
+    if (membership.userId === actorUserId && actorRole !== UserRole.ADMIN) {
+      throw new AppError(
+        'You cannot remove yourself from the organisation. ' +
+        'Ask another Owner or Manager to do it.',
+        403,
+      );
+    }
+
+    // OWNER-protection. Only another OWNER (or platform ADMIN) can
+    // remove an OWNER. A MANAGER removing an OWNER was the gap that
+    // produced the prod incident.
+    if (membership.orgRole === OrgRole.OWNER
+        && actorRole !== OrgRole.OWNER
+        && actorRole !== UserRole.ADMIN) {
+      throw new AppError('Only an Owner can remove another Owner.', 403);
+    }
 
     // Last-owner guard (spec §7)
     if (membership.orgRole === OrgRole.OWNER) {
