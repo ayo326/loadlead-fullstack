@@ -81,9 +81,25 @@ router.post(
     const { email, password } = req.body;
     const result = await AuthService.login(email, password);
 
-    // 2FA gate: if the user has 2FA enabled, do not issue a session yet —
+    const has2fa = await SecurityService.hasTwoFactor(result.user.userId);
+
+    // STIG / IAM spec: 2FA is MANDATORY for any ADMIN sign-in. If the user
+    // has the ADMIN role but no 2FA enrolled, refuse the login and instruct
+    // them to enroll out-of-band first (the bootstrapAdmin CLI prompts them
+    // to set 2FA on first sign-in; this hard gate keeps a credential leak
+    // alone from being enough to act as ADMIN).
+    if (result.user.role === 'ADMIN' && !has2fa) {
+      return res.status(403).json({
+        error: 'MFA_REQUIRED',
+        message:
+          'Administrator accounts require two-factor authentication. ' +
+          'Enroll 2FA before signing in (see backend/scripts/README.md).',
+      });
+    }
+
+    // 2FA gate: if the user has 2FA enabled, do not issue a session yet -
     // return a short-lived ticket the client trades after the second factor.
-    if (await SecurityService.hasTwoFactor(result.user.userId)) {
+    if (has2fa) {
       const twoFactorTicket = SecurityService.mintTwoFactorTicket(result.user.userId);
       return res.json({ needsTwoFactor: true, twoFactorTicket });
     }
