@@ -81,10 +81,21 @@ prompt for the full execution protocol.
   - PATCH status=SOLVED stamps `resolvedAt`; status back to OPEN clears it.
   - `aggregateMonitor` over a mixed resolved set computes the correct `% within SLA`.
 
-**Ops follow-ups for the user (not blocking the prove step):**
-- Set `RESEND_WEBHOOK_SECRET` (the `whsec_…` value from the Resend dashboard) as an EB env var.
-- Set `SUPPORT_FROM_ADDRESS=support@loadleadapp.com` as an EB env var.
-- In the Resend dashboard, configure the Inbound receiving domain (support@loadleadapp.com) and point the webhook at `https://api.loadleadapp.com/api/support/inbound`.
+**Live ops state (this is what's deployed):**
+- Inbound: Amazon SES, not Resend. Resend free plan only supports root-domain receiving which would clobber the existing Google Workspace MX on loadleadapp.com.
+- Receiving domain: `inbound.loadleadapp.com` (DKIM verified Jun 23 2026).
+- Receiving address: `support@inbound.loadleadapp.com`.
+- SES Receipt Rule: `loadlead-rules / forward-to-sns` -> SNS Encoding=Base64.
+- SNS topic: `arn:aws:sns:us-east-1:552011299815:loadlead-support-inbound`, one confirmed HTTPS subscription at `https://api.loadleadapp.com/api/support/inbound/ses`.
+- Outbound: Resend (existing send adapter); From = `support@inbound.loadleadapp.com` (verified for sending on the same SES domain). Reply Message-IDs are `<id@support.loadleadapp.com>` so customer email clients thread the conversation correctly.
+- Two new EB env vars set in prod: `SUPPORT_FROM_ADDRESS`.
+- The `/api/support/inbound` (Resend) endpoint stays in code as a dormant alternative; activates if `RESEND_WEBHOOK_SECRET` is set later.
+
+**End-to-end smoke test passed in prod (Jun 23 2026):**
+- ayodeji.ejidiran@gmail.com -> support@inbound.loadleadapp.com ("Real-test 1" / "hello from real test") -> created OPEN ticket.
+- Staff reply ("testing") sent and arrived in the Gmail inbox, with our generated Message-ID `<…@support.loadleadapp.com>` so subsequent customer replies thread correctly.
+
+**SES sandbox note:** account is in SES sandbox. Resend sends the outbound replies (not SES), so sandbox doesn't block them. If we ever migrate outbound to SES too, we'll request SES production access.
 
 ## Phase 4 — Chat + phone embeds
 **Status:** NOT STARTED → next on resume.
