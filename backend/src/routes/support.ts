@@ -103,7 +103,16 @@ router.post('/inbound', asyncHandler(async (req, res) => {
 //                                idempotency, ticket creation reuse the
 //                                same SupportTicketService entry points.
 router.post('/inbound/ses', asyncHandler(async (req, res) => {
-  const msg = req.body;
+  // SNS sends Content-Type: text/plain, so express.json() leaves req.body
+  // empty. Reconstruct from rawBody (captured by the verify hook in
+  // index.ts) when needed.
+  let msg: any = req.body;
+  if (!msg || typeof msg !== 'object' || Array.isArray(msg) || !Object.keys(msg).length) {
+    const raw = (req as any).rawBody?.toString('utf8');
+    if (raw) {
+      try { msg = JSON.parse(raw); } catch { msg = null; }
+    }
+  }
   if (!msg || typeof msg !== 'object') return res.status(400).json({ error: 'bad-body' });
 
   // Verify the SNS signature on EVERY message type. We will not act on
