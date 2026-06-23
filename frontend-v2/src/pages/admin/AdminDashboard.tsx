@@ -294,156 +294,18 @@ export default function AdminDashboard() {
         subtitle="Real-time view of drivers, loads, and match quality across the network."
       />
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Pending verification" value={String(counts.PENDING_VERIFICATION ?? "—")}
-          hint={counts.PENDING_VERIFICATION > 0 ? "Needs review" : "All clear"} trend={counts.PENDING_VERIFICATION > 0 ? "down" : "up"} />
-        <StatCard label="Available drivers" value={String(counts.AVAILABLE ?? "—")} hint="Ready for loads" trend="up" />
-        <StatCard label="Verified" value={String(counts.VERIFIED ?? "—")} hint="Awaiting activation" trend="up" />
-        <StatCard label="Suspended" value={String(counts.SUSPENDED ?? "—")} hint="Inactive" trend="down" />
-      </div>
+      {/* Order: highest-stakes first.
+            Orgs (IAM overrides) -> Support inbox -> Fleet -> Channels.
+            Redundant KPI cards + legacy Driver roster removed -- the
+            FleetFeed status pills already show those counts. */}
 
-      {/* Phase 4: chat + click-to-call vendor embeds */}
-      <SupportChannels />
-
-      {/* Phase 3: Support inbox -- inbound + outbound via Resend, SLA monitor */}
-      <SupportInbox />
-
-      {/* Phase 2: Live fleet feed (telematics-gated; no fabricated GPS) */}
-      <FleetFeed />
-
-      {/* Platform IAM overrides: list / suspend / reinstate / revoke-admin */}
       <OrgManagementPanel />
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Driver roster */}
-        <div className="lg:col-span-2 rounded-md border border-border bg-card overflow-hidden">
-          {/* Header + tabs */}
-          <div className="px-5 py-4 border-b border-border">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold">Driver roster</h2>
-              </div>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" disabled={refreshing}
-                onClick={() => load(true)}>
-                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-              </Button>
-            </div>
+      <SupportInbox />
 
-            {/* Status tabs */}
-            <div className="flex gap-1.5 flex-wrap">
-              {STATUS_TABS.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setTab(s)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                    tab === s
-                      ? "border-primary bg-primary/5 text-primary"
-                      : "border-border text-muted-foreground hover:border-primary/40"
-                  }`}
-                >
-                  {TAB_LABELS[s]}
-                  {counts[s] !== undefined && (
-                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${TAB_COLORS[s]}`}>
-                      {counts[s]}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
+      <FleetFeed />
 
-          {/* Table */}
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-muted-foreground text-sm gap-2">
-              <RefreshCw className="h-4 w-4 animate-spin" /> Loading drivers…
-            </div>
-          ) : drivers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-              <TruckIcon className="h-8 w-8 opacity-30" />
-              <p className="text-sm">No drivers with status <strong>{tab.replace(/_/g, " ")}</strong></p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-widest text-muted-foreground bg-secondary/40">
-                    <th className="px-5 py-3 font-medium">Driver</th>
-                    <th className="px-5 py-3 font-medium">Equipment</th>
-                    <th className="px-5 py-3 font-medium">Capacity</th>
-                    <th className="px-5 py-3 font-medium">Buffer</th>
-                    <th className="px-5 py-3 font-medium">Location</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-3 py-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {drivers.map(d => (
-                    <DriverRow key={d.driverId} driver={d} onAction={() => load(true)} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <aside className="space-y-6">
-          {/* Compliance health */}
-          <div className="rounded-md border border-border bg-card p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold mb-4">
-              <Shield className="h-4 w-4 text-primary" /> Compliance health
-            </div>
-            <ComplianceBar label="Insurance set" drivers={drivers} check={d => (d.cargoInsuranceAmount ?? 0) > 0} />
-            <ComplianceBar label="Trailer type set" drivers={drivers} check={d => !!d.trailerType} />
-            <ComplianceBar label="Location set" drivers={drivers} check={d => (d.currentLat ?? 0) !== 0} />
-            <ComplianceBar label="Has MC number" drivers={drivers} check={d => !!d.mcNumber} />
-          </div>
-
-          {/* Legend */}
-          <div className="rounded-md border border-border bg-card p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold mb-4">
-              <Activity className="h-4 w-4 text-primary" /> Status guide
-            </div>
-            <div className="space-y-3 text-xs text-muted-foreground">
-              {[
-                { icon: Clock, color: "text-amber-500", label: "PENDING_VERIFICATION", desc: "Driver signed up, awaiting admin review. Click Verify to approve." },
-                { icon: CheckCircle2, color: "text-blue-500", label: "VERIFIED", desc: "Approved by admin. Driver must set location to become AVAILABLE." },
-                { icon: TruckIcon, color: "text-green-500", label: "AVAILABLE", desc: "Online and receiving load offers via broadcast." },
-                { icon: XCircle, color: "text-red-500", label: "SUSPENDED", desc: "Account suspended. No load offers will be sent." },
-              ].map(({ icon: Icon, color, label, desc }) => (
-                <div key={label} className="flex gap-2">
-                  <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${color}`} />
-                  <div>
-                    <div className="font-semibold text-foreground">{label.replace(/_/g, " ")}</div>
-                    <div>{desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Warning card if pending > 0 */}
-          {(counts.PENDING_VERIFICATION ?? 0) > 0 && (
-            <div className="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-5">
-              <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">
-                <AlertTriangle className="h-4 w-4" />
-                {counts.PENDING_VERIFICATION} driver{counts.PENDING_VERIFICATION > 1 ? "s" : ""} pending
-              </div>
-              <p className="text-xs text-amber-600 dark:text-amber-500">
-                Click a driver row to expand details, then use the <strong>Verify</strong> button to approve them.
-                Unverified drivers cannot receive load offers.
-              </p>
-              <Button size="sm" variant="outline"
-                className="mt-3 h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-100"
-                onClick={() => setTab("PENDING_VERIFICATION")}>
-                Review pending drivers
-              </Button>
-            </div>
-          )}
-        </aside>
-      </div>
+      <SupportChannels />
 
     </>
   );
