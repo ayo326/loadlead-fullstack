@@ -11,6 +11,7 @@ prompt for the full execution protocol.
 | 3 | Email support inbox (Resend inbound + outbound; SLA) | DONE |
 | 4 | Chat + phone via third-party embeds | DONE |
 | 5 | Independence + a11y pass | DONE |
+| Future | Live telematics integration (Samsara / Motive / Geotab) | DEFERRED |
 
 ## Phase 1 — Internal /login + platform-staff roles
 **Status:** DONE
@@ -116,6 +117,17 @@ prompt for the full execution protocol.
 - To enable Intercom: pick a workspace in Intercom; their App ID is the public widget id. Set EB env `SUPPORT_CHAT_VENDOR=intercom` and `SUPPORT_CHAT_APP_ID=<id>`.
 - To enable Crisp: same pattern; the value is the website ID from Crisp settings.
 - To enable click-to-call: set `SUPPORT_PHONE_VENDOR=twilio` (or `aircall`) and `SUPPORT_PHONE_NUMBER=+18005551234`.
+
+## Future — Live telematics integration
+**Status:** DEFERRED (user chose to save for later, 2026-06-23).
+**Why deferred:** the no-fabrication rule is satisfied today — `services/telematics.ts` returns `{ connected: false, provider: null }` when `TELEMATICS_PROVIDER` is unset, the FleetFeed UI shows the explicit "Live tracking not connected" pill plus the caption "Positions shown are last-known driver-app heartbeats, not real-time telematics," and `position.source === 'driver-app'` is hard-coded so it can never read as telematics. Shipping a real provider integration is additive, not a blocker.
+**Scope when picked up:**
+- Pick provider: Samsara (mainstream, ELD-compliant), Motive (ex-KeepTruckin), or Geotab. Recommend Samsara on cost + API ergonomics.
+- New `backend/src/services/integrations/telematics-<provider>.ts` adapter behind the existing `services/telematics.ts` interface; never call the provider when `TELEMATICS_PROVIDER` is unset (matches `email.ts` / `didit.ts` adapter pattern in the codebase).
+- Poll positions on a 30–60 s cycle (BullMQ or a setInterval in a worker) and write `currentLat`/`currentLng`/`lastLocationUpdate` to driver records. Mark `position.source = 'telematics'` only when the row actually came from the provider; never overwrite a more-recent driver-app heartbeat with stale telematics data.
+- Set `TELEMATICS_PROVIDER=samsara` (or whichever) on EB; rotate the API key into AWS Secrets Manager.
+- Wire bounce/reauth back-off so a broken integration flips `liveTracking.connected` to `false` on the feed — never silently fall back to the heartbeat path while still claiming live tracking.
+- Tests: existing 7/7 fleet-feed tests assert the no-fabrication invariant — add 3 more covering `source==='telematics'` when adapter returns rows, `source==='driver-app'` when adapter is offline, and never-overwrite for stale telematics.
 
 ## Phase 5 — Independence + a11y
 **Status:** DONE
