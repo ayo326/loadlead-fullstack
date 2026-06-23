@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { OrgManagementPanel } from "@/components/admin/OrgManagementPanel";
 import { FleetFeed } from "@/components/admin/FleetFeed";
 import { SupportInbox } from "@/components/admin/SupportInbox";
+import { SupportChannels } from "@/components/admin/SupportChannels";
 import { Badge } from "@/components/ui/badge";
 import { FleetMap } from "@/components/FleetMap";
 import { api } from "@/lib/api";
@@ -317,6 +318,9 @@ export default function AdminDashboard() {
         <StatCard label="Verified" value={String(counts.VERIFIED ?? "—")} hint="Awaiting activation" trend="up" />
         <StatCard label="Suspended" value={String(counts.SUSPENDED ?? "—")} hint="Inactive" trend="down" />
       </div>
+
+      {/* Phase 4: chat + click-to-call vendor embeds */}
+      <SupportChannels />
 
       {/* Phase 3: Support inbox -- inbound + outbound via Resend, SLA monitor */}
       <SupportInbox />

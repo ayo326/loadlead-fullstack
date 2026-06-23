@@ -16,6 +16,7 @@ import { verifyResendSignature } from '../services/resendInbound';
 import { verifySnsMessage, confirmSnsSubscription } from '../services/snsVerify';
 import { simpleParser } from 'mailparser';
 import { computeSlaState, aggregateMonitor } from '../services/sla';
+import { getSupportIntegrations } from '../services/supportIntegrations';
 import { DESTRUCTIVE_TIER } from '../types/platformRole';
 import { EmailService } from '../services/emailService';
 import Logger from '../utils/logger';
@@ -341,6 +342,11 @@ router.put('/settings', requireStaffTier(...DESTRUCTIVE_TIER), asyncHandler(asyn
 router.get('/monitor', asyncHandler(async (_req: AuthRequest, res) => {
   const all = await SupportTicketService.listTickets();
   res.json(aggregateMonitor(all));
+}));
+
+/** GET /api/support/integrations -- chat + phone vendor config (no secrets) */
+router.get('/integrations', asyncHandler(async (_req: AuthRequest, res) => {
+  res.json(getSupportIntegrations());
 }));
 
 export default router;

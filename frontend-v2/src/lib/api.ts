@@ -97,6 +97,10 @@ export const api = {
   adminSupportSettings:    () => request<{ settings: any }>('GET', '/support/settings'),
   adminSupportSetSettings: (s: any) => request<{ settings: any }>('PUT', '/support/settings', s),
   adminSupportMonitor:     () => request<any>('GET', '/support/monitor'),
+  adminSupportIntegrations: () => request<{
+    chat:  { connected: boolean; vendor: string | null; appId:  string | null };
+    phone: { connected: boolean; vendor: string | null; number: string | null };
+  }>('GET', '/support/integrations'),
 
   // Phase 2: live fleet feed (telematics-gated)
   adminFleetFeed: () => request<{

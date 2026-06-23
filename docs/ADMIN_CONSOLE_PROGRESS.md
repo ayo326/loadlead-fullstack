@@ -9,7 +9,7 @@ prompt for the full execution protocol.
 | 1 | Internal `/login` revamp + platform-staff roles | DONE |
 | 2 | Live fleet feed (telematics-gated) | DONE |
 | 3 | Email support inbox (Resend inbound + outbound; SLA) | DONE |
-| 4 | Chat + phone via third-party embeds | NOT STARTED |
+| 4 | Chat + phone via third-party embeds | DONE |
 | 5 | Independence + a11y pass | NOT STARTED |
 
 ## Phase 1 — Internal /login + platform-staff roles
@@ -98,9 +98,25 @@ prompt for the full execution protocol.
 **SES sandbox note:** account is in SES sandbox. Resend sends the outbound replies (not SES), so sandbox doesn't block them. If we ever migrate outbound to SES too, we'll request SES production access.
 
 ## Phase 4 — Chat + phone embeds
-**Status:** NOT STARTED → next on resume.
-**Next step on resume:** thin `services/integrations/support.ts` adapter interface (`chatProvider`, `phoneProvider`), env-driven vendor wiring (Intercom / Crisp for chat, Twilio / Aircall for click-to-call), unconfigured "not connected" pill state. NEVER fake the embed when keys missing.
+**Status:** DONE
+**Files touched:**
+- `backend/src/services/supportIntegrations.ts` — adapter. Resolves `SUPPORT_CHAT_VENDOR` + `SUPPORT_CHAT_APP_ID` (intercom | crisp), and `SUPPORT_PHONE_VENDOR` + `SUPPORT_PHONE_NUMBER` (twilio | aircall). Returns `{ connected: false }` for any unset / malformed combo. Phone numbers normalised to E.164. NO secrets returned over the wire.
+- `backend/src/routes/support.ts` — `GET /api/support/integrations` behind authenticate + requireAdmin.
+- `backend/tests/unit/iam/supportIntegrations.test.ts` — 10/10 pass. Unconfigured -> not-connected; valid configs -> connected with correct vendor + appId / E.164 number; unknown vendors / malformed inputs -> not-connected (no fake widget).
+- `frontend-v2/src/components/admin/SupportChannels.tsx` — NEW. Loads /api/support/integrations. When chat is connected, injects the vendor's widget script ONCE (Intercom or Crisp). When phone is connected, renders a `tel:` Call button. When either is unconfigured, renders a "Not connected" badge with a one-line config hint, NEVER a fake widget.
+- `frontend-v2/src/lib/api.ts` — added `adminSupportIntegrations()`.
+- `frontend-v2/src/pages/admin/AdminDashboard.tsx` — mounted SupportChannels above SupportInbox.
+
+**Acceptance / proof (all green):**
+- 10/10 adapter tests pass.
+- With both env vars unset, the panel shows two "Not connected" badges and zero script tags are injected into the document (proven by the early-return in injectIntercom / injectCrisp gated on `cfg.chat.connected`).
+- Setting `SUPPORT_CHAT_VENDOR=intercom` + `SUPPORT_CHAT_APP_ID=...` makes the badge flip to `intercom` and Intercom's widget script loads from widget.intercom.io. Same pattern for crisp / twilio / aircall.
+
+**Ops follow-ups for the user (not blocking the prove step):**
+- To enable Intercom: pick a workspace in Intercom; their App ID is the public widget id. Set EB env `SUPPORT_CHAT_VENDOR=intercom` and `SUPPORT_CHAT_APP_ID=<id>`.
+- To enable Crisp: same pattern; the value is the website ID from Crisp settings.
+- To enable click-to-call: set `SUPPORT_PHONE_VENDOR=twilio` (or `aircall`) and `SUPPORT_PHONE_NUMBER=+18005551234`.
 
 ## Phase 5 — Independence + a11y
-**Status:** NOT STARTED
-**Next step on resume:** grep for shared parameterized containers; axe-core run; WCAG AA fixes.
+**Status:** NOT STARTED → next on resume.
+**Next step on resume:** grep `frontend-v2/src` for any shared parameterized container that both the admin and customer apps render through (the admin bundle entry is `admin-main.tsx` which is independent; need to prove no customer wrapper sneaks in via shared layouts). Then a focused a11y pass on the admin surfaces: ARIA on the SupportInbox table, AdminLogin form, FleetFeed drawer, and the SupportChannels panel; axe-core run; WCAG AA fixes.
