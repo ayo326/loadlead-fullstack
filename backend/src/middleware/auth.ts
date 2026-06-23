@@ -2,7 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import config from '../config/environment';
 import { UserRole, OrgCapability } from '../types';
+import { PlatformRole, resolvePlatformRole } from '../types/platformRole';
 import { OrgService, OrgMembershipService } from '../services/orgService';
+import { Database } from '../config/database';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -56,6 +58,37 @@ export const requireShipper       = requireRole(UserRole.SHIPPER, UserRole.ADMIN
 export const requireDriver        = requireRole(UserRole.DRIVER, UserRole.ADMIN);
 export const requireReceiver      = requireRole(UserRole.RECEIVER, UserRole.ADMIN);
 export const requireOwnerOperator = requireRole(UserRole.OWNER_OPERATOR, UserRole.ADMIN);
+
+/**
+ * Platform-staff tier gate. Caller must (a) be an ADMIN-role user and
+ * (b) resolve to a platformRole that is in the allowlist passed here.
+ *
+ * Use after `authenticate + requireAdmin` so the surface gate runs first
+ * (a non-ADMIN never reaches this). The platformRole comes from a fresh
+ * DB read of the user record — we DO NOT trust the JWT payload, which
+ * may have been minted before the tier was changed. Pre-Phase-1 admins
+ * with no platformRole resolve to STAFF_ADMIN for back-compat.
+ */
+export const requireStaffTier = (...allowed: PlatformRole[]) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user)                       return res.status(401).json({ error: 'Unauthorized' });
+    if (req.user.role !== UserRole.ADMIN) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+      const user = await Database.getItem<any>(
+        config.dynamodb.usersTable,
+        { userId: req.user.userId },
+      );
+      const tier = resolvePlatformRole(user?.platformRole);
+      if (!tier)                  return res.status(403).json({ error: 'Forbidden: invalid platform tier' });
+      if (!allowed.includes(tier)) return res.status(403).json({ error: 'Forbidden: insufficient platform tier' });
+      (req as any).platformRole = tier;
+      return next();
+    } catch (err) {
+      return res.status(500).json({ error: 'Tier check failed' });
+    }
+  };
+};
 
 /**
  * Gate by org capability — e.g. only a CARRIER-capability org may onboard

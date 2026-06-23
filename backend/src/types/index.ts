@@ -110,6 +110,12 @@ export interface User {
   lastName?: string;
   fullName?: string;
 
+  // Platform-staff tier (only meaningful when role === ADMIN). The
+  // PlatformRole enum lives in types/platformRole.ts. Stored as the
+  // string value (e.g. "STAFF_ADMIN"); resolvePlatformRole() returns
+  // STAFF_ADMIN when unset for back-compat with pre-Phase-1 admins.
+  platformRole?: string;
+
   /**
    * Person-level identity verification (Didit IDV), independent of which
    * carrier parent (OO or Carrier org) governs their haul authority.

@@ -3,7 +3,8 @@ import { DriverService } from '../services/driverService';
 import { ShipperService } from '../services/shipperService';
 import { LoadService } from '../services/loadService';
 import { CapacityService } from '../services/capacityService';
-import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
+import { authenticate, requireAdmin, requireStaffTier, AuthRequest } from '../middleware/auth';
+import { PlatformRole, OPS_TIER, DESTRUCTIVE_TIER } from '../types/platformRole';
 import { asyncHandler } from '../middleware/errorHandler';
 import { TrackingService } from '../services/trackingService';
 import { RoutingService } from '../services/routingService';
@@ -350,7 +351,7 @@ function requireReason(req: AuthRequest, res: any): string | null {
 }
 
 /** POST /api/admin/orgs/:orgId/suspend  body { reason } */
-router.post('/orgs/:orgId/suspend', asyncHandler(async (req: AuthRequest, res) => {
+router.post('/orgs/:orgId/suspend', requireStaffTier(...DESTRUCTIVE_TIER), asyncHandler(async (req: AuthRequest, res) => {
   const reason = requireReason(req, res);
   if (!reason) return;
   await OrgService.suspendOrg(req.params.orgId, req.user!.userId, reason);
@@ -358,7 +359,7 @@ router.post('/orgs/:orgId/suspend', asyncHandler(async (req: AuthRequest, res) =
 }));
 
 /** POST /api/admin/orgs/:orgId/reinstate  body { reason } */
-router.post('/orgs/:orgId/reinstate', asyncHandler(async (req: AuthRequest, res) => {
+router.post('/orgs/:orgId/reinstate', requireStaffTier(...DESTRUCTIVE_TIER), asyncHandler(async (req: AuthRequest, res) => {
   const reason = requireReason(req, res);
   if (!reason) return;
   await OrgService.reinstateOrg(req.params.orgId, req.user!.userId);
@@ -380,7 +381,7 @@ router.post('/orgs/:orgId/reinstate', asyncHandler(async (req: AuthRequest, res)
  * OWNER of any org, suspend that org rather than orphan it; the spec calls
  * this out explicitly. Audit per affected org.
  */
-router.post('/users/:userId/revoke-admin', asyncHandler(async (req: AuthRequest, res) => {
+router.post('/users/:userId/revoke-admin', requireStaffTier(...DESTRUCTIVE_TIER), asyncHandler(async (req: AuthRequest, res) => {
   const reason = requireReason(req, res);
   if (!reason) return;
   const targetUserId = req.params.userId;

@@ -21,7 +21,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/layouts/AppLayout";
-import Login from "@/pages/Login";
+import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import "./index.css";
 
@@ -53,7 +53,7 @@ const AdminApp = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<AdminLogin />} />
             <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
               <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
