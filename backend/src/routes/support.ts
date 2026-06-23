@@ -13,6 +13,8 @@ import { authenticate, requireAdmin, requireStaffTier, AuthRequest } from '../mi
 import { asyncHandler } from '../middleware/errorHandler';
 import { SupportTicketService } from '../services/supportTicket';
 import { verifyResendSignature } from '../services/resendInbound';
+import { verifySnsMessage, confirmSnsSubscription } from '../services/snsVerify';
+import { simpleParser } from 'mailparser';
 import { computeSlaState, aggregateMonitor } from '../services/sla';
 import { DESTRUCTIVE_TIER } from '../types/platformRole';
 import { EmailService } from '../services/emailService';
@@ -87,6 +89,116 @@ router.post('/inbound', asyncHandler(async (req, res) => {
     authorStaffId: null,
   });
 
+  return res.status(200).json({ status: 'ok', ticketId: ticket.ticketId });
+}));
+
+// ─── PUBLIC: Amazon SES Inbound via SNS HTTPS subscription ──────────────────
+//
+// Flow: SES Receipt Rule -> SNS topic -> this endpoint.
+// SNS message types we handle:
+//   - SubscriptionConfirmation: visit SubscribeURL once to activate the sub
+//   - Notification:             parse the embedded SES content (raw MIME),
+//                                build the canonical envelope, ingest as
+//                                if it had come from Resend. Threading,
+//                                idempotency, ticket creation reuse the
+//                                same SupportTicketService entry points.
+router.post('/inbound/ses', asyncHandler(async (req, res) => {
+  const msg = req.body;
+  if (!msg || typeof msg !== 'object') return res.status(400).json({ error: 'bad-body' });
+
+  // Verify the SNS signature on EVERY message type. We will not act on
+  // an unverified subscription confirmation either.
+  const ok = await verifySnsMessage(msg).catch(() => false);
+  if (!ok) {
+    Logger.warn('[support] SES SNS: signature verification failed');
+    return res.status(400).json({ error: 'bad-signature' });
+  }
+
+  if (msg.Type === 'SubscriptionConfirmation') {
+    await confirmSnsSubscription(msg.SubscribeURL);
+    Logger.info(`[support] SES SNS: subscription confirmed for ${msg.TopicArn}`);
+    return res.status(200).json({ status: 'subscribed' });
+  }
+
+  if (msg.Type !== 'Notification') {
+    return res.status(200).json({ ignored: 'unknown-type' });
+  }
+
+  // Notification body is a JSON string emitted by SES Receipt action.
+  let sesNotification: any;
+  try {
+    sesNotification = JSON.parse(msg.Message);
+  } catch {
+    return res.status(400).json({ error: 'bad-message-json' });
+  }
+
+  // SES notification shape: { mail: { messageId, source, destination, ... },
+  // receipt: {...}, content?: <base64 raw email when 'SNS' action used with
+  // Encoding=BASE64> }
+  const sesMail   = sesNotification.mail ?? {};
+  const sesContent = sesNotification.content;
+  const emailId    = String(sesMail.messageId ?? msg.MessageId);
+
+  if (!emailId) return res.status(400).json({ error: 'missing-message-id' });
+
+  // Idempotency.
+  const fresh = await SupportTicketService.claimInboundId(emailId);
+  if (!fresh) return res.status(200).json({ status: 'duplicate', emailId });
+
+  // Parse MIME. Without raw content (very large messages), fall back to
+  // SES headers metadata for subject + from + to.
+  let parsed: { from?: string; subject?: string; text?: string; html?: string;
+                messageId?: string | null; inReplyTo?: string | null; references?: string | null;
+                fromName?: string | null } = {};
+  if (sesContent) {
+    const raw = Buffer.from(sesContent, 'base64');
+    const m   = await simpleParser(raw);
+    parsed = {
+      from: (m.from?.value?.[0]?.address ?? '').toLowerCase(),
+      subject: m.subject ?? '',
+      text: m.text ?? '',
+      html: typeof m.html === 'string' ? m.html : '',
+      messageId:  m.messageId    ?? null,
+      inReplyTo:  m.inReplyTo    ?? null,
+      references: Array.isArray(m.references) ? m.references.join(' ') : (m.references ?? null),
+      fromName:   m.from?.value?.[0]?.name ?? null,
+    };
+  } else {
+    parsed = {
+      from: String(sesMail.source ?? '').toLowerCase(),
+      subject: sesMail.commonHeaders?.subject ?? '(no subject)',
+      messageId:  sesMail.commonHeaders?.messageId  ?? null,
+      inReplyTo:  null,
+      references: null,
+    };
+  }
+
+  const toList = Array.isArray(sesMail.destination) ? sesMail.destination : [];
+  const fromEmail = parsed.from ?? '';
+  const subject   = parsed.subject ?? '(no subject)';
+
+  let ticket = await SupportTicketService.resolveThread({
+    to: toList, inReplyTo: parsed.inReplyTo, references: parsed.references,
+  });
+  if (!ticket) {
+    ticket = await SupportTicketService.createTicket({
+      subject,
+      requesterEmail: fromEmail,
+      requesterName:  parsed.fromName ?? null,
+    });
+  }
+  await SupportTicketService.appendMessage({
+    ticketId: ticket.ticketId,
+    direction: 'INBOUND',
+    fromEmail,
+    toEmail: toList[0] ?? '',
+    bodyText: parsed.text ?? null,
+    bodyHtml: parsed.html ?? null,
+    emailMessageId: parsed.messageId ?? null,
+    inReplyTo:  parsed.inReplyTo  ?? null,
+    references: parsed.references ?? null,
+    authorStaffId: null,
+  });
   return res.status(200).json({ status: 'ok', ticketId: ticket.ticketId });
 }));
 
