@@ -190,6 +190,33 @@ export function FleetFeed() {
   );
 }
 
+// Compact map for the drawer. Google Maps Embed API (iframe). Rendered
+// ONLY when caller passes real coords — that gate lives in the parent
+// so this component cannot accidentally invent a position. If the API
+// key is unset the iframe is replaced with a plain "Map unavailable"
+// box; we do NOT render a placeholder labelled as if it were a map.
+function DriverMap({ lat, lng }: { lat: number; lng: number }) {
+  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  if (!key) {
+    return (
+      <div className="h-44 rounded-md border border-border bg-muted/30 flex items-center justify-center text-xs text-muted-foreground">
+        Map unavailable (no Google Maps key configured)
+      </div>
+    );
+  }
+  const src = `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(key)}&q=${lat},${lng}&zoom=12`;
+  return (
+    <iframe
+      title="Driver last-known position"
+      src={src}
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+      className="h-44 w-full rounded-md border border-border"
+      allowFullScreen={false}
+    />
+  );
+}
+
 function DriverDrawer({ driverId, onClose }: { driverId: string; onClose: () => void }) {
   const [detail, setDetail] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -254,14 +281,15 @@ function DriverDrawer({ driverId, onClose }: { driverId: string; onClose: () => 
             <section>
               <div className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Last known position</div>
               {detail.driver.position ? (
-                <div>
+                <div className="space-y-2">
                   <div>{detail.driver.position.city ?? "?"}{detail.driver.position.state ? `, ${detail.driver.position.state}` : ""}</div>
                   <div className="text-xs text-muted-foreground">
                     {detail.driver.position.lat.toFixed(4)}, {detail.driver.position.lng.toFixed(4)} · {fmtAge(detail.driver.position.updatedAt)} · source: {detail.driver.position.source}
                   </div>
+                  <DriverMap lat={detail.driver.position.lat} lng={detail.driver.position.lng} />
                   {!detail.liveTracking?.connected && (
-                    <div className="text-[11px] text-muted-foreground mt-1">
-                      Live tracking not connected. This is the last driver-app heartbeat, not a telematics fix.
+                    <div className="text-[11px] text-muted-foreground">
+                      Live tracking not connected. The pin shows the last driver-app heartbeat, not a real-time telematics fix.
                     </div>
                   )}
                 </div>
