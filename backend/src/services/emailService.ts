@@ -1,6 +1,6 @@
 // The actual Resend call now routes through services/integrations/email.ts
 // — every public method below (welcome, loadMatched, ...) is unchanged.
-import { sendEmail } from './integrations/email';
+import { sendEmail, sendRawEmail } from './integrations/email';
 
 async function send(to: string, subject: string, html: string) {
   await sendEmail(to, subject, html);
@@ -139,6 +139,19 @@ export const EmailService = {
         Once an admin account has been created, this link is permanently disabled.
       </p>
     `));
+  },
+
+  /**
+   * Raw support-reply send. Threading lives in the headers
+   * (Message-ID, In-Reply-To, References) -- we pass them through to
+   * Resend so the recipient's email client stitches the reply into
+   * their existing chain.
+   */
+  async sendRawSupportReply(params: {
+    to: string; from: string; subject: string; bodyHtml: string;
+    headers?: Record<string, string>;
+  }) {
+    await sendRawEmail(params);
   },
 
   async passwordReset(to: string, resetUrl: string) {

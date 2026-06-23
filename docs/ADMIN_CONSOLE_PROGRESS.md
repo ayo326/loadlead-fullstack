@@ -8,7 +8,7 @@ prompt for the full execution protocol.
 |---|---|---|
 | 1 | Internal `/login` revamp + platform-staff roles | DONE |
 | 2 | Live fleet feed (telematics-gated) | DONE |
-| 3 | Email support inbox (Resend inbound + outbound; SLA) | NOT STARTED |
+| 3 | Email support inbox (Resend inbound + outbound; SLA) | DONE |
 | 4 | Chat + phone via third-party embeds | NOT STARTED |
 | 5 | Independence + a11y pass | NOT STARTED |
 
@@ -51,12 +51,44 @@ prompt for the full execution protocol.
 - Admin bundle now 485 KB / 150 KB gzipped.
 
 ## Phase 3 — Email support inbox
-**Status:** NOT STARTED → next on resume.
-**Next step on resume:** add Resend Inbound receiving domain config; create `LoadLead_SupportTickets` + `LoadLead_SupportMessages` DynamoDB tables; implement `POST /api/support/inbound` webhook with Resend signature verification + idempotency on `email_id`; threading via Message-ID/In-Reply-To/References (and a `support+<ticketId>@` token); ticket list + detail UI in the admin bundle with assign/status/reply composer that sends via Resend; SLA policy stored on a `support_settings` row, configurable by STAFF_ADMIN, computed on read.
+**Status:** DONE
+**Files touched:**
+- `backend/src/types/support.ts` — types: `SupportTicket`, `SupportMessage`, `SupportSettings`, `TicketStatus`, `TicketPriority`, `SLAState`.
+- `backend/src/services/sla.ts` — pure `computeSlaState()` (RESOLVED / ON_TRACK / DUE_SOON / BREACHED) + `aggregateMonitor()` (% within SLA, avg resolution, breaching count over a 30-day window).
+- `backend/src/services/supportTicket.ts` — ticket + message persistence, settings singleton, threading resolver (plus-token / In-Reply-To / References), atomic inbound-id dedupe via Dynamo conditional put.
+- `backend/src/services/resendInbound.ts` — Svix-style HMAC-SHA256 signature verification with timestamp tolerance + constant-time compare. Refuses missing secret hard.
+- `backend/src/services/integrations/email.ts` — added `sendRawEmail()` for replies with arbitrary headers (Message-ID / In-Reply-To / References pass through).
+- `backend/src/services/emailService.ts` — added `sendRawSupportReply()` wrapper.
+- `backend/src/routes/support.ts` — NEW. Mounts the public `/inbound` webhook (no auth) and the staff API behind `authenticate + requireAdmin`. `PUT /settings` additionally `requireStaffTier(...DESTRUCTIVE_TIER)`.
+- `backend/src/index.ts` — mounted at `/api/support`.
+- `backend/tests/unit/iam/supportInbox.test.ts` — 11/11 pass.
+- `frontend-v2/src/lib/api.ts` — added 7 support helpers.
+- `frontend-v2/src/components/admin/SupportInbox.tsx` — NEW. Inbox list with status filter pills, SLA pills (on-track / due-soon / breached), monitor strip (open, breaching, % within SLA, avg resolution). Detail panel with thread, status + priority selectors, reply composer.
+- `frontend-v2/src/pages/admin/AdminDashboard.tsx` — mounted SupportInbox above FleetFeed.
+
+**Tables provisioned in prod:** `LoadLead_SupportTickets`, `LoadLead_SupportMessages`, `LoadLead_SupportSettings`, `LoadLead_SupportInbound`.
+
+**Acceptance / proof (all green):**
+- 11/11 tests pass. Coverage:
+  - Signed payload → OPEN ticket.
+  - Same payload twice → returned `duplicate`, no second ticket (DynamoDB conditional put).
+  - In-Reply-To matching prior Message-ID → same ticket.
+  - Bad signature → 400 `bad-signature`.
+  - Missing `RESEND_WEBHOOK_SECRET` → 400 `missing-secret` (refuses to process unsigned mail).
+  - Stale timestamp > 5 min → 400 `stale-timestamp` (replay defence).
+  - Inbound on a SOLVED ticket → status reopens to OPEN, `resolvedAt` cleared.
+  - Staff reply → Resend send called with `In-Reply-To`, `References`, `Message-ID`; ticket gets `firstResponseAt`; subject prefixed `Re: `.
+  - PATCH status=SOLVED stamps `resolvedAt`; status back to OPEN clears it.
+  - `aggregateMonitor` over a mixed resolved set computes the correct `% within SLA`.
+
+**Ops follow-ups for the user (not blocking the prove step):**
+- Set `RESEND_WEBHOOK_SECRET` (the `whsec_…` value from the Resend dashboard) as an EB env var.
+- Set `SUPPORT_FROM_ADDRESS=support@loadleadapp.com` as an EB env var.
+- In the Resend dashboard, configure the Inbound receiving domain (support@loadleadapp.com) and point the webhook at `https://api.loadleadapp.com/api/support/inbound`.
 
 ## Phase 4 — Chat + phone embeds
-**Status:** NOT STARTED
-**Next step on resume:** support adapter (interface), env-driven vendor wiring, unconfigured "not connected" state.
+**Status:** NOT STARTED → next on resume.
+**Next step on resume:** thin `services/integrations/support.ts` adapter interface (`chatProvider`, `phoneProvider`), env-driven vendor wiring (Intercom / Crisp for chat, Twilio / Aircall for click-to-call), unconfigured "not connected" pill state. NEVER fake the embed when keys missing.
 
 ## Phase 5 — Independence + a11y
 **Status:** NOT STARTED

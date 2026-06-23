@@ -207,6 +207,7 @@ setInterval(async () => {
 
 app.use('/api/maps', mapsRouter);
 app.use('/api/org', orgRoutes);
+app.use('/api/support', require('./routes/support').default);
 app.use('/api/setup', setupRoutes);
 app.use('/api/factoring', factoringRoutes);
 app.use('/api/reference', referenceRoutes);

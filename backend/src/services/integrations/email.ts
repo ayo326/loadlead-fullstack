@@ -68,3 +68,40 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     });
   }
 }
+
+// Raw-headers variant for support replies: we must set Message-ID,
+// In-Reply-To, and References so Resend stitches the reply into the
+// requester's existing email thread. Same dev-safety rewrite as
+// sendEmail (resend.dev sandbox in non-live modes).
+export async function sendRawEmail(params: {
+  to: string;
+  from?: string;
+  subject: string;
+  bodyHtml: string;
+  headers?: Record<string, string>;
+}): Promise<void> {
+  const mode     = resolveMode('email');
+  const actualTo = mode === 'live' ? params.to : buildTestRecipient(params.to);
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from:    params.from ?? FROM,
+      to:      actualTo,
+      subject: params.subject,
+      html:    params.bodyHtml,
+      headers: params.headers ?? {},
+    });
+  } catch (err: any) {
+    Logger.error(`[integrations/email] sendRaw failed (mode=${mode}): ${err?.message ?? err}`);
+  }
+  if (mode !== 'live') {
+    CaptureStore.recordEmail({
+      to: actualTo,
+      originalTo: params.to,
+      subject: params.subject,
+      html: params.bodyHtml,
+      mode,
+      capturedAt: new Date().toISOString(),
+    });
+  }
+}

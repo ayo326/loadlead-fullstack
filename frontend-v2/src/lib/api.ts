@@ -78,6 +78,26 @@ export const api = {
     return request<{ items: any[]; nextCursor: string | null }>(
       'GET', `/admin/orgs${qs ? `?${qs}` : ''}`);
   },
+  // Phase 3: support inbox
+  adminSupportListTickets: (filters?: { status?: string; assignee?: string }) => {
+    const q = new URLSearchParams();
+    if (filters?.status) q.set('status', filters.status);
+    if (filters?.assignee) q.set('assignee', filters.assignee);
+    const qs = q.toString();
+    return request<{ items: any[] }>('GET', `/support/tickets${qs ? `?${qs}` : ''}`);
+  },
+  adminSupportTicket: (ticketId: string) =>
+    request<{ ticket: any; sla: any; thread: any[] }>('GET', `/support/tickets/${ticketId}`),
+  adminSupportReply: (ticketId: string, body: { bodyText?: string; bodyHtml?: string }) =>
+    request<{ message: any }>('POST', `/support/tickets/${ticketId}/messages`, body),
+  adminSupportPatch: (ticketId: string, patch: any) =>
+    request<{ ok: true }>('PATCH', `/support/tickets/${ticketId}`, patch),
+  adminSupportCreate: (body: { subject: string; requesterEmail: string; requesterName?: string; priority?: string; linkedOrgId?: string; linkedDriverId?: string }) =>
+    request<{ ticket: any }>('POST', '/support/tickets', body),
+  adminSupportSettings:    () => request<{ settings: any }>('GET', '/support/settings'),
+  adminSupportSetSettings: (s: any) => request<{ settings: any }>('PUT', '/support/settings', s),
+  adminSupportMonitor:     () => request<any>('GET', '/support/monitor'),
+
   // Phase 2: live fleet feed (telematics-gated)
   adminFleetFeed: () => request<{
     liveTracking: { connected: boolean; provider: string | null };
