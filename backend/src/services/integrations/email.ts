@@ -14,6 +14,49 @@
 // anywhere.
 
 import { Resend } from 'resend';
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+
+const sesClient = new SESv2Client({ region: process.env.AWS_REGION || 'us-east-1' });
+
+// SES raw email send. Builds a complete RFC-822 message with the
+// threading headers in the right places so customer email clients
+// stitch the reply into the original conversation.
+async function sendRawViaSes(params: {
+  to: string;
+  from?: string;
+  subject: string;
+  bodyHtml: string;
+  headers?: Record<string, string>;
+}): Promise<void> {
+  const from    = params.from ?? process.env.SUPPORT_FROM_ADDRESS ?? FROM;
+  const boundary = `bnd_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  // Strip empty header values; an empty In-Reply-To upsets Gmail.
+  const extra: Record<string, string> = {};
+  for (const [k, v] of Object.entries(params.headers ?? {})) if (v) extra[k] = v;
+
+  const headerLines = [
+    `From: ${from}`,
+    `To: ${params.to}`,
+    `Subject: ${params.subject}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    ...Object.entries(extra).map(([k, v]) => `${k}: ${v}`),
+  ];
+  const body = [
+    `--${boundary}`,
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    params.bodyHtml,
+    `--${boundary}--`,
+    '',
+  ].join('\r\n');
+  const raw = headerLines.join('\r\n') + '\r\n\r\n' + body;
+
+  await sesClient.send(new SendEmailCommand({
+    Content: { Raw: { Data: Buffer.from(raw, 'utf8') } },
+  }));
+}
 import { resolveMode } from './modeResolver';
 import { CaptureStore } from './captureStore';
 import Logger from '../../utils/logger';
@@ -70,9 +113,17 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
 }
 
 // Raw-headers variant for support replies: we must set Message-ID,
-// In-Reply-To, and References so Resend stitches the reply into the
-// requester's existing email thread. Same dev-safety rewrite as
-// sendEmail (resend.dev sandbox in non-live modes).
+// In-Reply-To, and References so the reply stitches into the requester's
+// existing email thread.
+//
+// Provider selection:
+//   - When SUPPORT_OUTBOUND_PROVIDER=ses (default for support replies),
+//     send via AWS SES SDK. SES has inbound.loadleadapp.com verified
+//     for sending, which Resend's free plan does not.
+//   - Otherwise (or as fallback), send via Resend.
+//
+// The customer's email client threads on Message-ID / In-Reply-To /
+// References, which we set per-message regardless of provider.
 export async function sendRawEmail(params: {
   to: string;
   from?: string;
@@ -82,17 +133,24 @@ export async function sendRawEmail(params: {
 }): Promise<void> {
   const mode     = resolveMode('email');
   const actualTo = mode === 'live' ? params.to : buildTestRecipient(params.to);
+  const provider = (process.env.SUPPORT_OUTBOUND_PROVIDER || 'ses').toLowerCase();
+
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
-      from:    params.from ?? FROM,
-      to:      actualTo,
-      subject: params.subject,
-      html:    params.bodyHtml,
-      headers: params.headers ?? {},
-    });
+    if (provider === 'ses') {
+      await sendRawViaSes({ ...params, to: actualTo });
+    } else {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from:    params.from ?? FROM,
+        to:      actualTo,
+        subject: params.subject,
+        html:    params.bodyHtml,
+        headers: params.headers ?? {},
+      });
+    }
   } catch (err: any) {
-    Logger.error(`[integrations/email] sendRaw failed (mode=${mode}): ${err?.message ?? err}`);
+    Logger.error(`[integrations/email] sendRaw failed (provider=${provider}, mode=${mode}): ${err?.message ?? err}`);
+    throw err;
   }
   if (mode !== 'live') {
     CaptureStore.recordEmail({
