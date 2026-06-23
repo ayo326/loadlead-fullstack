@@ -112,12 +112,12 @@ export function SupportInbox() {
 
       {!loading && tickets.length === 0 && (
         <div className="py-12 text-center text-sm text-muted-foreground">
-          No tickets yet. Inbound email to support@loadleadapp.com creates them.
+          No tickets yet. Inbound email to support@inbound.loadleadapp.com creates them.
         </div>
       )}
 
       {tickets.length > 0 && (
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" aria-label="Support tickets">
           <thead>
             <tr className="text-left text-xs uppercase tracking-widest text-muted-foreground bg-secondary/40">
               <th className="px-5 py-2 font-medium">Subject</th>
@@ -131,8 +131,12 @@ export function SupportInbox() {
             {filtered.map((t) => (
               <tr
                 key={t.ticketId}
-                className="border-t border-border hover:bg-secondary/30 cursor-pointer"
+                className="border-t border-border hover:bg-secondary/30 cursor-pointer focus-within:bg-secondary/30"
                 onClick={() => setOpenId(t.ticketId)}
+                onKeyDown={(e) => { if (e.key === "Enter") setOpenId(t.ticketId); }}
+                tabIndex={0}
+                role="button"
+                aria-label={`Open ticket: ${t.subject} from ${t.requesterEmail}`}
               >
                 <td className="px-5 py-2 font-medium">{t.subject}</td>
                 <td className="px-5 py-2 text-muted-foreground">{t.requesterEmail}</td>

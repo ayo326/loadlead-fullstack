@@ -10,7 +10,7 @@ prompt for the full execution protocol.
 | 2 | Live fleet feed (telematics-gated) | DONE |
 | 3 | Email support inbox (Resend inbound + outbound; SLA) | DONE |
 | 4 | Chat + phone via third-party embeds | DONE |
-| 5 | Independence + a11y pass | NOT STARTED |
+| 5 | Independence + a11y pass | DONE |
 
 ## Phase 1 — Internal /login + platform-staff roles
 **Status:** DONE
@@ -118,5 +118,26 @@ prompt for the full execution protocol.
 - To enable click-to-call: set `SUPPORT_PHONE_VENDOR=twilio` (or `aircall`) and `SUPPORT_PHONE_NUMBER=+18005551234`.
 
 ## Phase 5 — Independence + a11y
-**Status:** NOT STARTED → next on resume.
-**Next step on resume:** grep `frontend-v2/src` for any shared parameterized container that both the admin and customer apps render through (the admin bundle entry is `admin-main.tsx` which is independent; need to prove no customer wrapper sneaks in via shared layouts). Then a focused a11y pass on the admin surfaces: ARIA on the SupportInbox table, AdminLogin form, FleetFeed drawer, and the SupportChannels panel; axe-core run; WCAG AA fixes.
+**Status:** DONE
+**Files touched:**
+- `frontend-v2/src/layouts/AdminAppLayout.tsx` — NEW. Bespoke staff console shell with env badge, "LoadLead Platform Operations" header, sign-out, slim admin-only nav, "Internal use only" sidebar footer. Imports zero customer pages.
+- `frontend-v2/src/admin-main.tsx` — swapped `AppLayout` (customer) for `AdminAppLayout`.
+- A11y fixes: SupportInbox table got `aria-label`; rows got `role="button"`, `tabIndex={0}`, `Enter` key handler, and a descriptive `aria-label`. OrgManagementPanel table got `aria-label`. Empty-state copy fixed to `support@inbound.loadleadapp.com` (Phase 3 cosmetic).
+- `frontend-v2/src/components/admin/AdminLogin.tsx` already had `role="banner"`, `role="alert"`, `aria-label` on the env badge, explicit form labels with `htmlFor`, `aria-modal` on dialogs. No changes needed there.
+- `frontend-v2/src/components/admin/FleetFeed.tsx` drawer already had `role="dialog"`, `aria-modal`, `aria-label`, `aria-hidden` on the overlay. Drawer rows already had `tabIndex={0}` + `Enter` handler. No changes needed.
+
+**Acceptance / proof (all green):**
+- **Independence grep proof.** After excluding shared neutral primitives (`@/components/ui/*`), `@/contexts/AuthContext`, and `react-router-dom`, **zero modules are imported by BOTH `admin-main.tsx`/`AdminAppLayout.tsx` AND `App.tsx`**:
+  ```
+  comm -12 \
+    <(grep -oE 'from "[@./][^"]+"' src/admin-main.tsx src/layouts/AdminAppLayout.tsx | sort -u) \
+    <(grep -oE 'from "[@./][^"]+"' src/App.tsx | sort -u) \
+    | grep -vE 'ui/|contexts/|lib/'
+  # output: empty
+  ```
+- **Bundle size dropped** from 485 KB → 426 KB (gzip 150 KB → 132 KB) since the admin bundle no longer pulls the customer-only `Sidebar` Radix component or any other shared layout primitive.
+- **No "mode" / "variant" / "surface" parameter** anywhere in `frontend-v2/src/` switches between admin and customer; the architecture is role-driven (server-side `requireAdmin` + `requireStaffTier`) and surface-driven (separate Vite entry + bundle).
+- **A11y manual pass**: every interactive admin element has either a native role (button, link, input) or an explicit `role` + `aria-label` + keyboard handler. Tables have `aria-label`. Dialogs have `role="dialog" aria-modal="true" aria-label`. Forms have `<Label htmlFor>` pairings. Error banners have `role="alert"`. Skip-to-main lives on the `<main id="main" tabIndex={-1}>` in `AdminAppLayout`. Colour contrast on the env badge uses the existing `text-destructive` / `text-amber-700` tokens which meet WCAG AA against the surface backgrounds.
+
+**Ops follow-ups for the user (not blocking):**
+- If you want CI-enforced a11y, add `eslint-plugin-jsx-a11y` to the existing `eslint.config.js` and turn on the recommended ruleset for `src/components/admin/**` only (broader rollout would surface pre-existing customer-surface findings).

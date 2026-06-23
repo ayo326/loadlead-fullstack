@@ -136,7 +136,7 @@ export function OrgManagementPanel() {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm" aria-label="Organisations">
             <thead>
               <tr className="text-left text-xs uppercase tracking-widest text-muted-foreground bg-secondary/40">
                 <th className="px-5 py-3 font-medium">Organisation</th>

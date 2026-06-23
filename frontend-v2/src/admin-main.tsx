@@ -20,7 +20,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import AppLayout from "@/layouts/AppLayout";
+import AdminAppLayout from "@/layouts/AdminAppLayout";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import "./index.css";
@@ -54,7 +54,7 @@ const AdminApp = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<AdminLogin />} />
-            <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
+            <Route element={<RequireAuth><AdminAppLayout /></RequireAuth>}>
               <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>
