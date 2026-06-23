@@ -8,6 +8,7 @@ import { PageHeader, StatCard, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OrgManagementPanel } from "@/components/admin/OrgManagementPanel";
+import { FleetFeed } from "@/components/admin/FleetFeed";
 import { Badge } from "@/components/ui/badge";
 import { FleetMap } from "@/components/FleetMap";
 import { api } from "@/lib/api";
@@ -315,6 +316,9 @@ export default function AdminDashboard() {
         <StatCard label="Verified" value={String(counts.VERIFIED ?? "—")} hint="Awaiting activation" trend="up" />
         <StatCard label="Suspended" value={String(counts.SUSPENDED ?? "—")} hint="Inactive" trend="down" />
       </div>
+
+      {/* Phase 2: Live fleet feed (telematics-gated; no fabricated GPS) */}
+      <FleetFeed />
 
       {/* Platform IAM overrides: list / suspend / reinstate / revoke-admin */}
       <OrgManagementPanel />

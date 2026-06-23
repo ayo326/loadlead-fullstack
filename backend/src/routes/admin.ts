@@ -5,6 +5,7 @@ import { LoadService } from '../services/loadService';
 import { CapacityService } from '../services/capacityService';
 import { authenticate, requireAdmin, requireStaffTier, AuthRequest } from '../middleware/auth';
 import { PlatformRole, OPS_TIER, DESTRUCTIVE_TIER } from '../types/platformRole';
+import { getTelematicsStatus } from '../services/telematics';
 import { asyncHandler } from '../middleware/errorHandler';
 import { TrackingService } from '../services/trackingService';
 import { RoutingService } from '../services/routingService';
@@ -207,6 +208,114 @@ router.get('/loads/:loadId/tracking', asyncHandler(async (req: AuthRequest, res)
   const { loadId } = req.params;
   const tracking = await TrackingService.getLoadTrackingForAdmin(loadId);
   res.json(tracking);
+}));
+
+// ─── Fleet feed (Phase 2 of admin console) ──────────────────────────────────
+//
+// GET /api/admin/fleet/feed
+//   Lists every driver (across all statuses) with last-known position +
+//   status colour grouping + current load id. Telematics is gated by the
+//   TELEMATICS_PROVIDER env: when absent, `liveTracking.connected = false`
+//   and positions are explicitly labelled "last-known" -- they come from
+//   the driver app's own location push, NOT from a real ELD feed.
+//   We never fabricate a position; a driver with no lastLocationUpdate
+//   gets position: null.
+//
+// GET /api/admin/fleet/drivers/:driverId
+//   Drawer payload: full driver profile, IDV status (from the User row,
+//   per IAM spec), current load summary, recent status events.
+router.get('/fleet/feed', asyncHandler(async (_req: AuthRequest, res) => {
+  // Pull every driver across statuses. There's no "get all drivers"
+  // helper today; assemble from the per-status getters so we don't
+  // accidentally widen the scan.
+  const statuses = Object.values(DriverStatus);
+  const buckets  = await Promise.all(statuses.map((s) => DriverService.getDriversByStatus(s as any)));
+  const drivers  = buckets.flat();
+
+  const items = drivers.map((d: any) => {
+    const hasCoords = Number.isFinite(d.currentLat)
+      && Number.isFinite(d.currentLng)
+      && (d.currentLat !== 0 || d.currentLng !== 0);
+    return {
+      driverId: d.driverId,
+      userId:   d.userId,
+      fullName: d.fullName ?? ([d.firstName, d.lastName].filter(Boolean).join(' ') || null),
+      status:   d.status,
+      equipment: d.trailerType ?? null,
+      currentLoadId: (d as any).currentLoadId ?? null,
+      // Last-known position only -- NEVER fabricated. Null when we have
+      // never received a location ping from this driver.
+      position: hasCoords ? {
+        lat: d.currentLat,
+        lng: d.currentLng,
+        city:  d.currentCity ?? null,
+        state: d.currentState ?? null,
+        updatedAt: d.lastLocationUpdate ?? null,
+        source: 'driver-app',                  // honest labelling
+      } : null,
+    };
+  });
+
+  const liveTracking = getTelematicsStatus();
+  res.json({
+    liveTracking,                              // { connected, provider }
+    counts: items.reduce<Record<string, number>>((acc, it) => {
+      acc[it.status] = (acc[it.status] ?? 0) + 1;
+      return acc;
+    }, {}),
+    items,
+  });
+}));
+
+router.get('/fleet/drivers/:driverId', asyncHandler(async (req: AuthRequest, res) => {
+  const { driverId } = req.params;
+  const driver = await DriverService.getProfileById(driverId);
+  if (!driver) return res.status(404).json({ error: 'Driver not found' });
+
+  // IDV lives on the User record per IAM spec, not on DriverProfile.
+  const user = await Database.getItem<any>(config.dynamodb.usersTable, { userId: driver.userId });
+
+  // Current load (if assigned). LoadService doesn't have a "by driverId"
+  // helper, so we look up only when currentLoadId is set.
+  const currentLoadId = (driver as any).currentLoadId as string | undefined;
+  const currentLoad = currentLoadId
+    ? await LoadService.getLoadById(currentLoadId).catch(() => null)
+    : null;
+
+  res.json({
+    driver: {
+      driverId:   driver.driverId,
+      userId:     driver.userId,
+      fullName:   (driver as any).fullName ?? ([(driver as any).firstName, (driver as any).lastName].filter(Boolean).join(' ') || null),
+      email:      user?.email ?? null,
+      phone:      user?.phone ?? null,
+      status:     driver.status,
+      equipment:  driver.trailerType ?? null,
+      mcNumber:   (driver as any).mcNumber ?? null,
+      cargoInsuranceAmount: (driver as any).cargoInsuranceAmount ?? null,
+      authorityStartDate:   (driver as any).authorityStartDate ?? null,
+      position: (driver.currentLat || driver.currentLng) ? {
+        lat: driver.currentLat,
+        lng: driver.currentLng,
+        city:  driver.currentCity ?? null,
+        state: driver.currentState ?? null,
+        updatedAt: driver.lastLocationUpdate ?? null,
+        source: 'driver-app',
+      } : null,
+    },
+    idv: {
+      status: user?.idvStatus ?? 'UNVERIFIED',
+    },
+    currentLoad: currentLoad ? {
+      loadId: currentLoad.loadId,
+      status: currentLoad.status,
+      pickupCity:    currentLoad.pickupCity,
+      pickupState:   currentLoad.pickupState,
+      deliveryCity:  currentLoad.deliveryCity,
+      deliveryState: currentLoad.deliveryState,
+    } : null,
+    liveTracking: getTelematicsStatus(),
+  });
 }));
 
 // GET /api/admin/debug/broadcast/:loadId — trace why drivers are or aren't matched

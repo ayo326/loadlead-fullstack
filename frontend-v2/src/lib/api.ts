@@ -78,6 +78,25 @@ export const api = {
     return request<{ items: any[]; nextCursor: string | null }>(
       'GET', `/admin/orgs${qs ? `?${qs}` : ''}`);
   },
+  // Phase 2: live fleet feed (telematics-gated)
+  adminFleetFeed: () => request<{
+    liveTracking: { connected: boolean; provider: string | null };
+    counts: Record<string, number>;
+    items: Array<{
+      driverId: string;
+      userId: string;
+      fullName: string | null;
+      status: string;
+      equipment: string | null;
+      currentLoadId: string | null;
+      position: { lat: number; lng: number; city: string | null; state: string | null; updatedAt: number | null; source: string } | null;
+    }>;
+  }>('GET', '/admin/fleet/feed'),
+  adminFleetDriver: (driverId: string) => request<{
+    driver: any; idv: { status: string }; currentLoad: any | null;
+    liveTracking: { connected: boolean; provider: string | null };
+  }>('GET', `/admin/fleet/drivers/${driverId}`),
+
   adminSuspendOrg: (orgId: string, reason: string) =>
     request<{ ok: true }>('POST', `/admin/orgs/${orgId}/suspend`, { reason }),
   adminReinstateOrg: (orgId: string, reason: string) =>
