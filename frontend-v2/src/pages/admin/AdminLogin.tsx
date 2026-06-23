@@ -92,14 +92,21 @@ export default function AdminLogin() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {/* Top bar — environment badge + authorized-use notice */}
+      {/* Top bar — official logo + environment badge */}
       <header
         className="px-4 py-3 border-b border-border flex items-center justify-between gap-3"
         role="banner"
       >
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
-          LoadLead Platform Operations
+        <div className="flex items-center gap-3">
+          <img
+            src="/loadlead-logo.png"
+            alt="LoadLead"
+            className="h-7 w-auto select-none"
+            draggable={false}
+          />
+          <span className="text-xs font-medium text-muted-foreground hidden sm:inline">
+            · Platform Operations
+          </span>
         </div>
         <span
           className={

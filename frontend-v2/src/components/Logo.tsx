@@ -1,32 +1,46 @@
-import { Truck } from "lucide-react";
+// LoadLead brand logo lockup.
+//
+// The official asset lives in frontend-v2/public/loadlead-logo.png
+// (transparent background, 1036×213, suitable for both light and dark
+// surfaces). On the dark sidebar surface we render the same asset --
+// the truck mark is white-on-black so it reads correctly on either.
+//
+// The brand line "Where loads meet leads." sits under the wordmark
+// per the brand voice slot rule. The primary motto
+// "Connect. Load. Drop." is reserved for hero action lines.
 
-// LoadLead logo lockup. See design-system/MASTER.md.
-// The brand line "Where loads meet leads." lives here under the wordmark
-// (per the brand voice slot rule). The primary motto "Connect. Load. Drop."
-// is reserved for hero action lines and the rail footer; do not stack
-// both lines in the same place.
-export function Logo({ variant = "dark" }: { variant?: "dark" | "light" }) {
-  const isLight = variant === "light";
-  const wordmark   = isLight ? "text-sidebar-foreground" : "text-foreground";
-  const tagline    = isLight ? "text-sidebar-foreground/60" : "text-muted-foreground";
-  const markBg     = isLight ? "bg-sidebar-accent" : "bg-primary";
-  const markFg     = isLight ? "text-sidebar-foreground" : "text-primary-foreground";
+export function Logo({
+  variant = "dark",
+  height = 32,
+  withTagline = true,
+}: {
+  variant?: "dark" | "light";
+  /** Wordmark height in pixels. Defaults to 32. */
+  height?: number;
+  /** When false, renders just the wordmark image; no tagline. */
+  withTagline?: boolean;
+}) {
+  const tagline = variant === "light" ? "text-sidebar-foreground/60" : "text-muted-foreground";
 
   return (
     <a
       href="https://loadleadapp.com"
-      className="flex items-center gap-2 no-underline transition-opacity duration-fast ease-soft hover:opacity-80 cursor-pointer"
+      className="flex items-center gap-3 no-underline transition-opacity duration-fast ease-soft hover:opacity-80 cursor-pointer"
+      aria-label="LoadLead — Where loads meet leads."
     >
-      <div
-        className={`flex h-8 w-8 items-center justify-center rounded-sm ${markBg} ${markFg}`}
-        aria-hidden
-      >
-        <Truck className="h-4 w-4" strokeWidth={1.75} />
-      </div>
-      <div className="flex flex-col leading-none">
-        <span className={`text-h3 font-display tracking-tight ${wordmark}`}>LoadLead</span>
-        <span className={`text-overline font-mono ${tagline}`}>Where loads meet leads.</span>
-      </div>
+      <img
+        src="/loadlead-logo.png"
+        alt="LoadLead"
+        height={height}
+        style={{ height: `${height}px`, width: "auto" }}
+        className="select-none"
+        draggable={false}
+      />
+      {withTagline && (
+        <span className={`text-overline font-mono leading-none ${tagline} hidden sm:inline`}>
+          Where loads meet leads.
+        </span>
+      )}
     </a>
   );
 }
