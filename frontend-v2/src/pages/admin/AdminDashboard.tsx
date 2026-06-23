@@ -12,7 +12,6 @@ import { FleetFeed } from "@/components/admin/FleetFeed";
 import { SupportInbox } from "@/components/admin/SupportInbox";
 import { SupportChannels } from "@/components/admin/SupportChannels";
 import { Badge } from "@/components/ui/badge";
-import { FleetMap } from "@/components/FleetMap";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -295,21 +294,6 @@ export default function AdminDashboard() {
         subtitle="Real-time view of drivers, loads, and match quality across the network."
       />
 
-      {/* Live fleet map */}
-      <div className="rounded-md border border-border bg-card p-5 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-sm font-semibold">Live fleet map</h2>
-            <p className="text-xs text-muted-foreground">Every driver's last known location, colored by status.</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => load(true)} disabled={refreshing}>
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
-        <FleetMap drivers={allDrivers} />
-      </div>
-
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard label="Pending verification" value={String(counts.PENDING_VERIFICATION ?? "—")}
@@ -461,127 +445,13 @@ export default function AdminDashboard() {
         </aside>
       </div>
 
-      {/* ── Organisations ─────────────────────────────────────── */}
-      <OrgManagementPanel />
     </>
   );
 }
 
-// ─── Org management panel (Platform Admin only) ───────────────────────────────
-
-function OrgManagementPanel() {
-  const [orgs, setOrgs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [acting, setActing] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    // We fetch each user's orgs; for admin we need a different approach.
-    // For now we try to list all orgs for the admin user (who may belong to none),
-    // and fall back to empty with an explanation.
-    try {
-      const { orgs: list } = await api.getMyOrgs();
-      setOrgs(list);
-    } catch {
-      setOrgs([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  async function handleSuspend(orgId: string, currentlySuspended: boolean) {
-    const reason = currentlySuspended
-      ? undefined
-      : prompt("Reason for suspension (optional):");
-    if (!currentlySuspended && reason === null) return; // cancelled
-    setActing(orgId);
-    try {
-      if (currentlySuspended) {
-        await api.reinstateOrg(orgId);
-        toast.success("Organisation reinstated");
-      } else {
-        await api.suspendOrg(orgId, reason ?? "");
-        toast.success("Organisation suspended");
-      }
-      await load();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setActing(null);
-    }
-  }
-
-  return (
-    <div className="mt-8 rounded-md border border-border bg-card overflow-hidden">
-      <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-        <Building2 className="h-4 w-4 text-primary" />
-        <span className="font-semibold text-sm">Organisations</span>
-        <span className="ml-auto text-xs text-muted-foreground">
-          Platform Admin can suspend / reinstate any org
-        </span>
-      </div>
-      {loading ? (
-        <div className="flex items-center gap-2 text-muted-foreground text-sm p-6">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading organisations…
-        </div>
-      ) : orgs.length === 0 ? (
-        <div className="p-6 text-sm text-muted-foreground">
-          No organisations visible. To list all orgs, a <code className="text-xs bg-secondary px-1 rounded">GET /api/admin/orgs</code> endpoint is needed (future work).
-        </div>
-      ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/30">
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Organisation</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Capabilities</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground uppercase tracking-wide">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {orgs.map(org => (
-              <tr key={org.orgId} className={`hover:bg-muted/20 transition-colors ${org.suspended ? "opacity-60" : ""}`}>
-                <td className="px-4 py-3">
-                  <div className="font-medium">{org.legalName}</div>
-                  <div className="text-xs text-muted-foreground font-mono">{org.orgId}</div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-1 flex-wrap">
-                    {(org.capabilities ?? []).map((c: string) => (
-                      <span key={c} className="text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{c}</span>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  {org.suspended ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 font-medium">SUSPENDED</span>
-                  ) : (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400 font-medium">ACTIVE</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Button
-                    size="sm"
-                    variant={org.suspended ? "outline" : "destructive"}
-                    className="h-7 text-xs"
-                    disabled={acting === org.orgId}
-                    onClick={() => handleSuspend(org.orgId, org.suspended)}
-                  >
-                    {acting === org.orgId
-                      ? <Loader2 className="h-3 w-3 animate-spin" />
-                      : org.suspended ? "Reinstate" : "Suspend"}
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
+// ─── stale local OrgManagementPanel removed (Phase 5 cleanup).
+// The real component is imported from @/components/admin/OrgManagementPanel
+// (Phase 5: removed the local OrgManagementPanel stub that shadowed the imported real one.)
 
 // ─── Compliance bar ───────────────────────────────────────────────────────────
 
