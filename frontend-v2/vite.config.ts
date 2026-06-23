@@ -3,9 +3,16 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+// Two build targets:
+//   default          -> dist/        (customer surface, served on loadleadapp.com)
+//   LL_BUILD=admin   -> dist-admin/  (admin-only surface, served on admin.loadleadapp.com)
+// Both bundles ship from the same source tree, but the admin entry only
+// imports /admin and the login screen. See admin-main.tsx.
+const isAdmin = process.env.LL_BUILD === "admin";
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Served from the root of loadleadapp.com in production
+  // Served from the root of (admin.)loadleadapp.com in production
   base: "/",
 
   server: {
@@ -19,8 +26,15 @@ export default defineConfig(({ mode }) => ({
   },
 
   build: {
-    outDir: "dist",
+    outDir: isAdmin ? "dist-admin" : "dist",
     sourcemap: false,
+    rollupOptions: isAdmin
+      ? { input: path.resolve(__dirname, "admin.html") }
+      : undefined,
+  },
+
+  define: {
+    "import.meta.env.LL_ADMIN_BUILD": JSON.stringify(isAdmin),
   },
 
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
