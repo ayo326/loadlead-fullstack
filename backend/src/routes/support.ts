@@ -102,17 +102,16 @@ router.post('/inbound', asyncHandler(async (req, res) => {
 //                                if it had come from Resend. Threading,
 //                                idempotency, ticket creation reuse the
 //                                same SupportTicketService entry points.
-router.post('/inbound/ses', asyncHandler(async (req, res) => {
-  // SNS sends Content-Type: text/plain, so express.json() leaves req.body
-  // empty. Reconstruct from rawBody (captured by the verify hook in
-  // index.ts) when needed.
-  let msg: any = req.body;
-  if (!msg || typeof msg !== 'object' || Array.isArray(msg) || !Object.keys(msg).length) {
-    const raw = (req as any).rawBody?.toString('utf8');
-    if (raw) {
-      try { msg = JSON.parse(raw); } catch { msg = null; }
-    }
-  }
+// SNS posts with Content-Type: text/plain, so the global express.json()
+// middleware leaves req.body empty. Use a per-route text parser that
+// accepts any Content-Type and gives us the raw string.
+const snsBodyParser = express.text({ type: '*/*', limit: '1mb' });
+
+router.post('/inbound/ses', snsBodyParser, asyncHandler(async (req, res) => {
+  // req.body is now the raw string from SNS. Parse to JSON.
+  let msg: any = null;
+  try { msg = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; }
+  catch { return res.status(400).json({ error: 'bad-body' }); }
   if (!msg || typeof msg !== 'object') return res.status(400).json({ error: 'bad-body' });
 
   // Verify the SNS signature on EVERY message type. We will not act on
