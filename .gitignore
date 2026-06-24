@@ -66,3 +66,9 @@ compliance-results.json
 .markdown-confluence.json
 .markdown-confluence.json
 .claude/
+
+# E2E test artifacts (k6 summary + Cypress axe / actors)
+tests/load/.state/
+frontend-v2/cypress/.state/
+frontend-v2/cypress/screenshots/
+frontend-v2/cypress/videos/
