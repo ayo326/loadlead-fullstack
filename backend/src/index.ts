@@ -173,6 +173,17 @@ const authRateLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again later.' },
   skipSuccessfulRequests: false,
+  // Local-dev-only bypass so the E2E fan-out harness can authenticate
+  // 13+ test actors in setup() without false 429s.
+  //
+  // SAFETY: explicit opt-in via AUTH_RATE_LIMIT_BYPASS=1, AND a second
+  // gate refusing to engage when APP_ENV=production. Default-deny: a
+  // missing / scrambled env never accidentally disables rate limiting
+  // in prod — both flags must align.
+  skip: () =>
+    process.env.AUTH_RATE_LIMIT_BYPASS === '1' &&
+    process.env.APP_ENV !== 'production' &&
+    process.env.NODE_ENV !== 'production',
 });
 
 // API Routes
