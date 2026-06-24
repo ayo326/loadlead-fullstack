@@ -118,6 +118,12 @@ module "ddb_signatures" {
     { name = "loadId-signedAt-index", hash_key = "loadId", range_key = "signedAt", projection_type = "ALL" },
   ]
   deletion_protection = true
+  # DDB Streams feed the WORM sink Lambda (see worm-sink.tf). NEW_IMAGE
+  # is enough — we ship every successful PutItem row in full; MODIFY/
+  # REMOVE should never fire (IAM Deny) but the Lambda still alerts on
+  # them as an integrity event.
+  stream_enabled      = true
+  stream_view_type    = "NEW_IMAGE"
   tags                = local.tags
 }
 

@@ -34,7 +34,11 @@ resource "aws_dynamodb_table" "this" {
     enabled = true # cheap, restores accidental writes/deletes — worth it even in dev
   }
 
+  stream_enabled   = var.stream_enabled
+  stream_view_type = var.stream_enabled ? var.stream_view_type : null
+
   deletion_protection_enabled = var.deletion_protection
 
   tags = var.tags
 }
+

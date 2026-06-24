@@ -42,6 +42,18 @@ variable "deletion_protection" {
   default     = false
 }
 
+variable "stream_enabled" {
+  type        = bool
+  default     = false
+  description = "Enable DDB Streams. Required when downstream wants change events (e.g. WORM sink Lambda)."
+}
+
+variable "stream_view_type" {
+  type        = string
+  default     = "NEW_IMAGE"
+  description = "What each stream record carries. NEW_IMAGE is right for append-only WORM mirrors; NEW_AND_OLD_IMAGES is right for diff/audit pipelines."
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

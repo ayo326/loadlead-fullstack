@@ -1,0 +1,11 @@
+{
+  "name": "signatures-worm-sink",
+  "version": "1.0.0",
+  "description": "DDB Streams -> S3 Object Lock WORM sink for LoadLead_Signatures",
+  "type": "module",
+  "main": "index.mjs",
+  "dependencies": {
+    "@aws-sdk/client-s3":         "^3.616.0",
+    "@aws-sdk/util-dynamodb":     "^3.616.0"
+  }
+}
