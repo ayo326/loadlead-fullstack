@@ -11,6 +11,7 @@ import { OrgManagementPanel } from "@/components/admin/OrgManagementPanel";
 import { FleetFeed } from "@/components/admin/FleetFeed";
 import { SupportInbox } from "@/components/admin/SupportInbox";
 import { SupportChannels } from "@/components/admin/SupportChannels";
+import { AttestationLookup } from "@/components/admin/AttestationLookup";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -304,6 +305,10 @@ export default function AdminDashboard() {
       <SupportInbox />
 
       <FleetFeed />
+
+      {/* Read-only attestation chain lookup for any loadId. Paste from
+          a FleetFeed row → see who signed what, when, with which photos. */}
+      <AttestationLookup />
 
       <SupportChannels />
 
