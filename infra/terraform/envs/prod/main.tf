@@ -79,3 +79,51 @@ module "github_deploy_role" {
 output "github_deploy_role_arn" {
   value = module.github_deploy_role.role_arn
 }
+
+############################################################################
+# Attestation Phase 1 — NEW DDB tables.
+#
+# These are NEW (no `terraform import` required). The TF module sets
+# point_in_time_recovery + deletion_protection by default, so the new
+# tables inherit a known-good baseline. Existing prod tables stay outside
+# TF; that's tracked as a separate backlog item.
+#
+# IAM Deny on UpdateItem/DeleteItem/BatchWriteItem for LoadLead_Signatures
+# is applied OUT-OF-BAND via attestation-bootstrap-ops.sh, because the
+# EB instance profile role (aws-elasticbeanstalk-ec2-role) is not in TF.
+# When the role is brought under TF (Phase 2), wire infra/terraform/modules/iam_signatures/.
+############################################################################
+
+module "ddb_signatures" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_Signatures"
+  hash_key            = "signatureId"
+  attributes = [
+    { name = "signatureId", type = "S" },
+    { name = "loadId",      type = "S" },
+    { name = "signedAt",    type = "S" },
+  ]
+  global_secondary_indexes = [
+    { name = "loadId-signedAt-index", hash_key = "loadId", range_key = "signedAt", projection_type = "ALL" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+module "ddb_pod_photos" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_PodPhotos"
+  hash_key            = "photoId"
+  attributes = [
+    { name = "photoId", type = "S" },
+    { name = "loadId",  type = "S" },
+  ]
+  global_secondary_indexes = [
+    { name = "loadId-index", hash_key = "loadId", projection_type = "ALL" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+output "signatures_table_arn" { value = module.ddb_signatures.arn }
+output "pod_photos_table_arn" { value = module.ddb_pod_photos.arn }

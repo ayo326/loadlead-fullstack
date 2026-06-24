@@ -121,6 +121,38 @@ locals {
       attributes = [{ name = "logId", type = "S" }, { name = "orgId", type = "S" }]
       gsis       = [{ name = "orgId-index", hash_key = "orgId" }]
     }
+
+    # Attestation chain — append-only, IAM-Deny update/delete (see
+    # ../iam_signatures/), PutItem with attribute_not_exists guard at the
+    # app layer. PITR comes from the module default. Holds Signature rows
+    # bound to documentHash + proofPhotoIds for non-repudiation.
+    Signatures = {
+      hash_key   = "signatureId"
+      attributes = [
+        { name = "signatureId", type = "S" },
+        { name = "loadId",      type = "S" },
+        { name = "signedAt",    type = "S" },
+      ]
+      gsis = [
+        { name = "loadId-signedAt-index", hash_key = "loadId", range_key = "signedAt" },
+      ]
+    }
+
+    # POD photo metadata + finalize state. Bytes live in S3 (loadlead-pod-uploads,
+    # delete-resistant by bucket policy; Phase-2 migrating to Object Lock v2).
+    # This table records s3Key + status (PENDING/READY) + contentHash. Allows
+    # UpdateItem because PENDING→READY is the one allowed transition; the
+    # condition guard pins the state machine to exactly one direction.
+    PodPhotos = {
+      hash_key   = "photoId"
+      attributes = [
+        { name = "photoId", type = "S" },
+        { name = "loadId",  type = "S" },
+      ]
+      gsis = [
+        { name = "loadId-index", hash_key = "loadId" },
+      ]
+    }
   }
 }
 

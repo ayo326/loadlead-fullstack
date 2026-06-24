@@ -72,3 +72,4 @@ tests/load/.state/
 frontend-v2/cypress/.state/
 frontend-v2/cypress/screenshots/
 frontend-v2/cypress/videos/
+infra/terraform/envs/*/.terraform/
