@@ -1,0 +1,137 @@
+{
+  "source": "tests/load/fan100.js (k6 v2.0.0) — fan-out of 100 full load lifecycles",
+  "run_date": "2026-06-23",
+  "base_url": "http://localhost:4000 (dev + DynamoDB Local, sandboxed externals)",
+  "issues": [
+    {
+      "extId": "LOAD-E2E-001",
+      "title": "Accept-offer 500: missing LoadLead_Verifications / Org tables in dev (and on first-boot)",
+      "priority": "Highest",
+      "severity": "blocker",
+      "test_ids": ["H2"],
+      "context": "tests/load/fan100.js fan-out of 100 lifecycles produced 0 acceptances. Every POST /api/driver/offers/:loadId/accept returned 500 with 'ResourceNotFoundException: Cannot do operations on a non-existent table'. services/carrierOfRecord.ts reads DYNAMODB_VERIFICATIONS_TABLE (and OrgMemberships) but backend/scripts/createTables.mjs only provisions Users/Drivers/Shippers/Receivers/Loads/Offers. Entire post-broadcast lifecycle is unreachable.",
+      "user_story": "As a driver, I need the accept-offer endpoint to resolve carrier-of-record reliably so that I can book loads end-to-end, including on freshly-provisioned environments.",
+      "gherkin": [
+        "Given a freshly-provisioned environment after running createTables.mjs",
+        "And a seeded verified driver with an OFFERED offer",
+        "When the driver POSTs /api/driver/offers/:loadId/accept",
+        "Then the response status is 200",
+        "And the underlying carrier-of-record + verification lookups succeed without ResourceNotFoundException"
+      ],
+      "recommendation": "Extend backend/scripts/createTables.mjs to provision LoadLead_Verifications, LoadLead_Organisations, LoadLead_OrgMemberships, LoadLead_OrgInvitations. Add a boot-time existence check that fails loud if any referenced table is missing."
+    },
+    {
+      "extId": "LOAD-E2E-002",
+      "title": "Security pass-rate 88.3% on negative /api/admin/orgs probes (target 100%)",
+      "priority": "Highest",
+      "severity": "blocker",
+      "test_ids": ["SEC-1", "LL-AC-001", "G5"],
+      "context": "Of 47 negative probes (driver token -> GET /api/admin/orgs), only 36 returned 403; 11 returned non-403. Direct curl probes return 403 cleanly, so the failures were likely 500s during concurrency (FIND-007). Until FIND-001 + FIND-007 are fixed and the run is reproducible with 100% security pass, this remains a blocker.",
+      "user_story": "As a security stakeholder, I need every negative authorization probe to return 403 (or 401) under concurrency so we can prove RBAC holds without exception.",
+      "gherkin": [
+        "Given a DRIVER bearer token",
+        "When the harness performs 100+ concurrent GET /api/admin/orgs requests",
+        "Then 100% of responses are 403 (or 401 for expired)",
+        "And zero responses are 200 or 5xx"
+      ],
+      "recommendation": "Re-run fan-100 after LOAD-E2E-001 + LOAD-E2E-007. If security_check_pass < 100%, audit the requireAdmin middleware path."
+    },
+    {
+      "extId": "LOAD-E2E-003",
+      "title": "Submit drops 28% under 6-VU concurrency",
+      "priority": "High",
+      "severity": "high",
+      "test_ids": ["H1"],
+      "context": "100 drafts succeeded but only 72 submits. Direct probe works. Suspect concurrency on the broadcast/matching service, an idempotency conflict, or a hidden per-shipper rate limit.",
+      "user_story": "As a shipper, I need submit to succeed under realistic dispatch concurrency, not silently drop 28% of submissions.",
+      "gherkin": [
+        "Given 100 valid drafts created by 2 shippers under 6 concurrent VUs",
+        "When each draft is submitted via POST /api/shipper/loads/:loadId/submit",
+        "Then at least 95% of submits return 200",
+        "And dropped submits emit a structured error the client can retry"
+      ],
+      "recommendation": "Instrument the submit handler (counters around broadcast init), add retry-with-backoff on the client, and re-run with 6 VUs."
+    },
+    {
+      "extId": "LOAD-E2E-004",
+      "title": "Driver IN_TRANSIT status endpoint missing",
+      "priority": "Medium",
+      "severity": "medium",
+      "test_ids": ["H3"],
+      "context": "Spec calls for a 6-stage lifecycle (dispatched -> at pickup -> picked up -> in transit -> at delivery -> delivered). Implementation collapses to BOOKED (on accept) -> DELIVERED (on POD). No driver-facing status transition between them. Probe POST /api/driver/loads/:loadId/status returns 404.",
+      "user_story": "As a driver, I need to record in-transit milestones (picked up, in transit, at delivery) so shippers and receivers can track progress in real time.",
+      "gherkin": [
+        "Given a driver with an accepted load",
+        "When the driver POSTs /api/driver/loads/:loadId/status with status=IN_TRANSIT",
+        "Then the response status is 200",
+        "And the load's status field reflects the new state",
+        "And invalid transitions return 400"
+      ],
+      "recommendation": "Add POST /api/driver/loads/:loadId/status with a state-machine validator."
+    },
+    {
+      "extId": "LOAD-E2E-005",
+      "title": "Receiver confirm-delivery endpoint missing",
+      "priority": "Medium",
+      "severity": "medium",
+      "test_ids": ["H4"],
+      "context": "Spec calls for receiver-side delivery confirmation. Today the driver's POD post auto-marks DELIVERED. Receiver has only read-only /api/receiver/incoming. Probe POST /api/receiver/loads/:loadId/confirm returns 404.",
+      "user_story": "As a receiver, I need to confirm receipt of a load so we have a chain-of-custody record independent of the driver's POD claim.",
+      "gherkin": [
+        "Given a load that the driver has marked DELIVERED via POD",
+        "When the receiver POSTs /api/receiver/loads/:loadId/confirm",
+        "Then the response status is 200",
+        "And the load record reflects the receiver's confirmation timestamp + user"
+      ],
+      "recommendation": "Add POST /api/receiver/loads/:loadId/confirm with receiver authZ check."
+    },
+    {
+      "extId": "LOAD-E2E-006",
+      "title": "Matching/broadcast is async with no readiness signal",
+      "priority": "Medium",
+      "severity": "medium",
+      "test_ids": ["H1"],
+      "context": "Drivers had to poll loadboard up to 8x over 1.6s before the matched offer appeared. No event or webhook signals broadcast completion. Makes E2E tests racy and produces a poor UX on fresh post.",
+      "user_story": "As a shipper, when I submit a load I want a deterministic signal that broadcast/matching has completed so my UI can show 'N drivers offered'.",
+      "gherkin": [
+        "Given a shipper submits a load",
+        "When the submit POST returns 200",
+        "Then the response either includes broadcast-completed=true",
+        "Or the shipper can poll GET /api/shipper/loads/:loadId/offers and see a settled count"
+      ],
+      "recommendation": "Either make broadcast synchronous on submit (likely OK at our load) or expose GET /api/shipper/loads/:loadId/offers."
+    },
+    {
+      "extId": "LOAD-E2E-007",
+      "title": "http_req_failed 36% under 6-VU concurrency",
+      "priority": "High",
+      "severity": "high",
+      "test_ids": [],
+      "context": "Over a third of HTTP calls during the 100-iter run failed (timeouts / non-2xx). Most were the 31 accept-500s + 28 dropped submits + 11 non-403 admin probes. Dev backend appears unstable under modest concurrency.",
+      "user_story": "As a platform operator, I need the API to remain healthy under at least 6 concurrent VUs in dev, so E2E and load runs produce signal-bearing data.",
+      "gherkin": [
+        "Given the dev backend running with all required DDB tables",
+        "When 6 VUs drive a 100-iter fan-out",
+        "Then http_req_failed rate stays < 5%",
+        "And no 5xx errors propagate to clients"
+      ],
+      "recommendation": "Add structured error logging on submit + accept; try npm start against dist/ instead of ts-node-dev for the next run."
+    },
+    {
+      "extId": "LOAD-E2E-008",
+      "title": "Auth rate limiter not env-tunable",
+      "priority": "Low",
+      "severity": "low",
+      "test_ids": ["LL-IA-003"],
+      "context": "Hard-coded 15-req/15-min limit blocked E2E harness setup. Required adding a dev-only skip() bypass to backend/src/index.ts to unblock 13+ actor logins in setup().",
+      "user_story": "As a test engineer, I need to tune the auth rate limiter via env in dev/staging without code changes, while keeping production defaults strict.",
+      "gherkin": [
+        "Given RATE_LIMIT_MAX=1000 and RATE_LIMIT_WINDOW_MS=900000 in dev",
+        "When E2E setup performs 13 logins in 200ms",
+        "Then no request returns 429",
+        "And production deploys (APP_ENV=production) ignore the env and keep 15/15min"
+      ],
+      "recommendation": "Expose RATE_LIMIT_MAX + RATE_LIMIT_WINDOW_MS envs, keep current defaults."
+    }
+  ]
+}
