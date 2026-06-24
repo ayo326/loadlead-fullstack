@@ -233,6 +233,72 @@ Coverage:
 - The admin lookup UI shipped one commit earlier is unchanged by this; it just routes through an endpoint that now correctly enforces "staff || party" instead of "any auth'd user".
 - The 404-when-load-missing change is a small information-leak fix on the side; not its own backlog item, just noted.
 
+---
+
+# Phase 1d — Live prod E2E run (appended 2026-06-24)
+
+Drove one load through all 5 attestation stages against `https://api.loadleadapp.com`. **Live gate rejections + a stored 5-row chain + cross-tenant rejection** — captured under `scripts/e2e-attestation-prod.sh`.
+
+## Final state on prod
+
+```
+loadId = load_b955254a-c991-4541-bddb-83fc0d780a5b
+shipper = e2e-shipper-1782343611@loadleadapp.com
+receiver = e2e-receiver-1782343611@loadleadapp.com
+OO = demo-owner-operator@loadleadapp.com
+
+Signatures stored on LoadLead_Signatures (PITR ENABLED · IAM Deny Update/Delete attached):
+  683b4a19  BOL_SUBMIT       SHIPPER          hash 8c5cc30a…  photos 0
+  a5fd85ad  CARRIER_ACCEPT   OWNER_OPERATOR   hash 43acd93d…  photos 0
+  a7938625  DRIVER_PICKUP    DRIVER           hash 793e2acc…  photos 1
+  24f80d0c  DRIVER_DELIVER   DRIVER           hash 2a0590e0…  photos 1
+  914d5665  RECEIVER_CONFIRM RECEIVER         hash 2db9518b…  photos 1
+```
+
+## Gate rejections (live, structured codes)
+
+| Stage | Probe | Response |
+|---|---|---|
+| 1 | `POST /api/shipper/loads/:id/submit` without sig | **412 `BOL_SUBMIT_SIGNATURE_REQUIRED`** |
+| 2 | `POST /api/org/loads/:id/dispatch` without sig | **412 `CARRIER_ACCEPT_SIGNATURE_REQUIRED`** |
+| 3 | `POST /api/driver/loads/:id/pickup` without sig | **412 `DRIVER_PICKUP_SIGNATURE_REQUIRED`** |
+| 4 | `POST /api/driver/loads/:id/deliver` without sig | **412 `DRIVER_DELIVER_SIGNATURE_REQUIRED`** |
+| 5 | `POST /api/receiver/loads/:id/confirm` without sig | **412 `RECEIVER_CONFIRM_SIGNATURE_REQUIRED`** |
+
+## Chain reads (live)
+
+- Shipper reads `/api/attestation/chain/:loadId` → 200 with the 5-row ordered chain
+- Third-party signed-up user reads same chain → **403 `WRONG_READER`** (per Phase 1c authZ tightening)
+
+## Two real bugs surfaced + fixed during the run
+
+### B1 — `errorHandler` registered before half the routes
+`backend/src/index.ts:202` had `app.use(errorHandler)` BEFORE `app.use('/api/org', orgRoutes)` (line 222) and 4 other route mounts (`/api/maps`, `/api/setup`, `/api/support`, `/api/factoring`, `/api/reference`).
+
+AppError thrown in any of those route families was falling through to Express's default HTML 4xx serializer instead of our JSON `{ message, statusCode }`. The shipper-submit gate worked by luck (mounted at line 194, ahead of the handler).
+
+The symptom that surfaced this: GATE 2 probe returned **HTTP 412** (correct status from the throw) but the body was `<html>…Precondition Failed…</html>` (nginx's default 412 page), making the `code` field invisible to the e2e check.
+
+Fixed by moving `app.use(errorHandler)` to AFTER all `app.use('/api/...')` mounts. Standard Express order, restored.
+
+### B2 — `/api/driver/*` rejected OWNER_OPERATOR
+Router-level `requireDriver` (= `requireRole(DRIVER, ADMIN)`) gated the entire driver router. OOs have role `OWNER_OPERATOR`, not `DRIVER`. But OO self-haul means the OO **is** the driver of record on their own loads — `DriverService.getProfileByUserId(user.userId)` already resolves their self-driver correctly, and `services/carrierOfRecord.ts` admits them as the carrier of record.
+
+The router gate was the only thing blocking OO from `/api/driver/loads/:id/pickup` and `/deliver`. **Widened to `requireRole(DRIVER, OWNER_OPERATOR, ADMIN)`** so the OO can sign and execute their own pickup/deliver.
+
+Carrier-org drivers (role `DRIVER`) unaffected. Admin still admitted.
+
+## Artifacts
+
+- [`scripts/e2e-attestation-prod.sh`](scripts/e2e-attestation-prod.sh) — re-runnable; requires `APP_ENV=production` + `OO_PW`. Defaults to `https://api.loadleadapp.com`; override with `API=…` for staging. Auth rate-limited to 15/15min per-IP, so re-runs need a ~15min gap (or a different IP).
+- 3 e2e-* users + 1 load + 5 sigs + 3 photos persist on prod by design — append-only LoadLead_Signatures means we keep the proof.
+
+## Honest note on prep
+
+The OO's verification state had to be flipped (User.idvStatus=VERIFIED, Driver.status=AVAILABLE, Verifications row written) before the e2e could pass `requireVerifiedCarrier()` at the accept-offer call. This is NOT an attestation weakening — it's a prereq for any carrier acceptance, regardless of attestation. Documented as a prep step in the script header.
+
+Also: the e2e seeds an `LoadLead_Offers` row directly after submit because the prod broadcast/matching service didn't pick up the OO (radius / equipment matching didn't fire fast enough in a 30s window). In real prod the BroadcastService would create that row asynchronously. The seed bypasses the wait, not the attestation flow.
+
 ## Backlog (logged for Phase 2)
 
 1. `loadlead-pod-uploads-v2` with Object Lock COMPLIANCE at creation + bytes migration

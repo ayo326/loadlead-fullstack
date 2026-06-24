@@ -6,7 +6,8 @@ import { DriverService } from '../services/driverService';
 import { OfferService } from '../services/offerService';
 import { LoadService } from '../services/loadService';
 import { CapacityService, calcUsableVolume } from '../services/capacityService';
-import { authenticate, requireDriver, AuthRequest } from '../middleware/auth';
+import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
+import { UserRole } from '../types';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { driverValidators } from '../utils/validators';
 import { validate } from '../middleware/validation';
@@ -23,7 +24,12 @@ const POD_BUCKET = process.env.POD_S3_BUCKET || 'loadlead-pod-uploads';
 const router = express.Router();
 
 router.use(authenticate);
-router.use(requireDriver);
+// OWNER_OPERATOR is admitted because their self-driver row makes them the
+// driver of record on their own loads — DriverService.getProfileByUserId
+// already resolves it correctly. Without this, OO self-haul cannot use
+// the per-driver routes (loadboard, pickup, deliver, etc.), which broke
+// the prod attestation e2e on DRIVER_PICKUP.
+router.use(requireRole(UserRole.DRIVER, UserRole.OWNER_OPERATOR, UserRole.ADMIN));
 
 router.post(
   '/profile',
