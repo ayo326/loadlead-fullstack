@@ -78,9 +78,12 @@ export function PushSubscriptionPrompt({ compact = false }: { compact?: boolean 
       if (!publicKey) throw new Error("Server is missing the VAPID public key.");
 
       // Subscribe
+      // PushManager.subscribe expects BufferSource. Newer TS lib.dom typings
+      // narrow Uint8Array to a generic Uint8Array<ArrayBufferLike>; cast to
+      // BufferSource so this stays portable across TS versions.
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
       });
 
       await api.subscribePush(sub.toJSON());

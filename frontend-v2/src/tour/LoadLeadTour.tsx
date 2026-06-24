@@ -20,7 +20,11 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import Shepherd from "shepherd.js";
-import type Tour from "shepherd.js";
+// shepherd.js v14's default export is the Shepherd namespace (with .Tour /
+// .Step / .activeTour); there is no top-level Tour class to import as a type.
+// Derive the Tour instance type from the namespace constructor so call
+// sites can keep `Tour` as a type alias.
+type Tour = InstanceType<typeof Shepherd.Tour>;
 import "shepherd.js/dist/css/shepherd.css";
 import "./tour-theme.css";
 
@@ -610,7 +614,6 @@ function roleToPersona(role: string | undefined): Persona | null {
 }
 
 function buildTour(personaTour: PersonaTour, variant: TourVariant = "dashboard"): Tour {
-  // @ts-expect-error shepherd's default export typing isn't great in v14
   const tour: Tour = new Shepherd.Tour({
     useModalOverlay: true,
     defaultStepOptions,

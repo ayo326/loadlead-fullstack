@@ -37,17 +37,22 @@ export function StatCard({
   value,
   hint,
   trend,
+  icon,
 }: {
   label: string;
   value: string;
   hint?: string;
   trend?: "up" | "down" | "flat";
+  icon?: React.ReactNode;
 }) {
   const trendColor =
     trend === "up" ? "text-success" : trend === "down" ? "text-destructive" : "text-muted-foreground";
   return (
     <div className="rounded-md border border-border bg-card p-5">
-      <div className="text-overline font-mono text-muted-foreground">{label}</div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-overline font-mono text-muted-foreground">{label}</div>
+        {icon && <div className="shrink-0">{icon}</div>}
+      </div>
       <div className="mt-2 font-display text-h1 tabular text-foreground">{value}</div>
       {hint && <div className={`mt-1 text-label ${trendColor}`}>{hint}</div>}
     </div>

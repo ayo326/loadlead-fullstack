@@ -93,12 +93,12 @@ export default function OwnerOperatorDashboard() {
         <div data-tour="oo-verification" className="grid grid-cols-1 sm:grid-cols-3 gap-4" id="oo-stats">
           <StatCard
             label="Active Load Offers"
-            value={loads.length}
+            value={String(loads.length)}
             icon={<Package className="h-5 w-5 text-primary" />}
           />
           <StatCard
             label="Fleet Drivers"
-            value={fleet.length}
+            value={String(fleet.length)}
             icon={<Users className="h-5 w-5 text-primary" />}
           />
           <StatCard
