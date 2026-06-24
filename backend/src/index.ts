@@ -198,8 +198,10 @@ app.use('/api/bol', bolRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/owner-operator', ownerOperatorRoutes);
 
-// Error handler (must be last)
-app.use(errorHandler);
+// Note: errorHandler must be registered AFTER all route mounts.
+// Moved below the second batch of routes (/api/org, /api/setup, etc.)
+// so AppError thrown inside any of them reaches our JSON serializer
+// rather than Express's default HTML 4xx/5xx responder.
 
 // Start server
 // Elastic Beanstalk injects PORT=8080; local dev defaults to 4000
@@ -227,6 +229,11 @@ app.use('/api/reference', referenceRoutes);
 
 // Didit webhook — PUBLIC (no JWT); signature verified inside the handler
 app.post('/api/webhooks/didit', diditWebhookHandler);
+
+// Error handler — registered AFTER all routes so AppError from any router
+// (incl. /api/org which is mounted below the line where this used to live)
+// is JSON-serialized by errorHandler instead of Express's default HTML 4xx.
+app.use(errorHandler);
 
 // ── Test-only routes — guarded dynamic import is the ONLY entry point here.
 // A static `import outboxRoutes from './routes/_test/outbox'` at the top of
