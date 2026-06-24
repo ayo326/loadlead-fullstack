@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { api } from "@/lib/api";
+import { RouteMapCard } from "@/components/RouteMapCard";
 import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
 import { toast } from "sonner";
 import { Combobox, MultiCombobox, AsyncCombobox } from "@/components/ui/combobox";
@@ -603,6 +604,20 @@ export default function PostLoad() {
 
         {/* ── Sidebar ─────────────────────────────────────────────────────── */}
         <aside className="space-y-6">
+          {/* Route preview — same frame as other sidebar Sections. Shows a
+              directions embed once both addresses are typed (re-uses the
+              same RouteMapCard the shipper LoadDetail uses). Clicking the
+              🔍 icon opens the existing fullscreen modal for zoom. */}
+          <Section title="Route preview">
+            <RouteMapCard
+              pickupAddress={pickup ? `${pickup.street}, ${pickup.city}, ${pickup.state} ${pickup.zip}` : null}
+              deliveryAddress={delivery ? `${delivery.street}, ${delivery.city}, ${delivery.state} ${delivery.zip}` : null}
+              currentCity={pickup?.city ?? null}
+              currentState={pickup?.state ?? null}
+              mapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+            />
+          </Section>
+
           <Section title="Broadcast rules">
             <div className="space-y-4">
               <Field label="Radius (miles)">
