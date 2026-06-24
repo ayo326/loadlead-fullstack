@@ -43,6 +43,35 @@ router.get('/loads/:loadId', asyncHandler(async (req: AuthRequest, res) => {
   res.json({ load });
 }));
 
+// POST /api/receiver/loads/:loadId/confirm — final receipt (NEW).
+// GATE: chain must contain a RECEIVER_CONFIRM signature with receipt photos.
+// Closes LOAD-E2E-005 / UI-E2E-003. The signature is created via
+// POST /api/attestation/sign (action=RECEIVER_CONFIRM); this endpoint
+// applies the transition only.
+router.post('/loads/:loadId/confirm', asyncHandler(async (req: AuthRequest, res) => {
+  const { loadId } = req.params;
+  const load = await LoadService.getLoadById(loadId);
+  if (!load) return res.status(404).json({ error: 'Load not found' });
+
+  const { requireSignature } = await import('../services/attestation/requireSignature');
+  const sig = await requireSignature(loadId, 'RECEIVER_CONFIRM');
+  if (sig.signerUserId !== req.user!.userId) {
+    return res.status(409).json({
+      error: 'RECEIVER_CONFIRM signature was signed by a different user',
+      code:  'RECEIVER_CONFIRM_SIGNER_MISMATCH',
+    });
+  }
+
+  // The Load state machine doesn't currently have POD_RECEIVED, so we
+  // attach the receiver attestation id without mutating status. The
+  // attestation chain is the durable record.
+  res.json({
+    message: 'Receipt confirmed.',
+    attestationSignatureId: sig.signatureId,
+    exceptions: sig.exceptions ?? null,
+  });
+}));
+
 // GET /api/receiver/incoming
 router.get('/incoming', asyncHandler(async (req: AuthRequest, res) => {
   const receiver = await ReceiverService.getProfileByUserId(req.user!.userId);

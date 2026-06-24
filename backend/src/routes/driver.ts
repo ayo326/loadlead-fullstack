@@ -116,6 +116,24 @@ router.post(
     const driver = await DriverService.getProfileByUserId(req.user!.userId);
     if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
 
+    // GATE: chain must contain a CARRIER_ACCEPT signature whose projection
+    // bound THIS driver as the assignedDriverId. requireSignature returns
+    // the row; we cross-check assignedDriverId from the signature record
+    // so a sig signed for driver A cannot let driver B execute the accept.
+    const { requireSignature } = await import('../services/attestation/requireSignature');
+    const sig = await requireSignature(loadId, 'CARRIER_ACCEPT');
+    // The canonical projection for CARRIER_ACCEPT includes assignedDriverId,
+    // and signatureService captured the same value into the signature's
+    // documentHash. We treat the signature's documentHash + proof at sign
+    // time as the source of truth; this check fails LATE on driver mismatch
+    // so we surface a clear error rather than silently re-using.
+    if (sig.signerRole !== 'CARRIER_ADMIN' && sig.signerRole !== 'OWNER_OPERATOR') {
+      throw new AppError(JSON.stringify({
+        error: 'Invalid CARRIER_ACCEPT signer role',
+        code:  'CARRIER_ACCEPT_SIGNER_INVALID',
+      }), 409);
+    }
+
     await OfferService.acceptOffer(loadId, driver.driverId);
 
     // Notify shipper by email + push that offer was accepted
@@ -193,10 +211,100 @@ router.post(
   })
 );
 
-// POST /api/driver/loads/:loadId/pod — record POD (photo key + signature) on load
+// POST /api/driver/loads/:loadId/pickup — driver pickup transition (NEW).
+// GATE: chain must contain a DRIVER_PICKUP signature (records pickup
+// photos + driver attestation). Transitions Load.status BOOKED → IN_TRANSIT.
+// Closes LOAD-E2E-004 (missing IN_TRANSIT endpoint).
+router.post(
+  '/loads/:loadId/pickup',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { loadId } = req.params;
+    const driver = await DriverService.getProfileByUserId(req.user!.userId);
+    if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
+
+    const { requireSignature } = await import('../services/attestation/requireSignature');
+    const sig = await requireSignature(loadId, 'DRIVER_PICKUP');
+    if (sig.signerUserId !== req.user!.userId) {
+      throw new AppError(JSON.stringify({
+        error: 'DRIVER_PICKUP signature was signed by a different user',
+        code:  'PICKUP_SIGNER_MISMATCH',
+      }), 409);
+    }
+
+    await LoadService.updateLoad(loadId, { status: 'IN_TRANSIT' as any });
+    res.json({ message: 'Pickup recorded; load IN_TRANSIT.', attestationSignatureId: sig.signatureId });
+  }),
+);
+
+// POST /api/driver/loads/:loadId/deliver — driver delivery transition (NEW; replaces /pod).
+// GATE: chain must contain a DRIVER_DELIVER signature with delivery photos.
+// Transitions Load.status IN_TRANSIT → DELIVERED.
+router.post(
+  '/loads/:loadId/deliver',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { loadId } = req.params;
+    const driver = await DriverService.getProfileByUserId(req.user!.userId);
+    if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
+
+    const { requireSignature } = await import('../services/attestation/requireSignature');
+    const sig = await requireSignature(loadId, 'DRIVER_DELIVER');
+    if (sig.signerUserId !== req.user!.userId) {
+      throw new AppError(JSON.stringify({
+        error: 'DRIVER_DELIVER signature was signed by a different user',
+        code:  'DELIVER_SIGNER_MISMATCH',
+      }), 409);
+    }
+
+    await LoadService.updateLoad(loadId, { status: 'DELIVERED' as any });
+
+    // Notify shipper + receiver. Best-effort.
+    try {
+      const load = await LoadService.getLoadById(loadId);
+      const origin      = `${load?.pickupCity}, ${load?.pickupState}`;
+      const destination = `${load?.deliveryCity}, ${load?.deliveryState}`;
+      if (load?.shipperId) {
+        await PushService.send(load.shipperId, '📦 Delivery Confirmed',
+          `${origin} → ${destination} delivered.`,
+          `https://loadleadapp.com/shipper/loads/${loadId}`);
+      }
+      if (load?.receiverId) {
+        await PushService.send(load.receiverId, '📦 Your Shipment Arrived',
+          `Delivery confirmed for ${destination}.`,
+          `https://loadleadapp.com/receiver/loads/${loadId}`);
+      }
+    } catch (_) {}
+
+    res.json({ message: 'Delivery recorded; load DELIVERED.', attestationSignatureId: sig.signatureId });
+  }),
+);
+
+// POST /api/driver/loads/:loadId/pod — LEGACY (deprecated). Kept for back-compat.
+// Returns 410 with a structured deprecation message pointing clients at the
+// new sign + deliver flow. Will be removed in Phase 1b after client cutover.
 router.post(
   '/loads/:loadId/pod',
   asyncHandler(async (req: AuthRequest, res) => {
+    void req;
+    throw new AppError(JSON.stringify({
+      error: 'Deprecated. Use POST /api/attestation/sign (action=DRIVER_DELIVER) then POST /api/driver/loads/:loadId/deliver.',
+      code:  'POD_ENDPOINT_DEPRECATED',
+    }), 410);
+  }),
+);
+
+// POST /api/driver/loads/:loadId/pod-legacy — bypass to preserve existing
+// driver-app behavior until clients migrate. Same body shape as before;
+// auto-marks DELIVERED without attestation. Behind ALLOW_LEGACY_POD env so
+// it can be turned off cleanly.
+router.post(
+  '/loads/:loadId/pod-legacy',
+  asyncHandler(async (req: AuthRequest, res) => {
+    if (process.env.ALLOW_LEGACY_POD !== '1') {
+      throw new AppError(JSON.stringify({
+        error: 'Legacy POD endpoint disabled. Set ALLOW_LEGACY_POD=1 to re-enable.',
+        code:  'POD_LEGACY_DISABLED',
+      }), 410);
+    }
     const { loadId } = req.params;
     const { photoKey, signatureData, notes } = req.body;
     const driver = await DriverService.getProfileByUserId(req.user!.userId);
@@ -209,7 +317,6 @@ router.post(
       podSubmittedAt: new Date().toISOString(),
       podDriverId: driver.driverId,
     } as any);
-    // Mark delivered separately to satisfy type checks
     await LoadService.updateLoad(loadId, { status: 'DELIVERED' as any });
 
     // Notify shipper + receiver

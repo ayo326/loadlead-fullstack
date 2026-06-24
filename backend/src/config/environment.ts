@@ -33,6 +33,12 @@ export const config = {
     orgsTable: process.env.DYNAMODB_ORGS_TABLE || 'LoadLead_Organizations',
     membershipsTable: process.env.DYNAMODB_MEMBERSHIPS_TABLE || 'LoadLead_Memberships',
     invitationsTable: process.env.DYNAMODB_INVITATIONS_TABLE || 'LoadLead_Invitations',
+    // Attestation chain — append-only, IAM-deny-update/delete, attribute_not_exists Put.
+    signaturesTable: process.env.DYNAMODB_SIGNATURES_TABLE || 'LoadLead_Signatures',
+    // Pod photo finalize step records contentHash + stage; same DDB row as the
+    // photo metadata. Same table as load attachments in the long run; isolated
+    // for now so app reads stay simple.
+    podPhotosTable: process.env.DYNAMODB_POD_PHOTOS_TABLE || 'LoadLead_PodPhotos',
   },
 
   jwt: {

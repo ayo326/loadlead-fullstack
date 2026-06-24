@@ -90,13 +90,74 @@ router.post('/loads/draft', asyncHandler(requireProfile), validate(loadValidator
   res.status(201).json({ load });
 }));
 
+// POST /api/shipper/loads/:loadId/sign — record the shipper's BOL_SUBMIT attestation.
+//
+// Phase-1 gate: NO broadcast until this signature exists. Wired via
+// hasSignature() in the submit handler below; this endpoint is the only
+// way to satisfy the precondition.
+router.post('/loads/:loadId/sign', asyncHandler(async (req: AuthRequest, res) => {
+  const { loadId } = req.params;
+  const { load, shipper } = await requireOwnLoad(req.user!.userId, loadId);
+
+  const { signatureType, signatureData, consentGiven, photoIds } = req.body ?? {};
+  if (consentGiven !== true) {
+    throw new AppError(JSON.stringify({ error: 'CONSENT_REQUIRED', code: 'CONSENT_REQUIRED' }), 400);
+  }
+  if (!signatureType || !signatureData) {
+    throw new AppError(JSON.stringify({ error: 'signatureType + signatureData required', code: 'SIG_DATA_REQUIRED' }), 400);
+  }
+
+  const { assertSignerIsLoadParty } = await import('../services/attestation/assertSignerIsLoadParty');
+  const { recordSignature } = await import('../services/attestation/signatureService');
+  const { listReadyPhotos } = await import('../services/attestation/podPhotoService');
+
+  // Resolver-based authZ: NO denormalized signer field. Fails 403 on wrong party.
+  const resolution = await assertSignerIsLoadParty(load, 'BOL_SUBMIT', req.user!.userId);
+
+  // Origin photos for BOL_SUBMIT are OPTIONAL — load the READY-only set.
+  const photos = photoIds?.length
+    ? (await listReadyPhotos(loadId, 'ORIGIN')).filter((p) => photoIds.includes(p.photoId))
+    : [];
+
+  const sig = await recordSignature({
+    load,
+    action: 'BOL_SUBMIT',
+    signerUserId:  req.user!.userId,
+    signerRole:    resolution.signerRole,
+    signatureType, signatureData,
+    consentGiven:  true,
+    ipAddress:     req.ip,
+    userAgent:     req.get('user-agent') ?? undefined,
+    shipperOrgId:  resolution.signerOrgId ?? null,
+    shipperUserId: shipper.userId,
+    photos,
+  });
+
+  res.status(201).json({ signatureId: sig.signatureId, documentHash: sig.documentHash, signedAt: sig.signedAt });
+}));
+
 // POST /api/shipper/loads/:loadId/submit
+//
+// Gate: shipper must have signed BOL_SUBMIT for this load. The signature
+// chain (Signatures table, GSI loadId-signedAt-index) is checked here; no
+// signature => 412 rejection with a structured code.
 router.post('/loads/:loadId/submit', asyncHandler(async (req: AuthRequest, res) => {
   const { loadId } = req.params;
   await requireOwnLoad(req.user!.userId, loadId);   // ← ownership check
 
+  // Gate: chain must contain a BOL_SUBMIT signature.
+  const { getChain } = await import('../services/attestation/signatureService');
+  const chain = await getChain(loadId);
+  const submitSig = chain.find((s) => s.action === 'BOL_SUBMIT');
+  if (!submitSig) {
+    throw new AppError(
+      JSON.stringify({ error: 'SIGNATURE_REQUIRED: BOL_SUBMIT signature is required to broadcast', code: 'BOL_SUBMIT_SIGNATURE_REQUIRED' }),
+      412,
+    );
+  }
+
   await LoadService.submitLoad(loadId);
-  res.json({ message: 'Load submitted and broadcast initiated' });
+  res.json({ message: 'Load submitted and broadcast initiated', attestationSignatureId: submitSig.signatureId });
 }));
 
 // GET /api/shipper/loads
