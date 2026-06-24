@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { RouteMapCard } from "@/components/RouteMapCard";
+import { AttestationChain } from "@/components/attestation/AttestationChain";
 
 // ── Reusable helpers (matches the Owner Operator settings pattern) ───────────
 
@@ -338,17 +341,191 @@ function DriversTab({ orgId }: { orgId: string }) {
 
 // ── Dispatch tab — placeholder, no load-posting logic exists for carriers yet ─
 
-function DispatchTab() {
+// ── Dispatch tab — real implementation ───────────────────────────────────────
+// Lists the org's loads (tendered offers + assigned/in-transit) so a
+// carrier-admin / dispatcher can see at a glance what's in flight. Each row
+// opens a detail dialog with a RouteMapCard so the lane is visible without
+// leaving the dashboard. The dialog also wires through to the read-only
+// AttestationChain panel — handy for confirming the carrier signing chain
+// is complete before paying.
+
+function DispatchTab({ orgId }: { orgId: string }) {
+  const [data, setData]       = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [openLoad, setOpenLoad] = useState<null | {
+    loadId: string;
+    origin?: { city?: string; state?: string };
+    dest?:   { city?: string; state?: string };
+    commodity?: string; equipment?: string; payout?: number; status?: string;
+  }>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    api.getCarrierDashboard(orgId)
+      .then(setData)
+      .catch(() => toast.error("Could not load dispatch board."))
+      .finally(() => setLoading(false));
+  }, [orgId]);
+
+  if (loading) {
+    return (
+      <SectionCard>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading dispatch board…
+        </div>
+      </SectionCard>
+    );
+  }
+
+  const tendered: any[]   = data?.loadboard?.tendered ?? [];
+  const unassigned: any[] = data?.alerts?.unassigned ?? [];
+  const activeCounts      = data?.alerts?.activeLoads ?? {};
+  const drivers: any[]    = data?.fleet?.drivers ?? [];
+
+  // Build the per-row dispatch list. Tendered offers + unassigned loads.
+  // We avoid double-listing if a loadId appears in both arrays.
+  const rows = [
+    ...tendered.map((t) => ({
+      kind: 'TENDERED' as const,
+      loadId: t.loadId,
+      origin: t.origin,
+      dest:   t.dest,
+      commodity: t.commodity,
+      equipment: t.equipment,
+      payout: t.payout,
+      driverId: t.driverId,
+      expiresAt: t.expiresAt,
+    })),
+    ...unassigned
+      .filter((u) => !tendered.find((t) => t.loadId === u.loadId))
+      .map((u) => ({
+        kind: 'UNASSIGNED' as const,
+        loadId: u.loadId,
+        origin: u.pickup,
+        dest:   u.delivery,
+        payout: u.rate,
+      })),
+  ];
+
   return (
     <SectionCard>
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Load Dispatch</p>
-      <div className="flex flex-col items-center py-8 text-muted-foreground gap-2">
-        <Truck className="h-8 w-8 opacity-40" />
-        <p className="text-sm text-center max-w-sm">
-          Loads broadcast to your verified drivers will appear here once your company verification is complete and
-          drivers are onboarded.
-        </p>
+      <div className="flex items-baseline justify-between mb-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dispatch</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {drivers.length} driver{drivers.length === 1 ? '' : 's'} ·{" "}
+            {activeCounts.BOOKED ?? 0} booked ·{" "}
+            {activeCounts.IN_TRANSIT ?? 0} in transit ·{" "}
+            {activeCounts.DELIVERED ?? 0} delivered
+          </p>
+        </div>
       </div>
+
+      {rows.length === 0 ? (
+        <div className="flex flex-col items-center py-8 text-muted-foreground gap-2">
+          <Truck className="h-8 w-8 opacity-40" />
+          <p className="text-sm text-center max-w-sm">
+            No tendered loads. Loads broadcast to your verified drivers will
+            appear here as they arrive.
+          </p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-border rounded border border-border">
+          {rows.map((r) => (
+            <li key={`${r.kind}-${r.loadId}-${(r as any).driverId ?? ''}`}>
+              <button
+                onClick={() => setOpenLoad({
+                  loadId: r.loadId,
+                  origin: r.origin, dest: r.dest,
+                  commodity: (r as any).commodity, equipment: (r as any).equipment,
+                  payout: r.payout, status: r.kind,
+                })}
+                className="w-full text-left px-3 py-2.5 hover:bg-muted/40 transition-colors flex items-center gap-3"
+              >
+                <span className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded ${
+                  r.kind === 'TENDERED'
+                    ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                }`}>
+                  {r.kind}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">
+                    {r.origin?.city ?? '—'}, {r.origin?.state ?? '—'}{' → '}
+                    {r.dest?.city ?? '—'}, {r.dest?.state ?? '—'}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {(r as any).commodity ?? 'commodity TBD'}
+                    {(r as any).equipment ? ` · ${(r as any).equipment}` : ''}
+                    {r.payout ? ` · $${Number(r.payout).toLocaleString()}` : ''}
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {r.loadId.slice(-6)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Load detail dialog — map + key fields + read-only attestation chain */}
+      <Dialog open={openLoad !== null} onOpenChange={(o) => { if (!o) setOpenLoad(null); }}>
+        <DialogContent className="max-w-3xl">
+          {openLoad && (
+            <div className="space-y-4">
+              <div className="flex items-baseline justify-between">
+                <h2 className="text-lg font-semibold">
+                  {openLoad.origin?.city ?? '—'} → {openLoad.dest?.city ?? '—'}
+                </h2>
+                <span className="text-xs text-muted-foreground font-mono">{openLoad.loadId}</span>
+              </div>
+
+              {/* Route preview — uses the same RouteMapCard the rest of the app
+                  uses. The expand button opens its own fullscreen modal. */}
+              <RouteMapCard
+                pickupAddress={openLoad.origin?.city
+                  ? `${openLoad.origin.city}, ${openLoad.origin.state ?? ''}`
+                  : null}
+                deliveryAddress={openLoad.dest?.city
+                  ? `${openLoad.dest.city}, ${openLoad.dest.state ?? ''}`
+                  : null}
+                currentCity={openLoad.origin?.city ?? null}
+                currentState={openLoad.origin?.state ?? null}
+                mapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+              />
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground">Status</div>
+                  <div className="font-medium">{openLoad.status}</div>
+                </div>
+                {openLoad.commodity && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Commodity</div>
+                    <div className="font-medium">{openLoad.commodity}</div>
+                  </div>
+                )}
+                {openLoad.equipment && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Equipment</div>
+                    <div className="font-medium">{openLoad.equipment}</div>
+                  </div>
+                )}
+                {openLoad.payout && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Payout</div>
+                    <div className="font-medium">${Number(openLoad.payout).toLocaleString()}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Attestation chain — read-only, shows who has signed what */}
+              <AttestationChain loadId={openLoad.loadId} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </SectionCard>
   );
 }
@@ -442,7 +619,7 @@ export default function CarrierDashboard() {
           <TabsContent value="overview"><CarrierDashboardView orgId={orgId} /></TabsContent>
           <TabsContent value="verification"><VerificationTab orgId={orgId} /></TabsContent>
           <TabsContent value="drivers"><DriversTab orgId={orgId} /></TabsContent>
-          <TabsContent value="dispatch"><DispatchTab /></TabsContent>
+          <TabsContent value="dispatch"><DispatchTab orgId={orgId} /></TabsContent>
         </div>
       </Tabs>
     </div>
