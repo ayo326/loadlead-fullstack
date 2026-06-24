@@ -116,6 +116,71 @@ POST /api/driver/loads/x/pod  → 401  (route exists; auth gate fires before 410
 
 (401 from unauth probes is the expected response: the routes exist and auth middleware fires before route logic. Live gate-rejection proofs with an authed user are deferred to the Phase-1b end-to-end run once we have prod test data; the unit tests prove the gate code paths exhaustively.)
 
+---
+
+# Phase 1b — Dispatcher view + matrix-driven sign authority (appended 2026-06-24)
+
+## What shipped
+
+### Carrier dispatcher CARRIER_ACCEPT path
+Carrier-admin (and now DISPATCHER) can sign + assign from the Dispatch dialog directly, instead of waiting for the driver to self-accept.
+
+| Surface | Change |
+|---|---|
+| `Signature` model | Added top-level `assignedDriverId?` field (CARRIER_ACCEPT only). Still bound into the canonical `documentHash` via the projection input; the two MUST agree at write time. Top-level field exists so the dispatch endpoint can query it without re-hashing. |
+| `services/attestation/signatureService.recordSignature` | Persists `input.assignedDriverId` onto the row. |
+| `POST /api/org/loads/:loadId/dispatch` | **NEW.** Reads the latest CARRIER_ACCEPT sig for the load; rejects with structured codes if signer mismatch / signer role wrong / sig missing assignedDriverId / no sig at all; otherwise calls `OfferService.acceptOffer(loadId, sig.assignedDriverId)`. **Takes no `assignedDriverId` body parameter** — the driver comes from the sig, so a booking can never reference a driver the sig didn't cover. |
+| `CarrierDashboard / DispatchTab` | New "Assign + sign acceptance" card inside the per-load dialog. Driver dropdown lists every active org driver with availability + IDV status. "Sign acceptance" opens the AttestationDialog → on signed → `api.dispatchLoad` → dashboard refresh. |
+
+### Permissions-matrix–driven sign authority (CONSTRAINT 1 hardening)
+
+The original Phase-1 code hard-coded `ADMIN_ORG_ROLES` (`OWNER + MANAGER`) for org-side sign fan-out. That excluded DISPATCHER from CARRIER_ACCEPT, which is the role's entire purpose (`'loads:accept'` is already in their matrix row, and `'drivers:dispatch'` defines them).
+
+`services/attestation/assertSignerIsLoadParty.ts` now asks the **existing permissions matrix** (`services/orgPermissions.ts`) — not a hand-curated role list:
+
+| Action | Permission key | Roles |
+|---|---|---|
+| `BOL_SUBMIT` | `'loads:create'` | OWNER + MANAGER + DISPATCHER + SHIPPER_USER |
+| `CARRIER_ACCEPT` | `'loads:accept'` | OWNER + MANAGER + DISPATCHER |
+| (other actions) | — | resolved as before (assigned driver, receiver entity, etc.) |
+
+**The matrix is the source of truth.** When authority shifts (e.g., adding a CFO role with billing-only access), updating the matrix automatically flows to attestation authority — no separate change in the resolver. A defensive regression test asserts `ADMIN_ORG_ROLES` is no longer imported by `assertSignerIsLoadParty.ts` so this can't quietly regress.
+
+### Dispatch endpoint gate rejections (server-enforced)
+
+| Failure mode | Code | HTTP |
+|---|---|---|
+| No CARRIER_ACCEPT sig in chain | `CARRIER_ACCEPT_SIGNATURE_REQUIRED` | 412 |
+| Different user calling than the one who signed | `DISPATCH_SIGNER_MISMATCH` | 409 |
+| Signer role is neither CARRIER_ADMIN nor OWNER_OPERATOR | `CARRIER_ACCEPT_SIGNER_INVALID` | 409 |
+| Signature has no `assignedDriverId` | `SIGNATURE_MISSING_ASSIGNMENT` | 409 |
+| Body manipulation tries to override driver | not possible — endpoint takes no body param for `assignedDriverId` |
+
+### Tests added
+
+```
+✓ tests/unit/attestation/orgSignAuthority.test.ts        4 tests   (CONSTRAINT 1 extension)
+─────────────────────────────────────────────────────────────────────
+  Test Files  5 passed (5) · Tests  25 passed (25) · 188 ms
+```
+
+Coverage of the new tests:
+- `loads:accept` permission held by OWNER + MANAGER + DISPATCHER (positive)
+- `loads:accept` denied to ORG_DRIVER / SHIPPER_USER / RECEIVER_USER (negative)
+- `loads:create` allowed for shipper-side fan-out
+- `assertSignerIsLoadParty.ts` no longer imports `ADMIN_ORG_ROLES` (regression guard)
+
+### Live deploy proof
+
+```
+EB env loadlead-backend-prod  : Ready / Green @ t+3min
+POST /api/org/loads/probe/dispatch → 401  (route exists; auth fires)
+```
+
+### Honest note
+
+The new endpoint is part of `org.ts` and depends on the EB instance role having access to `LoadLead_Signatures` (Allow Put/Get/Query — already attached as part of `LoadLead-Signatures-AppendOnly` Phase-1 policy) and `LoadLead_Memberships`/`LoadLead_Loads`/`LoadLead_Offers` (pre-existing). No new IAM grants required.
+
 ## Backlog (logged for Phase 2)
 
 1. `loadlead-pod-uploads-v2` with Object Lock COMPLIANCE at creation + bytes migration

@@ -5,13 +5,18 @@
 // computed live every call so reassignments (driver swap, membership
 // change, ownership transfer) are honored immediately.
 //
-// Org-side parties (shipper org, carrier org): any member with signing
-// authority (ADMIN_ORG_ROLES = OWNER | MANAGER) may sign on behalf of
-// the org. The exact user who signed is recorded as signerUserId.
+// Org-side parties (shipper org, carrier org): any member with the
+// matching permission in the org permissions matrix may sign on behalf
+// of the org. The exact user who signed is recorded as signerUserId.
+// Per-action permission keys:
+//   BOL_SUBMIT     → 'loads:create'  (OWNER + MANAGER + DISPATCHER + SHIPPER_USER)
+//   CARRIER_ACCEPT → 'loads:accept'  (OWNER + MANAGER + DISPATCHER)
+// Source of truth: services/orgPermissions.ts. Do NOT hard-code role
+// lists here — changes to the matrix should automatically flow.
 //
 // Reuses:
 //   - resolveCarrierOfRecord(driver) — services/carrierOfRecord.ts
-//   - OrgMembership table + ADMIN_ORG_ROLES
+//   - OrgMembership table + hasPermission(matrix)
 //   - DriverService + ShipperService + ReceiverService for entity → userId
 
 import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
@@ -19,7 +24,6 @@ import { docClient } from '../../config/aws';
 import config from '../../config/environment';
 import { AppError } from '../../middleware/errorHandler';
 import {
-  ADMIN_ORG_ROLES,
   Load,
   OrgMembership,
   VerificationEntityType,
@@ -31,6 +35,7 @@ import { ReceiverService } from '../receiverService';
 import { OwnerOperatorService } from '../ownerOperatorService';
 import { resolveCarrierOfRecord } from '../carrierOfRecord';
 import { normalizeOrgRole } from '../../types';
+import { hasPermission, type Permission } from '../orgPermissions';
 
 export interface SignerResolution {
   /** All userIds permitted to sign this action for this load. */
@@ -44,8 +49,21 @@ export interface SignerResolution {
   carrierOfRecordEntityId?:   string;
 }
 
-/** Org members with signing authority (OWNER + MANAGER). */
-async function orgSigningMembers(orgId: string): Promise<string[]> {
+/**
+ * Org members with the named permission. Authoritative source is the
+ * permissions matrix (`services/orgPermissions.ts`), not `ADMIN_ORG_ROLES`.
+ *
+ * Why this matters per-action:
+ *   - BOL_SUBMIT     → permission 'loads:create'  → OWNER + MANAGER + DISPATCHER + SHIPPER_USER
+ *   - CARRIER_ACCEPT → permission 'loads:accept'  → OWNER + MANAGER + DISPATCHER
+ *
+ * DISPATCHER's whole reason for existing is to dispatch loads (`drivers:dispatch`
+ * + `loads:accept` are both in their matrix row). Limiting CARRIER_ACCEPT to
+ * OWNER + MANAGER would force every booking through ownership, defeating the
+ * role. Use the matrix and change the matrix when authority shifts; do NOT
+ * hard-code role lists here.
+ */
+async function orgMembersWithPermission(orgId: string, permission: Permission): Promise<string[]> {
   const res = await docClient.send(new QueryCommand({
     TableName: config.dynamodb.membershipsTable,
     IndexName: 'orgId-index',
@@ -56,7 +74,7 @@ async function orgSigningMembers(orgId: string): Promise<string[]> {
   return members
     .filter((m) => m.status === 'ACTIVE')
     .map((m) => ({ userId: m.userId, role: normalizeOrgRole(m.orgRole) }))
-    .filter((m) => !!m.role && ADMIN_ORG_ROLES.includes(m.role!))
+    .filter((m) => !!m.role && hasPermission(m.role, permission))
     .map((m) => m.userId);
 }
 
@@ -77,7 +95,9 @@ async function resolveBolSubmit(load: Load): Promise<SignerResolution> {
     if (shipper?.userId) allowed.add(shipper.userId);
     if (shipper?.orgId) {
       signerOrgId = shipper.orgId;
-      for (const uid of await orgSigningMembers(shipper.orgId)) allowed.add(uid);
+      // Shipper-org: anyone with permission to create loads can certify
+      // the BOL. Matrix row: OWNER + MANAGER + DISPATCHER + SHIPPER_USER.
+      for (const uid of await orgMembersWithPermission(shipper.orgId, 'loads:create')) allowed.add(uid);
     }
   }
 
@@ -109,7 +129,11 @@ async function resolveCarrierAccept(load: Load, assignedDriverId: string): Promi
     if (oo?.userId) allowed.add(oo.userId);
     signerRole = 'OWNER_OPERATOR';
   } else if (cor.entityType === VerificationEntityType.CARRIER_ORG) {
-    for (const uid of await orgSigningMembers(cor.entityId)) allowed.add(uid);
+    // Carrier-org: anyone with 'loads:accept' permission can sign
+    // CARRIER_ACCEPT. Matrix row: OWNER + MANAGER + DISPATCHER. Lets
+    // dispatchers do their job without forcing every booking through
+    // an OWNER or MANAGER seat.
+    for (const uid of await orgMembersWithPermission(cor.entityId, 'loads:accept')) allowed.add(uid);
     signerOrgId = cor.entityId;
     signerRole = 'CARRIER_ADMIN';
   }
