@@ -389,47 +389,62 @@ export default function CarrierDashboard() {
     );
   }
 
+  // Horizontal-tab pill style. Shared across the four triggers so the
+  // active state stays consistent. `data-tour` anchors preserved so the
+  // onboarding walkthrough + Cypress selectors continue to resolve.
+  const tabPill =
+    "inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium " +
+    "text-muted-foreground hover:text-foreground transition-colors " +
+    "data-[state=active]:bg-card data-[state=active]:text-foreground " +
+    "data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-border";
+
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b bg-card">
-        <div className="max-w-5xl mx-auto px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+      <Tabs defaultValue="overview" className="flex flex-col">
+        {/* Header: title + subtitle + horizontal tab rail. The tabs sit
+            directly above the dashboard content so the page reclaims the
+            horizontal space the old vertical rail occupied. */}
+        <div className="border-b bg-card">
+          <div className="max-w-7xl mx-auto px-6 pt-5 pb-3 flex items-start gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <Building2 className="h-5 w-5 text-primary" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold">{orgName || "Carrier Dashboard"}</h1>
-              <p className="text-sm text-muted-foreground">Signed in as {user?.email}</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-bold truncate">{orgName || "Carrier"}</h1>
+              <p className="text-sm text-muted-foreground truncate">Verification + roster</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="max-w-6xl mx-auto px-6 py-6">
-        <Tabs defaultValue="overview" orientation="vertical" className="flex gap-6">
-          <TabsList data-tour="carrier-company" className="flex flex-col h-auto w-44 shrink-0 rounded-xl bg-secondary p-1 gap-1">
-            <TabsTrigger value="overview" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-              <Activity className="h-4 w-4 mr-2" />Overview
-            </TabsTrigger>
-            <TabsTrigger data-tour="verification-panel" value="verification" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-              <ShieldCheck className="h-4 w-4 mr-2" />Verification
-            </TabsTrigger>
-            <TabsTrigger data-tour="onboard-drivers" value="drivers" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-              <Users className="h-4 w-4 mr-2" />Drivers
-            </TabsTrigger>
-            <TabsTrigger data-tour="load-board" value="dispatch" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-              <Truck className="h-4 w-4 mr-2" />Dispatch
-            </TabsTrigger>
-          </TabsList>
-
-          <div className="flex-1 min-w-0">
-            <TabsContent value="overview"><CarrierDashboardView orgId={orgId} /></TabsContent>
-            <TabsContent value="verification"><VerificationTab orgId={orgId} /></TabsContent>
-            <TabsContent value="drivers"><DriversTab orgId={orgId} /></TabsContent>
-            <TabsContent value="dispatch"><DispatchTab /></TabsContent>
+          <div className="max-w-7xl mx-auto px-6 pb-3">
+            <TabsList
+              data-tour="carrier-company"
+              className="inline-flex h-auto items-center gap-1 rounded-full bg-secondary p-1"
+            >
+              <TabsTrigger value="overview" className={tabPill}>
+                <Activity className="h-4 w-4" />Overview
+              </TabsTrigger>
+              <TabsTrigger data-tour="verification-panel" value="verification" className={tabPill}>
+                <ShieldCheck className="h-4 w-4" />Verification
+              </TabsTrigger>
+              <TabsTrigger data-tour="onboard-drivers" value="drivers" className={tabPill}>
+                <Users className="h-4 w-4" />Drivers
+              </TabsTrigger>
+              <TabsTrigger data-tour="load-board" value="dispatch" className={tabPill}>
+                <Truck className="h-4 w-4" />Dispatch
+              </TabsTrigger>
+            </TabsList>
           </div>
-        </Tabs>
-      </div>
+        </div>
+
+        {/* Tab content area — full width minus the page gutters. The
+            Dispatcher/Exec toggle + Refresh button live inside
+            CarrierDashboardView and remain at the top of the Overview tab. */}
+        <div className="max-w-7xl w-full mx-auto px-6 py-6 flex-1 min-w-0">
+          <TabsContent value="overview"><CarrierDashboardView orgId={orgId} /></TabsContent>
+          <TabsContent value="verification"><VerificationTab orgId={orgId} /></TabsContent>
+          <TabsContent value="drivers"><DriversTab orgId={orgId} /></TabsContent>
+          <TabsContent value="dispatch"><DispatchTab /></TabsContent>
+        </div>
+      </Tabs>
     </div>
   );
 }
