@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { api } from "@/lib/api";
+import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
 import { toast } from "sonner";
 import { Combobox, MultiCombobox, AsyncCombobox } from "@/components/ui/combobox";
 import {
@@ -72,6 +73,11 @@ const emptyAddress = (): AddressFields => ({ street: "", city: "", state: "", zi
 export default function PostLoad() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  // Holds the draft loadId once the form passes validation+create; opens
+  // the BOL_SUBMIT attestation dialog. Cleared on cancel or after broadcast.
+  const [pendingDraft, setPendingDraft] = useState<{ loadId: string; refNo: string } | null>(null);
+
+
   const [geocoding, setGeocoding] = useState<"pickup" | "delivery" | null>(null);
 
   // ─── Taxonomy-driven selectors ───────────────────────────────────────────
@@ -323,9 +329,11 @@ export default function PostLoad() {
         offerTtlMinutes:       60,
       });
 
-      await api.submitLoad(draft.load.loadId);
-      toast.success("Load broadcasting", { description: `${refNo} · drivers being notified` });
-      navigate("/shipper");
+      // Phase-1 attestation gate: open the BOL_SUBMIT attestation block.
+      // The server rejects submitLoad with 412 BOL_SUBMIT_SIGNATURE_REQUIRED
+      // until the signature lands in the chain — so we capture it BEFORE
+      // calling submitLoad. Cancelling leaves the load in DRAFT, safe.
+      setPendingDraft({ loadId: draft.load.loadId, refNo });
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -636,6 +644,35 @@ export default function PostLoad() {
           </Button>
         </aside>
       </form>
+
+      {/* BOL_SUBMIT attestation — captured BEFORE submit. Server gate
+          rejects submitLoad without this signature; we only call it
+          after the AttestationDialog reports success. */}
+      <AttestationDialog
+        open={pendingDraft !== null}
+        onOpenChange={(open) => { if (!open) setPendingDraft(null); }}
+        title="Sign tender to broadcast"
+        subtitle={pendingDraft ? `${pendingDraft.refNo} · draft saved · broadcast requires your signed attestation.` : undefined}
+        loadId={pendingDraft?.loadId ?? ""}
+        action="BOL_SUBMIT"
+        attestationText={ATTESTATION_TEXT.BOL_SUBMIT}
+        attestationVersion={ATTESTATION_VERSION}
+        stage="ORIGIN"
+        requirePhotos={false}
+        onSigned={async (sig) => {
+          if (!pendingDraft) return;
+          try {
+            await api.submitLoad(pendingDraft.loadId);
+            toast.success("Load broadcasting", {
+              description: `${pendingDraft.refNo} · attestation ${sig.signatureId.slice(0, 8)}…`,
+            });
+            setPendingDraft(null);
+            navigate("/shipper");
+          } catch (e: any) {
+            toast.error(e?.message ?? "Broadcast failed");
+          }
+        }}
+      />
     </>
   );
 }

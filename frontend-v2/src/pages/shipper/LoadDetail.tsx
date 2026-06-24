@@ -7,6 +7,7 @@ import {
 import { PageHeader, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { RouteMapCard } from "@/components/RouteMapCard";
+import { AttestationChain } from "@/components/attestation/AttestationChain";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -268,6 +269,9 @@ export default function ShipperLoadDetail() {
             <Row label="Reference #" value={load.referenceNumber} />
             <Row label="Status" value={<StatusPill status={load.status} />} />
           </Section>
+
+          {/* Read-only attestation chain — visible to the load's parties + admin. */}
+          <AttestationChain loadId={load.loadId} />
         </aside>
       </div>
     </>

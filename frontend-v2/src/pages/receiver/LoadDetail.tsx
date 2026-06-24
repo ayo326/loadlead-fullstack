@@ -6,9 +6,28 @@ import {
 } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
+import { AttestationChain } from "@/components/attestation/AttestationChain";
 import { api } from "@/lib/api";
 import { receiverShipments } from "@/lib/mockData";
 import { toast } from "sonner";
+
+// Phase-1 transition helper (call /api/receiver/loads/:id/confirm).
+async function postConfirm(loadId: string) {
+  const apiUrl = (import.meta as any).env?.VITE_API_URL ?? "";
+  const res = await fetch(`${apiUrl}/api/receiver/loads/${loadId}/confirm`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const j = await res.json(); msg = j.error ?? msg; } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+  return res.json();
+}
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -35,6 +54,7 @@ export default function LoadDetail() {
   const navigate = useNavigate();
   const [load, setLoad] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!loadId) return;
@@ -215,8 +235,40 @@ export default function LoadDetail() {
             <Row label="Reference #" value={load.referenceNumber} />
             <Row label="Shipper" value={load.shipperName} />
           </Section>
+
+          {load.status === 'DELIVERED' && (
+            <Button size="lg" className="w-full" onClick={() => setConfirmOpen(true)}>
+              Confirm receipt
+            </Button>
+          )}
+
+          {/* Read-only attestation chain */}
+          <AttestationChain loadId={load.loadId} />
         </aside>
       </div>
+
+      <AttestationDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Sign receipt attestation"
+        subtitle={load.referenceNumber}
+        loadId={load.loadId}
+        action="RECEIVER_CONFIRM"
+        attestationText={ATTESTATION_TEXT.RECEIVER_CONFIRM}
+        attestationVersion={ATTESTATION_VERSION}
+        stage="RECEIPT"
+        requirePhotos={true}
+        allowExceptions={true}
+        onSigned={async () => {
+          try {
+            await postConfirm(load.loadId);
+            toast.success("Receipt confirmed.");
+            setConfirmOpen(false);
+          } catch (e: any) {
+            toast.error(e?.message ?? "Confirmation failed");
+          }
+        }}
+      />
     </>
   );
 }

@@ -213,6 +213,57 @@ export const api = {
     return request<{ loads: any[] }>("GET", `/shipper/loads${params ? `?${params}` : ''}`);
   },
 
+  // ── Attestation (Phase 1) ───────────────────────────────────────────────
+  // Stage-aware presigned URL → client PUTs to S3 → finalize records the
+  // server-computed contentHash. Only READY photos can be referenced by a
+  // signature; PENDING/missing photos cause the server to reject signing.
+  attestationPhotoUploadUrl: (data: {
+    loadId: string;
+    stage: 'ORIGIN' | 'PICKUP' | 'DELIVERY' | 'RECEIPT';
+    contentType?: string;
+    lat?: number; lng?: number;
+    capturedAt?: string;
+  }) => request<{ photoId: string; s3Key: string; uploadUrl: string; expiresIn: number }>(
+    "POST", "/attestation/photos/upload-url", data,
+  ),
+  attestationFinalizePhoto: (photoId: string) =>
+    request<{ photoId: string; contentHash: string; status: 'READY' | 'PENDING' }>(
+      "POST", `/attestation/photos/${photoId}/finalize`,
+    ),
+  attestationSign: (data: {
+    loadId: string;
+    action: 'BOL_SUBMIT' | 'CARRIER_ACCEPT' | 'DRIVER_PICKUP' | 'DRIVER_DELIVER' | 'RECEIVER_CONFIRM';
+    signatureType: 'typed' | 'drawn' | 'click';
+    signatureData: string;
+    consentGiven: true;
+    photoIds?: string[];
+    exceptions?: { code: 'OSD' | 'DAMAGE' | 'SHORT' | 'REFUSED' | 'OTHER'; description: string };
+    actualAt?: string;
+    geo?: { lat: number; lng: number };
+    assignedDriverId?: string;
+  }) => request<{
+    signatureId: string;
+    documentHash: string;
+    signedAt: string;
+    canonicalSchemaVersion: string;
+    attestationVersion: string;
+  }>("POST", "/attestation/sign", data),
+  attestationChain: (loadId: string) => request<{
+    loadId: string;
+    chain: Array<{
+      signatureId: string;
+      action: string;
+      signerUserId: string;
+      signerRole: string;
+      signedAt: string;
+      documentHash: string;
+      proofPhotoIds: string[];
+      attestationVersion: string;
+      canonicalSchemaVersion: string;
+      exceptions?: { code: string; description: string };
+    }>;
+  }>("GET", `/attestation/chain/${loadId}`),
+
   // Bill of Lading
   getBOLByLoadId: (loadId: string) => request<{ bol: any }>("GET", `/bol/load/${loadId}`),
   getBOL: (bolId: string) => request<{ bol: any }>("GET", `/bol/${bolId}`),

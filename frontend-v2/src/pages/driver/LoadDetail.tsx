@@ -7,8 +7,28 @@ import {
 import { PageHeader, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Countdown } from "@/components/Countdown";
+import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
+import { AttestationChain } from "@/components/attestation/AttestationChain";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+
+// New transition endpoints (post-Phase-1 server). Wrapper here keeps
+// the per-page wiring small.
+async function postJson(path: string, body: unknown = {}) {
+  const apiUrl = (import.meta as any).env?.VITE_API_URL ?? "";
+  const res = await fetch(`${apiUrl}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const j = await res.json(); msg = j.error ?? msg; } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+  return res.json();
+}
 
 function Row({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
@@ -38,6 +58,10 @@ export default function DriverLoadDetail() {
   const [offer, setOffer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  // Phase-1 attestation dialog state. Each lifecycle action opens the
+  // same neutral block with a different `action` prop. The transition
+  // endpoint is server-gated to fail without the matching signature.
+  const [attestation, setAttestation] = useState<null | 'CARRIER_ACCEPT' | 'DRIVER_PICKUP' | 'DRIVER_DELIVER'>(null);
 
   useEffect(() => {
     if (!loadId) return;
@@ -47,19 +71,33 @@ export default function DriverLoadDetail() {
       .finally(() => setLoading(false));
   }, [loadId]);
 
-  const accept = async () => {
+  // Tail-action handlers — after the attestation lands the transition endpoint fires.
+  const onAttestationSigned = async (action: 'CARRIER_ACCEPT' | 'DRIVER_PICKUP' | 'DRIVER_DELIVER') => {
     if (!loadId) return;
-    setActing(true);
     try {
-      await api.acceptOffer(loadId);
-      toast.success("Load accepted! It's yours.");
-      navigate("/driver");
+      if (action === 'CARRIER_ACCEPT') {
+        await api.acceptOffer(loadId);
+        toast.success("Load accepted! It's yours.");
+        navigate("/driver");
+      } else if (action === 'DRIVER_PICKUP') {
+        await postJson(`/api/driver/loads/${loadId}/pickup`);
+        toast.success("Pickup recorded · load in transit.");
+        setAttestation(null);
+        // refetch so the UI reflects IN_TRANSIT
+        const r = await api.getDriverOffer(loadId); setLoad(r.load); setOffer(r.offer);
+      } else if (action === 'DRIVER_DELIVER') {
+        await postJson(`/api/driver/loads/${loadId}/deliver`);
+        toast.success("Delivery recorded · load delivered.");
+        setAttestation(null);
+        const r = await api.getDriverOffer(loadId); setLoad(r.load); setOffer(r.offer);
+      }
     } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setActing(false);
+      toast.error(e?.message ?? `${action} failed`);
     }
   };
+
+  // Replace the old single-call accept with attestation-gated flow.
+  const accept = () => setAttestation('CARRIER_ACCEPT');
 
   const decline = async () => {
     if (!loadId) return;
@@ -259,8 +297,55 @@ export default function DriverLoadDetail() {
               </Button>
             </div>
           )}
+
+          {/* Lifecycle transitions for an accepted load. Each opens the
+              same neutral AttestationBlock with a different action. The
+              server transition endpoints (/pickup, /deliver) reject
+              without the matching signature, so cancelling here cleanly
+              keeps the load in its previous state. */}
+          {!offerActive && load.assignedDriverId && (
+            <div className="flex flex-col gap-2">
+              {load.status === 'BOOKED' && (
+                <Button size="lg" className="w-full" onClick={() => setAttestation('DRIVER_PICKUP')}>
+                  Mark picked up
+                </Button>
+              )}
+              {load.status === 'IN_TRANSIT' && (
+                <Button size="lg" className="w-full" onClick={() => setAttestation('DRIVER_DELIVER')}>
+                  Mark delivered
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Read-only attestation chain for this load */}
+          <AttestationChain loadId={load.loadId} />
         </aside>
       </div>
+
+      {/* Single attestation dialog driven by the `attestation` action state */}
+      <AttestationDialog
+        open={attestation !== null}
+        onOpenChange={(o) => { if (!o) setAttestation(null); }}
+        title={
+          attestation === 'CARRIER_ACCEPT' ? 'Sign acceptance' :
+          attestation === 'DRIVER_PICKUP' ? 'Sign pickup attestation' :
+          attestation === 'DRIVER_DELIVER' ? 'Sign delivery attestation' : ''
+        }
+        subtitle={load?.referenceNumber}
+        loadId={loadId ?? ''}
+        action={attestation ?? 'CARRIER_ACCEPT'}
+        attestationText={attestation ? ATTESTATION_TEXT[attestation] : ''}
+        attestationVersion={ATTESTATION_VERSION}
+        stage={
+          attestation === 'DRIVER_PICKUP' ? 'PICKUP' :
+          attestation === 'DRIVER_DELIVER' ? 'DELIVERY' : undefined
+        }
+        requirePhotos={attestation === 'DRIVER_PICKUP' || attestation === 'DRIVER_DELIVER'}
+        allowExceptions={attestation === 'DRIVER_DELIVER'}
+        assignedDriverId={attestation === 'CARRIER_ACCEPT' ? (load?.assignedDriverId ?? undefined) : undefined}
+        onSigned={() => { if (attestation) onAttestationSigned(attestation); }}
+      />
     </>
   );
 }
