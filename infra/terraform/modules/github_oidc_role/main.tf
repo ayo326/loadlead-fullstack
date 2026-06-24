@@ -37,7 +37,9 @@ data "aws_iam_policy_document" "trust" {
 resource "aws_iam_role" "this" {
   name               = "loadlead-${var.env}-github-deploy"
   assume_role_policy = data.aws_iam_policy_document.trust.json
-  max_session_duration = 1800 # 30 min — deploys are quick, no reason to allow long-lived sessions
+  max_session_duration = 3600 # 1h — AWS minimum (validator rejects <3600). Deploys are quick;
+                              # actual STS session token TTL is set by the workflow's `role-duration-seconds`,
+                              # which can still be lower than max_session_duration.
   tags                  = var.tags
 }
 

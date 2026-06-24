@@ -53,32 +53,43 @@ locals {
   tags = { Project = "LoadLead", Environment = "prod", ManagedBy = "Terraform" }
 }
 
-data "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
-}
-
-module "github_deploy_role" {
-  source                   = "../../modules/github_oidc_role"
-  env                       = "prod"
-  github_oidc_provider_arn = data.aws_iam_openid_connect_provider.github.arn
-  github_repo               = var.github_repo
-
-  # Gated by GitHub Environment, not by branch/tag — this is what forces the
-  # required-reviewers approval in GitHub before AWS will even hand out
-  # credentials, not just before the deploy step runs.
-  allowed_environment = "production"
-
-  dynamodb_table_prefix    = "LoadLead_" # existing prod prefix (underscore, no env suffix)
-  eb_environment_name      = "loadlead-backend-prod"
-  frontend_bucket_arn       = "arn:aws:s3:::loadlead-frontend-prod" # ← confirm actual prod bucket name before applying
-  frontend_distribution_arn = "arn:aws:cloudfront::123456789012:distribution/E38CZNP7L2DB98" # ← replace account ID
-
-  tags = local.tags
-}
-
-output "github_deploy_role_arn" {
-  value = module.github_deploy_role.role_arn
-}
+# ── github_deploy_role + OIDC provider data — DISABLED ────────────────────
+# Was non-functional from day one: the data source resolves a GitHub OIDC
+# provider that doesn't exist in this account yet, and the
+# frontend_distribution_arn carried a placeholder account ID
+# (123456789012). Any `tofu plan` against the prod stack failed at this
+# block, which blocked bringing the DDB tables under management.
+#
+# Re-enable by:
+#   1. Bootstrap stack creates the OIDC provider (already declared there)
+#   2. Replace the account ID in frontend_distribution_arn with the real
+#      AWS account ID (552011299815)
+#   3. Confirm the frontend bucket name
+#   4. Uncomment this block
+#
+# Until then the prod stack still works for everything else (DDB, EB)
+# without this OIDC role being in TF.
+#
+# data "aws_iam_openid_connect_provider" "github" {
+#   url = "https://token.actions.githubusercontent.com"
+# }
+#
+# module "github_deploy_role" {
+#   source                   = "../../modules/github_oidc_role"
+#   env                      = "prod"
+#   github_oidc_provider_arn = data.aws_iam_openid_connect_provider.github.arn
+#   github_repo              = var.github_repo
+#   allowed_environment      = "production"
+#   dynamodb_table_prefix    = "LoadLead_"
+#   eb_environment_name      = "loadlead-backend-prod"
+#   frontend_bucket_arn       = "arn:aws:s3:::loadlead-frontend-prod"
+#   frontend_distribution_arn = "arn:aws:cloudfront::552011299815:distribution/E38CZNP7L2DB98"
+#   tags = local.tags
+# }
+#
+# output "github_deploy_role_arn" {
+#   value = module.github_deploy_role.role_arn
+# }
 
 ############################################################################
 # Attestation Phase 1 — NEW DDB tables.
