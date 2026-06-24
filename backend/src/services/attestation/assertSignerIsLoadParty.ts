@@ -210,3 +210,49 @@ export async function assertSignerIsLoadParty(
   }
   return resolution;
 }
+
+/**
+ * Chain READ authZ. Per spec: chain is "visible to the load's parties
+ * and read-only to platform admin." Treat read-access set as the UNION
+ * of the per-action signer sets, plus any platform-staff (ADMIN role).
+ *
+ * Why union, not "the active stage's signers": a shipper should be able
+ * to verify their carrier signed CARRIER_ACCEPT; a receiver should be
+ * able to read the driver's POD attestation. All parties can see the
+ * whole chain for their load.
+ *
+ * Throws AppError 403 if not authorized.
+ */
+export async function assertChainReadAccess(
+  load: Load,
+  authUserId: string,
+  authUserRole: string | undefined,
+): Promise<{ allowedUserIds: Set<string>; matchedAsAdmin: boolean }> {
+  // Platform admin always reads (admin never appears in the resolver-
+  // resolved signer set, so this branch is the only path).
+  if (authUserRole === 'ADMIN') {
+    return { allowedUserIds: new Set([authUserId]), matchedAsAdmin: true };
+  }
+
+  // Fan out across the 5 actions; swallow per-action resolution errors
+  // (e.g. RECEIVER_CONFIRM throws when receiverId missing — that must
+  // NOT deny a shipper their own chain read).
+  const actions: AttestationAction[] =
+    ['BOL_SUBMIT', 'CARRIER_ACCEPT', 'DRIVER_PICKUP', 'DRIVER_DELIVER', 'RECEIVER_CONFIRM'];
+
+  const union = new Set<string>();
+  for (const a of actions) {
+    try {
+      const r = await resolveSigners(load, a);
+      for (const uid of r.allowedUserIds) union.add(uid);
+    } catch { /* missing entity for that action; not a chain-read denier */ }
+  }
+
+  if (!union.has(authUserId)) {
+    throw new AppError(
+      `WRONG_READER: user ${authUserId} is not a party to load ${load.loadId}`,
+      403,
+    );
+  }
+  return { allowedUserIds: union, matchedAsAdmin: false };
+}

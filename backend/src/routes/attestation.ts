@@ -22,7 +22,7 @@ import { LoadService } from '../services/loadService';
 import { resolveCarrierOfRecord } from '../services/carrierOfRecord';
 import { DriverService } from '../services/driverService';
 import { ShipperService } from '../services/shipperService';
-import { assertSignerIsLoadParty } from '../services/attestation/assertSignerIsLoadParty';
+import { assertSignerIsLoadParty, assertChainReadAccess } from '../services/attestation/assertSignerIsLoadParty';
 import { recordSignature, getChain } from '../services/attestation/signatureService';
 import {
   requestUploadUrl,
@@ -203,11 +203,20 @@ router.post('/sign', asyncHandler(async (req: AuthRequest, res) => {
 
 /* ─────────────────────────────────────────────────────────────
  * GET /api/attestation/chain/:loadId
- * Ordered attestation chain. Visible to load parties + ADMIN.
- * (Access scoping is owed to the existing route middleware on the
- *  load's owning persona; this is a read-only attestation view.)
+ *
+ * Read-access scoped per spec: "visible to the load's parties and
+ * read-only to platform admin." Enforced by assertChainReadAccess
+ * which unions the per-action signer sets and admits ADMIN-role
+ * users separately. A user who is NOT a party AND not platform staff
+ * gets 403 WRONG_READER.
+ *
+ * Returns a summary (no raw signatureData blobs) — fetch a single sig
+ * if you need full evidence (Phase-2 endpoint, not built yet).
  * ───────────────────────────────────────────────────────────── */
 router.get('/chain/:loadId', asyncHandler(async (req: AuthRequest, res) => {
+  const load = await LoadService.getLoadById(req.params.loadId);
+  if (!load) throw new AppError(`Load ${req.params.loadId} not found`, 404);
+  await assertChainReadAccess(load, req.user!.userId, req.user!.role);
   const chain = await getChain(req.params.loadId);
   // Strip large signatureData blobs from list reads — they're per-row
   // legal evidence, not list-view data. Fetch the single sig if needed.

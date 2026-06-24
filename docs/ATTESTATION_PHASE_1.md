@@ -181,6 +181,58 @@ POST /api/org/loads/probe/dispatch → 401  (route exists; auth fires)
 
 The new endpoint is part of `org.ts` and depends on the EB instance role having access to `LoadLead_Signatures` (Allow Put/Get/Query — already attached as part of `LoadLead-Signatures-AppendOnly` Phase-1 policy) and `LoadLead_Memberships`/`LoadLead_Loads`/`LoadLead_Offers` (pre-existing). No new IAM grants required.
 
+---
+
+# Phase 1c — Chain READ authZ tightened (appended 2026-06-24)
+
+Closes the gap I introduced when shipping the admin chain lookup UI: the `GET /api/attestation/chain/:loadId` endpoint previously required only `authenticate` — any authenticated user could read any load's chain.
+
+## What changed
+
+| Surface | Change |
+|---|---|
+| `services/attestation/assertSignerIsLoadParty` | New exported `assertChainReadAccess(load, authUserId, authUserRole)` — unions the per-action signer sets, plus admits `UserRole.ADMIN` separately. Throws 403 `WRONG_READER` if neither branch matches. Per-action resolution failures (e.g. RECEIVER_CONFIRM with missing receiverId) are caught locally so they never deny a shipper their own chain read. |
+| `routes/attestation` chain endpoint | Now calls `assertChainReadAccess` before fetching. Returns 404 if the load doesn't exist (was previously a 200-with-empty-chain — that's an info leak about loadId existence we should also avoid). |
+
+## Spec compliance
+
+> "Attestation chain view … visible to the load's parties and read-only to platform admin."
+
+Now enforced:
+
+| Caller | Result |
+|---|---|
+| Platform `ADMIN` | ✓ read |
+| Load shipper user (or shipper-org OWNER/MANAGER/DISPATCHER/SHIPPER_USER) | ✓ read |
+| Load assigned driver | ✓ read |
+| Carrier-of-record (OO operator OR carrier-org OWNER/MANAGER/DISPATCHER) | ✓ read |
+| Load receiver | ✓ read |
+| Any other authenticated user | 403 `WRONG_READER` |
+| Unauthenticated | 401 |
+
+## Tests added
+
+```
+✓ tests/unit/attestation/chainReadAccess.test.ts            7 tests
+─────────────────────────────────────────────────────────────────────
+  Test Files  6 passed (6) · Tests 32 passed (32) · 487 ms
+```
+
+Coverage:
+- ADMIN always reads
+- shipper user is a party
+- assigned driver is a party
+- receiver is a party
+- carrier-of-record (OO operator) is a party
+- random authenticated user → 403
+- missing entity for one action does NOT deny another party's read
+
+## Honest disclosure
+
+- The chain endpoint still returns a summary only (no raw `signatureData` blobs). A future per-sig fetch endpoint will gate the same way.
+- The admin lookup UI shipped one commit earlier is unchanged by this; it just routes through an endpoint that now correctly enforces "staff || party" instead of "any auth'd user".
+- The 404-when-load-missing change is a small information-leak fix on the side; not its own backlog item, just noted.
+
 ## Backlog (logged for Phase 2)
 
 1. `loadlead-pod-uploads-v2` with Object Lock COMPLIANCE at creation + bytes migration
