@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { RouteMapCard } from "@/components/RouteMapCard";
 import { AttestationChain } from "@/components/attestation/AttestationChain";
+import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
 
 // ── Reusable helpers (matches the Owner Operator settings pattern) ───────────
 
@@ -358,6 +359,15 @@ function DispatchTab({ orgId }: { orgId: string }) {
     dest?:   { city?: string; state?: string };
     commodity?: string; equipment?: string; payout?: number; status?: string;
   }>(null);
+  // Phase-1b: which driverId the carrier-admin is about to assign + the
+  // AttestationDialog open flag. The driver dropdown reads from data.fleet.drivers.
+  const [assignDriverId, setAssignDriverId] = useState<string>("");
+  const [acceptOpen, setAcceptOpen] = useState(false);
+  const [dispatching, setDispatching] = useState(false);
+
+  function refresh() {
+    api.getCarrierDashboard(orgId).then(setData).catch(() => {});
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -520,12 +530,76 @@ function DispatchTab({ orgId }: { orgId: string }) {
                 )}
               </div>
 
+              {/* Dispatcher path — pick a driver + sign CARRIER_ACCEPT.
+                  Only shown for TENDERED rows (UNASSIGNED rows don't
+                  have offer infrastructure to accept against). */}
+              {openLoad.status === 'TENDERED' && drivers.length > 0 && (
+                <div className="rounded-md border border-border bg-card p-4 space-y-3">
+                  <div className="text-sm font-semibold">Assign + sign acceptance</div>
+                  <div className="text-xs text-muted-foreground">
+                    Sign CARRIER_ACCEPT for this load. The chosen driver is
+                    bound into the signature's documentHash; bookings can't
+                    reuse a sig signed for a different driver.
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <select
+                      className="rounded border border-border bg-background px-2 py-1.5 text-sm flex-1 min-w-[200px]"
+                      value={assignDriverId}
+                      onChange={(e) => setAssignDriverId(e.target.value)}
+                      disabled={dispatching}
+                    >
+                      <option value="">— pick a driver —</option>
+                      {drivers.map((d: any) => (
+                        <option key={d.driverId} value={d.driverId}>
+                          {d.name ?? d.driverId} · {d.availability ?? 'unknown'} · IDV: {d.idvStatus}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      disabled={!assignDriverId || dispatching}
+                      onClick={() => setAcceptOpen(true)}
+                    >
+                      Sign acceptance
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Attestation chain — read-only, shows who has signed what */}
               <AttestationChain loadId={openLoad.loadId} />
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* CARRIER_ACCEPT attestation dialog. On signed → POST dispatch. */}
+      <AttestationDialog
+        open={acceptOpen}
+        onOpenChange={(o) => { if (!o) setAcceptOpen(false); }}
+        title="Sign carrier acceptance"
+        subtitle={openLoad ? `${openLoad.loadId.slice(-8)} · driver ${assignDriverId.slice(-6)}` : undefined}
+        loadId={openLoad?.loadId ?? ""}
+        action="CARRIER_ACCEPT"
+        attestationText={ATTESTATION_TEXT.CARRIER_ACCEPT}
+        attestationVersion={ATTESTATION_VERSION}
+        assignedDriverId={assignDriverId}
+        onSigned={async () => {
+          if (!openLoad) return;
+          setDispatching(true);
+          try {
+            const r = await api.dispatchLoad(openLoad.loadId);
+            toast.success("Dispatched", { description: `Assigned to driver ${r.assignedDriverId.slice(-6)}` });
+            setAcceptOpen(false);
+            setOpenLoad(null);
+            setAssignDriverId("");
+            refresh();
+          } catch (e: any) {
+            toast.error(e?.message ?? "Dispatch failed");
+          } finally {
+            setDispatching(false);
+          }
+        }}
+      />
     </SectionCard>
   );
 }

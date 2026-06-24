@@ -855,4 +855,74 @@ router.get(
   })
 );
 
+// ─── POST /api/org/loads/:loadId/dispatch ────────────────────────────────────
+// Phase-1b dispatcher CARRIER_ACCEPT path.
+//
+// Flow (callers):
+//   1. Carrier-admin opens the Dispatch dialog, picks a driver.
+//   2. Carrier-admin signs CARRIER_ACCEPT via POST /api/attestation/sign
+//      with action=CARRIER_ACCEPT and assignedDriverId=<driverId>. The
+//      signature service writes a Signature row + records assignedDriverId
+//      both top-level and inside the canonical projection (documentHash).
+//   3. Client immediately calls this endpoint.
+//
+// Server contract (this endpoint):
+//   - Authenticated user must be the same user who signed CARRIER_ACCEPT
+//     (signerUserId match) — prevents one admin signing while a different
+//     admin executes the booking.
+//   - Signer role on the chain entry must be CARRIER_ADMIN or OWNER_OPERATOR.
+//   - assignedDriverId on the sig drives OfferService.acceptOffer; no
+//     body parameter for assignedDriverId so the booking can never
+//     reference a driver the sig didn't cover.
+router.post(
+  '/loads/:loadId/dispatch',
+  authenticate,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { loadId } = req.params;
+
+    // Lazy-load to keep this file's import surface unchanged for the rest
+    // of the routes; attestation services intentionally don't show up in
+    // the top of org.ts where the rest is org/membership work.
+    const { getChain } = await import('../services/attestation/signatureService');
+    const chain = await getChain(loadId);
+    const sig = chain.filter(s => s.action === 'CARRIER_ACCEPT').slice(-1)[0];
+    if (!sig) {
+      throw new AppError(JSON.stringify({
+        error: 'CARRIER_ACCEPT signature is required before dispatch',
+        code:  'CARRIER_ACCEPT_SIGNATURE_REQUIRED',
+      }), 412);
+    }
+    if (sig.signerUserId !== req.user!.userId) {
+      throw new AppError(JSON.stringify({
+        error: 'Dispatch must be initiated by the same user who signed CARRIER_ACCEPT',
+        code:  'DISPATCH_SIGNER_MISMATCH',
+      }), 409);
+    }
+    if (sig.signerRole !== 'CARRIER_ADMIN' && sig.signerRole !== 'OWNER_OPERATOR') {
+      throw new AppError(JSON.stringify({
+        error: 'CARRIER_ACCEPT signer role must be CARRIER_ADMIN or OWNER_OPERATOR',
+        code:  'CARRIER_ACCEPT_SIGNER_INVALID',
+      }), 409);
+    }
+    if (!sig.assignedDriverId) {
+      throw new AppError(JSON.stringify({
+        error: 'CARRIER_ACCEPT signature is missing assignedDriverId',
+        code:  'SIGNATURE_MISSING_ASSIGNMENT',
+      }), 409);
+    }
+
+    // Book via the same OfferService the driver-side accept uses; the
+    // status machine + offer transition + assignedDriverId persistence
+    // stay in one place.
+    await OfferService.acceptOffer(loadId, sig.assignedDriverId);
+
+    res.json({
+      message: 'Load dispatched.',
+      loadId,
+      assignedDriverId: sig.assignedDriverId,
+      attestationSignatureId: sig.signatureId,
+    });
+  }),
+);
+
 export default router;

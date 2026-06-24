@@ -230,6 +230,16 @@ export const api = {
     request<{ photoId: string; contentHash: string; status: 'READY' | 'PENDING' }>(
       "POST", `/attestation/photos/${photoId}/finalize`,
     ),
+  /**
+   * Dispatcher path (Phase 1b): after the carrier-admin signs CARRIER_ACCEPT
+   * via attestationSign({ action: 'CARRIER_ACCEPT', assignedDriverId }),
+   * this endpoint executes the booking. Server cross-checks signerUserId
+   * + assignedDriverId from the sig itself, so the client can't bypass.
+   */
+  dispatchLoad: (loadId: string) =>
+    request<{ message: string; loadId: string; assignedDriverId: string; attestationSignatureId: string }>(
+      "POST", `/org/loads/${loadId}/dispatch`,
+    ),
   attestationSign: (data: {
     loadId: string;
     action: 'BOL_SUBMIT' | 'CARRIER_ACCEPT' | 'DRIVER_PICKUP' | 'DRIVER_DELIVER' | 'RECEIVER_CONFIRM';

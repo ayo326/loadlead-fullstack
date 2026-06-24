@@ -79,6 +79,14 @@ export interface Signature {
 
   exceptions?:           ExceptionsRecord;
 
+  /**
+   * CARRIER_ACCEPT only: the driver the carrier is assigning. Stored as a
+   * top-level field (not just inside the canonical projection input) so
+   * the dispatch endpoint can query it without re-computing the hash.
+   * Present in the projection too; the two MUST agree at write time.
+   */
+  assignedDriverId?:     string;
+
   correctsSignatureId?:  string;    // points to the row this corrects (audit chain)
 
   createdAt:             number;    // epoch ms; never updated

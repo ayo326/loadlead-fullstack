@@ -106,6 +106,10 @@ export async function recordSignature(input: RecordSignatureInput): Promise<Sign
     documentHash,
     proofPhotoIds,
     exceptions:             input.exceptions,
+    // CARRIER_ACCEPT carries the assigned driver. Stored top-level for
+    // queryability by the dispatch endpoint. The projection input has
+    // the same value; the recordSignature contract guarantees both agree.
+    assignedDriverId:       input.assignedDriverId ?? undefined,
     createdAt:              Date.now(),
   };
 
