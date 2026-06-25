@@ -224,26 +224,34 @@ export class BetaApplicationService {
     // multi-select answers as arrays; coerceText joins them) so the stored
     // model matches its `string` type and downstream `.trim()` is safe.
     // loadsPerWeek is kept RAW (band string interpreted by normalizeLoadsPerWeek).
+    // Field mapping BY LABEL — live Tally labels first, then older aliases.
+    // loadsPerWeek uses findAnswer (label + keyword fallback) since it drives
+    // both the LOW_VOLUME gate and the Volume score; it is stored RAW (band
+    // string interpreted by normalizeLoadsPerWeek).
     if (side === 'SHIPPER' || side === 'BOTH') {
       sideSpecificData.shipper = {
         companyType: txt(m['What type of company are you?'] ?? m['What kind of shipper are you?']),
-        commodities: toArr(m['What commodities do you ship?'] ?? m['What do you ship?']),
-        loadsPerWeek: m['How many shipments per week?'],   // raw band string
+        commodities: toArr(m['What do you ship? (commodities or product types)'] ?? m['What commodities do you ship?'] ?? m['What do you ship?']),
+        loadsPerWeek: findAnswer(m,
+          ['How many shipments do you move per week?', 'How many shipments per week?'],
+          ['shipments']),
         modes: toArr(m['Which modes do you use?']),
-        lanes: toArr(m['Top lanes (origin → destination)'] ?? m['Top 3 lanes']),
+        lanes: toArr(m['Primary lanes or regions (Shipper)'] ?? m['Top lanes (origin → destination)'] ?? m['Top 3 lanes']),
         bookingMethod: txt(m['How do you book freight today?'] ?? m['How do you book today?']),
-        pain: txt(m['Biggest pain in booking freight'] ?? m['Biggest pain in booking']),
+        pain: txt(m['Your single biggest pain in moving freight right now'] ?? m['Biggest pain in booking freight'] ?? m['Biggest pain in booking']),
       };
     }
     if (side === 'CARRIER' || side === 'BOTH') {
       sideSpecificData.carrier = {
         mcOrDot: txt(m['MC or DOT number']),
-        truckCount: toInt(m['How many trucks/power units?'] ?? m['How many trucks?']),
-        loadsPerWeek: m['Loads per week'],                 // raw band string
-        equipment: toArr(m['Equipment types'] ?? m['Equipment']),
-        lanes: toArr(m['Top lanes you run (origin → destination)'] ?? m['Top 3 lanes you serve']),
+        truckCount: toInt(m['How many trucks do you run?'] ?? m['How many trucks/power units?'] ?? m['How many trucks?']),
+        loadsPerWeek: findAnswer(m,
+          ['How many loads do you haul per week?', 'Loads per week'],
+          ['loads do you haul', 'haul per week']),
+        equipment: toArr(m['What equipment type do you run?'] ?? m['Equipment types'] ?? m['Equipment']),
+        lanes: toArr(m['Primary lanes or regions (Carrier)'] ?? m['Top lanes you run (origin → destination)'] ?? m['Top 3 lanes you serve']),
         findMethod: txt(m['How do you find loads today?']),
-        pain: txt(m['Biggest pain in finding loads']),
+        pain: txt(m['Your single biggest pain in finding good loads right now'] ?? m['Biggest pain in finding loads']),
       };
     }
 
@@ -268,8 +276,8 @@ export class BetaApplicationService {
         ['feedback call', 'check-in', 'check in'],
       )),
       contactPref: mapContactPref(findAnswer(m,
-        ['Preferred contact method', 'Preferred contact'],
-        ['preferred contact', 'best way to reach'],
+        ['Best way to reach you for onboarding?', 'Preferred contact method', 'Preferred contact'],
+        ['preferred contact', 'best way to reach', 'reach you'],
       )),
     };
 
