@@ -370,3 +370,347 @@ output "verifications_table_arn" { value = aws_dynamodb_table.ddb_verifications.
 # managed via module.ddb_pod_photos in main.tf and was imported under
 # that address. Adding a second aws_dynamodb_table.ddb_podphotos would
 # either fail with "already exists" or attempt to create a duplicate.
+
+
+# ─── 16 secondary tables (support/admin/audit/factoring/notifications) ───
+# PITR was DISABLED on all of these in prod; the module config below ENABLES
+# it as a strict upgrade. No key/attr/GSI/billing changes.
+
+resource "aws_dynamodb_table" "ddb_membership_audit_logs" {
+  name         = "LoadLead-MembershipAuditLogs"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "logId"
+
+  attribute {
+    name = "logId"
+    type = "S"
+  }
+  attribute {
+    name = "orgId"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "orgId-index"
+    hash_key        = "orgId"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_admin_audit" {
+  name         = "LoadLead_AdminAudit"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "auditId"
+
+  attribute {
+    name = "auditId"
+    type = "S"
+  }
+
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_admin_bootstrap_attempts" {
+  name         = "LoadLead_AdminBootstrapAttempts"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "attemptId"
+
+  attribute {
+    name = "attemptId"
+    type = "S"
+  }
+
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_carrier_factoring_profiles" {
+  name         = "LoadLead_CarrierFactoringProfiles"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "carrierId"
+
+  attribute {
+    name = "carrierId"
+    type = "S"
+  }
+
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_factoring_opt_ins" {
+  name         = "LoadLead_FactoringOptIns"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "optInId"
+
+  attribute {
+    name = "loadId"
+    type = "S"
+  }
+  attribute {
+    name = "optInId"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "loadId-index"
+    hash_key        = "loadId"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_fleet_invites" {
+  name         = "LoadLead_FleetInvites"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "inviteId"
+
+  attribute {
+    name = "inviteId"
+    type = "S"
+  }
+  attribute {
+    name = "operatorId"
+    type = "S"
+  }
+  attribute {
+    name = "token"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "token-index"
+    hash_key        = "token"
+    projection_type = "ALL"
+  }
+  global_secondary_index {
+    name            = "operatorId-index"
+    hash_key        = "operatorId"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_invitations" {
+  name         = "LoadLead_Invitations"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "token"
+
+  attribute {
+    name = "orgId"
+    type = "S"
+  }
+  attribute {
+    name = "token"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "orgId-index"
+    hash_key        = "orgId"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_notifications" {
+  name         = "LoadLead_Notifications"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "notificationId"
+
+  attribute {
+    name = "notificationId"
+    type = "S"
+  }
+  attribute {
+    name = "userId"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "userId-index"
+    hash_key        = "userId"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_owner_operators" {
+  name         = "LoadLead_OwnerOperators"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "operatorId"
+
+  attribute {
+    name = "operatorId"
+    type = "S"
+  }
+  attribute {
+    name = "userId"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "userId-index"
+    hash_key        = "userId"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_password_resets" {
+  name         = "LoadLead_PasswordResets"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "token"
+
+  attribute {
+    name = "token"
+    type = "S"
+  }
+
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_push_subscriptions" {
+  name         = "LoadLead_PushSubscriptions"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "userId"
+
+  attribute {
+    name = "userId"
+    type = "S"
+  }
+
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_setup_tokens" {
+  name         = "LoadLead_SetupTokens"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "token"
+
+  attribute {
+    name = "token"
+    type = "S"
+  }
+
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_support_inbound" {
+  name         = "LoadLead_SupportInbound"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "emailId"
+
+  attribute {
+    name = "emailId"
+    type = "S"
+  }
+
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_support_messages" {
+  name         = "LoadLead_SupportMessages"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "messageId"
+
+  attribute {
+    name = "messageId"
+    type = "S"
+  }
+
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_support_settings" {
+  name         = "LoadLead_SupportSettings"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "settingsId"
+
+  attribute {
+    name = "settingsId"
+    type = "S"
+  }
+
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_support_tickets" {
+  name         = "LoadLead_SupportTickets"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "ticketId"
+
+  attribute {
+    name = "ticketId"
+    type = "S"
+  }
+
+
+  point_in_time_recovery { enabled = true }
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+
+# Resource-name <-> live-table mapping for the import commands:
+#
+#   aws_dynamodb_table.ddb_membership_audit_logs  ->  LoadLead-MembershipAuditLogs
+#   aws_dynamodb_table.ddb_admin_audit  ->  LoadLead_AdminAudit
+#   aws_dynamodb_table.ddb_admin_bootstrap_attempts  ->  LoadLead_AdminBootstrapAttempts
+#   aws_dynamodb_table.ddb_carrier_factoring_profiles  ->  LoadLead_CarrierFactoringProfiles
+#   aws_dynamodb_table.ddb_factoring_opt_ins  ->  LoadLead_FactoringOptIns
+#   aws_dynamodb_table.ddb_fleet_invites  ->  LoadLead_FleetInvites
+#   aws_dynamodb_table.ddb_invitations  ->  LoadLead_Invitations
+#   aws_dynamodb_table.ddb_notifications  ->  LoadLead_Notifications
+#   aws_dynamodb_table.ddb_owner_operators  ->  LoadLead_OwnerOperators
+#   aws_dynamodb_table.ddb_password_resets  ->  LoadLead_PasswordResets
+#   aws_dynamodb_table.ddb_push_subscriptions  ->  LoadLead_PushSubscriptions
+#   aws_dynamodb_table.ddb_setup_tokens  ->  LoadLead_SetupTokens
+#   aws_dynamodb_table.ddb_support_inbound  ->  LoadLead_SupportInbound
+#   aws_dynamodb_table.ddb_support_messages  ->  LoadLead_SupportMessages
+#   aws_dynamodb_table.ddb_support_settings  ->  LoadLead_SupportSettings
+#   aws_dynamodb_table.ddb_support_tickets  ->  LoadLead_SupportTickets
