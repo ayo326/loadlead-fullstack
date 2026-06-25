@@ -24,7 +24,7 @@ connie-publish: true
 |---|---|---|
 | 1 | Merge `feat/admin-bootstrap-lockdown` to main + deploy | Closes Part B CAT-I in prod |
 | 2 | PostGIS analytics replica (Phase 1 - schema + Streams consumer) | Spec'd, not started; unlocks build-now telemetry tier |
-| 3 | E2E / SEC / REL / UAT / BDD test plan implementation | Plans exist; specs uncovered |
+| 3 | UAT / BDD / H test suites | E2E, SEC, REL now DONE (see detailed table). UAT/BDD/H plans exist; specs uncovered. |
 | 4 | Compliance CI green checks (Prowler, OpenSCAP, gitleaks, SBOM) | Pipeline exists but green/red status NEEDS VERIFICATION |
 | 5 | Driver second IDV step + unaffiliated limited state UI | Backend stores `idvStatus`; UI surface partial |
 
@@ -52,8 +52,8 @@ connie-publish: true
 | Unit tests D-F (OO self-haul + onboarding + payee) | Testing | **DONE** | `tests/unit/org/selfHaulAndOnboarding.test.ts` | P0 | None |
 | Unit tests G (security boundary) | Testing | **PARTIAL** | New `tests/security/bootstrap.race.test.ts` covers G7. G1-G6 NEEDS VERIFICATION | P1 | Run grep against test names to confirm G1-G6 |
 | Unit tests H (cross-persona contracts) | Testing | **NEEDS VERIFICATION** | No grep hits for "H1\|H2\|H3\|H4" in test names | P2 | Inventory + author missing tests |
-| E2E tests (HE2E / VE2E) | Testing | **NOT STARTED** | No `tests/e2e/` directory; plan exists at `docs/testing/e2e-uat-bdd-test-plan.md` | P1 | Author Playwright/Cypress against the 5 personas |
-| System tests (SEC, REL) | Testing | **NOT STARTED** | No `tests/system/` directory; plan only | P2 | Author after E2E baseline |
+| E2E tests (HE2E / VE2E) | Testing | **DONE** | Cypress suite at `frontend-v2/cypress/e2e/`: `_smoke.cy.ts`, `shipper-happy-path.cy.ts`, `carrier-happy-path.cy.ts`, `driver-happy-path.cy.ts`, `receiver-happy-path.cy.ts`, `oo-happy-path.cy.ts`, `a11y-sweep.cy.ts`, `authz-cross-tenant-admin-ui.cy.ts`, `tour-walkthrough.cy.ts`. Plus prod attestation E2E at `scripts/e2e-attestation-prod.sh` — full lifecycle against `https://api.loadleadapp.com` with live gate-rejection + chain proofs (`docs/ATTESTATION_PHASE_1.md` §1d). | P1 | None |
+| System tests (SEC, REL) | Testing | **DONE** | SEC: `backend/tests/security/` — `bootstrap.race.test.ts`, `dispatchSignerBinding.test.ts` (9), `podFinalizerBinding.test.ts` (4), `driverAffiliation.test.ts` (7). REL: `backend/tests/reliability/` — `finalizeUploadIdempotency.test.ts` (4), `signatureReplayProtection.test.ts` (5), `errorHandlerDoubleResponse.test.ts` (6). 35 system tests total. | P2 | None |
 | UAT tests | Testing | **NOT STARTED** | Plan only | P2 | After E2E baseline |
 | BDD tests | Testing | **NOT STARTED** | Plan only | P3 | After E2E baseline |
 | CI gating on test suite | Testing | **DONE** | `tests/sync-tracker.js` + `test:ci` script; `.github/workflows/compliance.yml` 6 jobs | P0 | None |
