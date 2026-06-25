@@ -12,7 +12,7 @@
 
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  ShieldCheck, Inbox, Truck, LogOut, ChevronRight,
+  ShieldCheck, Inbox, Truck, LogOut, ChevronRight, Rocket,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,8 @@ function envFromApi(): { label: string; tone: "prod" | "staging" | "dev" } {
 }
 
 const ADMIN_NAV = [
-  { title: "Operations console", url: "/admin",         icon: ShieldCheck, hint: "Orgs, fleet, support" },
-  // Future: deep links to inbox-only, fleet-only views once we split them up.
+  { title: "Operations console", url: "/admin",      icon: ShieldCheck, hint: "Orgs, fleet, support" },
+  { title: "Beta Program",       url: "/admin/beta", icon: Rocket,      hint: "Applications, cohort, admit" },
 ] as const;
 
 export default function AdminAppLayout() {

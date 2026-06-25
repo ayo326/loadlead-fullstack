@@ -23,6 +23,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AdminAppLayout from "@/layouts/AdminAppLayout";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
+import BetaProgramDashboard from "@/pages/admin/BetaProgramDashboard";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const AdminApp = () => (
             <Route path="/login" element={<AdminLogin />} />
             <Route element={<RequireAuth><AdminAppLayout /></RequireAuth>}>
               <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+              <Route path="/admin/beta" element={<RequireAdmin><BetaProgramDashboard /></RequireAdmin>} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>
           </Routes>
