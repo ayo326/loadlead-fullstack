@@ -1,15 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { OrgCapability, UserRole } from '../../../src/types';
 
-vi.mock('../../../src/config/environment', () => ({
-  default: {
+// Source exports both `export const config` AND `export default config` —
+// transitive imports use whichever, so the mock must provide both. The
+// factory is hoisted, so inline the object instead of referencing a
+// top-level const (vi.hoisted would also work).
+vi.mock('../../../src/config/environment', () => {
+  const cfg = {
     dynamodb: {
       membershipsTable: 'Memberships',
       orgsTable: 'Organizations',
     },
     jwt: { secret: 'test' },
-  },
-}));
+    // config/aws.ts reads config.aws.{accessKeyId,secretAccessKey,region};
+    // empty object lets it take the "use IAM credential chain" branch.
+    aws: {},
+    appEnv: 'test',
+    nodeEnv: 'test',
+  };
+  return { config: cfg, default: cfg };
+});
 
 const getMembershipMock = vi.hoisted(() => vi.fn());
 const getOrgByIdMock = vi.hoisted(() => vi.fn());

@@ -53,6 +53,13 @@ export interface RecordSignatureInput {
   exceptions?:    ExceptionsRecord;
   actualAt?:      string;
   geo?:           { lat: number; lng: number } | null;
+
+  // Optional pointer to the signature this row corrects. Per the append-
+  // only contract there are no UPDATE rows — a correction is a NEW row
+  // that names the row it's superseding. The selector in requireSignature
+  // (newest matching signature wins) lets the corrected row remain in
+  // the chain for audit purposes while the new row takes effect.
+  correctsSignatureId?: string;
 }
 
 /**
@@ -110,6 +117,11 @@ export async function recordSignature(input: RecordSignatureInput): Promise<Sign
     // queryability by the dispatch endpoint. The projection input has
     // the same value; the recordSignature contract guarantees both agree.
     assignedDriverId:       input.assignedDriverId ?? undefined,
+    // Correction pointer. Persisted on the new row so the chain READ can
+    // surface that this signature corrects an earlier one without a
+    // separate join. requireSignature treats the latest row as
+    // authoritative; the older row stays in the chain for audit.
+    correctsSignatureId:    input.correctsSignatureId,
     createdAt:              Date.now(),
   };
 

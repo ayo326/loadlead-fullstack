@@ -456,7 +456,14 @@ export class OrgMembershipService {
       if (m.status !== 'ACTIVE') continue;
       const org = await OrgService.getOrgById(m.orgId);
       if (org?.capabilities?.includes(OrgCapability.CARRIER)) {
-        await this.removeMember(m.membershipId, userId, 'SYSTEM_ONE_PARENT_INVARIANT');
+        // System invariant — must bypass the self-removal guard in
+        // removeMember(). Pass UserRole.ADMIN so the actor-equals-target
+        // check is exempted (system has admin-level authority over the
+        // one-parent invariant). The literal string previously passed
+        // here ('SYSTEM_ONE_PARENT_INVARIANT') wasn't recognized by the
+        // guard and silently blocked every OO-fleet join when the user
+        // already had a carrier-org membership.
+        await this.removeMember(m.membershipId, userId, UserRole.ADMIN);
       }
     }
   }

@@ -107,11 +107,24 @@ describe('REL: recordSignature append-only / replay protection', () => {
     expect(docClientSend).not.toHaveBeenCalled();
   });
 
-  // NOTE: removed a test that asserted correctsSignatureId was preserved
-  // on the output row. The docstring at the top of signatureService.ts
-  // says "Corrections are NEW rows with `correctsSignatureId`", but the
-  // RecordSignatureInput interface does NOT include that field and the
-  // implementation doesn't plumb it through. Documented but not built.
-  // Flagged as a follow-up: either remove the comment or implement the
-  // field; either way, the test belongs on the implemented behavior.
+  it('correctsSignatureId is preserved on the new row (corrections are NEW rows, never updates)', async () => {
+    docClientSend.mockResolvedValueOnce({});
+
+    const correction = await recordSignature({
+      ...INPUT,
+      correctsSignatureId: 'sig_being_corrected',
+    });
+
+    // The new row gets a fresh UUID — corrections are never overwrites.
+    expect(correction.signatureId).not.toBe('sig_being_corrected');
+    // The pointer to the corrected row is preserved on the new row so
+    // the chain READ can surface the "this corrects X" relationship.
+    expect(correction.correctsSignatureId).toBe('sig_being_corrected');
+  });
+
+  it('correctsSignatureId is undefined on a non-correction row (most signatures)', async () => {
+    docClientSend.mockResolvedValueOnce({});
+    const normal = await recordSignature(INPUT);
+    expect(normal.correctsSignatureId).toBeUndefined();
+  });
 });

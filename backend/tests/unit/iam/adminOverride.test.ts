@@ -19,7 +19,16 @@ const membershipServiceMock = vi.hoisted(() => ({
 }));
 
 const auditMock = vi.hoisted(() => ({ log: vi.fn(async () => undefined) }));
-const dbMock    = vi.hoisted(() => ({ updateItem: vi.fn(async () => undefined) }));
+// dbMock needs getItem too — requireStaffTier middleware reads the user's
+// platformRole via Database.getItem. Without this, the middleware throws
+// "Database.getItem is not a function" → asyncHandler → 500, and every
+// route protected by requireStaffTier returns 500 instead of the expected
+// status. Default to returning the admin-1 user with a platformRole that
+// satisfies DESTRUCTIVE_TIER (SUPERVISOR is in DESTRUCTIVE_TIER).
+const dbMock    = vi.hoisted(() => ({
+  updateItem: vi.fn(async () => undefined),
+  getItem:    vi.fn(async () => ({ userId: 'admin-1', platformRole: 'STAFF_ADMIN' })),
+}));
 const sendMock  = vi.hoisted(() => vi.fn(async () => ({ Items: [], LastEvaluatedKey: undefined })));
 
 vi.mock('../../../src/services/orgService', () => ({
