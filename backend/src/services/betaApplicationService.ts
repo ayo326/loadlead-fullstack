@@ -236,7 +236,7 @@ export class BetaApplicationService {
           ['How many shipments do you move per week?', 'How many shipments per week?'],
           ['shipments']),
         modes: toArr(m['Which modes do you use?']),
-        lanes: toArr(m['Primary lanes or regions (Shipper)'] ?? m['Top lanes (origin → destination)'] ?? m['Top 3 lanes']),
+        lanes: toArr(m['Primary lanes or regions (Shipper)'] ?? m['Primary lanes or regions (shipper)'] ?? m['Top lanes (origin → destination)'] ?? m['Top 3 lanes']),
         bookingMethod: txt(m['How do you book freight today?'] ?? m['How do you book today?']),
         pain: txt(m['Your single biggest pain in moving freight right now'] ?? m['Biggest pain in booking freight'] ?? m['Biggest pain in booking']),
       };
@@ -244,12 +244,15 @@ export class BetaApplicationService {
     if (side === 'CARRIER' || side === 'BOTH') {
       sideSpecificData.carrier = {
         mcOrDot: txt(m['MC or DOT number']),
-        truckCount: toInt(m['How many trucks do you run?'] ?? m['How many trucks/power units?'] ?? m['How many trucks?']),
+        // Stored RAW (band string "1" / "2 to 5" / "6 to 20" / "20+").
+        truckCount: findAnswer(m,
+          ['How many trucks do you run?', 'How many trucks/power units?', 'How many trucks?'],
+          ['trucks do you run', 'how many trucks']),
         loadsPerWeek: findAnswer(m,
           ['How many loads do you haul per week?', 'Loads per week'],
           ['loads do you haul', 'haul per week']),
-        equipment: toArr(m['What equipment type do you run?'] ?? m['Equipment types'] ?? m['Equipment']),
-        lanes: toArr(m['Primary lanes or regions (Carrier)'] ?? m['Top lanes you run (origin → destination)'] ?? m['Top 3 lanes you serve']),
+        equipment: toArr(m['What equipment types do you run?'] ?? m['What equipment type do you run?'] ?? m['Equipment types'] ?? m['Equipment']),
+        lanes: toArr(m['Primary lanes or regions (Carrier)'] ?? m['Primary lanes or regions (carrier)'] ?? m['Top lanes you run (origin → destination)'] ?? m['Top 3 lanes you serve']),
         findMethod: txt(m['How do you find loads today?']),
         pain: txt(m['Your single biggest pain in finding good loads right now'] ?? m['Biggest pain in finding loads']),
       };
