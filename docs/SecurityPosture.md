@@ -53,15 +53,15 @@ flowchart TB
         U[User]
     end
     subgraph "Layer 1 — UserRole (platform-wide)"
-        SHIPPER · CARRIER_ADMIN · OWNER_OPERATOR · DRIVER · RECEIVER · ADMIN
+        Layer1["SHIPPER · CARRIER_ADMIN · OWNER_OPERATOR · DRIVER · RECEIVER · ADMIN"]
     end
     subgraph "Layer 2 — OrgRole (per-org, carrier-only)"
-        OWNER · MANAGER · DISPATCHER · ORG_DRIVER · SHIPPER_USER
+        Layer2["OWNER · MANAGER · DISPATCHER · ORG_DRIVER · SHIPPER_USER"]
     end
     U --> Layer1
     U --> Layer2
-    Layer1 --requireRole--> H["Route handler<br/>(exact-match, no substring)"]
-    Layer2 --requireOrgCapability + hasPermission--> H
+    Layer1 --"requireRole"--> H["Route handler (exact-match, no substring)"]
+    Layer2 --"requireOrgCapability + hasPermission"--> H
 ```
 
 | Property | Implementation | Evidence |
