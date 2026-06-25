@@ -22,7 +22,7 @@
  */
 
 import { BetaApplication } from '../types';
-import { normalizeLoadsPerWeek } from './betaScoring';
+import { normalizeLoadsPerWeek, coerceText } from './betaScoring';
 
 /** Tally-form MC/DOT validity. Accepts an optional "MC"/"DOT" prefix and
  *  4–8 digits. Real FMCSA numbers are 5–7 digits for MC, up to 8 for DOT;
@@ -46,7 +46,7 @@ export function autoQualify(
 
   // ── NO_AUTHORITY: carrier must have a valid MC/DOT ──
   if (isCarrier) {
-    const mcOrDot = app.sideSpecificData?.carrier?.mcOrDot?.trim();
+    const mcOrDot = coerceText(app.sideSpecificData?.carrier?.mcOrDot).trim();
     if (!mcOrDot || !MC_DOT_RE.test(mcOrDot)) {
       flags.push('NO_AUTHORITY');
       waitlisted = true;

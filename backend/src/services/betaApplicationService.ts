@@ -19,7 +19,7 @@ import { Logger } from '../utils/logger';
 import { AppError } from '../middleware/errorHandler';
 import { BetaApplication, UserRole } from '../types';
 import { autoQualify } from './betaAutoQualify';
-import { preComputeObjective, applyStaffScores, totalOf } from './betaScoring';
+import { preComputeObjective, applyStaffScores, totalOf, coerceText } from './betaScoring';
 
 /** Shape of a Tally webhook payload (the parts we read). Tally wraps the
  *  answers in data.fields[]; each field has a `label`, `type`, and `value`.
@@ -90,9 +90,18 @@ function pickStr(m: Record<string, any>, labels: string[]): string | undefined {
   return undefined;
 }
 
+/** Coerce a single-value text field to a non-empty trimmed string, or
+ *  undefined. Tally multi-selects arrive as arrays → joined by coerceText. */
+function txt(v: any): string | undefined {
+  const s = coerceText(v).trim();
+  return s || undefined;
+}
+
 function toBool(v: any): boolean {
   if (typeof v === 'boolean') return v;
   if (typeof v === 'string') return /^(yes|true|1)$/i.test(v.trim());
+  // Tally single-select "Yes"/"No" may arrive as a one-element array.
+  if (Array.isArray(v)) return v.some(x => /^(yes|true|1)$/i.test(String(x).trim()));
   return false;
 }
 function toInt(v: any): number | undefined {
@@ -185,26 +194,30 @@ export class BetaApplicationService {
     // loadsPerWeek is stored RAW (band string or number); the gate/score
     // normalize it. Storing toInt() here would mis-read "Under 5" as 5.
     const sideSpecificData: BetaApplication['sideSpecificData'] = {};
+    // Single-value text fields are coerced to strings (Tally sends
+    // multi-select answers as arrays; coerceText joins them) so the stored
+    // model matches its `string` type and downstream `.trim()` is safe.
+    // loadsPerWeek is kept RAW (band string interpreted by normalizeLoadsPerWeek).
     if (side === 'SHIPPER' || side === 'BOTH') {
       sideSpecificData.shipper = {
-        companyType: m['What type of company are you?'] ?? m['What kind of shipper are you?'],
+        companyType: txt(m['What type of company are you?'] ?? m['What kind of shipper are you?']),
         commodities: toArr(m['What commodities do you ship?'] ?? m['What do you ship?']),
         loadsPerWeek: m['How many shipments per week?'],   // raw band string
         modes: toArr(m['Which modes do you use?']),
         lanes: toArr(m['Top lanes (origin → destination)'] ?? m['Top 3 lanes']),
-        bookingMethod: m['How do you book freight today?'] ?? m['How do you book today?'],
-        pain: m['Biggest pain in booking freight'] ?? m['Biggest pain in booking'],
+        bookingMethod: txt(m['How do you book freight today?'] ?? m['How do you book today?']),
+        pain: txt(m['Biggest pain in booking freight'] ?? m['Biggest pain in booking']),
       };
     }
     if (side === 'CARRIER' || side === 'BOTH') {
       sideSpecificData.carrier = {
-        mcOrDot: m['MC or DOT number'],
+        mcOrDot: txt(m['MC or DOT number']),
         truckCount: toInt(m['How many trucks/power units?'] ?? m['How many trucks?']),
         loadsPerWeek: m['Loads per week'],                 // raw band string
         equipment: toArr(m['Equipment types'] ?? m['Equipment']),
         lanes: toArr(m['Top lanes you run (origin → destination)'] ?? m['Top 3 lanes you serve']),
-        findMethod: m['How do you find loads today?'],
-        pain: m['Biggest pain in finding loads'],
+        findMethod: txt(m['How do you find loads today?']),
+        pain: txt(m['Biggest pain in finding loads']),
       };
     }
 
