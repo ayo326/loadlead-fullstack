@@ -43,7 +43,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
 
-      - name: Install deps
+      # Root `workspaces` array is [backend, frontend] — `frontend-v2`
+      # isn't a workspace, so root `npm ci` doesn't install its deps.
+      # Install in both places: root for the pact-broker CLI (lives in
+      # root node_modules via backend workspace hoisting), frontend-v2
+      # for the contract tests + vitest + the vite config plugins.
+      - name: Install root deps (pact-broker CLI)
+        run: npm ci
+
+      - name: Install frontend-v2 deps
+        working-directory: frontend-v2
         run: npm ci
 
       - name: Run consumer pact tests + emit JSON
