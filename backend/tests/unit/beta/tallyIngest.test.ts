@@ -207,6 +207,40 @@ describe('Tally auto-gates on ingest', () => {
     expect(application.status).toBe('WAITLISTED');
     expect(application.autoFlags).toContain('LOW_VOLUME');
   });
+
+  // Regression for the prod crash: a multi-select booking-method question
+  // arrives as an ARRAY, and toolsScore() / storage must not .trim() it.
+  it('tolerates a multi-select (array-valued) bookingMethod without crashing', async () => {
+    dbQuery.mockResolvedValue([]);
+    dbPut.mockResolvedValue({} as any);
+    const p = shipperPayload('resp-arr-booking');
+    p.data.fields = p.data.fields.map(f =>
+      f.label === 'How do you book freight today?'
+        ? { ...f, value: ['Email', 'Load board', 'Phone'] }   // multi-select → array
+        : f);
+
+    const { application } = await BetaApplicationService.ingestFromTally(p);
+    expect(application.status).toBe('QUALIFIED');
+    // array joined into a single string on the stored model
+    expect(application.sideSpecificData.shipper?.bookingMethod).toBe('Email, Load board, Phone');
+    // tools score = 1 (a booking method is present)
+    expect(application.scoreBreakdown?.tools).toBe(1);
+  });
+
+  // Tally single-select Yes/No can also arrive as a one-element array.
+  it('tolerates an array-valued Yes/No commitment answer', async () => {
+    dbQuery.mockResolvedValue([]);
+    dbPut.mockResolvedValue({} as any);
+    const p = shipperPayload('resp-arr-yesno');
+    p.data.fields = p.data.fields.map(f =>
+      f.label === 'Are you actively running freight right now?'
+        ? { ...f, value: ['Yes'] }
+        : f);
+
+    const { application } = await BetaApplicationService.ingestFromTally(p);
+    // realFreight reads true from ["Yes"] → not flagged NO_COMMITMENT
+    expect(application.autoFlags).not.toContain('NO_COMMITMENT');
+  });
 });
 
 describe('Tally ingest — idempotency', () => {

@@ -62,13 +62,27 @@ export function geographyScore(texasFocus: BetaApplication['texasFocus']): numbe
   }
 }
 
+/**
+ * Coerce a Tally field value to plain text. Tally sends multi-select
+ * answers as ARRAYS (e.g. a "How do you book?" checkbox question), so any
+ * field we treat as a string must pass through here first — otherwise a
+ * `.trim()` on an array throws. Single values pass through; arrays join;
+ * null/undefined → "".
+ */
+export function coerceText(v: any): string {
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v)) return v.filter(x => x != null).map(String).join(', ');
+  if (v == null) return '';
+  return String(v);
+}
+
 /** Does the applicant describe an existing booking/finding method? → Tools 0/1. */
 export function toolsScore(
   side: BetaApplication['side'],
   data: BetaApplication['sideSpecificData'],
 ): number {
-  const shipperHas = !!data?.shipper?.bookingMethod?.trim();
-  const carrierHas = !!data?.carrier?.findMethod?.trim();
+  const shipperHas = !!coerceText(data?.shipper?.bookingMethod).trim();
+  const carrierHas = !!coerceText(data?.carrier?.findMethod).trim();
   if (side === 'SHIPPER') return shipperHas ? 1 : 0;
   if (side === 'CARRIER') return carrierHas ? 1 : 0;
   // BOTH: either side counts.
