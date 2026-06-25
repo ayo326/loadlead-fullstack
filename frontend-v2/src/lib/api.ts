@@ -45,6 +45,13 @@ export const api = {
 
   // Driver
   getDriverProfile: () => request<{ driver: any }>("GET", "/driver/profile"),
+  getDriverIdv: () => request<{ verification: any }>("GET", "/driver/verification/idv"),
+  submitDriverIdv: () => request<{ verification: any }>("POST", "/driver/verification/idv"),
+  getDriverAffiliation: () =>
+    request<{
+      status: "AFFILIATED" | "UNAFFILIATED" | "NO_PROFILE";
+      carrier: { entityType: string; entityId: string; name?: string } | null;
+    }>("GET", "/driver/affiliation"),
   getDriverLoadboard: () => request<{ loads: any[] }>("GET", "/driver/loadboard"),
   getDriverHistory: () => request<{ loads: any[] }>("GET", "/driver/history"),
   getDriverOffer: (loadId: string) => request<{ offer: any; load: any }>("GET", `/driver/offers/${loadId}`),
@@ -146,6 +153,7 @@ export const api = {
 
   // Receiver load detail
   getReceiverLoad: (loadId: string) => request<{ load: any }>("GET", `/receiver/loads/${loadId}`),
+  getReceiverIncoming: () => request<{ loads: any[] }>("GET", "/receiver/incoming"),
 
   // Auth extras
   updateMe: (data: { displayName?: string; phone?: string }) =>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Bell, Gauge, MapPin, Navigation, Package, TrendingUp, Truck, Zap } from "lucide-react";
 import { RouteMapCard } from "@/components/RouteMapCard";
 import { LoadRoutePanel } from "@/components/LoadRoutePanel";
@@ -21,6 +21,7 @@ export default function DriverDashboard() {
   const [offers, setOffers] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [profileComplete, setProfileComplete] = useState(true);
+  const [affiliation, setAffiliation] = useState<{ status: string; carrier: any } | null>(null);
   const [loading, setLoading] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [locationCity, setLocationCity] = useState<string>("");
@@ -29,16 +30,18 @@ export default function DriverDashboard() {
 
   const fetchOffers = async () => {
     try {
-      const [lb, pr] = await Promise.all([
+      const [lb, pr, af] = await Promise.all([
         api.getDriverLoadboard(),
         api.getDriverProfile().catch((e: any) => {
           if (e.message?.includes("404")) return { driver: null };
           throw e;
         }),
+        api.getDriverAffiliation().catch(() => ({ status: "NO_PROFILE", carrier: null })),
       ]);
       setOffers((lb.loads ?? []).filter((l: any) => l.load && l.offer?.status === "OFFERED"));
       setProfile(pr.driver);
       setProfileComplete(!!pr.driver);
+      setAffiliation(af);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -109,9 +112,32 @@ export default function DriverDashboard() {
     driverStatus === "VERIFIED" || driverStatus === "AVAILABLE" ? "APPROVED" :
     driverStatus === "PENDING_VERIFICATION" ? "PENDING" : "NONE";
 
+  // Affiliation gate: a driver with no carrier of record cannot accept loads
+  // (resolveCarrierOfRecord returns null in the backend). Show a passive
+  // "waiting for invite" banner so the next-step UX is obvious; the driver
+  // can't self-serve here — a carrier admin has to invite them.
+  const showAwaitingAffiliation =
+    !loading && profile && affiliation && affiliation.status === "UNAFFILIATED";
+
   return (
     <>
       <AccountHold profileComplete={profileComplete} verificationStatus={verificationStatus} />
+      {showAwaitingAffiliation && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-blue-800 dark:bg-blue-950/20 dark:border-blue-900 dark:text-blue-200">
+          <Bell className="h-5 w-5 shrink-0 text-blue-500 mt-0.5" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold">Awaiting carrier affiliation.</p>
+            <p className="text-xs mt-0.5">
+              You won't see matched loads until a carrier admin adds you to their roster. Watch{" "}
+              <span className="font-mono text-xs bg-blue-100 dark:bg-blue-900/40 px-1 py-0.5 rounded">{user?.email}</span>{" "}
+              for an invitation. You can still complete identity verification now.
+            </p>
+          </div>
+          <Button asChild size="sm" variant="outline" className="border-blue-300 text-blue-800 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-200">
+            <Link to="/driver/verification/idv">Onboarding</Link>
+          </Button>
+        </div>
+      )}
       <PushSubscriptionPrompt />
       <PageHeader
         eyebrow={`Driver · ${displayName}`}

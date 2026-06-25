@@ -30,6 +30,7 @@ import DriverAnalytics from "./pages/driver/DriverAnalytics.tsx";
 import CarrierDashboard from "./pages/carrier/CarrierDashboard.tsx";
 import { CarrierMembers } from "./pages/carrier/CarrierMembers.tsx";
 import DriverHistory from "./pages/driver/DriverHistory.tsx";
+import DriverVerification from "./pages/driver/DriverVerification.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import TaxonomySandbox from "./pages/sandbox/TaxonomySandbox.tsx";
@@ -82,6 +83,7 @@ const App = () => (
               <Route path="/driver"                element={<RequireRole role="DRIVER"><DriverDashboard /></RequireRole>} />
               <Route path="/driver/history"       element={<RequireRole role="DRIVER"><DriverHistory /></RequireRole>} />
               <Route path="/driver/loads/:loadId" element={<RequireRole role="DRIVER"><DriverLoadDetail /></RequireRole>} />
+              <Route path="/driver/verification/idv" element={<RequireRole role="DRIVER"><DriverVerification /></RequireRole>} />
               <Route path="/shipper"                  element={<RequireRole role="SHIPPER"><ShipperDashboard /></RequireRole>} />
               <Route path="/shipper/post"             element={<RequireRole role="SHIPPER"><ShipperPostLoad /></RequireRole>} />
               <Route path="/shipper/loads/:loadId"   element={<RequireRole role="SHIPPER"><ShipperLoadDetail /></RequireRole>} />

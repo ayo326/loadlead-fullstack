@@ -14,6 +14,7 @@ import { validate } from '../middleware/validation';
 import { EmailService } from '../services/emailService';
 import { PushService } from '../services/pushService';
 import { requireVerifiedCarrier, submitDriverIdv, getVerification } from '../services/verification';
+import { resolveCarrierOfRecord } from '../services/carrierOfRecord';
 import { OwnerOperatorService } from '../services/ownerOperatorService';
 import { OrgMembershipService } from '../services/orgService';
 import { Database } from '../config/database';
@@ -47,6 +48,40 @@ router.get(
     res.json({ driver });
   })
 );
+
+// ─── Driver-side identity verification (mirrors OO endpoints) ──────────────
+// Verification is keyed by userId — same record an OO maintains for
+// themselves. Splitting the route under /api/driver/ surfaces the IDV
+// flow inside the driver's own UI so the onboarding page doesn't need to
+// know whether the user is a DRIVER or OWNER_OPERATOR.
+router.get('/verification/idv', asyncHandler(async (req: AuthRequest, res) => {
+  const verification = await getVerification(req.user!.userId);
+  res.json({ verification: verification ?? { verificationStatus: 'UNVERIFIED' } });
+}));
+
+router.post('/verification/idv', asyncHandler(async (req: AuthRequest, res) => {
+  const verification = await submitDriverIdv(req.user!.userId);
+  res.status(201).json({ verification });
+}));
+
+// ─── Affiliation status — who is this driver's carrier of record? ──────────
+// "Affiliated" means the driver has either:
+//   - an OO ownership link (driver.ownedByOperatorId), OR
+//   - an ACTIVE membership in a CARRIER-capability org.
+// An unaffiliated driver can sign up + complete IDV, but cannot accept loads
+// because resolveCarrierOfRecord returns null. The frontend uses this to
+// render the "Awaiting affiliation" banner with the correct next step.
+router.get('/affiliation', asyncHandler(async (req: AuthRequest, res) => {
+  const driver = await DriverService.getProfileByUserId(req.user!.userId);
+  if (!driver) {
+    return res.json({ status: 'NO_PROFILE', carrier: null });
+  }
+  const carrier = await resolveCarrierOfRecord(driver);
+  if (!carrier) {
+    return res.json({ status: 'UNAFFILIATED', carrier: null });
+  }
+  res.json({ status: 'AFFILIATED', carrier });
+}));
 
 router.put(
   '/profile',
