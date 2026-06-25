@@ -198,10 +198,10 @@ export class BetaApplicationService {
     const m = fieldMap(payload);
 
     // Diagnostic: log the incoming question LABELS only (never the answer
-    // values — labels are static form text, not PII). This surfaces label
-    // drift: if the live Tally form renames a question, the unmapped label
-    // shows up here so we can reconcile the mapper without guesswork.
-    Logger.info(`[tally] ingest field labels: ${JSON.stringify(Object.keys(m))}`);
+    // values — labels are static form text, not PII). debug-level so prod
+    // logs stay quiet; flip NODE_ENV/log level or re-enable to surface
+    // label drift if the live Tally form renames a question.
+    Logger.debug(`[tally] ingest field labels: ${JSON.stringify(Object.keys(m))}`);
 
     const side = mapSide(m['Which best describes you?'] ?? m['Which side are you?']);
     const texasFocus = mapTexasFocus(m['Do you primarily operate in Texas?']);
