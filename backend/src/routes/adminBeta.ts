@@ -22,7 +22,7 @@ import { asyncHandler } from '../middleware/errorHandler';
 import { validate } from '../middleware/validation';
 import { Logger } from '../utils/logger';
 import { getBetaConfig } from '../config/beta';
-import { BetaApplicationService, sideToUserRole } from '../services/betaApplicationService';
+import { BetaApplicationService, sideToUserRole, balanceVerdict } from '../services/betaApplicationService';
 import { BetaAllowlistService } from '../services/betaAllowlistService';
 import { WaitlistService } from '../services/waitlistService';
 import { OrgInvitationService } from '../services/orgService';
@@ -200,19 +200,19 @@ router.get('/cohort-balance', asyncHandler(async (req: AuthRequest, res) => {
   const balance = await BetaApplicationService.cohortBalance(wave);
   const cfg = getBetaConfig();
 
-  // The ratio target is ~1:1; flag if either side is >20% past the other.
-  const { shippers, carriers } = balance.admitted;
-  const total = shippers + carriers;
-  const ratioOff = total > 0
-    ? Math.abs(shippers - carriers) / total > 0.2
-    : false;
+  // Honest verdict: measures the admitted cohort if any seat is filled,
+  // else the qualified pipeline; never calls an empty population balanced.
+  const verdict = balanceVerdict(balance);
 
   res.json({
-    ...balance,
+    admitted: balance.admitted,      // { shippers, carriers, both } — BOTH double-counts
+    pipeline: balance.pipeline,      // { shippers, carriers, both } — QUALIFIED only
+    seatsFilled: balance.seatsFilled,
     cohortCap: cfg.cohortCap,
-    seatsFilled: balance.totalAdmitted,
     ratioTarget: '1:1',
-    ratioOutOfBalance: ratioOff,
+    measuring: verdict.measuring,    // 'admitted' | 'pipeline'
+    balanceState: verdict.state,     // EMPTY | NEED_CARRIERS | NEED_SHIPPERS | SKEWED | BALANCED
+    skewedTo: verdict.skewedTo ?? null,
     currentCohort: cfg.currentCohort,
   });
 }));

@@ -70,6 +70,46 @@ export default function BetaProgramDashboard() {
 
 // ─── Cohort balance (HEADLINE metric) ───────────────────────────────────────
 
+/** Map the server's balance verdict to a label + Tailwind color classes. */
+function balanceBadge(b: CohortBalance): { label: string; cls: string } {
+  switch (b.balanceState) {
+    case "BALANCED":
+      return { label: "✓ Balanced", cls: "bg-emerald-100 text-emerald-800" };
+    case "NEED_CARRIERS":
+      return { label: "⚠ Need carriers", cls: "bg-amber-100 text-amber-900" };
+    case "NEED_SHIPPERS":
+      return { label: "⚠ Need shippers", cls: "bg-amber-100 text-amber-900" };
+    case "SKEWED":
+      return { label: `⚠ Skewed to ${b.skewedTo}`, cls: "bg-amber-100 text-amber-900" };
+    case "EMPTY":
+    default:
+      return { label: "No applicants yet", cls: "bg-zinc-100 text-zinc-600" };
+  }
+}
+
+function RatioBar({ shippers, carriers, dim }: { shippers: number; carriers: number; dim?: boolean }) {
+  const total = shippers + carriers;
+  const shipperPct = total === 0 ? 50 : Math.round((shippers / total) * 100);
+  const base = dim ? "opacity-60" : "";
+  return (
+    <div className={`flex h-6 rounded-md overflow-hidden text-xs font-medium ${base}`}
+      aria-label={`${shippers} shippers, ${carriers} carriers`}>
+      {total === 0 ? (
+        <div className="flex-1 bg-zinc-200 text-zinc-500 flex items-center justify-center">0 : 0</div>
+      ) : (
+        <>
+          <div className="bg-blue-500 text-white flex items-center justify-center" style={{ width: `${shipperPct}%` }}>
+            {shippers > 0 ? shippers : ""}
+          </div>
+          <div className="bg-violet-500 text-white flex items-center justify-center" style={{ width: `${100 - shipperPct}%` }}>
+            {carriers > 0 ? carriers : ""}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CohortBalanceWidget() {
   const [b, setB] = useState<CohortBalance | null>(null);
   const [err, setErr] = useState("");
@@ -81,42 +121,59 @@ function CohortBalanceWidget() {
   if (err) return <div className="text-sm text-rose-700">Could not load cohort balance: {err}</div>;
   if (!b) return <div className="text-sm text-muted-foreground">Loading cohort balance…</div>;
 
-  const { shippers, carriers } = b.admitted;
-  const total = shippers + carriers || 1;
-  const shipperPct = Math.round((shippers / total) * 100);
+  const badge = balanceBadge(b);
 
   return (
     <div className="rounded-lg border border-border bg-card p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-1">
         <h2 className="text-sm font-semibold text-foreground">
           Cohort balance — {b.currentCohort}
         </h2>
-        {b.ratioOutOfBalance ? (
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-            ⚠ Out of balance (&gt;20% off 1:1)
-          </span>
-        ) : (
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-            ✓ Balanced
-          </span>
-        )}
+        <span
+          className={`text-xs font-medium px-2 py-0.5 rounded-full ${badge.cls}`}
+          title="Target is ~1:1 shippers to carriers. A BOTH applicant counts toward both sides. The badge measures the admitted cohort once any seat is filled, otherwise the qualified pipeline."
+        >
+          {badge.label}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        Measuring the {b.measuring === "admitted" ? "admitted cohort" : "qualified pipeline"} · target {b.ratioTarget}
+      </p>
+
+      {/* Two explicit populations — no single misleading number. */}
+      <div className="space-y-3">
+        <div className={b.measuring === "admitted" ? "" : "opacity-70"}>
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="font-medium text-foreground">
+              Admitted {b.admitted.shippers} shippers : {b.admitted.carriers} carriers
+              {b.measuring === "admitted" && <span className="ml-1 text-emerald-700">(scored)</span>}
+            </span>
+          </div>
+          <RatioBar shippers={b.admitted.shippers} carriers={b.admitted.carriers} dim={b.measuring !== "admitted"} />
+        </div>
+
+        <div className={b.measuring === "pipeline" ? "" : "opacity-70"}>
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="font-medium text-foreground">
+              Pipeline {b.pipeline.shippers} shippers : {b.pipeline.carriers} carriers
+              {b.measuring === "pipeline" && <span className="ml-1 text-emerald-700">(scored)</span>}
+            </span>
+          </div>
+          <RatioBar shippers={b.pipeline.shippers} carriers={b.pipeline.carriers} dim={b.measuring !== "pipeline"} />
+        </div>
       </div>
 
-      {/* shipper:carrier ratio bar */}
-      <div className="flex h-7 rounded-md overflow-hidden text-xs font-medium" aria-label={`${shippers} shippers, ${carriers} carriers admitted`}>
-        <div className="bg-blue-500 text-white flex items-center justify-center" style={{ width: `${shipperPct}%` }}>
-          {shippers > 0 ? `${shippers} shipper${shippers === 1 ? "" : "s"}` : ""}
-        </div>
-        <div className="bg-violet-500 text-white flex items-center justify-center" style={{ width: `${100 - shipperPct}%` }}>
-          {carriers > 0 ? `${carriers} carrier${carriers === 1 ? "" : "s"}` : ""}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4 mt-4 text-center">
+      <div className="grid grid-cols-2 gap-4 mt-4 text-center">
         <Stat label="Seats filled" value={`${b.seatsFilled}${b.cohortCap ? ` / ${b.cohortCap}` : ""}`} />
         <Stat label="Ratio target" value={b.ratioTarget} />
-        <Stat label="In pipeline" value={`${b.shippers + b.carriers + b.both}`} />
       </div>
+
+      {(b.admitted.both > 0 || b.pipeline.both > 0) && (
+        <p className="text-[11px] text-muted-foreground mt-3">
+          “Both” applicants ({b.measuring === "admitted" ? b.admitted.both : b.pipeline.both}) count toward
+          both the shipper and carrier tallies — they supply and demand freight.
+        </p>
+      )}
     </div>
   );
 }

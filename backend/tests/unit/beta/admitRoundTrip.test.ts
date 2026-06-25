@@ -201,6 +201,6 @@ describe('ADMIT round-trip — ingest → admit → gate → signup', () => {
     });
     const balance = await BetaApplicationService.cohortBalance('wave-1');
     expect(balance.admitted.shippers).toBe(1);
-    expect(balance.totalAdmitted).toBe(1);
+    expect(balance.seatsFilled).toBe(1);
   });
 });
