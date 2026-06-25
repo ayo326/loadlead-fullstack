@@ -21,19 +21,36 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export const api = {
   // Auth
+  // inviteToken is forwarded to the backend's requireBetaGate when the
+  // app is under BETA_MODE — the gate uses it (or the allowlist) to
+  // decide whether to admit the signup. When BETA_MODE is off the gate
+  // ignores it and the field is harmless.
   signup: (email: string, password: string, role: string, orgParams?: Record<string, any>,
-          profile?: { firstName?: string; lastName?: string; phone?: string }) =>
+          profile?: { firstName?: string; lastName?: string; phone?: string },
+          inviteToken?: string) =>
     request<{ token: string; user: { userId: string; email: string; role: string }; orgId?: string }>(
-      "POST", "/auth/signup", { email, password, role, orgParams, ...profile }
+      "POST", "/auth/signup", { email, password, role, orgParams, inviteToken, ...profile }
     ),
 
   // Dedicated atomic carrier signup — separate endpoint from the generic
   // signup() above (see backend AuthService.signupCarrierAdmin). Does not
   // share a code path with the four existing personas.
-  signupCarrier: (params: { email: string; password: string; legalName: string; dba?: string; mcNumber?: string; dotNumber?: string }) =>
+  signupCarrier: (params: { email: string; password: string; legalName: string; dba?: string; mcNumber?: string; dotNumber?: string; inviteToken?: string }) =>
     request<{ token: string; user: { userId: string; email: string; role: string }; orgId: string }>(
       "POST", "/auth/signup/carrier", params
     ),
+
+  // Private-beta surface (public, no auth)
+  beta: {
+    status: () =>
+      request<{ betaMode: boolean; currentCohort: string; tallyConnected: boolean }>(
+        "GET", "/beta/status"
+      ),
+    joinWaitlist: (params: { email: string; name?: string; personaInterest?: string }) =>
+      request<{ ok: boolean; waitlistId: string; message: string }>(
+        "POST", "/beta/waitlist", params
+      ),
+  },
 
   login: (email: string, password: string) =>
     request<{ token: string; user: { userId: string; email: string; role: string } }>(
