@@ -34,17 +34,20 @@ auto-qualifier sets `status` and writes `autoFlags[]` so staff can see why.
 
 | Flag | Condition | Status set |
 |---|---|---|
-| `carrier_no_mc_dot` | side ∈ {CARRIER, BOTH} ∧ `mcOrDot` missing or fails the regex `^(MC\|DOT)?\s?\d{4,7}$` | **DISQUALIFIED** |
-| `shipper_low_volume` | side ∈ {SHIPPER, BOTH} ∧ shipper.loadsPerWeek < 5 | **WAITLISTED** |
-| `not_running_freight` | `commitment.realFreight === false` | **WAITLISTED** |
-| `wont_commit_to_feedback` | `commitment.feedbackCall === false` | **WAITLISTED** |
-| `outside_texas_strict_wave` | `texasFocus === 'OUTSIDE'` ∧ current cohort is Wave 1 | **WAITLISTED** (not disqualified — can come in Wave 2) |
+| `NO_AUTHORITY` | side ∈ {CARRIER, BOTH} ∧ `mcOrDot` missing/blank or fails `^(MC\|DOT)?[\s-]?\d{4,8}$` | **WAITLISTED** |
+| `LOW_VOLUME` | side ∈ {SHIPPER, BOTH} ∧ shipper.loadsPerWeek band is "Under 5" (< 5) | **WAITLISTED** |
+| `NO_COMMITMENT` | `commitment.realFreight === false` OR `commitment.feedbackCall === false` | **WAITLISTED** |
 | _(no flags)_ | passes all the above | **QUALIFIED** (ready to score) |
 
-Applicants in WAITLISTED state stay in the pipeline; the dashboard's
-waitlist tab shows them with their auto-flags so staff can decide whether
-to override. DISQUALIFIED is a hard no — typically applicants who entered
-fake credentials.
+**Auto-qualify never assigns DISQUALIFIED.** All auto-fails land WAITLISTED
+so the applicant stays in the pipeline for a possible later wave; the
+dashboard's waitlist tab shows them with their auto-flags so staff can
+decide whether to override. `DISQUALIFIED` is a **staff-only** verdict
+(e.g. fake credentials caught on manual review).
+
+Geography/Texas is a **scoring** dimension, not an auto-gate: an
+OUTSIDE-Texas applicant is QUALIFIED with Geography=0 — scored down, not
+gated out.
 
 ## Scorecard (max 15 points)
 

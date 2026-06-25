@@ -218,7 +218,10 @@ export interface BetaApplication {
     shipper?: {
       companyType?: string;
       commodities?: string[];
-      loadsPerWeek?: number;
+      // Tally sends this as a band string ("Under 5", "5-20", …) or a
+      // number; normalizeLoadsPerWeek() interprets either. Stored raw so
+      // the original answer survives for the dashboard.
+      loadsPerWeek?: number | string;
       modes?: string[];
       lanes?: string[];
       bookingMethod?: string;
@@ -227,7 +230,7 @@ export interface BetaApplication {
     carrier?: {
       mcOrDot?: string;
       truckCount?: number;
-      loadsPerWeek?: number;
+      loadsPerWeek?: number | string;
       equipment?: string[];
       lanes?: string[];
       findMethod?: string;

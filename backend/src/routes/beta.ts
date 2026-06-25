@@ -21,9 +21,6 @@ import { asyncHandler } from '../middleware/errorHandler';
 import { validate } from '../middleware/validation';
 import { WaitlistService } from '../services/waitlistService';
 import { getBetaConfig, isTallyConnected } from '../config/beta';
-import { verifyTallySignature } from '../services/tallySignature';
-import { BetaApplicationService } from '../services/betaApplicationService';
-import { Logger } from '../utils/logger';
 import { UserRole } from '../types';
 
 const router = express.Router();
@@ -72,66 +69,10 @@ router.post(
   }),
 );
 
-/**
- * Tally webhook. Public (no auth) — Tally signs each POST. We:
- *   1. 503 if the form isn't connected (no signing secret) — inert, no
- *      fabricated data.
- *   2. Verify the Tally-Signature HMAC over the raw body. 401 on mismatch.
- *   3. Ingest → BetaApplication (idempotent by responseId). Auto-qualify
- *      + objective scoring run inside ingestFromTally.
- *   4. Ack 2XX fast. Ingest is a single DDB put so it completes well
- *      within Tally's 10s window; no queue needed at this volume.
- *
- * The rawBody is captured by the express.json({verify}) hook in index.ts
- * (same mechanism the Resend/Didit webhooks use).
- */
-router.post('/tally-webhook', asyncHandler(async (req, res) => {
-  const cfg = getBetaConfig();
-
-  if (!isTallyConnected()) {
-    return res.status(503).json({
-      error: 'form_not_connected',
-      message: 'Tally webhook secret is not configured; ingest is disabled.',
-    });
-  }
-
-  const rawBody = (req as any).rawBody?.toString('utf8') ?? JSON.stringify(req.body);
-  const verify = verifyTallySignature({
-    rawBody,
-    headers: req.headers,
-    secret: cfg.tallyWebhookSecret ?? undefined,
-  });
-  if (!verify.ok) {
-    Logger.warn(`[beta] tally webhook rejected: ${verify.reason}`);
-    return res.status(401).json({ error: verify.reason ?? 'bad-signature' });
-  }
-
-  // Optional formId sanity check — if TALLY_FORM_ID is configured, ensure
-  // the payload is from that form (defends against a leaked secret being
-  // pointed at a different form).
-  if (cfg.tallyFormId && req.body?.formId && req.body.formId !== cfg.tallyFormId) {
-    Logger.warn(`[beta] tally webhook formId mismatch: got ${req.body.formId}`);
-    return res.status(400).json({ error: 'form_id_mismatch' });
-  }
-
-  try {
-    const { application, created } = await BetaApplicationService.ingestFromTally(
-      req.body,
-      { currentWave: cfg.currentCohort },
-    );
-    return res.status(created ? 201 : 200).json({
-      ok: true,
-      created,                 // false = idempotent duplicate
-      applicationId: application.applicationId,
-      status: application.status,
-    });
-  } catch (err: any) {
-    // 4xx for bad payloads (missing texasFocus/email) so Tally surfaces
-    // the failure; the applicant can re-submit. 5xx only for real faults.
-    const code = err?.statusCode ?? err?.status ?? 500;
-    Logger.warn(`[beta] tally ingest failed (${code}): ${err?.message}`);
-    return res.status(code).json({ error: 'ingest_failed', message: err?.message });
-  }
-}));
+// NOTE: the Tally webhook lives at POST /api/admin/beta/webhook — mounted
+// separately in index.ts with a route-only raw-body parser (before
+// express.json) so the HMAC verifies against the exact bytes Tally sent.
+// See routes/tallyWebhook.ts. It is intentionally NOT under this public
+// /api/beta router (which is JSON-parsed) nor the requireAdmin router.
 
 export default router;

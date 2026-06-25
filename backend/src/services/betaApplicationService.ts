@@ -25,12 +25,23 @@ import { preComputeObjective, applyStaffScores, totalOf } from './betaScoring';
  *  answers in data.fields[]; each field has a `label`, `type`, and `value`.
  *  For multiple-choice the value is an option id and the labels live in a
  *  parallel `options` array — we resolve those to human strings. */
+/**
+ * Tally webhook payload (the parts we read). Authoritative shape per spec:
+ *   { eventType: "FORM_RESPONSE", createdAt,
+ *     data: { responseId, formId, formName,
+ *             fields: [{ key, label, type, value }] } }
+ * For choice questions the field carries an `options[]` and `value` is the
+ * option id (or array of ids); resolveFieldValue maps those back to text.
+ */
 export interface TallyPayload {
   eventId?: string;
-  formId?: string;
+  eventType?: string;
+  createdAt?: string;
   data?: {
     responseId?: string;
     submissionId?: string;
+    formId?: string;
+    formName?: string;
     fields?: TallyField[];
   };
 }
@@ -70,6 +81,15 @@ function fieldMap(payload: TallyPayload): Record<string, any> {
   return out;
 }
 
+/** First non-empty label match → trimmed string, else undefined. Used for
+ *  fields whose authoritative label has an older alias still in the wild. */
+function pickStr(m: Record<string, any>, labels: string[]): string | undefined {
+  for (const l of labels) {
+    if (m[l] != null && String(m[l]).trim()) return String(m[l]).trim();
+  }
+  return undefined;
+}
+
 function toBool(v: any): boolean {
   if (typeof v === 'boolean') return v;
   if (typeof v === 'string') return /^(yes|true|1)$/i.test(v.trim());
@@ -89,20 +109,30 @@ function toArr(v: any): string[] | undefined {
   return undefined;
 }
 
-/** Map the headline Texas question to the texasFocus enum. */
+/** Map the headline Texas question to the texasFocus enum. Authoritative
+ *  option labels (guide §12):
+ *    "Yes, mostly Texas"        → MOSTLY
+ *    "Partly Texas"             → PARTLY
+ *    "No, mostly outside Texas" → OUTSIDE
+ *  Matched loosely so minor label edits in Tally don't silently break it. */
 function mapTexasFocus(raw: any): BetaApplication['texasFocus'] | null {
   const s = String(raw ?? '').toLowerCase();
-  if (s.includes('mostly') || s.includes('primarily')) return 'MOSTLY';
-  if (s.includes('partly') || s.includes('some')) return 'PARTLY';
-  if (s.includes('outside') || s.includes('no')) return 'OUTSIDE';
+  if (!s) return null;
+  if (s.includes('outside')) return 'OUTSIDE';   // check before "mostly" (label has both words)
+  if (s.includes('partly') || s.includes('part')) return 'PARTLY';
+  if (s.includes('mostly') || s.includes('yes') || s.includes('primarily')) return 'MOSTLY';
   return null;
 }
 
-/** Map the "Which side are you?" answer to the side enum. */
+/** Map the "Which best describes you?" answer to the side enum.
+ *  Authoritative option labels (guide §12):
+ *    "Shipper"         → SHIPPER
+ *    "Hauler / carrier"→ CARRIER
+ *    "Both"            → BOTH */
 function mapSide(raw: any): BetaApplication['side'] {
   const s = String(raw ?? '').toLowerCase();
   if (s.includes('both')) return 'BOTH';
-  if (s.includes('carrier')) return 'CARRIER';
+  if (s.includes('carrier') || s.includes('hauler')) return 'CARRIER';
   return 'SHIPPER';
 }
 
@@ -138,7 +168,7 @@ export class BetaApplicationService {
 
     const m = fieldMap(payload);
 
-    const side = mapSide(m['Which side are you?']);
+    const side = mapSide(m['Which best describes you?'] ?? m['Which side are you?']);
     const texasFocus = mapTexasFocus(m['Do you primarily operate in Texas?']);
     if (!texasFocus) {
       // Texas focus is mandatory (see the guide). Reject so the applicant
@@ -151,34 +181,37 @@ export class BetaApplicationService {
       throw new AppError('Tally submission missing valid Work email', 422);
     }
 
+    // Field mapping BY LABEL — authoritative labels per the guide §12.
+    // loadsPerWeek is stored RAW (band string or number); the gate/score
+    // normalize it. Storing toInt() here would mis-read "Under 5" as 5.
     const sideSpecificData: BetaApplication['sideSpecificData'] = {};
     if (side === 'SHIPPER' || side === 'BOTH') {
       sideSpecificData.shipper = {
-        companyType: m['What kind of shipper are you?'],
-        commodities: toArr(m['What do you ship?']),
-        loadsPerWeek: toInt(m['How many shipments per week?']),
+        companyType: m['What type of company are you?'] ?? m['What kind of shipper are you?'],
+        commodities: toArr(m['What commodities do you ship?'] ?? m['What do you ship?']),
+        loadsPerWeek: m['How many shipments per week?'],   // raw band string
         modes: toArr(m['Which modes do you use?']),
-        lanes: toArr(m['Top 3 lanes']),
-        bookingMethod: m['How do you book today?'],
-        pain: m['Biggest pain in booking'],
+        lanes: toArr(m['Top lanes (origin → destination)'] ?? m['Top 3 lanes']),
+        bookingMethod: m['How do you book freight today?'] ?? m['How do you book today?'],
+        pain: m['Biggest pain in booking freight'] ?? m['Biggest pain in booking'],
       };
     }
     if (side === 'CARRIER' || side === 'BOTH') {
       sideSpecificData.carrier = {
         mcOrDot: m['MC or DOT number'],
-        truckCount: toInt(m['How many trucks?']),
-        loadsPerWeek: toInt(m['Loads per week']),
-        equipment: toArr(m['Equipment']),
-        lanes: toArr(m['Top 3 lanes you serve']),
+        truckCount: toInt(m['How many trucks/power units?'] ?? m['How many trucks?']),
+        loadsPerWeek: m['Loads per week'],                 // raw band string
+        equipment: toArr(m['Equipment types'] ?? m['Equipment']),
+        lanes: toArr(m['Top lanes you run (origin → destination)'] ?? m['Top 3 lanes you serve']),
         findMethod: m['How do you find loads today?'],
         pain: m['Biggest pain in finding loads'],
       };
     }
 
     const commitment = {
-      realFreight: toBool(m['Are you running freight right now?']),
-      feedbackCall: toBool(m['Will you take a 15-min feedback call and a weekly check-in?']),
-      contactPref: mapContactPref(m['Preferred contact']),
+      realFreight: toBool(m['Are you actively running freight right now?'] ?? m['Are you running freight right now?']),
+      feedbackCall: toBool(m['Will you join a short feedback call + weekly check-in?'] ?? m['Will you take a 15-min feedback call and a weekly check-in?']),
+      contactPref: mapContactPref(m['Preferred contact method'] ?? m['Preferred contact']),
     };
 
     const now = Helpers.getCurrentTimestamp();
@@ -195,13 +228,13 @@ export class BetaApplicationService {
       fullName: String(m['Full name'] ?? '').trim(),
       workEmail,
       phone: m['Phone'] ? String(m['Phone']).trim() : undefined,
-      company: m['Company'] ? String(m['Company']).trim() : undefined,
+      company: pickStr(m, ['Company name', 'Company']),
       linkedinUrl: m['LinkedIn URL'] ? String(m['LinkedIn URL']).trim() : undefined,
-      region: m['Region'] ? String(m['Region']).trim() : undefined,
+      region: pickStr(m, ['Primary operating region (city, state)', 'Region']),
       texasFocus,
       sideSpecificData,
       commitment,
-      referredBy: m['Referred by'] ? String(m['Referred by']).trim() : undefined,
+      referredBy: pickStr(m, ['Referred by anyone?', 'Referred by']),
       source: m['source'] ? String(m['source']).trim() : undefined,
       status,
       autoFlags,

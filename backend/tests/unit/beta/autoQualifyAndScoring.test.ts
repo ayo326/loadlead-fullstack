@@ -12,126 +12,120 @@
 import { describe, it, expect } from 'vitest';
 import { autoQualify } from '../../../src/services/betaAutoQualify';
 import {
-  geographyScore, volumeBand, toolsScore,
+  geographyScore, volumeBand, toolsScore, normalizeLoadsPerWeek,
   preComputeObjective, applyStaffScores, totalOf, findLaneOverlaps,
 } from '../../../src/services/betaScoring';
 
 const baseCommitment = { realFreight: true, feedbackCall: true };
 
-describe('autoQualify — hard gates', () => {
-  it('carrier with NO MC/DOT → DISQUALIFIED + carrier_no_mc_dot', () => {
+describe('autoQualify — hard gates (authoritative: 3 gates, all → WAITLISTED)', () => {
+  it('carrier with NO MC/DOT → WAITLISTED + NO_AUTHORITY', () => {
     const r = autoQualify({
       side: 'CARRIER',
       texasFocus: 'MOSTLY',
       sideSpecificData: { carrier: { truckCount: 3 } },  // no mcOrDot
       commitment: baseCommitment,
     });
-    expect(r.status).toBe('DISQUALIFIED');
-    expect(r.autoFlags).toContain('carrier_no_mc_dot');
+    expect(r.status).toBe('WAITLISTED');
+    expect(r.autoFlags).toContain('NO_AUTHORITY');
   });
 
-  it('carrier with a valid MC number → not flagged for MC/DOT', () => {
+  it('carrier with a blank MC/DOT → WAITLISTED + NO_AUTHORITY', () => {
     const r = autoQualify({
       side: 'CARRIER',
       texasFocus: 'MOSTLY',
-      sideSpecificData: { carrier: { mcOrDot: 'MC123456', loadsPerWeek: 12 } },
-      commitment: baseCommitment,
-    });
-    expect(r.autoFlags).not.toContain('carrier_no_mc_dot');
-    expect(r.status).toBe('QUALIFIED');
-  });
-
-  it('shipper under 5 loads/week → WAITLISTED + shipper_low_volume', () => {
-    const r = autoQualify({
-      side: 'SHIPPER',
-      texasFocus: 'MOSTLY',
-      sideSpecificData: { shipper: { loadsPerWeek: 3 } },
+      sideSpecificData: { carrier: { mcOrDot: '   ', truckCount: 3 } },
       commitment: baseCommitment,
     });
     expect(r.status).toBe('WAITLISTED');
-    expect(r.autoFlags).toContain('shipper_low_volume');
+    expect(r.autoFlags).toContain('NO_AUTHORITY');
   });
 
-  it('shipper at exactly 5 loads/week → QUALIFIED (boundary)', () => {
+  it('carrier with a valid MC number → not flagged', () => {
+    const r = autoQualify({
+      side: 'CARRIER',
+      texasFocus: 'MOSTLY',
+      sideSpecificData: { carrier: { mcOrDot: 'MC123456', loadsPerWeek: '5-20' } },
+      commitment: baseCommitment,
+    });
+    expect(r.autoFlags).not.toContain('NO_AUTHORITY');
+    expect(r.status).toBe('QUALIFIED');
+  });
+
+  it('shipper "Under 5" loads/week → WAITLISTED + LOW_VOLUME', () => {
     const r = autoQualify({
       side: 'SHIPPER',
       texasFocus: 'MOSTLY',
-      sideSpecificData: { shipper: { loadsPerWeek: 5 } },
+      sideSpecificData: { shipper: { loadsPerWeek: 'Under 5' } },
+      commitment: baseCommitment,
+    });
+    expect(r.status).toBe('WAITLISTED');
+    expect(r.autoFlags).toContain('LOW_VOLUME');
+  });
+
+  it('shipper "5-20" band → QUALIFIED (not low volume)', () => {
+    const r = autoQualify({
+      side: 'SHIPPER',
+      texasFocus: 'MOSTLY',
+      sideSpecificData: { shipper: { loadsPerWeek: '5-20' } },
       commitment: baseCommitment,
     });
     expect(r.status).toBe('QUALIFIED');
     expect(r.autoFlags).toHaveLength(0);
   });
 
-  it('not running freight → WAITLISTED + not_running_freight', () => {
+  it('not running freight → WAITLISTED + NO_COMMITMENT', () => {
     const r = autoQualify({
       side: 'SHIPPER',
       texasFocus: 'MOSTLY',
-      sideSpecificData: { shipper: { loadsPerWeek: 20 } },
+      sideSpecificData: { shipper: { loadsPerWeek: '20-50' } },
       commitment: { realFreight: false, feedbackCall: true },
     });
     expect(r.status).toBe('WAITLISTED');
-    expect(r.autoFlags).toContain('not_running_freight');
+    expect(r.autoFlags).toContain('NO_COMMITMENT');
   });
 
-  it('won\'t commit to feedback → WAITLISTED + wont_commit_to_feedback', () => {
+  it('won\'t commit to feedback → WAITLISTED + NO_COMMITMENT', () => {
     const r = autoQualify({
       side: 'SHIPPER',
       texasFocus: 'MOSTLY',
-      sideSpecificData: { shipper: { loadsPerWeek: 20 } },
+      sideSpecificData: { shipper: { loadsPerWeek: '20-50' } },
       commitment: { realFreight: true, feedbackCall: false },
     });
     expect(r.status).toBe('WAITLISTED');
-    expect(r.autoFlags).toContain('wont_commit_to_feedback');
+    expect(r.autoFlags).toContain('NO_COMMITMENT');
   });
 
-  it('OUTSIDE Texas in Wave 1 → WAITLISTED (not disqualified)', () => {
-    const r = autoQualify(
-      {
-        side: 'SHIPPER',
-        texasFocus: 'OUTSIDE',
-        sideSpecificData: { shipper: { loadsPerWeek: 20 } },
-        commitment: baseCommitment,
-      },
-      { currentWave: 'wave-1' },
-    );
-    expect(r.status).toBe('WAITLISTED');
-    expect(r.autoFlags).toContain('outside_texas_strict_wave');
-  });
-
-  it('OUTSIDE Texas in Wave 2 → not Texas-flagged', () => {
-    const r = autoQualify(
-      {
-        side: 'SHIPPER',
-        texasFocus: 'OUTSIDE',
-        sideSpecificData: { shipper: { loadsPerWeek: 20 } },
-        commitment: baseCommitment,
-      },
-      { currentWave: 'wave-2' },
-    );
-    expect(r.autoFlags).not.toContain('outside_texas_strict_wave');
+  it('OUTSIDE Texas is NOT an auto-gate (QUALIFIED, scored down via Geography)', () => {
+    const r = autoQualify({
+      side: 'SHIPPER',
+      texasFocus: 'OUTSIDE',
+      sideSpecificData: { shipper: { loadsPerWeek: '20-50' } },
+      commitment: baseCommitment,
+    });
     expect(r.status).toBe('QUALIFIED');
+    expect(r.autoFlags).toHaveLength(0);
   });
 
-  it('DISQUALIFIED beats WAITLISTED when both apply (records both flags)', () => {
+  it('auto-qualify NEVER assigns DISQUALIFIED; multiple fails → WAITLISTED + both flags', () => {
     const r = autoQualify({
       side: 'BOTH',
       texasFocus: 'MOSTLY',
       sideSpecificData: {
-        carrier: { truckCount: 1 },                 // no MC/DOT → disqualify
-        shipper: { loadsPerWeek: 2 },               // low volume → waitlist
+        carrier: { truckCount: 1 },               // no MC/DOT → NO_AUTHORITY
+        shipper: { loadsPerWeek: 'Under 5' },     // low volume → LOW_VOLUME
       },
       commitment: baseCommitment,
     });
-    expect(r.status).toBe('DISQUALIFIED');
-    expect(r.autoFlags).toEqual(expect.arrayContaining(['carrier_no_mc_dot', 'shipper_low_volume']));
+    expect(r.status).toBe('WAITLISTED');
+    expect(r.autoFlags).toEqual(expect.arrayContaining(['NO_AUTHORITY', 'LOW_VOLUME']));
   });
 
   it('fully qualifying applicant → QUALIFIED, no flags', () => {
     const r = autoQualify({
       side: 'SHIPPER',
       texasFocus: 'MOSTLY',
-      sideSpecificData: { shipper: { loadsPerWeek: 30, bookingMethod: 'email + spreadsheets' } },
+      sideSpecificData: { shipper: { loadsPerWeek: '20-50', bookingMethod: 'email + spreadsheets' } },
       commitment: baseCommitment,
     });
     expect(r.status).toBe('QUALIFIED');
@@ -146,7 +140,7 @@ describe('scoring — objective dimensions', () => {
     expect(geographyScore('OUTSIDE')).toBe(0);
   });
 
-  it('Volume bands: <5=0, 5-9=1, 10-24=2, 25+=3', () => {
+  it('Volume bands: <5=0, 5-9=1, 10-24=2, 25+=3 (numeric)', () => {
     expect(volumeBand(3)).toBe(0);
     expect(volumeBand(5)).toBe(1);
     expect(volumeBand(9)).toBe(1);
@@ -155,6 +149,25 @@ describe('scoring — objective dimensions', () => {
     expect(volumeBand(25)).toBe(3);
     expect(volumeBand(100)).toBe(3);
     expect(volumeBand(undefined)).toBe(0);
+  });
+
+  it('normalizeLoadsPerWeek handles Tally band strings', () => {
+    expect(normalizeLoadsPerWeek('Under 5')).toBe(0);
+    expect(normalizeLoadsPerWeek('under 5')).toBe(0);
+    expect(normalizeLoadsPerWeek('less than 5')).toBe(0);
+    expect(normalizeLoadsPerWeek('5-20')).toBe(5);
+    expect(normalizeLoadsPerWeek('5–20')).toBe(5);   // en-dash
+    expect(normalizeLoadsPerWeek('20-50')).toBe(20);
+    expect(normalizeLoadsPerWeek('50+')).toBe(50);
+    expect(normalizeLoadsPerWeek(42)).toBe(42);
+    expect(normalizeLoadsPerWeek(undefined)).toBeUndefined();
+  });
+
+  it('volumeBand accepts band strings: "Under 5"=0, "5-20"=1, "20-50"=2, "50+"=3', () => {
+    expect(volumeBand('Under 5')).toBe(0);
+    expect(volumeBand('5-20')).toBe(1);
+    expect(volumeBand('20-50')).toBe(2);
+    expect(volumeBand('50+')).toBe(3);
   });
 
   it('Tools: 1 when a booking/find method is present, else 0', () => {

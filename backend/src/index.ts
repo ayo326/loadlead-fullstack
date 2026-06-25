@@ -47,6 +47,7 @@ import ownerOperatorRoutes from './routes/ownerOperator';
 import setupRoutes from './routes/setup';
 import betaRoutes from './routes/beta';
 import adminBetaRoutes from './routes/adminBeta';
+import { tallyWebhookHandler } from './routes/tallyWebhook';
 import { diditWebhookHandler } from './services/verification';
 import factoringRoutes from './routes/factoring';
 import referenceRoutes from './routes/reference';
@@ -133,6 +134,17 @@ app.use(cors({
   },
   credentials: true,
 }));
+// Tally webhook — route-only RAW body capture, mounted BEFORE express.json
+// so the HMAC verifies against the exact bytes Tally sent (never a
+// re-serialized body). This is the spec-mandated front door for beta
+// ingestion: POST /api/admin/beta/webhook, secured by signature not by a
+// user session, so it sits outside the requireAdmin router.
+app.post(
+  '/api/admin/beta/webhook',
+  express.raw({ type: '*/*', limit: '1mb' }),
+  (req, res) => { void tallyWebhookHandler(req, res); },
+);
+
 // Capture rawBody for Didit webhook signature verification (HMAC needs the exact bytes).
 app.use(express.json({
   verify: (req: any, _res, buf) => { req.rawBody = buf; },

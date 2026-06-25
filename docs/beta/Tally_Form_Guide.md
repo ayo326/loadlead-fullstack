@@ -16,57 +16,92 @@ field, you also rename it here AND ship the code change.
 ## Webhook setup (one-time, in Tally)
 
 1. Tally → Form → Integrations → "Webhooks" → add a new webhook
-2. **URL:** `https://api.loadleadapp.com/api/beta/tally-webhook`
-3. **Secret:** copy the value from `TALLY_WEBHOOK_SECRET` in `.env.production`
+2. **URL:** `https://api.loadleadapp.com/api/admin/beta/webhook`
+3. **Secret:** copy the value from `TALLY_SIGNING_SECRET` in `.env.production`
 4. Tally will sign every POST with `Tally-Signature: <base64 HMAC-SHA256>`
-   over the raw request body using that secret. The webhook handler verifies
-   the signature; unsigned or wrong-signature requests get 401.
+   over the **raw request body** using that secret. The webhook handler
+   captures the raw body before JSON parsing and verifies the HMAC against
+   those exact bytes (timing-safe compare); unsigned or wrong-signature
+   requests get 401.
+5. (optional, defence-in-depth) set a custom header `X-Beta-Source: tally`
+   on the Tally webhook and set `TALLY_REQUIRE_SOURCE_HEADER=true` — the
+   endpoint then also requires that header.
 
-If `TALLY_WEBHOOK_SECRET` is unset, the endpoint is **inert** — it returns
+If `TALLY_SIGNING_SECRET` is unset, the endpoint is **inert** — it returns
 `503 form_not_connected` and the admin dashboard surfaces the same status.
-There is no fabricated-data fallback.
+There is no fabricated-data fallback. (`TALLY_WEBHOOK_SECRET` is accepted
+as a back-compat alias for the signing secret.)
 
-## Required fields (every applicant)
+The webhook is machine-to-machine: it is secured by the signature, NOT by
+an admin session cookie, so it is mounted outside the `requireAdmin` gate.
 
-| Tally label (exact) | BetaApplication field | Type | Notes |
+> Payload shape (Tally): `{ eventType: "FORM_RESPONSE", createdAt, data: {
+> responseId, formId, formName, fields: [{ key, label, type, value }] } }`.
+> Idempotency key is `data.responseId`.
+
+## Section 12 — Field mapping (BY LABEL)
+
+The webhook maps **by label** (`backend/src/services/betaApplicationService.ts`).
+Labels are matched loosely (older alias labels still accepted) so a minor
+Tally rename doesn't silently drop a field, but the **authoritative** labels
+below are what the form should use.
+
+### Required fields (every applicant)
+
+| Tally label (authoritative) | BetaApplication field | Type | Notes |
 |---|---|---|---|
-| `Which side are you?` | `side` | `SHIPPER\|CARRIER\|BOTH` | Drives the branching below |
+| `Which best describes you?` | `side` | `SHIPPER\|CARRIER\|BOTH` | "Shipper"→SHIPPER, "Hauler / carrier"→CARRIER, "Both"→BOTH |
 | `Full name` | `fullName` | string | |
-| `Work email` | `workEmail` | string | lowercased server-side; dedupe key |
+| `Work email` | `workEmail` | string | lowercased server-side; **required**; dedupe is by responseId |
 | `Phone` | `phone` | string? | optional |
-| `Company` | `company` | string? | |
+| `Company name` | `company` | string? | |
 | `LinkedIn URL` | `linkedinUrl` | string? | |
-| `Region` | `region` | string? | free-text (e.g. "DFW", "Houston metro") |
-| `Do you primarily operate in Texas?` | `texasFocus` | `MOSTLY\|PARTLY\|OUTSIDE` | **Drives Geography scoring** |
-| `Are you running freight right now?` | `commitment.realFreight` | bool | **Hard gate** |
-| `Will you take a 15-min feedback call and a weekly check-in?` | `commitment.feedbackCall` | bool | **Hard gate** |
-| `Preferred contact` | `commitment.contactPref` | `email\|phone\|sms` | |
-| `Referred by` | `referredBy` | string? | |
+| `Primary operating region (city, state)` | `region` | string? | free-text (e.g. "Dallas, TX") |
+| `Do you primarily operate in Texas?` | `texasFocus` | `MOSTLY\|PARTLY\|OUTSIDE` | "Yes, mostly Texas"→MOSTLY; "Partly Texas"→PARTLY; "No, mostly outside Texas"→OUTSIDE. **Required. Drives Geography score.** |
+| `Are you actively running freight right now?` | `commitment.realFreight` | bool | **Hard gate (NO_COMMITMENT)** |
+| `Will you join a short feedback call + weekly check-in?` | `commitment.feedbackCall` | bool | **Hard gate (NO_COMMITMENT)** |
+| `Preferred contact method` | `commitment.contactPref` | `email\|phone\|sms` | |
+| `Referred by anyone?` | `referredBy` | string? | |
 | `source` (hidden) | `source` | string? | UTM / channel hidden field |
 
-## SHIPPER branch (when `side` is `SHIPPER` or `BOTH`)
+### SHIPPER block (when `side` is `SHIPPER` or `BOTH`)
 
 | Tally label | BetaApplication path | Notes |
 |---|---|---|
-| `What kind of shipper are you?` | `sideSpecificData.shipper.companyType` | |
-| `What do you ship?` (multi) | `sideSpecificData.shipper.commodities[]` | |
-| `How many shipments per week?` | `sideSpecificData.shipper.loadsPerWeek` | int. **Hard gate**: < 5 → WAITLISTED |
+| `What type of company are you?` | `sideSpecificData.shipper.companyType` | |
+| `What commodities do you ship?` (multi) | `sideSpecificData.shipper.commodities[]` | |
+| `How many shipments per week?` | `sideSpecificData.shipper.loadsPerWeek` | **band string** ("Under 5", "5-20", …). **Hard gate (LOW_VOLUME)**: "Under 5" → WAITLISTED |
 | `Which modes do you use?` (multi) | `sideSpecificData.shipper.modes[]` | |
-| `Top 3 lanes` (multi) | `sideSpecificData.shipper.lanes[]` | feeds lane-overlap helper |
-| `How do you book today?` | `sideSpecificData.shipper.bookingMethod` | non-empty → Tools=1 |
-| `Biggest pain in booking` | `sideSpecificData.shipper.pain` | staff sets Pain dimension from this |
+| `Top lanes (origin → destination)` (multi) | `sideSpecificData.shipper.lanes[]` | feeds lane-overlap helper |
+| `How do you book freight today?` | `sideSpecificData.shipper.bookingMethod` | load board / TMS → Tools score = 1 |
+| `Biggest pain in booking freight` | `sideSpecificData.shipper.pain` | staff sets Pain dimension from this |
 
-## CARRIER branch (when `side` is `CARRIER` or `BOTH`)
+### CARRIER block (when `side` is `CARRIER` or `BOTH`)
 
 | Tally label | BetaApplication path | Notes |
 |---|---|---|
-| `MC or DOT number` | `sideSpecificData.carrier.mcOrDot` | **Hard gate**: missing/invalid → DISQUALIFIED |
-| `How many trucks?` | `sideSpecificData.carrier.truckCount` | int |
-| `Loads per week` | `sideSpecificData.carrier.loadsPerWeek` | int (capacity proxy) |
-| `Equipment` (multi) | `sideSpecificData.carrier.equipment[]` | |
-| `Top 3 lanes you serve` (multi) | `sideSpecificData.carrier.lanes[]` | feeds lane-overlap helper |
-| `How do you find loads today?` | `sideSpecificData.carrier.findMethod` | non-empty → Tools=1 |
+| `MC or DOT number` | `sideSpecificData.carrier.mcOrDot` | **Hard gate (NO_AUTHORITY)**: missing/blank/invalid → WAITLISTED |
+| `How many trucks/power units?` | `sideSpecificData.carrier.truckCount` | int |
+| `Loads per week` | `sideSpecificData.carrier.loadsPerWeek` | band string (capacity proxy) |
+| `Equipment types` (multi) | `sideSpecificData.carrier.equipment[]` | |
+| `Top lanes you run (origin → destination)` (multi) | `sideSpecificData.carrier.lanes[]` | feeds lane-overlap helper |
+| `How do you find loads today?` | `sideSpecificData.carrier.findMethod` | load board / TMS → Tools score = 1 |
 | `Biggest pain in finding loads` | `sideSpecificData.carrier.pain` | staff sets Pain dimension |
+
+## Section 13 — Scorecard (objective dims computed on ingest)
+
+The webhook pre-computes the **objective** dimensions; staff fill the
+subjective ones in the dashboard. Max 15.
+
+| Dimension | Max | Source | Computed on ingest? |
+|---|---|---|---|
+| Volume | 3 | loadsPerWeek band (<5=0, 5-9=1, 10-24=2, 25+=3) | ✅ |
+| Geography / Texas | 3 | texasFocus (MOSTLY=3, PARTLY=2, OUTSIDE=0) | ✅ |
+| Tool sophistication | 1 | bookingMethod/findMethod non-empty (load board/TMS) | ✅ |
+| Segment fit | 3 | staff | ⛔ (dashboard) |
+| Lane overlap | 2 | staff (helper surfaces other-side matches) | ⛔ (dashboard) |
+| Pain intensity | 2 | staff | ⛔ (dashboard) |
+| Responsiveness | 1 | staff | ⛔ (dashboard) |
 
 ## Field mapping is by LABEL, not by question id
 
@@ -86,8 +121,11 @@ balance widget.
 
 - [`Recruitment_Kit.md`](Recruitment_Kit.md) — the scorecard rubric, hard-gate
   rationale, and cohort balance targets that this form feeds.
-- `backend/src/services/tallyWebhook.ts` — the implementation that reads
-  these labels at runtime.
-- `backend/src/services/betaAutoQualify.ts` — encodes the hard gates listed
-  above into status transitions.
+- `backend/src/routes/tallyWebhook.ts` — the endpoint (raw-body capture +
+  signature verify + ingest).
+- `backend/src/services/tallySignature.ts` — the HMAC verifier.
+- `backend/src/services/betaApplicationService.ts` — `ingestFromTally()`
+  reads these labels at runtime.
+- `backend/src/services/betaAutoQualify.ts` — encodes the hard gates
+  (NO_AUTHORITY / LOW_VOLUME / NO_COMMITMENT) into status transitions.
 - `backend/src/services/betaScoring.ts` — encodes the score dimensions.

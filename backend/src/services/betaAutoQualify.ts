@@ -1,24 +1,28 @@
 /**
- * betaAutoQualify — encodes the HARD GATES from docs/beta/Recruitment_Kit.md.
+ * betaAutoQualify — encodes the HARD GATES from the beta kit + the Tally
+ * webhook spec (LoadLead_Beta_Form_Tally_Guide.md §13 / Recruitment_Kit.md).
  *
  * Runs the moment a BetaApplication is ingested from Tally. Returns the
  * resulting status + the autoFlags that explain WHY. The dashboard shows
  * these flags so staff can override a WAITLISTED row if they choose.
  *
- * The rules (verbatim from the kit):
- *   carrier_no_mc_dot       carrier side ∧ mcOrDot missing/invalid → DISQUALIFIED
- *   shipper_low_volume      shipper side ∧ loadsPerWeek < 5         → WAITLISTED
- *   not_running_freight     commitment.realFreight === false        → WAITLISTED
- *   wont_commit_to_feedback commitment.feedbackCall === false       → WAITLISTED
- *   outside_texas_strict    texasFocus === OUTSIDE ∧ Wave 1         → WAITLISTED
- *   (no flags)              passes everything                       → QUALIFIED
+ * The three auto-gates (authoritative per the webhook spec):
+ *   NO_AUTHORITY    carrier side ∧ mcOrDot missing/blank/invalid → WAITLISTED
+ *   LOW_VOLUME      shipper side ∧ loadsPerWeek "Under 5" (< 5)   → WAITLISTED
+ *   NO_COMMITMENT   realFreight === No OR feedbackCall === No     → WAITLISTED
+ *   (no flags)      passes all three                              → QUALIFIED
  *
- * Precedence: DISQUALIFIED beats WAITLISTED beats QUALIFIED. A carrier
- * with no MC/DOT that ALSO won't commit to feedback is DISQUALIFIED
- * (the harder verdict wins) but BOTH flags are recorded.
+ * Auto-qualify NEVER assigns DISQUALIFIED — that verdict is staff-only
+ * (e.g. fake credentials caught on review). All auto-fails land WAITLISTED
+ * so the applicant stays in the pipeline for a possible later wave.
+ *
+ * Geography/Texas is a SCORING dimension (betaScoring.geographyScore), not
+ * an auto-gate — an OUTSIDE-Texas applicant is QUALIFIED with Geography=0,
+ * scored down rather than gated out.
  */
 
 import { BetaApplication } from '../types';
+import { normalizeLoadsPerWeek } from './betaScoring';
 
 /** Tally-form MC/DOT validity. Accepts an optional "MC"/"DOT" prefix and
  *  4–8 digits. Real FMCSA numbers are 5–7 digits for MC, up to 8 for DOT;
@@ -32,52 +36,40 @@ export interface AutoQualifyResult {
 
 export function autoQualify(
   app: Pick<BetaApplication, 'side' | 'texasFocus' | 'sideSpecificData' | 'commitment'>,
-  opts: { currentWave?: string } = {},
+  _opts: { currentWave?: string } = {},
 ): AutoQualifyResult {
   const flags: string[] = [];
-  let disqualified = false;
   let waitlisted = false;
 
   const isCarrier = app.side === 'CARRIER' || app.side === 'BOTH';
   const isShipper = app.side === 'SHIPPER' || app.side === 'BOTH';
 
-  // ── carrier: must have a valid MC/DOT ──
+  // ── NO_AUTHORITY: carrier must have a valid MC/DOT ──
   if (isCarrier) {
     const mcOrDot = app.sideSpecificData?.carrier?.mcOrDot?.trim();
     if (!mcOrDot || !MC_DOT_RE.test(mcOrDot)) {
-      flags.push('carrier_no_mc_dot');
-      disqualified = true;
-    }
-  }
-
-  // ── shipper: must move ≥ 5 shipments/week ──
-  if (isShipper) {
-    const lpw = app.sideSpecificData?.shipper?.loadsPerWeek;
-    if (typeof lpw === 'number' && lpw < 5) {
-      flags.push('shipper_low_volume');
+      flags.push('NO_AUTHORITY');
       waitlisted = true;
     }
   }
 
-  // ── commitment gates (both sides) ──
-  if (app.commitment?.realFreight === false) {
-    flags.push('not_running_freight');
-    waitlisted = true;
+  // ── LOW_VOLUME: shipper must move ≥ 5 shipments/week ──
+  // loadsPerWeek arrives as a band string ("Under 5", "5-20", …) or a
+  // number; normalizeLoadsPerWeek maps "Under 5" → 0.
+  if (isShipper) {
+    const lpw = normalizeLoadsPerWeek(app.sideSpecificData?.shipper?.loadsPerWeek);
+    if (typeof lpw === 'number' && lpw < 5) {
+      flags.push('LOW_VOLUME');
+      waitlisted = true;
+    }
   }
-  if (app.commitment?.feedbackCall === false) {
-    flags.push('wont_commit_to_feedback');
+
+  // ── NO_COMMITMENT: must be running real freight AND commit to feedback ──
+  if (app.commitment?.realFreight === false || app.commitment?.feedbackCall === false) {
+    flags.push('NO_COMMITMENT');
     waitlisted = true;
   }
 
-  // ── Texas-strict for Wave 1 ──
-  // Wave 1 is ≥80% Texas-MOSTLY; an OUTSIDE-Texas applicant is waitlisted
-  // (not disqualified — they may come in Wave 2 which loosens the rule).
-  const wave = (opts.currentWave || 'wave-1').toLowerCase();
-  if (app.texasFocus === 'OUTSIDE' && wave === 'wave-1') {
-    flags.push('outside_texas_strict_wave');
-    waitlisted = true;
-  }
-
-  const status = disqualified ? 'DISQUALIFIED' : waitlisted ? 'WAITLISTED' : 'QUALIFIED';
+  const status = waitlisted ? 'WAITLISTED' : 'QUALIFIED';
   return { status, autoFlags: flags };
 }

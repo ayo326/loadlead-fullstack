@@ -21,11 +21,34 @@ import { BetaApplication } from '../types';
 
 export type ScoreBreakdown = NonNullable<BetaApplication['scoreBreakdown']>;
 
-/** loadsPerWeek → Volume band (0-3). 0:<5, 1:5-9, 2:10-24, 3:25+. */
-export function volumeBand(loadsPerWeek: number | undefined): number {
-  if (typeof loadsPerWeek !== 'number' || loadsPerWeek < 5) return 0;
-  if (loadsPerWeek < 10) return 1;
-  if (loadsPerWeek < 25) return 2;
+/**
+ * Normalize a Tally loadsPerWeek answer to a representative number.
+ * Tally sends this as a band STRING ("Under 5", "5-20", "20-50", "50+")
+ * or occasionally a number. We map to the band's lower bound so both the
+ * LOW_VOLUME gate (< 5) and the Volume score can work on a number.
+ *   "Under 5" / "<5" / "less than 5"  → 0
+ *   "5-20" / "5–20" / "5 to 20"       → 5
+ *   "20-50"                           → 20
+ *   "50+" / "over 50"                 → 50
+ *   42 (number)                       → 42
+ */
+export function normalizeLoadsPerWeek(raw: any): number | undefined {
+  if (typeof raw === 'number') return Math.trunc(raw);
+  if (typeof raw !== 'string') return undefined;
+  const s = raw.trim().toLowerCase();
+  if (!s) return undefined;
+  if (/under\s*5|less\s*than\s*5|<\s*5|fewer\s*than\s*5/.test(s)) return 0;
+  const m = s.match(/\d+/);
+  return m ? parseInt(m[0], 10) : undefined;
+}
+
+/** loadsPerWeek → Volume band (0-3). Accepts a number or a Tally band
+ *  string. 0:<5, 1:5-9, 2:10-24, 3:25+. */
+export function volumeBand(loadsPerWeek: number | string | undefined): number {
+  const n = normalizeLoadsPerWeek(loadsPerWeek);
+  if (typeof n !== 'number' || n < 5) return 0;
+  if (n < 10) return 1;
+  if (n < 25) return 2;
   return 3;
 }
 
