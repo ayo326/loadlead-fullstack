@@ -90,6 +90,26 @@ function pickStr(m: Record<string, any>, labels: string[]): string | undefined {
   return undefined;
 }
 
+/**
+ * Resolve a field's RAW value by trying exact labels in order, then falling
+ * back to any label whose lowercased text contains one of the keyword
+ * phrases. The keyword fallback is the safety net: if Tally's question
+ * wording is edited (e.g. "Can you test … real freight …"), the answer
+ * still binds instead of silently defaulting. Returns the raw value (which
+ * may be a string, an array for multi-selects, etc.) or undefined.
+ */
+function findAnswer(m: Record<string, any>, labels: string[], keywords: string[]): any {
+  for (const l of labels) {
+    if (m[l] !== undefined) return m[l];
+  }
+  const keys = Object.keys(m);
+  for (const kw of keywords) {
+    const k = keys.find((key) => key.toLowerCase().includes(kw));
+    if (k) return m[k];
+  }
+  return undefined;
+}
+
 /** Coerce a single-value text field to a non-empty trimmed string, or
  *  undefined. Tally multi-selects arrive as arrays → joined by coerceText. */
 function txt(v: any): string | undefined {
@@ -221,10 +241,30 @@ export class BetaApplicationService {
       };
     }
 
+    // Commitment questions — match the live Tally labels first, then older
+    // aliases, then a keyword fallback so a future label edit can't silently
+    // default these to false (which would wrongly fire NO_COMMITMENT).
     const commitment = {
-      realFreight: toBool(m['Are you actively running freight right now?'] ?? m['Are you running freight right now?']),
-      feedbackCall: toBool(m['Will you join a short feedback call + weekly check-in?'] ?? m['Will you take a 15-min feedback call and a weekly check-in?']),
-      contactPref: mapContactPref(m['Preferred contact method'] ?? m['Preferred contact']),
+      realFreight: toBool(findAnswer(m,
+        [
+          'Can you test LoadLead with real freight over the next few weeks?',
+          'Are you actively running freight right now?',
+          'Are you running freight right now?',
+        ],
+        ['real freight', 'test loadlead'],
+      )),
+      feedbackCall: toBool(findAnswer(m,
+        [
+          'Will you commit to one 20-minute feedback call plus a short weekly check-in?',
+          'Will you join a short feedback call + weekly check-in?',
+          'Will you take a 15-min feedback call and a weekly check-in?',
+        ],
+        ['feedback call', 'check-in', 'check in'],
+      )),
+      contactPref: mapContactPref(findAnswer(m,
+        ['Preferred contact method', 'Preferred contact'],
+        ['preferred contact', 'best way to reach'],
+      )),
     };
 
     const now = Helpers.getCurrentTimestamp();

@@ -227,6 +227,45 @@ describe('Tally auto-gates on ingest', () => {
     expect(application.scoreBreakdown?.tools).toBe(1);
   });
 
+  // Regression: the LIVE Tally form uses different commitment-question
+  // wording than the original guess. Both "Yes" answers must bind to
+  // realFreight/feedbackCall — otherwise they default false and wrongly
+  // fire NO_COMMITMENT → WAITLISTED.
+  it('binds the LIVE commitment-question labels (real-freight + feedback-call)', async () => {
+    dbQuery.mockResolvedValue([]);
+    dbPut.mockResolvedValue({} as any);
+    const p = shipperPayload('resp-live-commit');
+    // swap the original commitment labels for the real live ones
+    p.data.fields = p.data.fields
+      .filter(f =>
+        f.label !== 'Are you actively running freight right now?' &&
+        f.label !== 'Will you join a short feedback call + weekly check-in?')
+      .concat([
+        { key: 'cm1', label: 'Can you test LoadLead with real freight over the next few weeks?', value: 'Yes' },
+        { key: 'cm2', label: 'Will you commit to one 20-minute feedback call plus a short weekly check-in?', value: 'Yes' },
+      ]);
+
+    const { application } = await BetaApplicationService.ingestFromTally(p);
+    expect(application.commitment.realFreight).toBe(true);
+    expect(application.commitment.feedbackCall).toBe(true);
+    // both Yes → NOT flagged, and QUALIFIED (not wrongly WAITLISTED)
+    expect(application.autoFlags).not.toContain('NO_COMMITMENT');
+    expect(application.status).toBe('QUALIFIED');
+  });
+
+  // The keyword fallback must bind even a reworded commitment question.
+  it('keyword fallback binds a reworded real-freight question', async () => {
+    dbQuery.mockResolvedValue([]);
+    dbPut.mockResolvedValue({} as any);
+    const p = shipperPayload('resp-kw');
+    p.data.fields = p.data.fields
+      .filter(f => f.label !== 'Are you actively running freight right now?')
+      .concat([{ key: 'kw1', label: 'Could you move some real freight with us soon?', value: 'Yes' }]);
+
+    const { application } = await BetaApplicationService.ingestFromTally(p);
+    expect(application.commitment.realFreight).toBe(true);   // matched "real freight"
+  });
+
   // Tally single-select Yes/No can also arrive as a one-element array.
   it('tolerates an array-valued Yes/No commitment answer', async () => {
     dbQuery.mockResolvedValue([]);

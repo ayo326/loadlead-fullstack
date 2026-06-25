@@ -58,8 +58,8 @@ below are what the form should use.
 | `LinkedIn URL` | `linkedinUrl` | string? | |
 | `Primary operating region (city, state)` | `region` | string? | free-text (e.g. "Dallas, TX") |
 | `Do you primarily operate in Texas?` | `texasFocus` | `MOSTLY\|PARTLY\|OUTSIDE` | "Yes, mostly Texas"→MOSTLY; "Partly Texas"→PARTLY; "No, mostly outside Texas"→OUTSIDE. **Required. Drives Geography score.** |
-| `Are you actively running freight right now?` | `commitment.realFreight` | bool | **Hard gate (NO_COMMITMENT)** |
-| `Will you join a short feedback call + weekly check-in?` | `commitment.feedbackCall` | bool | **Hard gate (NO_COMMITMENT)** |
+| `Can you test LoadLead with real freight over the next few weeks?` | `commitment.realFreight` | bool | **Hard gate (NO_COMMITMENT)** |
+| `Will you commit to one 20-minute feedback call plus a short weekly check-in?` | `commitment.feedbackCall` | bool | **Hard gate (NO_COMMITMENT)** |
 | `Preferred contact method` | `commitment.contactPref` | `email\|phone\|sms` | |
 | `Referred by anyone?` | `referredBy` | string? | |
 | `source` (hidden) | `source` | string? | UTM / channel hidden field |
