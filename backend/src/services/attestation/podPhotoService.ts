@@ -13,7 +13,7 @@
 // are protected by the bucket policy (delete-resistant; Phase-2 Object Lock).
 
 import { createHash, randomUUID } from 'node:crypto';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, PutObjectRetentionCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PutCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient } from '../../config/aws';
@@ -133,6 +133,40 @@ export async function finalizeUpload(
 
   const contentHash = createHash('sha256').update(bodyBytes).digest('hex');
   const finalizedAt = Date.now();
+
+  // Apply Object Lock (COMPLIANCE) at finalize time. The presign+PUT
+  // path can't apply bucket-default Object Lock because that would
+  // require Content-MD5/x-amz-checksum on the client's PUT — which the
+  // browser presigned-URL contract doesn't deliver. So we apply
+  // COMPLIANCE-mode retention here, after the bytes are confirmed and
+  // the hash matches.
+  //
+  // Idempotent under retry: PutObjectRetention can extend retention but
+  // not shorten it, so re-running finalize doesn't weaken the lock.
+  // Skipped when the bucket has Object Lock disabled (v1 bucket / dev
+  // bucket); detected by env var rather than a per-call HEAD because
+  // bucket-config doesn't drift in normal operation.
+  if (process.env.POD_S3_LOCK_RETAIN_DAYS) {
+    const retainDays = Number(process.env.POD_S3_LOCK_RETAIN_DAYS);
+    const retainUntil = new Date(finalizedAt + retainDays * 24 * 3600 * 1000);
+    try {
+      await podS3.send(new PutObjectRetentionCommand({
+        Bucket: POD_BUCKET,
+        Key:    photo.s3Key,
+        Retention: {
+          Mode:            'COMPLIANCE',
+          RetainUntilDate: retainUntil,
+        },
+      }));
+    } catch (e: any) {
+      // If the bucket doesn't have Object Lock enabled, AWS returns
+      // InvalidRequest. We tolerate this in non-WORM buckets (v1) so
+      // the same code path works in dev/staging.
+      if (e?.name !== 'InvalidRequest' && e?.Code !== 'InvalidRequest') {
+        throw e;
+      }
+    }
+  }
 
   // Photos table allows UpdateItem (only sigs are append-only). We
   // condition the update so PENDING → READY is the only transition, no
