@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Landing from "./pages/Landing.tsx";
+import PrivateBetaLanding from "./pages/PrivateBetaLanding.tsx";
 import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
 import AppLayout from "./layouts/AppLayout.tsx";
@@ -71,6 +72,11 @@ const App = () => (
           <ErrorBoundary>
           <Routes>
             <Route path="/" element={<Landing />} />
+            {/* Private-beta surface — public, no auth. The Landing page
+                can fetch /api/beta/status and link visitors here when
+                betaMode=true; gated signups still hit /signup with an
+                invite token. */}
+            <Route path="/private-beta" element={<PrivateBetaLanding />} />
             {/* Dev-only — taxonomy dropdown sandbox. No auth wrapper. */}
             <Route path="/sandbox/taxonomy" element={<TaxonomySandbox />} />
             <Route path="/login" element={<Login />} />

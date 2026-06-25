@@ -2,6 +2,52 @@
 // In production VITE_API_URL is set to https://api.loadleadapp.com
 const BASE = (import.meta.env.VITE_API_URL ?? "") + "/api";
 
+// ─── Beta Program types (mirror backend BetaApplication / allowlist) ────────
+export interface BetaScoreBreakdown {
+  volume: number; segmentFit: number; geography: number;
+  laneOverlap: number; pain: number; tools: number; responsiveness: number;
+}
+export interface BetaApplicationRow {
+  applicationId: string;
+  responseId: string;
+  side: "SHIPPER" | "CARRIER" | "BOTH";
+  fullName: string;
+  workEmail: string;
+  phone?: string;
+  company?: string;
+  region?: string;
+  texasFocus: "MOSTLY" | "PARTLY" | "OUTSIDE";
+  sideSpecificData: { shipper?: Record<string, any>; carrier?: Record<string, any> };
+  commitment: { realFreight: boolean; feedbackCall: boolean; contactPref?: string };
+  status: "NEW" | "QUALIFIED" | "DISQUALIFIED" | "WAITLISTED" | "ADMITTED" | "INVITED" | "ONBOARDED";
+  autoFlags: string[];
+  score?: number;
+  scoreBreakdown?: BetaScoreBreakdown;
+  cohort?: string;
+  wave?: string;
+  notes?: { authorStaffId: string; text: string; createdAt: number }[];
+  createdAt: number;
+  updatedAt: number;
+}
+export interface LaneOverlap {
+  applicationId: string; fullName: string; company?: string;
+  side: string; sharedLaneTokens: string[]; bothTexas: boolean;
+}
+export interface CohortBalance {
+  shippers: number; carriers: number; both: number;
+  admitted: { shippers: number; carriers: number; both: number };
+  totalAdmitted: number; cohortCap: number; seatsFilled: number;
+  ratioTarget: string; ratioOutOfBalance: boolean; currentCohort: string;
+}
+export interface AllowlistEntry {
+  allowlistId: string; type: "EMAIL" | "DOMAIN"; value: string;
+  addedByStaffId: string; reason?: string; active: boolean; createdAt: number;
+}
+export interface WaitlistRow {
+  waitlistId: string; email: string; name?: string;
+  personaInterest?: string; source: string; status: string; createdAt: number;
+}
+
 // Auth uses httpOnly cookies — the browser sends ll_token automatically.
 // `credentials: 'include'` is required for cross-origin cookie delivery.
 // We no longer read from / write to localStorage for auth tokens.
@@ -21,19 +67,78 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export const api = {
   // Auth
+  // inviteToken is forwarded to the backend's requireBetaGate when the
+  // app is under BETA_MODE — the gate uses it (or the allowlist) to
+  // decide whether to admit the signup. When BETA_MODE is off the gate
+  // ignores it and the field is harmless.
   signup: (email: string, password: string, role: string, orgParams?: Record<string, any>,
-          profile?: { firstName?: string; lastName?: string; phone?: string }) =>
+          profile?: { firstName?: string; lastName?: string; phone?: string },
+          inviteToken?: string) =>
     request<{ token: string; user: { userId: string; email: string; role: string }; orgId?: string }>(
-      "POST", "/auth/signup", { email, password, role, orgParams, ...profile }
+      "POST", "/auth/signup", { email, password, role, orgParams, inviteToken, ...profile }
     ),
 
   // Dedicated atomic carrier signup — separate endpoint from the generic
   // signup() above (see backend AuthService.signupCarrierAdmin). Does not
   // share a code path with the four existing personas.
-  signupCarrier: (params: { email: string; password: string; legalName: string; dba?: string; mcNumber?: string; dotNumber?: string }) =>
+  signupCarrier: (params: { email: string; password: string; legalName: string; dba?: string; mcNumber?: string; dotNumber?: string; inviteToken?: string }) =>
     request<{ token: string; user: { userId: string; email: string; role: string }; orgId: string }>(
       "POST", "/auth/signup/carrier", params
     ),
+
+  // Private-beta surface (public, no auth)
+  beta: {
+    status: () =>
+      request<{ betaMode: boolean; currentCohort: string; tallyConnected: boolean }>(
+        "GET", "/beta/status"
+      ),
+    joinWaitlist: (params: { email: string; name?: string; personaInterest?: string }) =>
+      request<{ ok: boolean; waitlistId: string; message: string }>(
+        "POST", "/beta/waitlist", params
+      ),
+  },
+
+  // Beta Program admin (exact-ADMIN; all under /api/admin/beta)
+  adminBeta: {
+    listApplications: (filter?: { status?: string; side?: string; wave?: string }) => {
+      const qs = new URLSearchParams(
+        Object.entries(filter ?? {}).filter(([, v]) => v) as [string, string][]
+      ).toString();
+      return request<{ applications: BetaApplicationRow[]; count: number }>(
+        "GET", `/admin/beta/applications${qs ? `?${qs}` : ""}`
+      );
+    },
+    getApplication: (id: string) =>
+      request<{ application: BetaApplicationRow; laneOverlaps: LaneOverlap[] }>(
+        "GET", `/admin/beta/applications/${id}`
+      ),
+    score: (id: string, scores: { segmentFit?: number; laneOverlap?: number; pain?: number; responsiveness?: number }) =>
+      request<{ application: BetaApplicationRow }>(
+        "PUT", `/admin/beta/applications/${id}/score`, scores
+      ),
+    addNote: (id: string, text: string) =>
+      request<{ ok: boolean }>("POST", `/admin/beta/applications/${id}/notes`, { text }),
+    admit: (id: string, params?: { wave?: string; userRoleOverride?: string }) =>
+      request<{ ok: boolean; invitationToken: string; acceptUrl: string; cohort: string; userRole: string }>(
+        "POST", `/admin/beta/applications/${id}/admit`, params ?? {}
+      ),
+    waitlistApplication: (id: string) =>
+      request<{ ok: boolean }>("POST", `/admin/beta/applications/${id}/waitlist`),
+    cohortBalance: (wave?: string) =>
+      request<CohortBalance>("GET", `/admin/beta/cohort-balance${wave ? `?wave=${wave}` : ""}`),
+    listAllowlist: () =>
+      request<{ entries: AllowlistEntry[] }>("GET", "/admin/beta/allowlist"),
+    addAllowlist: (params: { type: "EMAIL" | "DOMAIN"; value: string; reason?: string }) =>
+      request<{ entry: AllowlistEntry }>("POST", "/admin/beta/allowlist", params),
+    removeAllowlist: (id: string) =>
+      request<{ ok: boolean }>("DELETE", `/admin/beta/allowlist/${id}`),
+    listWaitlist: () =>
+      request<{ entries: WaitlistRow[] }>("GET", "/admin/beta/waitlist"),
+    promoteWaitlist: (id: string, params: { userRole: string; wave?: string }) =>
+      request<{ ok: boolean; invitationToken: string; acceptUrl: string }>(
+        "POST", `/admin/beta/waitlist/${id}/promote`, params
+      ),
+  },
 
   login: (email: string, password: string) =>
     request<{ token: string; user: { userId: string; email: string; role: string } }>(

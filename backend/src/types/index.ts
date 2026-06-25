@@ -123,6 +123,161 @@ export interface User {
    */
   idvStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED' | 'EXPIRED';
 
+  /**
+   * Private-beta cohort membership. Set by the beta gate at account creation;
+   * never user-settable. ADMIN accounts (CLI-bootstrapped) are not part of
+   * the cohort gate — these fields stay undefined for them.
+   *   - betaUser=true marks the account as part of a beta cohort
+   *   - cohort is the wave/group label (e.g. "wave-1")
+   *   - invitedVia records HOW they got in (token vs allowlist match)
+   * When BETA_MODE is flipped off, these flags persist for post-launch
+   * cohort separation but stop gating login/signup.
+   */
+  betaUser?: boolean;
+  cohort?: string;
+  invitedVia?: 'INVITE' | 'ALLOWLIST';
+
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ─── Beta program — gate, allowlist, waitlist, applications ─────────────────
+
+/**
+ * Runtime-editable allowlist. Adding an entry takes effect immediately — no
+ * deploy. EMAIL entries match a single address; DOMAIN entries let everyone
+ * at that domain self-sign-up (used for partner orgs). The beta gate consults
+ * this BEFORE issuing a 403, so a domain entry covers everyone-at-`acme.com`
+ * without needing per-person invites.
+ *
+ * `active=false` is a soft-delete; we never hard-delete so audit holds.
+ */
+export interface BetaAllowlistEntry {
+  allowlistId: string;
+  type: 'EMAIL' | 'DOMAIN';
+  value: string;                // lowercased email or domain (no @ for domains)
+  addedByStaffId: string;       // userId of the ADMIN who added it
+  reason?: string;              // free-text, surfaced in the admin console
+  active: boolean;
+  createdAt: number;
+  deactivatedAt?: number;
+  deactivatedBy?: string;
+}
+
+/**
+ * Waitlist row — captured when an unauthenticated visitor lands on the
+ * private-beta page and asks to be let in. This is the next-cohort pipeline:
+ * staff can promote a WAITING row to INVITED (which issues a real Invitation
+ * via the existing OrgInvitation flow + allowlists the email).
+ *
+ * The BetaApplication pipeline (Tally-fed) ALSO uses this waitlist concept —
+ * a QUALIFIED application that isn't admitted lives in WAITING state on its
+ * own row, and the dashboard shows both surfaces in the same waitlist view.
+ */
+export interface WaitlistEntry {
+  waitlistId: string;
+  email: string;                // lowercased
+  name?: string;
+  personaInterest?: UserRole;   // 'SHIPPER' | 'CARRIER_ADMIN' | etc.
+  source: 'landing' | 'application';
+  status: 'WAITING' | 'INVITED';
+  invitedAt?: number;
+  invitedBy?: string;           // ADMIN userId
+  createdAt: number;
+}
+
+/**
+ * The application IS the pipeline record. Lifecycle:
+ *   Tally submit → NEW → (auto-qualify) → QUALIFIED or WAITLISTED or DISQUALIFIED
+ *                     → (staff scores)  → still QUALIFIED with score+breakdown
+ *                     → (admit action)  → ADMITTED → INVITED → (eventual signup) → ONBOARDED
+ *
+ * sideSpecificData is jsonb-shaped (DynamoDB stores it as an attribute map).
+ * The two branches are SHIPPER vs CARRIER fields; BOTH means we collected
+ * both branches and the applicant is considered for either side per balance.
+ */
+export interface BetaApplication {
+  applicationId: string;
+  responseId: string;             // Tally response id — dedupe key
+  side: 'SHIPPER' | 'CARRIER' | 'BOTH';
+
+  // identity
+  fullName: string;
+  workEmail: string;              // lowercased
+  phone?: string;
+  company?: string;
+  linkedinUrl?: string;
+  region?: string;
+
+  // The headline Texas filter, used both for hard-gate and as the Geography
+  // scorecard dimension (MOSTLY=3, PARTLY=2, OUTSIDE=0).
+  texasFocus: 'MOSTLY' | 'PARTLY' | 'OUTSIDE';
+
+  /** side-branch answers; see docs/beta/Tally_Form_Guide.md for the exact fields */
+  sideSpecificData: {
+    shipper?: {
+      companyType?: string;
+      commodities?: string[];
+      // Tally sends this as a band string ("Under 5", "5-20", …) or a
+      // number; normalizeLoadsPerWeek() interprets either. Stored raw so
+      // the original answer survives for the dashboard.
+      loadsPerWeek?: number | string;
+      modes?: string[];
+      lanes?: string[];
+      bookingMethod?: string;
+      pain?: string;
+    };
+    carrier?: {
+      mcOrDot?: string;
+      truckCount?: number;
+      loadsPerWeek?: number | string;
+      equipment?: string[];
+      lanes?: string[];
+      findMethod?: string;
+      pain?: string;
+    };
+  };
+
+  // commitment answers — feed the hard-gate
+  commitment: {
+    realFreight: boolean;
+    feedbackCall: boolean;
+    contactPref?: 'email' | 'phone' | 'sms';
+  };
+
+  referredBy?: string;
+  source?: string;                // hidden source/UTM from the Tally form
+
+  status: 'NEW' | 'QUALIFIED' | 'DISQUALIFIED' | 'WAITLISTED' | 'ADMITTED' | 'INVITED' | 'ONBOARDED';
+
+  /** Auto-qualify outputs. See services/betaAutoQualify.ts */
+  autoFlags: string[];            // e.g. ['carrier_no_mc_dot', 'shipper_low_volume']
+
+  /** Staff-set scorecard. Pre-computed dimensions (Volume/Texas/Tools) are
+   *  filled in on ingest; subjective dimensions (Pain, Responsiveness) are
+   *  staff-edited. Total is sum, max 15. */
+  score?: number;
+  scoreBreakdown?: {
+    volume: number;          // 0-3, auto from loadsPerWeek bands
+    segmentFit: number;      // 0-3, staff
+    geography: number;       // 0-3, auto from texasFocus
+    laneOverlap: number;     // 0-2, staff (helper surfaces other-side applicants)
+    pain: number;            // 0-2, staff
+    tools: number;           // 0-1, auto from bookingMethod presence
+    responsiveness: number;  // 0-1, staff
+  };
+
+  // cohort assignment (set on admit)
+  cohort?: string;
+  wave?: string;              // e.g. 'wave-1'
+  assigneeStaffId?: string;
+  notes?: { authorStaffId: string; text: string; createdAt: number }[];
+
+  // references — NEVER duplicated, always pointers
+  linkedInvitationToken?: string;     // the invite issued when admitted
+  linkedUserId?: string;              // set when the applicant signs up
+  linkedWaitlistId?: string;          // if also on the landing waitlist
+
   createdAt: number;
   updatedAt: number;
 }
@@ -249,15 +404,29 @@ export interface OrgMembership {
 
 export interface OrgInvitation {
   token: string;
-  orgId: string;
+  /**
+   * Carrier-org invites carry orgId; non-org persona invites (Shipper,
+   * Owner Operator, Receiver, Driver self-signup under beta) leave orgId
+   * undefined. acceptInvitation() branches on this presence:
+   *   - orgId set    → existing carrier-org flow: creates membership
+   *   - orgId unset  → beta self-signup flow: just consumes the token,
+   *                    the AuthService stamps invitedVia=INVITE on the new
+   *                    user; no membership is created
+   * One table, one token format, one TTL, one acceptance call — extended,
+   * not duplicated.
+   */
+  orgId?: string;
+  /** orgRole only meaningful when orgId is set */
+  orgRole?: OrgRole;
   email: string;
-  orgRole: OrgRole;
   userRole: UserRole;
-  invitedBy: string;   // userId
+  invitedBy: string;   // userId of staff/inviter
   expiresAt: number;
   acceptedAt?: number;
   revokedAt?: number;
   revokedBy?: string;
+  /** Cohort tag stamped onto the resulting user when accepted under beta */
+  cohort?: string;
   createdAt: number;
 }
 

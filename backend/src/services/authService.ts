@@ -50,7 +50,18 @@ export class AuthService {
       zip?: string;
       country?: string;
     },
-    profile?: { firstName?: string; lastName?: string; phone?: string }
+    profile?: { firstName?: string; lastName?: string; phone?: string },
+    /**
+     * Set by routes/auth.ts when the beta gate ran and the request passed.
+     * The presence of this object is the signal that we're in BETA_MODE
+     * and a cohort tag should be stamped on the new user. When absent,
+     * the new user is a regular (post-launch) signup.
+     */
+    betaContext?: {
+      invitedVia: 'INVITE' | 'ALLOWLIST';
+      invitationToken?: string;
+      cohort: string;
+    },
   ): Promise<{ user: User; token: string; orgId?: string }> {
     try {
       const existingUsers = await Database.query<StoredUser>(
@@ -84,16 +95,35 @@ export class AuthService {
         lastName,
         fullName,
         phone: profile?.phone?.trim(),
+        // Beta cohort stamping. If we're under BETA_MODE the caller has
+        // already validated the gate (invite OR allowlist) and passes us
+        // betaContext; we just persist the audit trail on the user row.
+        // After BETA_MODE flips off these fields persist on existing users
+        // for cohort separation but stop affecting auth.
+        betaUser: betaContext ? true : undefined,
+        cohort: betaContext?.cohort,
+        invitedVia: betaContext?.invitedVia,
         createdAt: now,
         updatedAt: now,
       };
 
       await Database.putItem(config.dynamodb.usersTable, user);
 
+      // If an invitation token brought them in, consume it (idempotent;
+      // self-signup branch since orgId is absent on these invites).
+      if (betaContext?.invitationToken) {
+        try {
+          const { OrgInvitationService } = await import('./orgService');
+          await OrgInvitationService.acceptInvitation(betaContext.invitationToken, userId);
+        } catch (err) {
+          Logger.warn(`Could not consume beta invite token for ${email}: ${(err as Error).message}`);
+        }
+      }
+
       const token = Helpers.generateToken({ userId, email, role });
       const safeUser = this.sanitizeUser(user);
 
-      Logger.info(`User signed up: ${email} with role ${role}`);
+      Logger.info(`User signed up: ${email} with role ${role}${betaContext ? ` (beta, ${betaContext.invitedVia}, cohort=${betaContext.cohort})` : ''}`);
 
       // Auto-create organisation if org params provided (non-DRIVER, non-ADMIN roles)
       let orgId: string | undefined;
@@ -136,6 +166,13 @@ export class AuthService {
     dba?: string;
     mcNumber?: string;
     dotNumber?: string;
+    /** See signup() — same semantics, set by routes/auth.ts when the
+     *  beta gate passes the request. */
+    betaContext?: {
+      invitedVia: 'INVITE' | 'ALLOWLIST';
+      invitationToken?: string;
+      cohort: string;
+    };
   }): Promise<{ user: User; token: string; orgId: string }> {
     const existingUsers = await Database.query<StoredUser>(
       config.dynamodb.usersTable,
@@ -167,6 +204,12 @@ export class AuthService {
       passwordHash: hashedPassword,
       role: UserRole.CARRIER_ADMIN,
       status: UserStatus.PENDING_VERIFICATION,
+      // Beta cohort stamping — symmetric with signup() above. Set only
+      // when the route layer passes us betaContext (i.e. BETA_MODE is on
+      // AND the gate accepted this request).
+      betaUser: params.betaContext ? true : undefined,
+      cohort: params.betaContext?.cohort,
+      invitedVia: params.betaContext?.invitedVia,
       createdAt: now,
       updatedAt: now,
     };
@@ -225,8 +268,22 @@ export class AuthService {
       throw new AppError('Could not create carrier account. Please try again.', 500);
     }
 
+    // Consume the beta invitation token if one brought the carrier in.
+    // Idempotent — multiple consumes are safe (acceptInvitation rejects
+    // already-accepted tokens). Self-signup branch of acceptInvitation
+    // since these carrier invites have no orgId (the org is being created
+    // here, in the same call).
+    if (params.betaContext?.invitationToken) {
+      try {
+        const { OrgInvitationService } = await import('./orgService');
+        await OrgInvitationService.acceptInvitation(params.betaContext.invitationToken, userId);
+      } catch (err) {
+        Logger.warn(`Could not consume beta invite token for carrier ${params.email}: ${(err as Error).message}`);
+      }
+    }
+
     const token = Helpers.generateToken({ userId, email: params.email, role: UserRole.CARRIER_ADMIN });
-    Logger.info(`Carrier admin signed up: ${params.email}, org ${orgId}`);
+    Logger.info(`Carrier admin signed up: ${params.email}, org ${orgId}${params.betaContext ? ` (beta, ${params.betaContext.invitedVia}, cohort=${params.betaContext.cohort})` : ''}`);
 
     return { user: this.sanitizeUser(user), token, orgId };
   }

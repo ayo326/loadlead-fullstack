@@ -153,6 +153,56 @@ locals {
         { name = "loadId-index", hash_key = "loadId" },
       ]
     }
+
+    # ── Beta program ─────────────────────────────────────────────────────
+    # Runtime-editable allowlist for private-beta self-signup. EMAIL rows
+    # match one address; DOMAIN rows let everyone-at-acme.com self-sign-up.
+    # value-index lets the beta gate do a fast PK-style lookup on either form
+    # without a full scan; the gate normalises (lowercase, strip leading '@')
+    # before querying.
+    BetaAllowlist = {
+      hash_key   = "allowlistId"
+      attributes = [
+        { name = "allowlistId", type = "S" },
+        { name = "value",       type = "S" },
+      ]
+      gsis = [
+        { name = "value-index", hash_key = "value" },
+      ]
+    }
+
+    # Capture from the private-beta landing page (unauthenticated visitor
+    # asks to be let in). The dashboard promotes these into real invites.
+    # email-index makes "is this email already on the waitlist?" cheap.
+    Waitlist = {
+      hash_key   = "waitlistId"
+      attributes = [
+        { name = "waitlistId", type = "S" },
+        { name = "email",      type = "S" },
+      ]
+      gsis = [
+        { name = "email-index", hash_key = "email" },
+      ]
+    }
+
+    # Tally form submissions → BetaApplication. The responseId GSI is the
+    # idempotency lock for the webhook (dedupe by Tally's response id).
+    # status-index drives the pipeline kanban; workEmail-index is for the
+    # "did this person already apply?" check before insert.
+    BetaApplications = {
+      hash_key   = "applicationId"
+      attributes = [
+        { name = "applicationId", type = "S" },
+        { name = "responseId",    type = "S" },
+        { name = "status",        type = "S" },
+        { name = "workEmail",     type = "S" },
+      ]
+      gsis = [
+        { name = "responseId-index", hash_key = "responseId" },
+        { name = "status-index",     hash_key = "status" },
+        { name = "workEmail-index",  hash_key = "workEmail" },
+      ]
+    }
   }
 }
 

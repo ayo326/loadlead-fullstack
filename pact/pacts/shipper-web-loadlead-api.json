@@ -276,6 +276,206 @@
         },
         "status": 201
       }
+    },
+    {
+      "description": "a signup attempt carrying a valid beta invite token",
+      "providerStates": [
+        {
+          "name": "BETA_MODE is on and a valid self-signup invite exists for the email"
+        }
+      ],
+      "request": {
+        "body": {
+          "email": "invited@example.com",
+          "inviteToken": "beta-invite-token-abc",
+          "password": "a-strong-password",
+          "role": "SHIPPER"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/auth/signup"
+      },
+      "response": {
+        "body": {
+          "token": "test-jwt",
+          "user": {
+            "betaUser": true,
+            "cohort": "wave-1",
+            "email": "invited@example.com",
+            "invitedVia": "INVITE",
+            "role": "SHIPPER",
+            "userId": "user_test_1"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.token": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.user": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.user.betaUser": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.user.cohort": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.user.email": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.user.invitedVia": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(INVITE|ALLOWLIST)$"
+                }
+              ]
+            },
+            "$.user.role": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^SHIPPER$"
+                }
+              ]
+            },
+            "$.user.userId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^user_[a-zA-Z0-9_-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      }
+    },
+    {
+      "description": "a signup attempt with no invite token under private beta",
+      "providerStates": [
+        {
+          "name": "BETA_MODE is on and the email is neither invited nor allowlisted"
+        }
+      ],
+      "request": {
+        "body": {
+          "email": "outsider@example.com",
+          "password": "a-strong-password",
+          "role": "SHIPPER"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/auth/signup"
+      },
+      "response": {
+        "body": {
+          "error": "BETA_REQUIRED",
+          "message": "LoadLead is currently in private beta. Request access on the waitlist and we will reach out when your spot opens."
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^BETA_REQUIRED$"
+                }
+              ]
+            },
+            "$.message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 403
+      }
     }
   ],
   "metadata": {

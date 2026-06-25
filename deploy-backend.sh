@@ -113,6 +113,40 @@ ensure_table LoadLead-MembershipAuditLogs \
   --global-secondary-indexes \
     '[{"IndexName":"orgId-index","KeySchema":[{"AttributeName":"orgId","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}]'
 
+# Beta program tables (private-beta gate + Tally pipeline)
+# value-index lets the beta gate look up an allowlist EMAIL or DOMAIN row
+# without a Scan.
+ensure_table LoadLead_BetaAllowlist \
+  --attribute-definitions \
+    AttributeName=allowlistId,AttributeType=S \
+    AttributeName=value,AttributeType=S \
+  --key-schema AttributeName=allowlistId,KeyType=HASH \
+  --global-secondary-indexes \
+    '[{"IndexName":"value-index","KeySchema":[{"AttributeName":"value","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}]'
+
+# email-index dedupes landing-page waitlist signups.
+ensure_table LoadLead_Waitlist \
+  --attribute-definitions \
+    AttributeName=waitlistId,AttributeType=S \
+    AttributeName=email,AttributeType=S \
+  --key-schema AttributeName=waitlistId,KeyType=HASH \
+  --global-secondary-indexes \
+    '[{"IndexName":"email-index","KeySchema":[{"AttributeName":"email","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}]'
+
+# responseId-index is the Tally webhook idempotency lock; status-index
+# drives the pipeline kanban; workEmail-index checks for repeat applicants.
+ensure_table LoadLead_BetaApplications \
+  --attribute-definitions \
+    AttributeName=applicationId,AttributeType=S \
+    AttributeName=responseId,AttributeType=S \
+    AttributeName=status,AttributeType=S \
+    AttributeName=workEmail,AttributeType=S \
+  --key-schema AttributeName=applicationId,KeyType=HASH \
+  --global-secondary-indexes \
+    '[{"IndexName":"responseId-index","KeySchema":[{"AttributeName":"responseId","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}},
+      {"IndexName":"status-index","KeySchema":[{"AttributeName":"status","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}},
+      {"IndexName":"workEmail-index","KeySchema":[{"AttributeName":"workEmail","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}]'
+
 echo ""
 echo "▶  Production deploy guard: confirming this run is actually production..."
 # This script only ever targets $ENV_NAME (loadlead-backend-prod). Refuse to

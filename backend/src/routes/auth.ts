@@ -8,6 +8,8 @@ import { asyncHandler } from '../middleware/errorHandler';
 import { authValidators } from '../utils/validators';
 import { validate } from '../middleware/validation';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { requireBetaGate, BetaContext } from '../middleware/betaGate';
+import { getBetaConfig } from '../config/beta';
 import { EmailService } from '../services/emailService';
 import { docClient } from '../config/aws';
 import { PutCommand, GetCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
@@ -37,13 +39,30 @@ function setAuthCookie(res: Response, token: string) {
 }
 
 // POST /api/auth/signup
+// requireBetaGate runs BEFORE the handler: under BETA_MODE it requires
+// either a valid inviteToken (in body) OR an allowlisted email/domain.
+// When the gate passes, it attaches req.betaContext which we forward to
+// AuthService.signup so the new user gets stamped with betaUser=true,
+// cohort, invitedVia. When BETA_MODE is off the gate is a no-op.
 router.post(
   '/signup',
+  requireBetaGate({ mode: 'signup' }),
   validate(authValidators.signup),
   asyncHandler(async (req, res) => {
     const { email, password, role, orgParams, firstName, lastName, phone } = req.body;
-    const result = await AuthService.signup(email, password, role, orgParams,
-      { firstName, lastName, phone });
+    const ctx = (req as any).betaContext as BetaContext | undefined;
+    const betaContext = ctx
+      ? {
+          invitedVia: ctx.invitedVia,
+          invitationToken: ctx.invitation?.token,
+          cohort: ctx.invitation?.cohort || getBetaConfig().currentCohort,
+        }
+      : undefined;
+    const result = await AuthService.signup(
+      email, password, role, orgParams,
+      { firstName, lastName, phone },
+      betaContext,
+    );
     // Send role-specific welcome email (non-blocking)
     EmailService.welcome(email, role).catch(() => {});
     setAuthCookie(res, result.token);
@@ -57,6 +76,7 @@ router.post(
 // touch or share code paths with the four existing personas' signup.
 router.post(
   '/signup/carrier',
+  requireBetaGate({ mode: 'signup' }),
   validate([
     body('email').isEmail().withMessage('Valid email is required'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
@@ -67,7 +87,17 @@ router.post(
   ]),
   asyncHandler(async (req, res) => {
     const { email, password, legalName, dba, mcNumber, dotNumber } = req.body;
-    const result = await AuthService.signupCarrierAdmin({ email, password, legalName, dba, mcNumber, dotNumber });
+    const ctx = (req as any).betaContext as BetaContext | undefined;
+    const betaContext = ctx
+      ? {
+          invitedVia: ctx.invitedVia,
+          invitationToken: ctx.invitation?.token,
+          cohort: ctx.invitation?.cohort || getBetaConfig().currentCohort,
+        }
+      : undefined;
+    const result = await AuthService.signupCarrierAdmin({
+      email, password, legalName, dba, mcNumber, dotNumber, betaContext,
+    });
     EmailService.welcome(email, 'CARRIER_ADMIN').catch(() => {});
     setAuthCookie(res, result.token);
     res.status(201).json(result);
@@ -75,8 +105,14 @@ router.post(
 );
 
 // POST /api/auth/login
+// requireBetaGate({mode:'login'}) blocks non-cohort accounts under BETA_MODE
+// (with the neutral private-beta message) UNLESS role=ADMIN (always allowed
+// regardless of betaMode) or the user.betaUser flag is true. The CLI
+// bootstrap (backend/scripts/bootstrapAdmin.mjs) creates ADMIN accounts
+// directly in DDB — it never hits this route, so the gate cannot block it.
 router.post(
   '/login',
+  requireBetaGate({ mode: 'login' }),
   validate(authValidators.login),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
