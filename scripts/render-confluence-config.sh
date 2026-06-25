@@ -58,7 +58,8 @@ cat > .markdown-confluence.json <<JSON
   "ignore": [
     "**/CREDENTIALS.md",
     "**/FINAL_IMPLEMENTATION_CHECKLIST.md",
-    "**/node_modules/**"
+    "**/node_modules/**",
+    "**/.build/**"
   ]
 }
 JSON
