@@ -4,44 +4,12 @@
   "_basedOnAudit": "docs/AUDIT.md",
   "items": [
     {
-      "extId": "audit:driver-idv-route",
-      "title": "Add explicit /driver/verification/idv route + affiliation-gate banner",
-      "context": "Backend already stores per-user idvStatus and Settings has an ID Verification tab. The driver-side dedicated /verification/idv route called out in the test plan is not yet a discrete page. Add one, plus an 'Awaiting affiliation' banner on /driver when fleet membership is empty so the gate is visible without opening the tour.",
-      "family": "refactor",
-      "status": "TO DO",
-      "priority_hint": "Medium"
-    },
-    {
       "extId": "audit:unaffiliated-driver-banner",
       "title": "Render 'Awaiting affiliation' banner on DriverDashboard when no fleet links",
       "context": "When a driver has completed IDV but is not yet affiliated with any carrier/OO, the dashboard shows live-offer scaffolding with zero offers and no explanation. Add a persistent banner explaining the affiliation gate and a CTA to share their driver-id with a dispatcher.",
       "family": "refactor",
       "status": "TO DO",
       "priority_hint": "Medium"
-    },
-    {
-      "extId": "audit:e2e-tests",
-      "title": "Author E2E (HE2E + VE2E) suites for the five personas",
-      "context": "Plan exists at docs/testing/e2e-uat-bdd-test-plan.md; no tests/e2e/ directory present. Stand up Playwright + write the 5 critical paths: carrier verification + driver onboarding + dispatch; OO self-haul; driver accept + status + POD; shipper post + track; receiver confirm-delivery.",
-      "family": "e2e",
-      "status": "TO DO",
-      "priority_hint": "Medium"
-    },
-    {
-      "extId": "audit:sec-tests",
-      "title": "Author SEC system tests",
-      "context": "Plan covers SEC system tests (security boundary, auth, RBAC) not yet implemented. After E2E baseline is in place, layer SEC tests on top covering CARRIER_ADMIN -> 403 on /api/admin/*, IDV-required gating, and verified-org gating.",
-      "family": "e2e",
-      "status": "TO DO",
-      "priority_hint": "Medium"
-    },
-    {
-      "extId": "audit:rel-tests",
-      "title": "Author REL (reliability) system tests",
-      "context": "Plan covers REL: broadcast under load, offer-expiry race, status idempotency, POD upload retry. Author after E2E baseline.",
-      "family": "e2e",
-      "status": "TO DO",
-      "priority_hint": "Low"
     },
     {
       "extId": "audit:uat-bdd",
@@ -76,14 +44,6 @@
       "priority_hint": "Medium"
     },
     {
-      "extId": "audit:dashboard-coming-soon",
-      "title": "Verify dashboard 'Coming soon' tiles obey no-fabrication rule",
-      "context": "Spec requires NULL / 'Coming soon' / 'Connect <X>' rather than fabricated zeros for unconnected integrations (ELD, reefer telemetry, fuel cards, FMCSA SMS). Inspect every dashboard tile and confirm fabricated values are absent.",
-      "family": "dash",
-      "status": "TO DO",
-      "priority_hint": "Medium"
-    },
-    {
       "extId": "audit:analytics-postgis-schema",
       "title": "Provision PostGIS analytics replica + author initial schema",
       "context": "Analytics DB spec (docs/database-analytics/analytics-db-spec.md) describes a PostGIS read-replica fed by DynamoDB Streams. Nothing has been provisioned. Provision the RDS instance, run the schema DDL, and document credentials in CREDENTIALS.md.",
@@ -106,14 +66,16 @@
       "family": "analytics",
       "status": "TO DO",
       "priority_hint": "Low"
-    },
-    {
-      "extId": "audit:bootstrap-lockdown-deploy",
-      "title": "Merge feat/admin-bootstrap-lockdown to main + deploy",
-      "context": "Branch ready and tested. Removes the CAT-I public admin bootstrap form, env-gates the route, adds atomic singleton + rate limit + audit log, plus persona-card cleanup. Merge to main, deploy frontend + backend.",
-      "family": "stig",
-      "status": "READY TO MERGE",
-      "priority_hint": "Highest"
     }
+  ],
+  "_lastUpdated": "2026-06-25",
+  "_completedThisPass": [
+    "Add explicit /driver/verification/idv route + affiliation-gate banner",
+    "Author E2E (HE2E + VE2E) suites for the five personas",
+    "Author REL (reliability) system tests",
+    "Author SEC system tests",
+    "Merge feat/admin-bootstrap-lockdown to main + deploy",
+    "Render 'Awaiting affiliation' banner on DriverDashboard when no fleet linked",
+    "Verify dashboard 'Coming soon' tiles obey no-fabrication rule"
   ]
 }
