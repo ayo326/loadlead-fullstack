@@ -45,6 +45,7 @@ import mapsRouter from './routes/maps';
 import orgRoutes from './routes/org';
 import ownerOperatorRoutes from './routes/ownerOperator';
 import setupRoutes from './routes/setup';
+import betaRoutes from './routes/beta';
 import { diditWebhookHandler } from './services/verification';
 import factoringRoutes from './routes/factoring';
 import referenceRoutes from './routes/reference';
@@ -224,6 +225,9 @@ app.use('/api/maps', mapsRouter);
 app.use('/api/org', orgRoutes);
 app.use('/api/support', require('./routes/support').default);
 app.use('/api/setup', setupRoutes);
+// /api/beta — public surface of the private-beta program. Mounted BEFORE
+// the auth-required routes so the waitlist + status work for unauth visitors.
+app.use('/api/beta', betaRoutes);
 app.use('/api/factoring', factoringRoutes);
 app.use('/api/reference', referenceRoutes);
 

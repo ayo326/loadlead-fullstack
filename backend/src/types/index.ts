@@ -401,15 +401,29 @@ export interface OrgMembership {
 
 export interface OrgInvitation {
   token: string;
-  orgId: string;
+  /**
+   * Carrier-org invites carry orgId; non-org persona invites (Shipper,
+   * Owner Operator, Receiver, Driver self-signup under beta) leave orgId
+   * undefined. acceptInvitation() branches on this presence:
+   *   - orgId set    → existing carrier-org flow: creates membership
+   *   - orgId unset  → beta self-signup flow: just consumes the token,
+   *                    the AuthService stamps invitedVia=INVITE on the new
+   *                    user; no membership is created
+   * One table, one token format, one TTL, one acceptance call — extended,
+   * not duplicated.
+   */
+  orgId?: string;
+  /** orgRole only meaningful when orgId is set */
+  orgRole?: OrgRole;
   email: string;
-  orgRole: OrgRole;
   userRole: UserRole;
-  invitedBy: string;   // userId
+  invitedBy: string;   // userId of staff/inviter
   expiresAt: number;
   acceptedAt?: number;
   revokedAt?: number;
   revokedBy?: string;
+  /** Cohort tag stamped onto the resulting user when accepted under beta */
+  cohort?: string;
   createdAt: number;
 }
 

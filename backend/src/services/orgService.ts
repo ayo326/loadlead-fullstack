@@ -506,6 +506,7 @@ export class OrgInvitationService {
     orgRole: OrgRole;
     userRole: UserRole;
     invitedBy: string;
+    cohort?: string;
   }): Promise<OrgInvitation> {
     const token = crypto.randomBytes(32).toString('hex');
     const now = Helpers.getCurrentTimestamp();
@@ -517,6 +518,7 @@ export class OrgInvitationService {
       orgRole: params.orgRole,
       userRole: params.userRole,
       invitedBy: params.invitedBy,
+      cohort: params.cohort,
       expiresAt: now + INVITE_TTL_HOURS * 60 * 60 * 1000,
       createdAt: now,
     };
@@ -533,6 +535,48 @@ export class OrgInvitationService {
     });
 
     Logger.info(`Invitation created for ${params.email} to org ${params.orgId}`);
+    return invitation;
+  }
+
+  /**
+   * Self-signup invitation — for personas that don't have an org-membership
+   * step (Shipper individual, Owner Operator solo, Receiver standalone,
+   * Driver standalone). Reuses the SAME table, the SAME token format, the
+   * SAME TTL, and is consumed by the SAME acceptInvitation() — the only
+   * difference is orgId is absent, which acceptInvitation() branches on.
+   *
+   * Used by:
+   *   - the beta dashboard's Admit action (Part B), which writes a self-
+   *     signup invite to the email after staff scores the application
+   *   - any future per-persona admin invite flow that doesn't go through
+   *     a carrier org
+   *
+   * No membership row is created on acceptance — the new user just lands
+   * with betaUser=true, cohort, invitedVia=INVITE stamped on their record.
+   */
+  static async createSelfSignupInvitation(params: {
+    email: string;
+    userRole: UserRole;
+    invitedBy: string;
+    cohort?: string;
+  }): Promise<OrgInvitation> {
+    const token = crypto.randomBytes(32).toString('hex');
+    const now = Helpers.getCurrentTimestamp();
+
+    const invitation: OrgInvitation = {
+      token,
+      // intentionally NO orgId / orgRole — this is the signal for the
+      // accept-branch to skip the membership step.
+      email: params.email.toLowerCase().trim(),
+      userRole: params.userRole,
+      invitedBy: params.invitedBy,
+      cohort: params.cohort,
+      expiresAt: now + INVITE_TTL_HOURS * 60 * 60 * 1000,
+      createdAt: now,
+    };
+
+    await Database.putItem(config.dynamodb.invitationsTable, invitation);
+    Logger.info(`Self-signup invitation created for ${params.email} (role=${params.userRole})`);
     return invitation;
   }
 
@@ -562,26 +606,43 @@ export class OrgInvitationService {
       revokedBy: actorUserId,
     });
 
-    await OrgAuditService.log({
-      orgId: invite.orgId,
-      targetUserId: invite.email,
-      actorUserId,
-      actorRole: 'OWNER_OR_ORG_ADMIN',
-      action: 'INVITE_REVOKED',
-      oldValue: invite.orgRole,
-    });
+    // Self-signup invites (orgId absent) don't have an org audit trail to
+    // attach to; the action is logged via Logger only.
+    if (invite.orgId) {
+      await OrgAuditService.log({
+        orgId: invite.orgId,
+        targetUserId: invite.email,
+        actorUserId,
+        actorRole: 'OWNER_OR_ORG_ADMIN',
+        action: 'INVITE_REVOKED',
+        oldValue: invite.orgRole,
+      });
+    }
 
     Logger.info(`Invitation revoked: ${token} by ${actorUserId}`);
   }
 
-  /** Accept an invitation: creates membership, marks invitation accepted */
-  static async acceptInvitation(token: string, userId: string): Promise<OrgMembership> {
+  /** Accept an invitation: creates membership, marks invitation accepted.
+   *  Branches on invite.orgId — self-signup invites (no orgId) skip the
+   *  membership step and just mark the token consumed. */
+  static async acceptInvitation(token: string, userId: string): Promise<OrgMembership | null> {
     const invite = await this.getInvitationByToken(token);
     if (!invite) throw new AppError('Invitation not found', 404);
     if (invite.acceptedAt) throw new AppError('Invitation already used', 409);
     if (invite.revokedAt) throw new AppError('Invitation has been revoked', 410);
     if (invite.expiresAt < Helpers.getCurrentTimestamp()) {
       throw new AppError('Invitation has expired', 410);
+    }
+
+    // Self-signup branch: no orgId means there's no membership to create —
+    // just consume the token. AuthService.signup is responsible for stamping
+    // betaUser/cohort/invitedVia on the new user from the invite's metadata.
+    if (!invite.orgId) {
+      await Database.updateItem(config.dynamodb.invitationsTable, { token }, {
+        acceptedAt: Helpers.getCurrentTimestamp(),
+      });
+      Logger.info(`Self-signup invitation accepted: ${token} by user ${userId}`);
+      return null;
     }
 
     // One-parent invariant: joining a Carrier org as ORG_DRIVER must clear any
@@ -607,7 +668,7 @@ export class OrgInvitationService {
     const membership = await OrgMembershipService.addMember({
       orgId: invite.orgId,
       userId,
-      orgRole: invite.orgRole,
+      orgRole: invite.orgRole!,
       userRole: invite.userRole,
     });
 

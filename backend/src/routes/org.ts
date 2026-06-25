@@ -40,7 +40,9 @@ router.get(
     if (invitation.revokedAt) throw new AppError('Invitation has been revoked', 410);
     if (invitation.expiresAt < Date.now()) throw new AppError('Invitation has expired', 410);
 
-    const org = await OrgService.getOrgById(invitation.orgId);
+    // Self-signup invites (orgId absent) carry no org context — preview just
+    // shows the persona and email.
+    const org = invitation.orgId ? await OrgService.getOrgById(invitation.orgId) : null;
     res.json({
       email: invitation.email,
       orgRole: invitation.orgRole,
@@ -48,6 +50,7 @@ router.get(
       orgName: org?.legalName,
       expiresAt: invitation.expiresAt,
       alreadyAccepted: !!invitation.acceptedAt,
+      isSelfSignup: !invitation.orgId,
     });
   })
 );

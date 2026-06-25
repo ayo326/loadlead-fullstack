@@ -33,6 +33,9 @@ export const config = {
     orgsTable: process.env.DYNAMODB_ORGS_TABLE || 'LoadLead_Organizations',
     membershipsTable: process.env.DYNAMODB_MEMBERSHIPS_TABLE || 'LoadLead_Memberships',
     invitationsTable: process.env.DYNAMODB_INVITATIONS_TABLE || 'LoadLead_Invitations',
+    betaAllowlistTable: process.env.DYNAMODB_BETA_ALLOWLIST_TABLE || 'LoadLead_BetaAllowlist',
+    waitlistTable: process.env.DYNAMODB_WAITLIST_TABLE || 'LoadLead_Waitlist',
+    betaApplicationsTable: process.env.DYNAMODB_BETA_APPLICATIONS_TABLE || 'LoadLead_BetaApplications',
     // Attestation chain — append-only, IAM-deny-update/delete, attribute_not_exists Put.
     signaturesTable: process.env.DYNAMODB_SIGNATURES_TABLE || 'LoadLead_Signatures',
     // Pod photo finalize step records contentHash + stage; same DDB row as the
