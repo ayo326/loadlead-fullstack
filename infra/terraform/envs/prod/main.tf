@@ -28,7 +28,8 @@
 terraform {
   required_version = ">= 1.6.0"
   required_providers {
-    aws = { source = "hashicorp/aws", version = "~> 5.0" }
+    aws     = { source = "hashicorp/aws",     version = "~> 6.0" } # 6.x adds TLSv1.3_2025 to cloudfront min protocol
+    archive = { source = "hashicorp/archive", version = "~> 2.0" } # used by lambda zip in worm-sink.tf
   }
 
   backend "s3" {
