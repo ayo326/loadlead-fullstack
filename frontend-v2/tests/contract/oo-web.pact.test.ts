@@ -20,7 +20,7 @@ const provider = new PactV3({
 });
 
 describe('Contract: oo-web -> loadlead-api', () => {
-  it('GET /api/owner-operator/dashboard returns blended self-haul + fleet metrics', async () => {
+  it('[H7] GET /api/owner-operator/dashboard returns blended self-haul + fleet metrics', async () => {
     provider
       .given('an owner operator has 1 self-driver and 2 fleet drivers')
       .uponReceiving('a request for the OO blended dashboard')
@@ -59,7 +59,7 @@ describe('Contract: oo-web -> loadlead-api', () => {
     });
   });
 
-  it('GET /api/owner-operator/verification returns the carrier-authority gate state', async () => {
+  it('[H7] GET /api/owner-operator/verification returns the carrier-authority gate state', async () => {
     provider
       .given('an owner operator has submitted FMCSA + KYB but not yet IDV')
       .uponReceiving('a request for the OO carrier-authority verification state')
@@ -90,7 +90,7 @@ describe('Contract: oo-web -> loadlead-api', () => {
     });
   });
 
-  it('GET /api/owner-operator/fleet/invites returns the pending fleet invitations list', async () => {
+  it('[H7] GET /api/owner-operator/fleet/invites returns the pending fleet invitations list', async () => {
     provider
       .given('an owner operator has 2 pending fleet driver invitations')
       .uponReceiving('a request for the OO fleet invites list')

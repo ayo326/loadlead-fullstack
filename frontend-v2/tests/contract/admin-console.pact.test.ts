@@ -24,7 +24,7 @@ const provider = new PactV3({
 });
 
 describe('Contract: admin-console -> loadlead-api', () => {
-  it('GET /api/admin/orgs returns paginated orgs with member counts + suspension state', async () => {
+  it('[H10] GET /api/admin/orgs returns paginated orgs with member counts + suspension state', async () => {
     provider
       .given('the admin org list has at least one active and one suspended org')
       .uponReceiving('a request for the paginated admin orgs list')
@@ -62,7 +62,7 @@ describe('Contract: admin-console -> loadlead-api', () => {
     });
   });
 
-  it('POST /api/admin/orgs/:orgId/suspend with a 6+ char reason returns 200 + ok:true', async () => {
+  it('[H10] POST /api/admin/orgs/:orgId/suspend with a 6+ char reason returns 200 + ok:true', async () => {
     provider
       .given('a STAFF_ADMIN is logged in and an active org exists at org_to_suspend')
       .uponReceiving('a request to suspend an org with a valid reason')
@@ -101,7 +101,7 @@ describe('Contract: admin-console -> loadlead-api', () => {
   // provider ever flipped this to 200, an admin could silently suspend
   // an org with no audit trail. The 400 IS the audit-trail enforcement
   // mechanism — pin it here.
-  it('POST /api/admin/orgs/:orgId/suspend WITHOUT reason returns 400', async () => {
+  it('[H10] POST /api/admin/orgs/:orgId/suspend WITHOUT reason returns 400', async () => {
     provider
       .given('a STAFF_ADMIN is logged in and an active org exists at org_to_suspend')
       .uponReceiving('a request to suspend an org without a reason')

@@ -26,6 +26,22 @@ const BROKER_USER   = process.env.PACT_BROKER_USERNAME ?? 'pact';
 const BROKER_PASS   = process.env.PACT_BROKER_PASSWORD ?? 'pact';
 const VERSION       = process.env.PROVIDER_VERSION     ?? require('child_process').execSync('git rev-parse --short HEAD').toString().trim();
 
+// PACT_DELIBERATE_BREAK — reproducible @H11 cross-persona break fixture.
+// When set to a consumer name, the provider stub intentionally violates
+// that consumer's contract while satisfying every other consumer. Used
+// by the @H11 BDD scenario to prove the cross-persona gate names the
+// broken consumer and blocks the deploy. Honored only when explicitly
+// set; main never ships with the break active.
+//
+// Supported values:
+//   oo-web   — drops `selfDriver.isSelf` from the OO dashboard response
+//              (which oo-web's contract requires). Satisfies every other
+//              consumer; would slip through any per-persona check.
+const DELIBERATE_BREAK = process.env.PACT_DELIBERATE_BREAK ?? '';
+if (DELIBERATE_BREAK) {
+  console.warn(`[verify-provider] PACT_DELIBERATE_BREAK=${DELIBERATE_BREAK} — provider will intentionally violate ONE consumer's contract for @H11 demo.`);
+}
+
 // Mutable state container the state-setup hooks write into, and the route
 // handlers read from. Reset between interactions. One field per
 // distinct "given" the consumer contracts introduce; resetState() puts
@@ -185,13 +201,16 @@ function buildApp(): Express {
 
   // ── Owner Operator endpoints (oo-web pact) ──────────────────────────────
   app.get('/api/owner-operator/dashboard', (_req: Request, res: Response) => {
+    // @H11 deliberate break — drops selfDriver.isSelf when the flag
+    // targets oo-web. carrier-web's pact doesn't touch this endpoint;
+    // shipper/driver/receiver/admin don't either. Only oo-web breaks.
+    const selfDriver = DELIBERATE_BREAK === 'oo-web'
+      ? { driverId: 'driver_oo_self', status: 'AVAILABLE' /* isSelf intentionally dropped */ }
+      : { driverId: 'driver_oo_self', isSelf: true, status: 'AVAILABLE' };
+
     res.json({
       operatorId: 'op_test_1',
-      selfDriver: {
-        driverId: 'driver_oo_self',
-        isSelf:   true,
-        status:   'AVAILABLE',
-      },
+      selfDriver,
       fleetDrivers: state.ooHasFleet ? [{
         driverId: 'driver_fleet_1',
         isSelf:   false,

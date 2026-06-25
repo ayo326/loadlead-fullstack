@@ -1358,3 +1358,21 @@ items:
       Scenario: Full sweep passes axe serious
         When axe-core runs against /login + 5 persona dashboards
         Then serious-impact violations = 0 across all 6 screens
+
+  # ── Cross-persona contract suite (LoadLead_CrossPersona_Contract_UAT_BDD.md) ──
+  - { ext_id: test:H5,  parent_ext_id: test:section-H, type: Sub-task, title: "[H5] shipper-web contract",   status_source: test-results, lookup_key: H5 }
+  - { ext_id: test:H6,  parent_ext_id: test:section-H, type: Sub-task, title: "[H6] carrier-web contract",   status_source: test-results, lookup_key: H6 }
+  - { ext_id: test:H7,  parent_ext_id: test:section-H, type: Sub-task, title: "[H7] oo-web contract",        status_source: test-results, lookup_key: H7 }
+  - { ext_id: test:H8,  parent_ext_id: test:section-H, type: Sub-task, title: "[H8] driver-web contract",    status_source: test-results, lookup_key: H8 }
+  - { ext_id: test:H9,  parent_ext_id: test:section-H, type: Sub-task, title: "[H9] receiver-web contract",  status_source: test-results, lookup_key: H9 }
+  - { ext_id: test:H10, parent_ext_id: test:section-H, type: Sub-task, title: "[H10] admin-console contract", status_source: test-results, lookup_key: H10 }
+  - { ext_id: test:H11, parent_ext_id: test:section-H, type: Sub-task, title: "[H11] cross-persona can-i-deploy gate (manual: docs/UAT_CT_Checklist.md UAT-CT-X)", status_source: manifest, status: "To Do" }
+
+  # ── UAT-CT manual sign-off (docs/UAT_CT_Checklist.md) ──
+  - { ext_id: uat:CT-S, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-S manual sign-off on @H5 shipper-web",   status_source: manifest, status: "To Do" }
+  - { ext_id: uat:CT-C, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-C manual sign-off on @H6 carrier-web",   status_source: manifest, status: "To Do" }
+  - { ext_id: uat:CT-O, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-O manual sign-off on @H7 oo-web",        status_source: manifest, status: "To Do" }
+  - { ext_id: uat:CT-D, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-D manual sign-off on @H8 driver-web",    status_source: manifest, status: "To Do" }
+  - { ext_id: uat:CT-R, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-R manual sign-off on @H9 receiver-web",  status_source: manifest, status: "To Do" }
+  - { ext_id: uat:CT-A, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-A manual sign-off on @H10 admin-console", status_source: manifest, status: "To Do" }
+  - { ext_id: uat:CT-X, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-X manual sign-off on @H11 cross-persona gate", status_source: manifest, status: "To Do" }

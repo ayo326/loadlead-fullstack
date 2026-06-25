@@ -20,7 +20,7 @@ const provider = new PactV3({
 });
 
 describe('Contract: carrier-web -> loadlead-api', () => {
-  it('GET /api/org/:orgId/dashboard returns the dispatcher view shape', async () => {
+  it('[H6] GET /api/org/:orgId/dashboard returns the dispatcher view shape', async () => {
     provider
       .given('a carrier org has 3 active drivers and 5 loads in flight')
       .uponReceiving('a request for the carrier dashboard')
@@ -63,7 +63,7 @@ describe('Contract: carrier-web -> loadlead-api', () => {
     });
   });
 
-  it('POST /api/org/:orgId/invitations issues a membership invite for a new team member', async () => {
+  it('[H6] POST /api/org/:orgId/invitations issues a membership invite for a new team member', async () => {
     provider
       .given('a carrier org owner is logged in')
       .uponReceiving('a request to invite a DISPATCHER to the org')
@@ -107,7 +107,7 @@ describe('Contract: carrier-web -> loadlead-api', () => {
   // dashboard must get 403, not 200-with-empty-data. The dashboard UI
   // routes 403 to the "insufficient permission" empty state. Flipping
   // this to 200 would leak aggregate revenue to drivers.
-  it('GET /api/org/:orgId/dashboard returns 403 for a member without dashboard:read permission', async () => {
+  it('[H6] GET /api/org/:orgId/dashboard returns 403 for a member without dashboard:read permission', async () => {
     provider
       .given('an ORG_DRIVER is a member of the org but lacks dashboard:read permission')
       .uponReceiving('a request for the carrier dashboard from an ORG_DRIVER')

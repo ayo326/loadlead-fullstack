@@ -21,7 +21,7 @@ const provider = new PactV3({
 });
 
 describe('Contract: shipper-web -> loadlead-api', () => {
-  it('GET /api/shipper/loads returns the shipper\'s own loads with the fields the list view reads', async () => {
+  it('[H5] GET /api/shipper/loads returns the shipper\'s own loads with the fields the list view reads', async () => {
     provider
       .given('the authenticated shipper has at least one posted load')
       .uponReceiving('a request for the shipper loads list')
@@ -61,7 +61,7 @@ describe('Contract: shipper-web -> loadlead-api', () => {
     });
   });
 
-  it('POST /api/shipper/loads (draft) creates and returns the new load with server-assigned loadId', async () => {
+  it('[H5] POST /api/shipper/loads (draft) creates and returns the new load with server-assigned loadId', async () => {
     provider
       .given('the authenticated shipper has a complete profile')
       .uponReceiving('a request to create a new draft load')
@@ -120,7 +120,7 @@ describe('Contract: shipper-web -> loadlead-api', () => {
   // exists. The shipper UI relies on 404 to show "Load not found" instead
   // of "Forbidden", which would mislead. If the provider ever flipped
   // this to 403, the shipper UI would render the wrong empty state.
-  it('GET /api/shipper/loads/:id returns 404 (not 403) for a load owned by a different shipper', async () => {
+  it('[H5] GET /api/shipper/loads/:id returns 404 (not 403) for a load owned by a different shipper', async () => {
     provider
       .given('a load exists belonging to a different shipper')
       .uponReceiving('a request for a load that does not belong to the authenticated shipper')

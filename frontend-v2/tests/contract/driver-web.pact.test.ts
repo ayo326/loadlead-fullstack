@@ -24,7 +24,7 @@ const provider = new PactV3({
 });
 
 describe('Contract: driver-web -> loadlead-api', () => {
-  it('GET /api/driver/loadboard returns offers with the fields the dashboard reads', async () => {
+  it('[H8] GET /api/driver/loadboard returns offers with the fields the dashboard reads', async () => {
     provider
       .given('the authenticated driver has at least one OFFERED load matched to their truck')
       .uponReceiving('a request for the driver loadboard')
@@ -68,7 +68,7 @@ describe('Contract: driver-web -> loadlead-api', () => {
     });
   });
 
-  it('GET /api/driver/affiliation returns AFFILIATED with carrier of record', async () => {
+  it('[H8] GET /api/driver/affiliation returns AFFILIATED with carrier of record', async () => {
     provider
       .given('the authenticated driver is affiliated with an owner operator')
       .uponReceiving('a request for the driver affiliation status')
@@ -108,7 +108,7 @@ describe('Contract: driver-web -> loadlead-api', () => {
   // If the provider ever flipped this to 403, the dashboard would crash
   // instead of showing the "Awaiting affiliation" banner. This pact pins
   // the role-gated behavior the driver UI relies on.
-  it('GET /api/driver/loadboard returns empty list for an unaffiliated driver (not 403)', async () => {
+  it('[H8] GET /api/driver/loadboard returns empty list for an unaffiliated driver (not 403)', async () => {
     provider
       .given('the authenticated driver has NO carrier of record')
       .uponReceiving('a request for the loadboard from an unaffiliated driver')

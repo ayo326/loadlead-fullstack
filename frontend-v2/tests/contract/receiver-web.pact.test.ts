@@ -20,7 +20,7 @@ const provider = new PactV3({
 });
 
 describe('Contract: receiver-web -> loadlead-api', () => {
-  it('GET /api/receiver/incoming returns inbound shipments for the receiver facility', async () => {
+  it('[H9] GET /api/receiver/incoming returns inbound shipments for the receiver facility', async () => {
     provider
       .given('a receiver has 2 in-transit shipments assigned to their facility')
       .uponReceiving('a request for the receiver incoming list')
@@ -54,7 +54,7 @@ describe('Contract: receiver-web -> loadlead-api', () => {
     });
   });
 
-  it('POST /api/receiver/loads/:loadId/confirm without RECEIVER_CONFIRM signature returns 412', async () => {
+  it('[H9] POST /api/receiver/loads/:loadId/confirm without RECEIVER_CONFIRM signature returns 412', async () => {
     provider
       .given('a load IN_TRANSIT to this receiver has no RECEIVER_CONFIRM signature yet')
       .uponReceiving('a request to confirm delivery without first signing')
@@ -88,7 +88,7 @@ describe('Contract: receiver-web -> loadlead-api', () => {
   // AuthZ-as-contract: a receiver requesting a load they aren't the
   // assigned receiver on must get 404 (not 403) — same existence-leak
   // protection as the shipper contract on the other end.
-  it('GET /api/receiver/loads/:id returns 404 for a load destined for a different receiver', async () => {
+  it('[H9] GET /api/receiver/loads/:id returns 404 for a load destined for a different receiver', async () => {
     provider
       .given('a load exists destined for a different receiver facility')
       .uponReceiving('a request for a load that does not belong to this receiver')
