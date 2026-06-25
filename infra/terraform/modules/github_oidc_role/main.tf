@@ -63,9 +63,9 @@ resource "aws_iam_role_policy" "deploy" {
           "elasticbeanstalk:DescribeApplicationVersions",
         ]
         Resource = [
-          "arn:aws:elasticbeanstalk:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:application/LoadLead-Backend",
-          "arn:aws:elasticbeanstalk:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:environment/LoadLead-Backend/${var.eb_environment_name}",
-          "arn:aws:elasticbeanstalk:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:applicationversion/LoadLead-Backend/*",
+          "arn:aws:elasticbeanstalk:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:application/${var.eb_application_name}",
+          "arn:aws:elasticbeanstalk:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:environment/${var.eb_application_name}/${var.eb_environment_name}",
+          "arn:aws:elasticbeanstalk:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:applicationversion/${var.eb_application_name}/*",
         ]
       },
       {

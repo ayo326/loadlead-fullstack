@@ -31,6 +31,12 @@ variable "eb_environment_name" {
   type = string
 }
 
+variable "eb_application_name" {
+  description = "EB Application name (the namespace the env lives under). Prod uses 'loadlead-backend' (lowercase, set by the AWS console at create time); dev/staging may use the TF-managed 'LoadLead-Backend'. Don't assume; pass it in."
+  type        = string
+  default     = "LoadLead-Backend"
+}
+
 variable "frontend_bucket_arn" {
   type = string
 }

@@ -54,43 +54,46 @@ locals {
   tags = { Project = "LoadLead", Environment = "prod", ManagedBy = "Terraform" }
 }
 
-# ── github_deploy_role + OIDC provider data — DISABLED ────────────────────
-# Was non-functional from day one: the data source resolves a GitHub OIDC
-# provider that doesn't exist in this account yet, and the
-# frontend_distribution_arn carried a placeholder account ID
-# (123456789012). Any `tofu plan` against the prod stack failed at this
-# block, which blocked bringing the DDB tables under management.
+# ── github_deploy_role — RE-ENABLED ────────────────────────────────────────
+# Three blockers fixed (see prior commits in the log):
+#   - OIDC provider now exists in this account (applied via _bootstrap stack)
+#   - max_session_duration in the shared module raised 1800 -> 3600 (AWS min)
+#   - frontend_bucket_arn / frontend_distribution_arn / eb_environment_name
+#     now reference the TF-managed resources rather than hand-typed ARNs
+#     with placeholder account IDs. The references give us a free guarantee
+#     that the role's permissions can't drift out of sync with the resources
+#     it's supposed to deploy to — if the bucket or distro is renamed, the
+#     role's policy regenerates automatically.
 #
-# Re-enable by:
-#   1. Bootstrap stack creates the OIDC provider (already declared there)
-#   2. Replace the account ID in frontend_distribution_arn with the real
-#      AWS account ID (552011299815)
-#   3. Confirm the frontend bucket name
-#   4. Uncomment this block
-#
-# Until then the prod stack still works for everything else (DDB, EB)
-# without this OIDC role being in TF.
-#
-# data "aws_iam_openid_connect_provider" "github" {
-#   url = "https://token.actions.githubusercontent.com"
-# }
-#
-# module "github_deploy_role" {
-#   source                   = "../../modules/github_oidc_role"
-#   env                      = "prod"
-#   github_oidc_provider_arn = data.aws_iam_openid_connect_provider.github.arn
-#   github_repo              = var.github_repo
-#   allowed_environment      = "production"
-#   dynamodb_table_prefix    = "LoadLead_"
-#   eb_environment_name      = "loadlead-backend-prod"
-#   frontend_bucket_arn       = "arn:aws:s3:::loadlead-frontend-prod"
-#   frontend_distribution_arn = "arn:aws:cloudfront::552011299815:distribution/E38CZNP7L2DB98"
-#   tags = local.tags
-# }
-#
-# output "github_deploy_role_arn" {
-#   value = module.github_deploy_role.role_arn
-# }
+# Trust policy: AssumeRole is only allowed for GitHub Actions runs whose
+# sub claim is `repo:<owner>/<repo>:environment:production`. That binds
+# credential issuance to the GitHub "production" Environment — the
+# required-reviewers gate on that Environment is enforced at the AWS
+# layer, not just the GitHub UI.
+data "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
+module "github_deploy_role" {
+  source                   = "../../modules/github_oidc_role"
+  env                      = "prod"
+  github_oidc_provider_arn = data.aws_iam_openid_connect_provider.github.arn
+  github_repo              = var.github_repo
+  allowed_environment      = "production"
+
+  dynamodb_table_prefix    = "LoadLead_"
+  eb_application_name      = aws_elastic_beanstalk_application.backend.name
+  eb_environment_name      = aws_elastic_beanstalk_environment.backend_prod.name
+  frontend_bucket_arn       = aws_s3_bucket.frontend_customer.arn
+  frontend_distribution_arn = aws_cloudfront_distribution.customer.arn
+
+  tags = local.tags
+}
+
+output "github_deploy_role_arn" {
+  description = "Set this on the GitHub repo as variable AWS_PROD_DEPLOY_ROLE_ARN (Environment-scoped to 'production')."
+  value       = module.github_deploy_role.role_arn
+}
 
 ############################################################################
 # Attestation Phase 1 — NEW DDB tables.
