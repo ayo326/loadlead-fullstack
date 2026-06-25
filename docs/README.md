@@ -6,8 +6,26 @@ connie-publish: true
 # LoadLead Engineering Docs
 
 > **Source of truth: this repository.** Pages on Confluence are a **rendered
-> one-way mirror** updated by CI when these files change. Never edit a page in
-> Confluence — your change will be overwritten on the next docs push.
+> one-way mirror** updated when these files change (publish is local via
+> `make publish-docs` — Atlassian Free-tier blocks GH datacenter IPs). Never
+> edit a page in Confluence — your change will be overwritten on the next
+> docs push.
+>
+> **Last reconciliation pass**: commit `0f5588d` (2026-06-25). The six
+> top-level docs below were rebuilt from the live code in that pass; status
+> badges and metrics trace to file paths / scan outputs cited inline.
+
+## 🎯 Read these first (full reconciliation, 2026-06-25)
+
+These six docs mirror the actual BE + FE at the reconciled commit and are
+the canonical view for new readers (investor / partner / engineer / security):
+
+- [**Pending Register**](PendingRegister.md) — every PARTIAL/PENDING/NOT-STARTED item, blockers first. **Read this before claiming anything is done.**
+- [**System Overview**](SystemOverview.md) — what LoadLead is, the 5 personas + ADMIN, the load lifecycle. Plain language.
+- [**Backend Architecture**](Architecture_Backend.md) — stack, 177 routes, 28 DDB tables, attestation chain (three-layer immutability), integrations.
+- [**Frontend Architecture**](Architecture_Frontend.md) — Vite/React, two physical bundles (customer + admin), 5 persona apps + admin console, key flows.
+- [**Data + API Reference**](Data_API_Reference.md) — all 28 tables + all 177 routes with auth/role-gate status. Generated from code.
+- [**Security Posture Assessment**](SecurityPosture.md) — CISO-grade. Executive summary + security architecture + threat model + computed metrics + risk register + remediation roadmap.
 
 This index lists every doc in `/docs`. Each section maps to a child page on
 Confluence under the parent **LoadLead Engineering Docs** space root.
