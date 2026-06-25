@@ -1,9 +1,11 @@
 ---
 title: LoadLead E2E Load + Functional Audit (fan-100)
-date: 2026-06-23
+date: 2026-06-23T00:00:00.000Z
 harness: tests/load/fan100.js (k6 v2.0.0)
-target: http://localhost:4000 (dev backend + DynamoDB Local; sandboxed externals)
+target: 'http://localhost:4000 (dev backend + DynamoDB Local; sandboxed externals)'
 prod_guard: PASS — harness aborts in init if BASE_URL matches api.loadleadapp.com
+connie-publish: true
+connie-page-id: '2064385'
 ---
 
 # Summary

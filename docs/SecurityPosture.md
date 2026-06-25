@@ -3,8 +3,9 @@ connie-title: LoadLead — Security Posture Assessment
 connie-publish: true
 status: Reconciled (CISO-grade)
 last-reconciled-against: 0f5588d
-audience: CISO, board, partner security review
+audience: 'CISO, board, partner security review'
 generated-by: docs reconciliation pass 2026-06-25
+connie-page-id: '2260993'
 ---
 
 # LoadLead — Security Posture Assessment

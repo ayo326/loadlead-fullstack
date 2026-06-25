@@ -1,11 +1,13 @@
 ---
 title: Attestation Phase 1 — Build Audit
-date: 2026-06-24
+date: 2026-06-24T00:00:00.000Z
 status: SHIPPED to prod
 discovery_doc: docs/ATTESTATION_DISCOVERY.md
 deploys:
   - backend  loadlead-backend-prod  cfad913  Ready/Green @ t+3min
   - frontend S3 + CloudFront E38CZNP7L2DB98
+connie-publish: true
+connie-page-id: '2195457'
 ---
 
 # Summary

@@ -1,3 +1,7 @@
+---
+connie-publish: true
+connie-page-id: '1933314'
+---
 # Admin Console Build-out — Progress
 
 Living checklist for the multi-phase rebuild of `admin.loadleadapp.com`.

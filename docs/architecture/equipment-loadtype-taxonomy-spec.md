@@ -1,6 +1,7 @@
 ---
-connie-title: 'Architecture — Equipment & Load Type Taxonomy Build Spec'
+connie-title: Architecture — Equipment & Load Type Taxonomy Build Spec
 connie-publish: true
+connie-page-id: '2260996'
 ---
 
 # LoadLead — Equipment & Load Type Taxonomy Build Spec

@@ -2,6 +2,8 @@
 title: Pact CI Setup — PactFlow + GitHub Actions
 status: runbook
 companion_to: LoadLead_CrossPersona_Contract_UAT_BDD.md
+connie-publish: true
+connie-page-id: '2097153'
 ---
 
 # Pact CI setup — PactFlow + GH Actions wire-up

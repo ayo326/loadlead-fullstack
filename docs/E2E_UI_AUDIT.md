@@ -1,11 +1,13 @@
 ---
 title: LoadLead E2E Audit — UI (Cypress) + API (k6) merged
-date: 2026-06-23
+date: 2026-06-23T00:00:00.000Z
 harnesses:
   - tests/load/fan100.js (k6 v2.0.0) — 100-iter API fan-out
   - frontend-v2/cypress/e2e/*.cy.ts (Cypress 15.18.0) — 9 specs / 52 tests
-target: localhost (dev backend + DynamoDB Local + Vite dev server :3002)
+target: 'localhost (dev backend + DynamoDB Local + Vite dev server :3002)'
 prod_guard: PASS — both harnesses fail closed against loadleadapp.com
+connie-publish: true
+connie-page-id: '2129921'
 ---
 
 # Summary

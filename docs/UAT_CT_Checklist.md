@@ -2,6 +2,8 @@
 title: UAT Checklist — Cross-Persona Contracts (UAT-CT-*)
 status: tracking
 companion_to: LoadLead_CrossPersona_Contract_UAT_BDD.md
+connie-publish: true
+connie-page-id: '2031625'
 ---
 
 # UAT-CT — manual sign-off on cross-persona contracts
