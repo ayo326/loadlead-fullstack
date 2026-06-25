@@ -1,0 +1,141 @@
+<svg viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">LoadLead load lifecycle — 13 stages, 5 signature gates, 3 proof photos</title>
+  <desc id="desc">Top-to-bottom three-row flow: booking phase, pickup phase, delivery and confirmation phase. Green nodes are immutable attestation signatures. Camera icon marks stages that require a proof photo.</desc>
+
+  <style>
+    .bg        { fill: #ffffff; }
+    .neutral   { fill: #f3f4f6; stroke: #9ca3af; stroke-width: 1.5; }
+    .signature { fill: #d1fae5; stroke: #047857; stroke-width: 2.5; }
+    .terminal  { fill: #fef3c7; stroke: #b45309; stroke-width: 2; }
+    .arrow     { stroke: #4b5563; stroke-width: 2.2; fill: none; }
+    .arrowhead { fill: #4b5563; }
+    .label     { font: 600 13px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #111827; }
+    .sub       { font: 500 11px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #374151; }
+    .sig-label { font: 700 13px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #064e3b; letter-spacing: 0.3px; }
+    .sig-sub   { font: 500 11px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #065f46; }
+    .term-label{ font: 700 13px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #78350f; }
+    .term-sub  { font: 500 11px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #92400e; }
+    .row-tag   { font: 700 11px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #6b7280; letter-spacing: 1.2px; text-transform: uppercase; }
+    .legend    { font: 500 12px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #374151; }
+    .header    { font: 700 18px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #111827; }
+    .sub-header{ font: 500 13px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #6b7280; }
+    .photo     { font: 600 14px -apple-system, "Helvetica Neue", Arial, sans-serif; fill: #b45309; }
+  </style>
+
+  <rect class="bg" width="1200" height="720"/>
+
+  <text class="header" x="40" y="38">LoadLead — Load Lifecycle</text>
+  <text class="sub-header" x="40" y="58">13 stages · 5 signature gates (green) · 3 proof-photo gates (📷)</text>
+
+  <text class="row-tag" x="40" y="98">Booking</text>
+
+  <rect class="neutral" x="40" y="110" width="180" height="70" rx="10"/>
+  <text class="label" x="130" y="138" text-anchor="middle">1. Shipper</text>
+  <text class="sub" x="130" y="156" text-anchor="middle">posts a load</text>
+
+  <rect class="signature" x="245" y="110" width="180" height="70" rx="10"/>
+  <text class="sig-label" x="335" y="138" text-anchor="middle">2. BOL_SUBMIT ★</text>
+  <text class="sig-sub" x="335" y="156" text-anchor="middle">signed by Shipper</text>
+
+  <rect class="neutral" x="450" y="110" width="180" height="70" rx="10"/>
+  <text class="label" x="540" y="138" text-anchor="middle">3. Broadcast</text>
+  <text class="sub" x="540" y="156" text-anchor="middle">to matching carriers</text>
+
+  <rect class="neutral" x="655" y="110" width="180" height="70" rx="10"/>
+  <text class="label" x="745" y="138" text-anchor="middle">4. Driver / Carrier</text>
+  <text class="sub" x="745" y="156" text-anchor="middle">accepts offer</text>
+
+  <rect class="signature" x="860" y="110" width="180" height="70" rx="10"/>
+  <text class="sig-label" x="950" y="138" text-anchor="middle">5. CARRIER_ACCEPT ★</text>
+  <text class="sig-sub" x="950" y="156" text-anchor="middle">signed by Carrier / OO</text>
+
+  <path class="arrow" d="M 220 145 L 245 145"/>
+  <polygon class="arrowhead" points="245,140 255,145 245,150"/>
+  <path class="arrow" d="M 425 145 L 450 145"/>
+  <polygon class="arrowhead" points="450,140 460,145 450,150"/>
+  <path class="arrow" d="M 630 145 L 655 145"/>
+  <polygon class="arrowhead" points="655,140 665,145 655,150"/>
+  <path class="arrow" d="M 835 145 L 860 145"/>
+  <polygon class="arrowhead" points="860,140 870,145 860,150"/>
+
+  <path class="arrow" d="M 1040 145 L 1075 145 L 1075 235 L 220 235 L 220 265"/>
+  <polygon class="arrowhead" points="215,265 220,275 225,265"/>
+
+  <text class="row-tag" x="40" y="284">Pickup &amp; transit</text>
+
+  <rect class="neutral" x="40" y="296" width="180" height="70" rx="10"/>
+  <text class="label" x="130" y="324" text-anchor="middle">6. Dispatch</text>
+  <text class="sub" x="130" y="342" text-anchor="middle">load BOOKED</text>
+
+  <rect class="neutral" x="245" y="296" width="180" height="70" rx="10"/>
+  <text class="label" x="335" y="320" text-anchor="middle">7. Driver picks up</text>
+  <text class="photo" x="335" y="346" text-anchor="middle">📷 photo</text>
+
+  <rect class="signature" x="450" y="296" width="180" height="70" rx="10"/>
+  <text class="sig-label" x="540" y="324" text-anchor="middle">8. DRIVER_PICKUP ★</text>
+  <text class="sig-sub" x="540" y="342" text-anchor="middle">signed by Driver</text>
+
+  <rect class="neutral" x="655" y="296" width="180" height="70" rx="10"/>
+  <text class="label" x="745" y="324" text-anchor="middle">9. In transit</text>
+  <text class="sub" x="745" y="342" text-anchor="middle">live GPS tracking</text>
+
+  <rect class="neutral" x="860" y="296" width="180" height="70" rx="10"/>
+  <text class="label" x="950" y="320" text-anchor="middle">10. Driver delivers</text>
+  <text class="photo" x="950" y="346" text-anchor="middle">📷 photo</text>
+
+  <path class="arrow" d="M 220 331 L 245 331"/>
+  <polygon class="arrowhead" points="245,326 255,331 245,336"/>
+  <path class="arrow" d="M 425 331 L 450 331"/>
+  <polygon class="arrowhead" points="450,326 460,331 450,336"/>
+  <path class="arrow" d="M 630 331 L 655 331"/>
+  <polygon class="arrowhead" points="655,326 665,331 655,336"/>
+  <path class="arrow" d="M 835 331 L 860 331"/>
+  <polygon class="arrowhead" points="860,326 870,331 860,336"/>
+
+  <path class="arrow" d="M 1040 331 L 1075 331 L 1075 421 L 220 421 L 220 451"/>
+  <polygon class="arrowhead" points="215,451 220,461 225,451"/>
+
+  <text class="row-tag" x="40" y="470">Delivery &amp; confirmation</text>
+
+  <rect class="signature" x="40" y="482" width="180" height="70" rx="10"/>
+  <text class="sig-label" x="130" y="510" text-anchor="middle">11. DRIVER_DELIVER ★</text>
+  <text class="sig-sub" x="130" y="528" text-anchor="middle">signed by Driver</text>
+
+  <rect class="neutral" x="245" y="482" width="180" height="70" rx="10"/>
+  <text class="label" x="335" y="506" text-anchor="middle">12. Receiver verifies</text>
+  <text class="photo" x="335" y="532" text-anchor="middle">📷 photo</text>
+
+  <rect class="signature" x="450" y="482" width="180" height="70" rx="10"/>
+  <text class="sig-label" x="540" y="510" text-anchor="middle">13. RECEIVER_CONFIRM ★</text>
+  <text class="sig-sub" x="540" y="528" text-anchor="middle">signed by Receiver</text>
+
+  <rect class="terminal" x="700" y="482" width="220" height="70" rx="10"/>
+  <text class="term-label" x="810" y="510" text-anchor="middle">14. Chain complete</text>
+  <text class="term-sub" x="810" y="528" text-anchor="middle">5 signatures · 3 photos · WORM-archived</text>
+
+  <path class="arrow" d="M 220 517 L 245 517"/>
+  <polygon class="arrowhead" points="245,512 255,517 245,522"/>
+  <path class="arrow" d="M 425 517 L 450 517"/>
+  <polygon class="arrowhead" points="450,512 460,517 450,522"/>
+  <path class="arrow" d="M 630 517 L 700 517"/>
+  <polygon class="arrowhead" points="700,512 710,517 700,522"/>
+
+  <g transform="translate(40, 610)">
+    <text class="row-tag" x="0" y="0">Legend</text>
+
+    <rect class="signature" x="0" y="18" width="22" height="22" rx="4"/>
+    <text class="legend" x="32" y="34">★ Signature gate — immutable, append-only, WORM-mirrored</text>
+
+    <rect class="neutral" x="0" y="50" width="22" height="22" rx="4"/>
+    <text class="legend" x="32" y="66">Lifecycle stage (no attestation)</text>
+
+    <text class="photo" x="0" y="98">📷</text>
+    <text class="legend" x="32" y="98">Proof-photo required to finalize the next signature</text>
+
+    <rect class="terminal" x="600" y="18" width="22" height="22" rx="4"/>
+    <text class="legend" x="632" y="34">Terminal state — load closed, audit chain sealed</text>
+
+    <text class="legend" x="600" y="66" style="font-style: italic; fill: #6b7280;">Three-layer immutability: ESLint deny · IAM Deny · DDB ConditionExpression</text>
+    <text class="legend" x="600" y="84" style="font-style: italic; fill: #6b7280;">WORM mirror: S3 Object Lock COMPLIANCE through 2033</text>
+  </g>
+</svg>

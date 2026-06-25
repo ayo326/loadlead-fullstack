@@ -36,27 +36,30 @@ The five public personas sign up themselves via `/signup?role=<KEY>`. The intern
 
 A freight shipment moves through these stages. Each stage emits a **signature** + (where applicable) **proof photos** that get locked into an append-only audit chain.
 
-```mermaid
-flowchart LR
-    A[Shipper posts<br/>load] --> B[BOL_SUBMIT<br/>signed by Shipper]
-    B --> C[Broadcast to<br/>matching carriers]
-    C --> D[Driver / Carrier<br/>accepts offer]
-    D --> E[CARRIER_ACCEPT<br/>signed by Carrier/OO]
-    E --> F[Dispatch:<br/>load BOOKED]
-    F --> G[Driver picks up<br/>+ photo]
-    G --> H[DRIVER_PICKUP<br/>signed by Driver]
-    H --> I[In transit]
-    I --> J[Driver delivers<br/>+ photo]
-    J --> K[DRIVER_DELIVER<br/>signed by Driver]
-    K --> L[Receiver verifies<br/>+ photo]
-    L --> M[RECEIVER_CONFIRM<br/>signed by Receiver]
-    M --> N[Chain complete:<br/>5 sigs, 3 photos]
+![LoadLead load lifecycle — 13 stages, 5 signature gates, 3 proof-photo gates](assets/loadlead-lifecycle.svg)
 
-    style B fill:#e1f5e1,stroke:#080
-    style E fill:#e1f5e1,stroke:#080
-    style H fill:#e1f5e1,stroke:#080
-    style K fill:#e1f5e1,stroke:#080
-    style M fill:#e1f5e1,stroke:#080
+<!--
+  Source-of-truth diagram. Wrapped to 3 rows for legibility (the prior
+  flowchart LR rendered all 13 nodes in a single cramped row).
+  Edit docs/assets/loadlead-lifecycle.svg directly; this image is the
+  canonical version used by GitHub, the audit PDF, and Confluence.
+-->
+
+```text
+1. Shipper posts a load
+2. BOL_SUBMIT      ★  signed by Shipper
+3. Broadcast to matching carriers
+4. Driver / Carrier accepts offer
+5. CARRIER_ACCEPT  ★  signed by Carrier / OO
+6. Dispatch: load BOOKED
+7. Driver picks up         📷 photo
+8. DRIVER_PICKUP   ★  signed by Driver
+9. In transit (live GPS tracking)
+10. Driver delivers        📷 photo
+11. DRIVER_DELIVER ★  signed by Driver
+12. Receiver verifies      📷 photo
+13. RECEIVER_CONFIRM ★ signed by Receiver
+14. Chain complete: 5 signatures · 3 photos · WORM-archived
 ```
 
 The 5 green nodes are the **attestation signatures**. Each one is:
