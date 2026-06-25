@@ -1,0 +1,105 @@
+# Frontend consumer pact tests + publish to broker.
+#
+# Runs every consumer pact (driver/shipper/carrier/oo/receiver/admin) and
+# publishes the generated pact files to the shared Pact Broker. The
+# Broker is then the source of truth the provider verification reads from
+# on the backend side (see verify-provider.yml).
+#
+# Triggers on changes to the frontend's API client, the consumer pact
+# files themselves, or this workflow. The trigger surface is deliberately
+# narrow — consumer pacts shouldn't republish on every CSS tweak.
+#
+# Broker auth is by Bearer token (PactFlow convention). Both the URL and
+# token come from GH org / repo secrets. When either is unset, the
+# workflow runs the consumer tests but SKIPS the publish step rather
+# than failing — lets the workflow land before you have a hosted broker.
+
+name: Frontend Pact (consumer contracts)
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - 'frontend-v2/tests/contract/**'
+      - 'frontend-v2/src/lib/api.ts'
+      - 'pact/pacts/**'
+      - '.github/workflows/frontend-pact.yml'
+  pull_request:
+    paths:
+      - 'frontend-v2/tests/contract/**'
+      - 'frontend-v2/src/lib/api.ts'
+  workflow_dispatch: {}
+
+concurrency:
+  group: frontend-pact-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  consumer-pacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run consumer pact tests + emit JSON
+        working-directory: frontend-v2
+        run: |
+          mkdir -p tests/.out
+          npx vitest run tests/contract/ --reporter=json --outputFile=tests/.out/contract.json
+        # If a consumer pact test fails the workflow fails here — the pact
+        # files would be wrong and shouldn't be published.
+
+      - name: Sync [Hn] results into test-results.json
+        run: node backend/tests/sync-tracker.js
+
+      - name: Upload pact files as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pact-files-${{ github.sha }}
+          path: pact/pacts/*.json
+          retention-days: 14
+
+      # ─── Publish to Broker — only when secrets are configured ──────────
+      - name: Check broker secrets
+        id: broker_check
+        run: |
+          if [ -z "${{ secrets.PACT_BROKER_BASE_URL }}" ] || [ -z "${{ secrets.PACT_BROKER_TOKEN }}" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::PACT_BROKER_BASE_URL and/or PACT_BROKER_TOKEN secrets not set — skipping publish. Consumer tests still ran."
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish pacts to broker
+        if: steps.broker_check.outputs.configured == 'true'
+        run: |
+          npx pact-broker publish pact/pacts \
+            --consumer-app-version="${{ github.sha }}" \
+            --branch="${{ github.ref_name }}" \
+            --broker-base-url="${{ secrets.PACT_BROKER_BASE_URL }}" \
+            --broker-token="${{ secrets.PACT_BROKER_TOKEN }}"
+
+      # ─── Record deployment on the consumer side ──────────────────────────
+      # Only on main pushes (== a frontend release going to prod). Records
+      # the consumer version as "deployed to production" so can-i-deploy on
+      # the API side will check against the right consumer version going
+      # forward.
+      - name: Record consumer deployment to production
+        if: |
+          steps.broker_check.outputs.configured == 'true' &&
+          github.ref == 'refs/heads/main' &&
+          github.event_name == 'push'
+        run: |
+          for c in driver-web shipper-web carrier-web oo-web receiver-web admin-console; do
+            npx pact-broker record-deployment \
+              --pacticipant "$c" \
+              --version "${{ github.sha }}" \
+              --environment production \
+              --broker-base-url="${{ secrets.PACT_BROKER_BASE_URL }}" \
+              --broker-token="${{ secrets.PACT_BROKER_TOKEN }}"
+          done

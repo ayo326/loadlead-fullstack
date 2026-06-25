@@ -66,6 +66,25 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
 
+      # ─── Pact can-i-deploy gate ──────────────────────────────────────────
+      # Blocks the staging deploy when at least one persona consumer's
+      # contract isn't satisfied by this provider version. The provider-
+      # verification workflow (verify-provider.yml) is what publishes
+      # those results — this step only QUERIES them.
+      # Skipped when PACT_BROKER_BASE_URL secret is unset (workflows ran
+      # before the broker is wired up), so this is safe to land before
+      # PactFlow is configured.
+      - name: can-i-deploy (staging)
+        if: ${{ secrets.PACT_BROKER_BASE_URL != '' }}
+        run: |
+          npm ci
+          npx pact-broker can-i-deploy \
+            --pacticipant loadlead-api \
+            --version "${{ github.sha }}" \
+            --to-environment staging \
+            --broker-base-url="${{ secrets.PACT_BROKER_BASE_URL }}" \
+            --broker-token="${{ secrets.PACT_BROKER_TOKEN }}"
+
       - name: Install & build
         working-directory: backend
         run: |
@@ -99,6 +118,19 @@ jobs:
         run: |
           curl -sf https://staging.loadleadapp.com/api/health || (echo "Staging health check failed" && exit 1)
 
+      # Tell the broker this provider version is now in staging so the
+      # NEXT can-i-deploy --to-environment=production sees the correct
+      # "currently deployed" reference. Skipped if broker not configured.
+      - name: Record provider deployment (staging)
+        if: ${{ secrets.PACT_BROKER_BASE_URL != '' }}
+        run: |
+          npx pact-broker record-deployment \
+            --pacticipant loadlead-api \
+            --version "${{ github.sha }}" \
+            --environment staging \
+            --broker-base-url="${{ secrets.PACT_BROKER_BASE_URL }}" \
+            --broker-token="${{ secrets.PACT_BROKER_TOKEN }}"
+
   # ── Prod: manual trigger only, gated by the "production" GitHub Environment.
   #    The OIDC trust policy on AWS_PROD_DEPLOY_ROLE_ARN only allows
   #    assumption from a run *targeting* this Environment — so the required
@@ -112,6 +144,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
+
+      # ─── Pact can-i-deploy gate ──────────────────────────────────────────
+      # The cross-persona compatibility check. Blocks the prod deploy when
+      # at least one persona consumer's contract isn't satisfied by this
+      # provider version. Names the broken consumer in the output so the
+      # operator approving the prod workflow_dispatch can see which
+      # persona's pact failed.
+      - name: can-i-deploy (production)
+        if: ${{ secrets.PACT_BROKER_BASE_URL != '' }}
+        run: |
+          npm ci
+          npx pact-broker can-i-deploy \
+            --pacticipant loadlead-api \
+            --version "${{ github.sha }}" \
+            --to-environment production \
+            --broker-base-url="${{ secrets.PACT_BROKER_BASE_URL }}" \
+            --broker-token="${{ secrets.PACT_BROKER_TOKEN }}"
 
       - name: Install & build
         working-directory: backend
@@ -141,6 +190,18 @@ jobs:
           region: us-east-1
           deployment_package: deploy-prod.zip
           wait_for_deployment: true
+
+      # Tell the broker this provider version is now in production so the
+      # NEXT can-i-deploy sees the correct "currently deployed" reference.
+      - name: Record provider deployment (production)
+        if: ${{ secrets.PACT_BROKER_BASE_URL != '' }}
+        run: |
+          npx pact-broker record-deployment \
+            --pacticipant loadlead-api \
+            --version "${{ github.sha }}" \
+            --environment production \
+            --broker-base-url="${{ secrets.PACT_BROKER_BASE_URL }}" \
+            --broker-token="${{ secrets.PACT_BROKER_TOKEN }}"
 
       - name: Smoke test
         run: |

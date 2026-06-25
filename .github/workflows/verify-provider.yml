@@ -1,0 +1,79 @@
+# Provider verification — runs the Express provider stub against EVERY
+# consumer pact in the broker (driver/shipper/carrier/oo/receiver/admin),
+# publishes results back, and acts as the upstream gate for the API
+# deploy. deploy-backend.yml depends on this job's success indirectly
+# via `can-i-deploy` queries (added as a step there).
+#
+# A failing verification here means at least one persona's contract is
+# broken. The broker will record that and can-i-deploy will block the
+# next attempted provider deploy until the contract is re-aligned.
+#
+# Honesty caveat: this verifies against the IN-PROCESS STUB in
+# tests/contract/verify-provider.ts, not the real Express app + DDB Local.
+# The stub catches structural drift (renamed/missing fields, wrong status
+# codes); semantic drift (auth, persistence) needs the real app and a
+# DDB Local sidecar. That's a documented follow-up.
+
+name: Verify Provider (Pact)
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - 'backend/src/routes/**'
+      - 'backend/src/services/**'
+      - 'backend/tests/contract/**'
+      - 'pact/pacts/**'
+      - '.github/workflows/verify-provider.yml'
+  pull_request:
+    paths:
+      - 'backend/src/routes/**'
+      - 'backend/src/services/**'
+      - 'backend/tests/contract/**'
+  workflow_dispatch:
+    inputs:
+      deliberate_break:
+        description: 'Optional: PACT_DELIBERATE_BREAK value (e.g. oo-web) to demo the @H11 cross-persona gate'
+        required: false
+        default: ''
+
+concurrency:
+  group: verify-provider-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Check broker secrets
+        id: broker_check
+        run: |
+          if [ -z "${{ secrets.PACT_BROKER_BASE_URL }}" ] || [ -z "${{ secrets.PACT_BROKER_TOKEN }}" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::PACT_BROKER_BASE_URL and/or PACT_BROKER_TOKEN secrets not set — verification cannot pull pacts from the broker. Job will exit success (no contracts to verify yet)."
+            exit 0
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run provider verification (in-process stub)
+        if: steps.broker_check.outputs.configured == 'true'
+        working-directory: backend
+        env:
+          PACT_BROKER_URL:      ${{ secrets.PACT_BROKER_BASE_URL }}
+          PACT_BROKER_TOKEN:    ${{ secrets.PACT_BROKER_TOKEN }}
+          PACT_BROKER_PUBLISH_VERIFICATION_RESULTS: 'true'
+          PROVIDER_VERSION:     ${{ github.sha }}
+          # Operator can pass PACT_DELIBERATE_BREAK via workflow_dispatch
+          # input to reproduce the @H11 cross-persona-break demo from CI
+          # without editing source.
+          PACT_DELIBERATE_BREAK: ${{ inputs.deliberate_break }}
+        run: npx tsx tests/contract/verify-provider.ts

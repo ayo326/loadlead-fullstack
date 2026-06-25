@@ -22,6 +22,10 @@ import { Server } from 'http';
 
 const PROVIDER_PORT = 4747;
 const BROKER_URL    = process.env.PACT_BROKER_URL      ?? 'http://localhost:9292';
+// Two auth modes: basic (self-hosted local broker, pact/pact creds) and
+// Bearer token (PactFlow). Token wins if set; the broker config rejects
+// "both" so this is unambiguous.
+const BROKER_TOKEN  = process.env.PACT_BROKER_TOKEN    ?? '';
 const BROKER_USER   = process.env.PACT_BROKER_USERNAME ?? 'pact';
 const BROKER_PASS   = process.env.PACT_BROKER_PASSWORD ?? 'pact';
 const VERSION       = process.env.PROVIDER_VERSION     ?? require('child_process').execSync('git rev-parse --short HEAD').toString().trim();
@@ -376,9 +380,13 @@ async function main() {
 
       // Pull EVERY pact from the broker — that's the cross-persona gate.
       // If any consumer's pact fails, the whole verification run fails.
-      pactBrokerUrl:      BROKER_URL,
-      pactBrokerUsername: BROKER_USER,
-      pactBrokerPassword: BROKER_PASS,
+      pactBrokerUrl: BROKER_URL,
+      // Bearer token (PactFlow) takes precedence over basic auth
+      // (self-hosted broker). Both options exist so this script runs in
+      // both local-dev (docker compose broker) and CI (PactFlow) modes.
+      ...(BROKER_TOKEN
+        ? { pactBrokerToken: BROKER_TOKEN }
+        : { pactBrokerUsername: BROKER_USER, pactBrokerPassword: BROKER_PASS }),
       // Publish verification results to the broker — REQUIRED for the
       // can-i-deploy gate to know which provider versions satisfy each
       // consumer's contract. Setting both the option and the env var
