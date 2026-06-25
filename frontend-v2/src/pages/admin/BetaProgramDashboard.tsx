@@ -283,17 +283,26 @@ function ApplicationDetail({
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold text-foreground">{app.fullName || app.workEmail}</h2>
-            <p className="text-sm text-muted-foreground">{app.workEmail} · {app.side} · {app.texasFocus}</p>
+            <p className="text-sm text-muted-foreground">
+              {app.workEmail} · {sideLabel(app.side)} · {texasLabel(app.texasFocus)}
+            </p>
+            {(app.company || app.region || app.phone) && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {[app.company, app.region, app.phone].filter(Boolean).join(" · ")}
+              </p>
+            )}
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
         </div>
 
         {app.autoFlags.length > 0 && (
           <div className="rounded bg-amber-50 border border-amber-200 px-3 py-2">
-            <div className="text-xs font-medium text-amber-900 mb-1">Auto-flags</div>
-            <div className="flex flex-wrap gap-1">
+            <div className="text-xs font-medium text-amber-900 mb-1">Why this applicant was flagged</div>
+            <div className="flex flex-wrap gap-1.5">
               {app.autoFlags.map((f) => (
-                <span key={f} className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-mono">{f}</span>
+                <span key={f} className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                  {flagLabel(f)}
+                </span>
               ))}
             </div>
           </div>
@@ -337,15 +346,44 @@ function ApplicationDetail({
           </div>
         )}
 
-        {/* Answers */}
+        {/* Commitment — humanized */}
+        <div className="rounded border border-border p-3 space-y-1.5">
+          <h3 className="text-sm font-semibold mb-1">Commitment</h3>
+          <CommitmentRow ok={app.commitment.realFreight}
+            yes="Can test with real freight" no="Will not test with real freight" />
+          <CommitmentRow ok={app.commitment.feedbackCall}
+            yes="Will join feedback call + weekly check-in" no="Won't commit to feedback call" />
+          {app.commitment.contactPref && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Prefers</span>
+              <span className="text-foreground font-medium">{contactPrefLabel(app.commitment.contactPref)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Applicant profile — labeled, plain-language (replaces JSON dump) */}
+        {(app.side === "SHIPPER" || app.side === "BOTH") && app.sideSpecificData?.shipper && (
+          <ProfileSection
+            title={app.side === "BOTH" ? "Shipper profile" : "Profile"}
+            rows={shipperRows(app.sideSpecificData.shipper)}
+          />
+        )}
+        {(app.side === "CARRIER" || app.side === "BOTH") && app.sideSpecificData?.carrier && (
+          <ProfileSection
+            title={app.side === "BOTH" ? "Carrier profile" : "Profile"}
+            rows={carrierRows(app.sideSpecificData.carrier)}
+          />
+        )}
+
+        {/* Raw view — collapsed by default, for debugging */}
         <details className="rounded border border-border p-3">
-          <summary className="text-sm font-semibold cursor-pointer">Full answers</summary>
+          <summary className="text-xs text-muted-foreground cursor-pointer">View raw data</summary>
           <pre className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap break-words">
-            {JSON.stringify(app.sideSpecificData, null, 2)}
+            {JSON.stringify(
+              { side: app.side, texasFocus: app.texasFocus, commitment: app.commitment, sideSpecificData: app.sideSpecificData },
+              null, 2,
+            )}
           </pre>
-          <div className="text-xs text-muted-foreground mt-2">
-            Commitment: realFreight={String(app.commitment.realFreight)}, feedbackCall={String(app.commitment.feedbackCall)}
-          </div>
         </details>
 
         {msg && <div className="text-sm text-foreground bg-muted rounded px-3 py-2">{msg}</div>}
@@ -368,6 +406,94 @@ function ApplicationDetail({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Humanizers (display-only; no data-model change) ─────────────────────────
+
+function sideLabel(side: string): string {
+  return side === "BOTH" ? "Shipper + Carrier" : side === "CARRIER" ? "Carrier" : "Shipper";
+}
+function texasLabel(tx: string): string {
+  return tx === "MOSTLY" ? "Mostly Texas" : tx === "PARTLY" ? "Partly Texas" : "Outside Texas";
+}
+function flagLabel(flag: string): string {
+  switch (flag) {
+    case "NO_COMMITMENT": return "No commitment";
+    case "LOW_VOLUME":    return "Under 5 loads/week";
+    case "NO_AUTHORITY":  return "No MC/DOT";
+    default:              return flag.replace(/_/g, " ").toLowerCase();
+  }
+}
+function contactPrefLabel(pref: string): string {
+  const p = pref.toLowerCase();
+  if (p === "phone") return "Phone";
+  if (p === "sms" || p === "text") return "Text";
+  return "Email";
+}
+
+/** Coerce a stored value to a clean display string. Arrays comma-join;
+ *  numbers/bands pass through; empty/null → "" (caller decides to show). */
+function display(v: any): string {
+  if (v == null) return "";
+  if (Array.isArray(v)) return v.filter((x) => x != null && String(x).trim()).join(", ");
+  return String(v).trim();
+}
+
+type ProfileRow = { label: string; value: string; quote?: boolean };
+
+/** Build labeled shipper rows, omitting empties. */
+function shipperRows(s: Record<string, any>): ProfileRow[] {
+  return [
+    { label: "Company type",    value: display(s.companyType) },
+    { label: "What they ship",  value: display(s.commodities) },
+    { label: "Shipments/week",  value: display(s.loadsPerWeek) },
+    { label: "Modes",           value: display(s.modes) },
+    { label: "Lanes",           value: display(s.lanes) },
+    { label: "Books freight via", value: display(s.bookingMethod) },
+    { label: "Biggest pain",    value: display(s.pain), quote: true },
+  ].filter((r) => r.value !== "");
+}
+
+/** Build labeled carrier rows, omitting empties. */
+function carrierRows(c: Record<string, any>): ProfileRow[] {
+  return [
+    { label: "MC/DOT",          value: display(c.mcOrDot) },
+    { label: "Trucks",          value: display(c.truckCount) },
+    { label: "Loads/week",      value: display(c.loadsPerWeek) },
+    { label: "Equipment",       value: display(c.equipment) },
+    { label: "Lanes",           value: display(c.lanes) },
+    { label: "Finds loads via", value: display(c.findMethod) },
+    { label: "Biggest pain",    value: display(c.pain), quote: true },
+  ].filter((r) => r.value !== "");
+}
+
+function ProfileSection({ title, rows }: { title: string; rows: ProfileRow[] }) {
+  return (
+    <div className="rounded border border-border p-3">
+      <h3 className="text-sm font-semibold mb-2">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Not provided</p>
+      ) : (
+        <dl className="space-y-1.5 text-sm">
+          {rows.map((r) => (
+            <div key={r.label} className="flex gap-3">
+              <dt className="text-muted-foreground w-32 shrink-0">{r.label}</dt>
+              <dd className="text-foreground">{r.quote ? `“${r.value}”` : r.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+function CommitmentRow({ ok, yes, no }: { ok: boolean; yes: string; no: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className={ok ? "text-emerald-600" : "text-rose-600"}>{ok ? "✓" : "✗"}</span>
+      <span className="text-foreground">{ok ? yes : no}</span>
     </div>
   );
 }
