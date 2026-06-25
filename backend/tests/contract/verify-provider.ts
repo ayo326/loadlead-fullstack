@@ -65,6 +65,8 @@ const state: {
   receiverLoadForOther: boolean;
   adminHasOrgs:        boolean;
   adminOrgToSuspend:   boolean;
+  betaModeOn:          boolean;
+  betaInviteValid:     boolean;
 } = {
   driverAffiliated:    true,
   driverHasOffers:     true,
@@ -80,6 +82,8 @@ const state: {
   receiverLoadForOther: false,
   adminHasOrgs:        true,
   adminOrgToSuspend:   true,
+  betaModeOn:          false,
+  betaInviteValid:     false,
 };
 
 function resetState() {
@@ -97,6 +101,8 @@ function resetState() {
   state.receiverLoadForOther = false;
   state.adminHasOrgs      = true;
   state.adminOrgToSuspend = true;
+  state.betaModeOn        = false;
+  state.betaInviteValid   = false;
 }
 
 function buildApp(): Express {
@@ -279,6 +285,34 @@ function buildApp(): Express {
     res.json({ loadId: _req.params.id });
   });
 
+  // ── Beta gate (shipper-web @H12 contract) ───────────────────────────────
+  // Mirrors requireBetaGate({mode:'signup'}) + AuthService.signup's beta
+  // stamping. Under betaModeOn, a signup with no valid invite + a
+  // non-allowlisted email gets the neutral 403; a signup carrying a valid
+  // invite token gets 201 with the betaUser/cohort/invitedVia fields.
+  app.post('/api/auth/signup', (req: Request, res: Response) => {
+    const hasValidInvite = state.betaInviteValid && !!req.body?.inviteToken;
+    if (state.betaModeOn && !hasValidInvite) {
+      return res.status(403).json({
+        error: 'BETA_REQUIRED',
+        message:
+          'LoadLead is currently in private beta. Request access on the ' +
+          'waitlist and we will reach out when your spot opens.',
+      });
+    }
+    res.status(201).json({
+      token: 'test-jwt',
+      user: {
+        userId:     'user_test_1',
+        email:      req.body?.email ?? 'invited@example.com',
+        role:       req.body?.role ?? 'SHIPPER',
+        ...(state.betaModeOn
+          ? { betaUser: true, cohort: 'wave-1', invitedVia: 'INVITE' }
+          : {}),
+      },
+    });
+  });
+
   // ── Admin console endpoints (admin-console pact) ────────────────────────
   app.get('/api/admin/orgs', (_req: Request, res: Response) => {
     res.json({
@@ -353,6 +387,12 @@ function buildApp(): Express {
         state.adminHasOrgs = true; break;
       case 'a STAFF_ADMIN is logged in and an active org exists at org_to_suspend':
         state.adminOrgToSuspend = true; break;
+
+      // shipper-web @H12 — beta gate
+      case 'BETA_MODE is on and the email is neither invited nor allowlisted':
+        state.betaModeOn = true; state.betaInviteValid = false; break;
+      case 'BETA_MODE is on and a valid self-signup invite exists for the email':
+        state.betaModeOn = true; state.betaInviteValid = true; break;
 
       default:
         console.error(`[provider-states] UNKNOWN: "${givenState}"`);
