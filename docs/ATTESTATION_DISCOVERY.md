@@ -1,7 +1,7 @@
 ---
 title: E-Signature + Proof-Photo Attestation — Phase 0 Discovery
 date: 2026-06-24
-revised: 2026-06-24 (against the expanded scope: resolver / canonical hash / data-layer immutability)
+revised: "2026-06-24 (against the expanded scope: resolver / canonical hash / data-layer immutability)"
 status: DISCOVERY ONLY — gate per the build prompt
 build_locked: true
 ---
