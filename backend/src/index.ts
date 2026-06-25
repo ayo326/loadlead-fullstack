@@ -46,6 +46,7 @@ import orgRoutes from './routes/org';
 import ownerOperatorRoutes from './routes/ownerOperator';
 import setupRoutes from './routes/setup';
 import betaRoutes from './routes/beta';
+import adminBetaRoutes from './routes/adminBeta';
 import { diditWebhookHandler } from './services/verification';
 import factoringRoutes from './routes/factoring';
 import referenceRoutes from './routes/reference';
@@ -228,6 +229,10 @@ app.use('/api/setup', setupRoutes);
 // /api/beta — public surface of the private-beta program. Mounted BEFORE
 // the auth-required routes so the waitlist + status work for unauth visitors.
 app.use('/api/beta', betaRoutes);
+// /api/admin/beta — staff-only Beta Program management (exact-ADMIN gated
+// inside the router). Separate from /api/admin so the beta concern is
+// self-contained.
+app.use('/api/admin/beta', adminBetaRoutes);
 app.use('/api/factoring', factoringRoutes);
 app.use('/api/reference', referenceRoutes);
 
