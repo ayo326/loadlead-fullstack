@@ -33,11 +33,18 @@ export interface LaneOverlap {
   applicationId: string; fullName: string; company?: string;
   side: string; sharedLaneTokens: string[]; bothTexas: boolean;
 }
+export type BalanceState = "EMPTY" | "NEED_CARRIERS" | "NEED_SHIPPERS" | "SKEWED" | "BALANCED";
+export interface SideCounts { shippers: number; carriers: number; both: number; }
 export interface CohortBalance {
-  shippers: number; carriers: number; both: number;
-  admitted: { shippers: number; carriers: number; both: number };
-  totalAdmitted: number; cohortCap: number; seatsFilled: number;
-  ratioTarget: string; ratioOutOfBalance: boolean; currentCohort: string;
+  admitted: SideCounts;          // BOTH double-counts toward shippers + carriers
+  pipeline: SideCounts;          // QUALIFIED, not yet admitted
+  seatsFilled: number;           // distinct admitted apps (BOTH counts once)
+  cohortCap: number;
+  ratioTarget: string;
+  measuring: "admitted" | "pipeline";
+  balanceState: BalanceState;
+  skewedTo: "shippers" | "carriers" | null;
+  currentCohort: string;
 }
 export interface AllowlistEntry {
   allowlistId: string; type: "EMAIL" | "DOMAIN"; value: string;

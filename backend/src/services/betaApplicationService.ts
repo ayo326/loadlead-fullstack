@@ -343,31 +343,74 @@ export class BetaApplicationService {
     );
   }
 
-  /** Cohort balance — the HEADLINE metric. Counts QUALIFIED+ applicants by
-   *  side so the dashboard can show the live shipper:carrier ratio. */
-  static async cohortBalance(wave?: string): Promise<{
-    shippers: number; carriers: number; both: number;
-    admitted: { shippers: number; carriers: number; both: number };
-    totalAdmitted: number;
-  }> {
+  /**
+   * Cohort balance — the HEADLINE metric. Reports the shipper:carrier
+   * composition for TWO populations so the dashboard can show the true
+   * balance (and never call an empty/skewed population "balanced"):
+   *
+   *   admitted — status ADMITTED/INVITED/ONBOARDED = "seats filled"
+   *   pipeline — status QUALIFIED, not yet admitted = "about to admit"
+   *
+   * A BOTH applicant supplies AND demands freight, so it counts toward
+   * BOTH the shipper and carrier tallies of its population. `seats` is the
+   * count of distinct admitted applications (BOTH counts once for seats).
+   */
+  static async cohortBalance(wave?: string): Promise<CohortBalanceData> {
     const all = await this.list(wave ? { wave } : undefined);
-    const counted = all.filter(a => a.status !== 'DISQUALIFIED');
     const admittedStatuses = new Set(['ADMITTED', 'INVITED', 'ONBOARDED']);
-    const admitted = counted.filter(a => admittedStatuses.has(a.status));
+    const admittedRows = all.filter(a => admittedStatuses.has(a.status));
+    const pipelineRows = all.filter(a => a.status === 'QUALIFIED');
 
-    const bySide = (rows: BetaApplication[], side: string) => rows.filter(a => a.side === side).length;
+    // BOTH counts toward shippers AND carriers.
+    const sided = (rows: BetaApplication[]) => {
+      const shippers = rows.filter(a => a.side === 'SHIPPER' || a.side === 'BOTH').length;
+      const carriers = rows.filter(a => a.side === 'CARRIER' || a.side === 'BOTH').length;
+      const both = rows.filter(a => a.side === 'BOTH').length;
+      return { shippers, carriers, both };
+    };
+
     return {
-      shippers: bySide(counted, 'SHIPPER'),
-      carriers: bySide(counted, 'CARRIER'),
-      both: bySide(counted, 'BOTH'),
-      admitted: {
-        shippers: bySide(admitted, 'SHIPPER'),
-        carriers: bySide(admitted, 'CARRIER'),
-        both: bySide(admitted, 'BOTH'),
-      },
-      totalAdmitted: admitted.length,
+      admitted: sided(admittedRows),
+      pipeline: sided(pipelineRows),
+      seatsFilled: admittedRows.length,   // distinct apps; BOTH counts once
     };
   }
+}
+
+export interface SideCounts { shippers: number; carriers: number; both: number; }
+export interface CohortBalanceData {
+  admitted: SideCounts;
+  pipeline: SideCounts;
+  seatsFilled: number;
+}
+
+/**
+ * Honest balance verdict (target ~1:1 per the recruitment kit). Measures
+ * the admitted cohort when any seat is filled, otherwise the qualified
+ * pipeline — so the badge tells you what you HAVE, or failing that what
+ * you're ABOUT TO admit. Never reports an empty population as balanced.
+ */
+export type BalanceState = 'EMPTY' | 'NEED_CARRIERS' | 'NEED_SHIPPERS' | 'SKEWED' | 'BALANCED';
+export function balanceVerdict(b: CohortBalanceData): {
+  measuring: 'admitted' | 'pipeline';
+  state: BalanceState;
+  skewedTo?: 'shippers' | 'carriers';
+} {
+  const measuring = b.seatsFilled > 0 ? 'admitted' : 'pipeline';
+  const { shippers, carriers } = measuring === 'admitted' ? b.admitted : b.pipeline;
+  const total = shippers + carriers;
+
+  if (total === 0) return { measuring, state: 'EMPTY' };
+  if (carriers === 0) return { measuring, state: 'NEED_CARRIERS' };
+  if (shippers === 0) return { measuring, state: 'NEED_SHIPPERS' };
+
+  // Both sides > 0: skewed if the minority is < ~40% of the total
+  // (i.e. one side more than ~1.5x the other).
+  const minority = Math.min(shippers, carriers);
+  if (minority / total < 0.4) {
+    return { measuring, state: 'SKEWED', skewedTo: shippers > carriers ? 'shippers' : 'carriers' };
+  }
+  return { measuring, state: 'BALANCED' };
 }
 
 function mapContactPref(raw: any): 'email' | 'phone' | 'sms' | undefined {
