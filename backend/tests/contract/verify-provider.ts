@@ -27,19 +27,39 @@ const BROKER_PASS   = process.env.PACT_BROKER_PASSWORD ?? 'pact';
 const VERSION       = process.env.PROVIDER_VERSION     ?? require('child_process').execSync('git rev-parse --short HEAD').toString().trim();
 
 // Mutable state container the state-setup hooks write into, and the route
-// handlers read from. Reset between interactions.
+// handlers read from. Reset between interactions. One field per
+// distinct "given" the consumer contracts introduce; resetState() puts
+// everything back to a vanilla-happy-path default.
 const state: {
   driverAffiliated:    boolean;
   driverHasOffers:     boolean;
   shipperHasLoads:     boolean;
   shipperHasProfile:   boolean;
   loadOwnedByOther:    boolean;
+  carrierHasFleet:     boolean;
+  carrierMemberLacksPermission: boolean;
+  ooHasFleet:          boolean;
+  ooHasInvites:        boolean;
+  receiverHasInbound:  boolean;
+  receiverLoadUnsigned: boolean;
+  receiverLoadForOther: boolean;
+  adminHasOrgs:        boolean;
+  adminOrgToSuspend:   boolean;
 } = {
   driverAffiliated:    true,
   driverHasOffers:     true,
   shipperHasLoads:     true,
   shipperHasProfile:   true,
   loadOwnedByOther:    false,
+  carrierHasFleet:     true,
+  carrierMemberLacksPermission: false,
+  ooHasFleet:          true,
+  ooHasInvites:        true,
+  receiverHasInbound:  true,
+  receiverLoadUnsigned: false,
+  receiverLoadForOther: false,
+  adminHasOrgs:        true,
+  adminOrgToSuspend:   true,
 };
 
 function resetState() {
@@ -48,6 +68,15 @@ function resetState() {
   state.shipperHasLoads   = true;
   state.shipperHasProfile = true;
   state.loadOwnedByOther  = false;
+  state.carrierHasFleet   = true;
+  state.carrierMemberLacksPermission = false;
+  state.ooHasFleet        = true;
+  state.ooHasInvites      = true;
+  state.receiverHasInbound = true;
+  state.receiverLoadUnsigned = false;
+  state.receiverLoadForOther = false;
+  state.adminHasOrgs      = true;
+  state.adminOrgToSuspend = true;
 }
 
 function buildApp(): Express {
@@ -124,6 +153,131 @@ function buildApp(): Express {
     res.json({ loadId: _req.params.id, status: 'OPEN' });
   });
 
+  // ── Carrier endpoints (carrier-web pact) ────────────────────────────────
+  app.get('/api/org/:orgId/dashboard', (req: Request, res: Response) => {
+    if (state.carrierMemberLacksPermission) {
+      return res.status(403).json({ error: 'Insufficient permission' });
+    }
+    res.json({
+      orgId: req.params.orgId,
+      activeLoads: { inTransit: 5, unassigned: 0 },
+      drivers: state.carrierHasFleet ? [{
+        driverId:  'driver_abc123',
+        firstName: 'Sam',
+        lastName:  'Driver',
+        idvStatus: 'VERIFIED',
+        status:    'AVAILABLE',
+      }] : [],
+      revenue: { grossRevenue: 42000, rpm: 2.45 },
+    });
+  });
+
+  app.post('/api/org/:orgId/invitations', (req: Request, res: Response) => {
+    res.status(201).json({
+      invitation: {
+        token:    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        email:    req.body?.email ?? 'invited@example.com',
+        orgRole:  req.body?.orgRole ?? 'DISPATCHER',
+        expiresAt: 1800000000000,
+      },
+    });
+  });
+
+  // ── Owner Operator endpoints (oo-web pact) ──────────────────────────────
+  app.get('/api/owner-operator/dashboard', (_req: Request, res: Response) => {
+    res.json({
+      operatorId: 'op_test_1',
+      selfDriver: {
+        driverId: 'driver_oo_self',
+        isSelf:   true,
+        status:   'AVAILABLE',
+      },
+      fleetDrivers: state.ooHasFleet ? [{
+        driverId: 'driver_fleet_1',
+        isSelf:   false,
+        status:   'AVAILABLE',
+      }] : [],
+      activeLoads: 3,
+      grossRevenue: 18500,
+    });
+  });
+
+  app.get('/api/owner-operator/verification', (_req: Request, res: Response) => {
+    res.json({
+      verification: {
+        entityType: 'OWNER_OPERATOR',
+        verificationStatus: 'PENDING',
+        fmcsaStatus: 'active',
+        kybStatus:   'PASSED',
+      },
+    });
+  });
+
+  app.get('/api/owner-operator/fleet/invites', (_req: Request, res: Response) => {
+    res.json({
+      invites: state.ooHasInvites ? [{
+        inviteId:  'invite_abc',
+        email:     'newdriver@example.com',
+        token:     'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        expiresAt: 1800000000000,
+      }] : [],
+    });
+  });
+
+  // ── Receiver endpoints (receiver-web pact) ──────────────────────────────
+  app.get('/api/receiver/incoming', (_req: Request, res: Response) => {
+    res.json({
+      loads: state.receiverHasInbound ? [{
+        loadId:           'load_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        status:           'IN_TRANSIT',
+        pickupCity:       'Houston',
+        pickupState:      'TX',
+        deliveryCity:     'Dallas',
+        deliveryState:    'TX',
+        assignedDriverId: 'driver_abc',
+      }] : [],
+    });
+  });
+
+  app.post('/api/receiver/loads/:loadId/confirm', (_req: Request, res: Response) => {
+    if (state.receiverLoadUnsigned) {
+      return res.status(412).json({
+        message:    'RECEIVER_CONFIRM signature is required',
+        statusCode: 412,
+      });
+    }
+    res.json({ ok: true });
+  });
+
+  app.get('/api/receiver/loads/:id', (_req: Request, res: Response) => {
+    if (state.receiverLoadForOther) {
+      return res.status(404).json({ error: 'Load not found' });
+    }
+    res.json({ loadId: _req.params.id });
+  });
+
+  // ── Admin console endpoints (admin-console pact) ────────────────────────
+  app.get('/api/admin/orgs', (_req: Request, res: Response) => {
+    res.json({
+      orgs: state.adminHasOrgs ? [{
+        orgId: 'org_carrier_1',
+        name:  'Acme Trucking',
+        capabilities: ['CARRIER'],
+        memberCount: 7,
+        isSuspended: false,
+      }] : [],
+      cursor: null,
+    });
+  });
+
+  app.post('/api/admin/orgs/:orgId/suspend', (req: Request, res: Response) => {
+    const reason = String(req.body?.reason ?? '').trim();
+    if (reason.length < 6) {
+      return res.status(400).json({ error: 'reason is required (at least 6 characters)' });
+    }
+    res.json({ ok: true, orgId: req.params.orgId, suspended: true });
+  });
+
   // State setup endpoint — Pact verifier POSTs here with { state: "...", action: "setup" }
   // before each interaction. We map the given() string to a state mutation.
   app.post('/_pact/provider_states', (req: Request, res: Response) => {
@@ -146,6 +300,37 @@ function buildApp(): Express {
         state.shipperHasProfile = true; break;
       case 'a load exists belonging to a different shipper':
         state.loadOwnedByOther = true; break;
+
+      // carrier-web
+      case 'a carrier org has 3 active drivers and 5 loads in flight':
+        state.carrierHasFleet = true; break;
+      case 'a carrier org owner is logged in':
+        break;
+      case 'an ORG_DRIVER is a member of the org but lacks dashboard:read permission':
+        state.carrierMemberLacksPermission = true; break;
+
+      // oo-web
+      case 'an owner operator has 1 self-driver and 2 fleet drivers':
+        state.ooHasFleet = true; break;
+      case 'an owner operator has submitted FMCSA + KYB but not yet IDV':
+        break;
+      case 'an owner operator has 2 pending fleet driver invitations':
+        state.ooHasInvites = true; break;
+
+      // receiver-web
+      case 'a receiver has 2 in-transit shipments assigned to their facility':
+        state.receiverHasInbound = true; break;
+      case 'a load IN_TRANSIT to this receiver has no RECEIVER_CONFIRM signature yet':
+        state.receiverLoadUnsigned = true; break;
+      case 'a load exists destined for a different receiver facility':
+        state.receiverLoadForOther = true; break;
+
+      // admin-console
+      case 'the admin org list has at least one active and one suspended org':
+        state.adminHasOrgs = true; break;
+      case 'a STAFF_ADMIN is logged in and an active org exists at org_to_suspend':
+        state.adminOrgToSuspend = true; break;
+
       default:
         console.error(`[provider-states] UNKNOWN: "${givenState}"`);
         return res.status(400).json({ error: `unknown provider state: ${givenState}` });
