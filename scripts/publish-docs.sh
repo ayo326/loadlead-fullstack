@@ -22,6 +22,17 @@ bash scripts/render-confluence-config.sh
 
 echo ""
 echo "── Publishing /docs → Confluence ${CONFLUENCE_SPACE_KEY} ──"
+# Prune stray .md files under docs/.build/ — this directory is used by the
+# PDF-regeneration flow (it cats the audit docs into a single .md for
+# md-to-pdf). The publisher's `ignore: ["**/.build/**"]` should skip them
+# but the underlying glob library doesn't reliably match leading-dot dirs,
+# so we just delete the .mds explicitly. assets/ and route_inventory.json
+# stay — they're needed by the PDF gen and aren't ambiguous with publishable
+# docs.
+if compgen -G "docs/.build/*.md" > /dev/null 2>&1; then
+  rm -f docs/.build/*.md
+fi
+
 ATLASSIAN_API_TOKEN="${CONFLUENCE_API_TOKEN}" \
   npx --yes @markdown-confluence/cli@latest | tee /tmp/conflu-publish.log
 
