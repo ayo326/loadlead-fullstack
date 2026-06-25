@@ -39,6 +39,8 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@pact-foundation/pact": "^16.5.0",
+    "@pact-foundation/pact-cli": "^18.1.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",

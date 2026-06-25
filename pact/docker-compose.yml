@@ -1,0 +1,51 @@
+# Pact Broker — local dev infrastructure for cross-persona contract testing.
+#
+# Stores consumer pacts published by frontend-v2 (5 personas + admin), runs
+# can-i-deploy to gate the API provider's deploys, and verifies the
+# provider against EVERY persona's contract in one pass.
+#
+# Usage:
+#   docker compose up -d                                     # start broker
+#   open http://localhost:9292                               # web UI (pact/pact)
+#   docker compose down                                       # stop, preserve volume
+#   docker compose down -v                                    # nuclear (drops pacts)
+#
+# Credentials are intentionally weak — local-only broker; do NOT expose this
+# port outside the dev machine. For CI we'd switch to PactFlow SaaS or a
+# hardened broker behind ALB + IAM auth.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER:     pact
+      POSTGRES_PASSWORD: pact
+      POSTGRES_DB:       pact_broker
+    volumes:
+      - pact-db:/var/lib/postgresql/data
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U pact -d pact_broker"]
+      interval: 5s
+      timeout:  3s
+      retries:  10
+
+  broker:
+    image: pactfoundation/pact-broker:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "9292:9292"
+    environment:
+      PACT_BROKER_DATABASE_URL: postgres://pact:pact@postgres/pact_broker
+      # Basic auth (HTTP); for prod we'd put this behind real auth.
+      PACT_BROKER_BASIC_AUTH_USERNAME:       pact
+      PACT_BROKER_BASIC_AUTH_PASSWORD:       pact
+      PACT_BROKER_BASIC_AUTH_READ_ONLY_USERNAME: read
+      PACT_BROKER_BASIC_AUTH_READ_ONLY_PASSWORD: read
+      # WIP pacts let consumer tests publish from feature branches without
+      # blocking integrations until the contract is "real".
+      PACT_BROKER_WEBHOOK_HOST_WHITELIST: 0.0.0.0/0
+
+volumes:
+  pact-db:
