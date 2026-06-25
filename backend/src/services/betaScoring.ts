@@ -76,13 +76,21 @@ export function coerceText(v: any): string {
   return String(v);
 }
 
-/** Does the applicant describe an existing booking/finding method? → Tools 0/1. */
+/**
+ * Tool sophistication (0-1). Per the guide §13 this is specifically
+ * "already uses a load board or TMS, so they can compare" — NOT merely
+ * having any booking/finding method. So "Load board" (a shipper booking
+ * option and a carrier finding option) or a free-text "TMS" mention scores
+ * 1; "In-house team" / "Brokers" / "3PL" / "Dispatcher" score 0.
+ */
+const TOOL_RE = /load\s*board|\btms\b|transportation management/i;
 export function toolsScore(
   side: BetaApplication['side'],
   data: BetaApplication['sideSpecificData'],
 ): number {
-  const shipperHas = !!coerceText(data?.shipper?.bookingMethod).trim();
-  const carrierHas = !!coerceText(data?.carrier?.findMethod).trim();
+  const sophisticated = (v: any) => TOOL_RE.test(coerceText(v));
+  const shipperHas = sophisticated(data?.shipper?.bookingMethod);
+  const carrierHas = sophisticated(data?.carrier?.findMethod);
   if (side === 'SHIPPER') return shipperHas ? 1 : 0;
   if (side === 'CARRIER') return carrierHas ? 1 : 0;
   // BOTH: either side counts.

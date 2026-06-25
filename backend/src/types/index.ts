@@ -229,7 +229,9 @@ export interface BetaApplication {
     };
     carrier?: {
       mcOrDot?: string;
-      truckCount?: number;
+      // Tally sends this as a band string ("1", "2 to 5", "6 to 20", "20+").
+      // Stored raw — toInt("2 to 5") would wrongly concatenate to 25.
+      truckCount?: number | string;
       loadsPerWeek?: number | string;
       equipment?: string[];
       lanes?: string[];

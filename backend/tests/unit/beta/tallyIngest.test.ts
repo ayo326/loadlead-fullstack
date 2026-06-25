@@ -52,7 +52,7 @@ function shipperPayload(responseId: string) {
         { key: 'q8', label: 'How many shipments per week?', type: 'MULTIPLE_CHOICE', value: '20-50' },
         { key: 'q9', label: 'What commodities do you ship?', type: 'CHECKBOXES', value: ['Steel', 'Lumber'] },
         { key: 'q10', label: 'Top lanes (origin → destination)', type: 'CHECKBOXES', value: ['Dallas → Houston'] },
-        { key: 'q11', label: 'How do you book freight today?', type: 'INPUT_TEXT', value: 'Email + spreadsheets' },
+        { key: 'q11', label: 'How do you book freight today?', type: 'INPUT_TEXT', value: 'Load board' },
         { key: 'q12', label: 'Biggest pain in booking freight', type: 'TEXTAREA', value: 'Finding reliable carriers' },
         { key: 'q13', label: 'Are you actively running freight right now?', type: 'MULTIPLE_CHOICE', value: 'Yes' },
         { key: 'q14', label: 'Will you join a short feedback call + weekly check-in?', type: 'MULTIPLE_CHOICE', value: 'Yes' },
@@ -75,7 +75,7 @@ function carrierPayload(responseId: string) {
         { key: 'q3', label: 'Work email', value: 'carl@HaulCo.com' },
         { key: 'q7', label: 'Do you primarily operate in Texas?', value: 'Partly Texas' },
         { key: 'c1', label: 'MC or DOT number', value: 'MC123456' },
-        { key: 'c2', label: 'How many trucks/power units?', value: '8' },
+        { key: 'c2', label: 'How many trucks do you run?', value: '6 to 20' },
         { key: 'c3', label: 'Loads per week', value: '5-20' },
         { key: 'c4', label: 'Equipment types', value: ['Dry van', 'Reefer'] },
         { key: 'c5', label: 'Top lanes you run (origin → destination)', value: ['Houston → Dallas'] },
@@ -152,7 +152,7 @@ describe('Tally ingest — field mapping (authoritative labels)', () => {
     expect(application.workEmail).toBe('carl@haulco.com');
     expect(application.texasFocus).toBe('PARTLY');            // "Partly Texas"
     expect(application.sideSpecificData.carrier?.mcOrDot).toBe('MC123456');
-    expect(application.sideSpecificData.carrier?.truckCount).toBe(8);
+    expect(application.sideSpecificData.carrier?.truckCount).toBe('6 to 20');
     expect(application.status).toBe('QUALIFIED');             // valid MC, committed
     expect(application.scoreBreakdown?.geography).toBe(2);    // PARTLY
   });
@@ -307,11 +307,11 @@ describe('Tally auto-gates on ingest', () => {
           { key: 'q3', label: 'Work email', value: 'real@carrier.com' },
           { key: 'q7', label: 'Do you primarily operate in Texas?', value: 'Yes, mostly Texas' },
           { key: 'c1', label: 'MC or DOT number', value: 'MC123456' },
-          { key: 'c2', label: 'How many trucks do you run?', value: '8' },
-          { key: 'c3', label: 'How many loads do you haul per week?', value: '5-20' },
-          { key: 'c4', label: 'What equipment type do you run?', value: ['Reefer', 'Dryvan'] },
-          { key: 'c5', label: 'Primary lanes or regions (Carrier)', value: ['Houston → Dallas'] },
-          { key: 'c6', label: 'How do you find loads today?', value: 'Load boards' },
+          { key: 'c2', label: 'How many trucks do you run?', value: '2 to 5' },
+          { key: 'c3', label: 'How many loads do you haul per week?', value: '5 to 20' },
+          { key: 'c4', label: 'What equipment types do you run?', value: ['Reefer', 'Dry van'] },
+          { key: 'c5', label: 'Primary lanes or regions (carrier)', value: ['Houston → Dallas'] },
+          { key: 'c6', label: 'How do you find loads today?', value: 'Load board' },
           { key: 'c7', label: 'Your single biggest pain in finding good loads right now', value: 'Empty miles' },
           { key: 'q13', label: 'Can you test LoadLead with real freight over the next few weeks?', value: 'Yes' },
           { key: 'q14', label: 'Will you commit to one 20-minute feedback call plus a short weekly check-in?', value: 'Yes' },
@@ -321,12 +321,62 @@ describe('Tally auto-gates on ingest', () => {
 
     const { application } = await BetaApplicationService.ingestFromTally(payload);
     const c = application.sideSpecificData.carrier!;
-    expect(c.truckCount).toBe(8);
-    expect(c.loadsPerWeek).toBe('5-20');
-    expect(c.equipment).toEqual(['Reefer', 'Dryvan']);
-    expect(c.lanes).toEqual(['Houston → Dallas']);
+    expect(c.truckCount).toBe('2 to 5');                // raw band — NOT 25
+    expect(c.loadsPerWeek).toBe('5 to 20');
+    expect(c.equipment).toEqual(['Reefer', 'Dry van']);
+    expect(c.lanes).toEqual(['Houston → Dallas']);       // lowercase (carrier) label
     expect(c.pain).toBe('Empty miles');
-    expect(application.status).toBe('QUALIFIED');       // valid MC, committed
+    expect(application.scoreBreakdown?.tools).toBe(1);   // "Load board" → Tools = 1
+    expect(application.status).toBe('QUALIFIED');        // valid MC, committed
+  });
+
+  // ── Guide §14 round-trip scenarios (exact build-guide option strings) ──
+  it('[guide §14.1] qualified Texas carrier (5 to 20 loads, MC, both Yes) → QUALIFIED, Texas Geography=3', async () => {
+    dbQuery.mockResolvedValue([]);
+    dbPut.mockResolvedValue({} as any);
+    const payload = {
+      data: {
+        responseId: 'resp-g14-1',
+        fields: [
+          { key: 'a', label: 'Which best describes you?', value: 'Hauler / carrier (I move freight)' },
+          { key: 'b', label: 'Work email', value: 'g14carrier@x.com' },
+          { key: 'c', label: 'Do you primarily operate in Texas?', value: 'Yes, mostly Texas' },
+          { key: 'd', label: 'MC or DOT number', value: 'MC998877' },
+          { key: 'e', label: 'How many loads do you haul per week?', value: '5 to 20' },
+          { key: 'f', label: 'How do you find loads today?', value: 'Load board' },
+          { key: 'g', label: 'Can you test LoadLead with real freight over the next few weeks?', value: 'Yes' },
+          { key: 'h', label: 'Will you commit to one 20-minute feedback call plus a short weekly check-in?', value: 'Yes' },
+        ],
+      },
+    };
+    const { application } = await BetaApplicationService.ingestFromTally(payload);
+    expect(application.side).toBe('CARRIER');
+    expect(application.texasFocus).toBe('MOSTLY');
+    expect(application.scoreBreakdown?.geography).toBe(3);   // mostly Texas
+    expect(application.status).toBe('QUALIFIED');
+    expect(application.autoFlags).toHaveLength(0);
+  });
+
+  it('[guide §14.2] under-5 shipper → WAITLISTED + LOW_VOLUME', async () => {
+    dbQuery.mockResolvedValue([]);
+    dbPut.mockResolvedValue({} as any);
+    const payload = {
+      data: {
+        responseId: 'resp-g14-2',
+        fields: [
+          { key: 'a', label: 'Which best describes you?', value: 'Shipper (I have freight that needs to move)' },
+          { key: 'b', label: 'Work email', value: 'g14shipper@x.com' },
+          { key: 'c', label: 'Do you primarily operate in Texas?', value: 'Yes, mostly Texas' },
+          { key: 'd', label: 'How many shipments do you move per week?', value: 'Under 5' },
+          { key: 'e', label: 'Can you test LoadLead with real freight over the next few weeks?', value: 'Yes' },
+          { key: 'f', label: 'Will you commit to one 20-minute feedback call plus a short weekly check-in?', value: 'Yes' },
+        ],
+      },
+    };
+    const { application } = await BetaApplicationService.ingestFromTally(payload);
+    expect(application.side).toBe('SHIPPER');
+    expect(application.status).toBe('WAITLISTED');
+    expect(application.autoFlags).toContain('LOW_VOLUME');
   });
 
   // The keyword fallback must bind even a reworded commitment question.

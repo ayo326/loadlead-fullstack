@@ -171,9 +171,13 @@ describe('scoring — objective dimensions', () => {
   });
 
   it('Tools: 1 when a booking/find method is present, else 0', () => {
-    expect(toolsScore('SHIPPER', { shipper: { bookingMethod: 'DAT' } })).toBe(1);
+    // Per guide §13: Tools=1 only for load board / TMS, NOT any method.
+    expect(toolsScore('SHIPPER', { shipper: { bookingMethod: 'Load board' } })).toBe(1);
+    expect(toolsScore('SHIPPER', { shipper: { bookingMethod: 'In-house team' } })).toBe(0);
+    expect(toolsScore('SHIPPER', { shipper: { bookingMethod: 'Brokers' } })).toBe(0);
     expect(toolsScore('SHIPPER', { shipper: { bookingMethod: '' } })).toBe(0);
-    expect(toolsScore('CARRIER', { carrier: { findMethod: 'load boards' } })).toBe(1);
+    expect(toolsScore('CARRIER', { carrier: { findMethod: 'Load board' } })).toBe(1);
+    expect(toolsScore('CARRIER', { carrier: { findMethod: 'Dispatcher' } })).toBe(0);
     expect(toolsScore('CARRIER', {})).toBe(0);
   });
 
@@ -181,11 +185,11 @@ describe('scoring — objective dimensions', () => {
     const b = preComputeObjective({
       side: 'SHIPPER',
       texasFocus: 'MOSTLY',
-      sideSpecificData: { shipper: { loadsPerWeek: 12, bookingMethod: 'email' } },
+      sideSpecificData: { shipper: { loadsPerWeek: 12, bookingMethod: 'Load board' } },
     });
     expect(b.volume).toBe(2);       // 10-24
     expect(b.geography).toBe(3);    // MOSTLY
-    expect(b.tools).toBe(1);        // has bookingMethod
+    expect(b.tools).toBe(1);        // uses a load board
     expect(b.segmentFit).toBe(0);
     expect(b.pain).toBe(0);
     expect(b.responsiveness).toBe(0);
