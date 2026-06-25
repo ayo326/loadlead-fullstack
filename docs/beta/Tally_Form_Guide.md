@@ -60,7 +60,7 @@ below are what the form should use.
 | `Do you primarily operate in Texas?` | `texasFocus` | `MOSTLY\|PARTLY\|OUTSIDE` | "Yes, mostly Texas"→MOSTLY; "Partly Texas"→PARTLY; "No, mostly outside Texas"→OUTSIDE. **Required. Drives Geography score.** |
 | `Can you test LoadLead with real freight over the next few weeks?` | `commitment.realFreight` | bool | **Hard gate (NO_COMMITMENT)** |
 | `Will you commit to one 20-minute feedback call plus a short weekly check-in?` | `commitment.feedbackCall` | bool | **Hard gate (NO_COMMITMENT)** |
-| `Preferred contact method` | `commitment.contactPref` | `email\|phone\|sms` | |
+| `Best way to reach you for onboarding?` | `commitment.contactPref` | `email\|phone\|sms` | |
 | `Referred by anyone?` | `referredBy` | string? | |
 | `source` (hidden) | `source` | string? | UTM / channel hidden field |
 
@@ -69,24 +69,24 @@ below are what the form should use.
 | Tally label | BetaApplication path | Notes |
 |---|---|---|
 | `What type of company are you?` | `sideSpecificData.shipper.companyType` | |
-| `What commodities do you ship?` (multi) | `sideSpecificData.shipper.commodities[]` | |
-| `How many shipments per week?` | `sideSpecificData.shipper.loadsPerWeek` | **band string** ("Under 5", "5-20", …). **Hard gate (LOW_VOLUME)**: "Under 5" → WAITLISTED |
+| `What do you ship? (commodities or product types)` (multi) | `sideSpecificData.shipper.commodities[]` | |
+| `How many shipments do you move per week?` | `sideSpecificData.shipper.loadsPerWeek` | **band string** ("Under 5", "5-20", …). **Hard gate (LOW_VOLUME)**: "Under 5" → WAITLISTED |
 | `Which modes do you use?` (multi) | `sideSpecificData.shipper.modes[]` | |
-| `Top lanes (origin → destination)` (multi) | `sideSpecificData.shipper.lanes[]` | feeds lane-overlap helper |
+| `Primary lanes or regions (Shipper)` (multi) | `sideSpecificData.shipper.lanes[]` | feeds lane-overlap helper |
 | `How do you book freight today?` | `sideSpecificData.shipper.bookingMethod` | load board / TMS → Tools score = 1 |
-| `Biggest pain in booking freight` | `sideSpecificData.shipper.pain` | staff sets Pain dimension from this |
+| `Your single biggest pain in moving freight right now` | `sideSpecificData.shipper.pain` | staff sets Pain dimension from this |
 
 ### CARRIER block (when `side` is `CARRIER` or `BOTH`)
 
 | Tally label | BetaApplication path | Notes |
 |---|---|---|
 | `MC or DOT number` | `sideSpecificData.carrier.mcOrDot` | **Hard gate (NO_AUTHORITY)**: missing/blank/invalid → WAITLISTED |
-| `How many trucks/power units?` | `sideSpecificData.carrier.truckCount` | int |
-| `Loads per week` | `sideSpecificData.carrier.loadsPerWeek` | band string (capacity proxy) |
-| `Equipment types` (multi) | `sideSpecificData.carrier.equipment[]` | |
-| `Top lanes you run (origin → destination)` (multi) | `sideSpecificData.carrier.lanes[]` | feeds lane-overlap helper |
+| `How many trucks do you run?` | `sideSpecificData.carrier.truckCount` | int |
+| `How many loads do you haul per week?` | `sideSpecificData.carrier.loadsPerWeek` | band string (capacity proxy) |
+| `What equipment type do you run?` (multi) | `sideSpecificData.carrier.equipment[]` | |
+| `Primary lanes or regions (Carrier)` (multi) | `sideSpecificData.carrier.lanes[]` | feeds lane-overlap helper |
 | `How do you find loads today?` | `sideSpecificData.carrier.findMethod` | load board / TMS → Tools score = 1 |
-| `Biggest pain in finding loads` | `sideSpecificData.carrier.pain` | staff sets Pain dimension |
+| `Your single biggest pain in finding good loads right now` | `sideSpecificData.carrier.pain` | staff sets Pain dimension |
 
 ## Section 13 — Scorecard (objective dims computed on ingest)
 

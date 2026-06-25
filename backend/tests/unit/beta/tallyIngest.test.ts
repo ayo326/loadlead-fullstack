@@ -253,6 +253,82 @@ describe('Tally auto-gates on ingest', () => {
     expect(application.status).toBe('QUALIFIED');
   });
 
+  // Regression: bind ALL the real live-form labels (captured from the
+  // production form via the label diagnostic). Every shipper field that
+  // was silently not-binding (loadsPerWeek/volume, commodities, lanes,
+  // pain) must now resolve.
+  it('binds the REAL live-form shipper labels (loadsPerWeek/volume, lanes, commodities, pain)', async () => {
+    dbQuery.mockResolvedValue([]);
+    dbPut.mockResolvedValue({} as any);
+    const payload = {
+      eventType: 'FORM_RESPONSE',
+      data: {
+        responseId: 'resp-real-shipper',
+        formId: 'form-abc',
+        fields: [
+          { key: 'q1', label: 'Which best describes you?', value: 'Shipper' },
+          { key: 'q2', label: 'Full name', value: 'Real Shipper' },
+          { key: 'q3', label: 'Work email', value: 'real@shipper.com' },
+          { key: 'q7', label: 'Do you primarily operate in Texas?', value: 'Yes, mostly Texas' },
+          { key: 'q8', label: 'How many shipments do you move per week?', value: '20-50' },
+          { key: 'q9', label: 'What do you ship? (commodities or product types)', value: ['Steel'] },
+          { key: 'q10', label: 'Primary lanes or regions (Shipper)', value: ['Dallas → Houston'] },
+          { key: 'q11', label: 'How do you book freight today?', value: 'Email' },
+          { key: 'q12', label: 'Your single biggest pain in moving freight right now', value: 'Capacity' },
+          { key: 'q13', label: 'Can you test LoadLead with real freight over the next few weeks?', value: 'Yes' },
+          { key: 'q14', label: 'Will you commit to one 20-minute feedback call plus a short weekly check-in?', value: 'Yes' },
+          { key: 'q15', label: 'Best way to reach you for onboarding?', value: 'Email' },
+        ],
+      },
+    };
+
+    const { application } = await BetaApplicationService.ingestFromTally(payload);
+    const s = application.sideSpecificData.shipper!;
+    expect(s.loadsPerWeek).toBe('20-50');               // was undefined (volume=0 bug)
+    expect(s.lanes).toEqual(['Dallas → Houston']);
+    expect(s.commodities).toEqual(['Steel']);
+    expect(s.pain).toBe('Capacity');
+    expect(application.commitment.contactPref).toBe('email');
+    // volume now scores from the band (20-50 → 2), not 0
+    expect(application.scoreBreakdown?.volume).toBe(2);
+    expect(application.status).toBe('QUALIFIED');
+  });
+
+  it('binds the REAL live-form carrier labels (trucks, loads/week, equipment, lanes, pain)', async () => {
+    dbQuery.mockResolvedValue([]);
+    dbPut.mockResolvedValue({} as any);
+    const payload = {
+      eventType: 'FORM_RESPONSE',
+      data: {
+        responseId: 'resp-real-carrier',
+        fields: [
+          { key: 'q1', label: 'Which best describes you?', value: 'Hauler / carrier' },
+          { key: 'q2', label: 'Full name', value: 'Real Carrier' },
+          { key: 'q3', label: 'Work email', value: 'real@carrier.com' },
+          { key: 'q7', label: 'Do you primarily operate in Texas?', value: 'Yes, mostly Texas' },
+          { key: 'c1', label: 'MC or DOT number', value: 'MC123456' },
+          { key: 'c2', label: 'How many trucks do you run?', value: '8' },
+          { key: 'c3', label: 'How many loads do you haul per week?', value: '5-20' },
+          { key: 'c4', label: 'What equipment type do you run?', value: ['Reefer', 'Dryvan'] },
+          { key: 'c5', label: 'Primary lanes or regions (Carrier)', value: ['Houston → Dallas'] },
+          { key: 'c6', label: 'How do you find loads today?', value: 'Load boards' },
+          { key: 'c7', label: 'Your single biggest pain in finding good loads right now', value: 'Empty miles' },
+          { key: 'q13', label: 'Can you test LoadLead with real freight over the next few weeks?', value: 'Yes' },
+          { key: 'q14', label: 'Will you commit to one 20-minute feedback call plus a short weekly check-in?', value: 'Yes' },
+        ],
+      },
+    };
+
+    const { application } = await BetaApplicationService.ingestFromTally(payload);
+    const c = application.sideSpecificData.carrier!;
+    expect(c.truckCount).toBe(8);
+    expect(c.loadsPerWeek).toBe('5-20');
+    expect(c.equipment).toEqual(['Reefer', 'Dryvan']);
+    expect(c.lanes).toEqual(['Houston → Dallas']);
+    expect(c.pain).toBe('Empty miles');
+    expect(application.status).toBe('QUALIFIED');       // valid MC, committed
+  });
+
   // The keyword fallback must bind even a reworded commitment question.
   it('keyword fallback binds a reworded real-freight question', async () => {
     dbQuery.mockResolvedValue([]);
