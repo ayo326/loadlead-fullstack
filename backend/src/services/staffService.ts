@@ -29,6 +29,7 @@ import {
 } from '../types/platformRole';
 import { AuthService } from './authService';
 import { OrgInvitationService } from './orgService';
+import { EmailService } from './emailService';
 
 export interface StaffMember {
   userId: string;
@@ -95,6 +96,17 @@ export class StaffService {
     const invitation = await OrgInvitationService.createStaffInvitation({
       email, platformRole: role, invitedBy: params.invitedBy,
     });
+
+    // Email the invite via the existing Resend adapter (fire-and-forget so a
+    // mail failure never blocks the invite; the accept link is still returned
+    // in the API response as a fallback). The accept page lives on the admin
+    // subdomain. STAFF_xxx → "Admin"/"Manager"/… for the email copy.
+    const adminBase = process.env.ADMIN_FRONTEND_URL || 'https://admin.loadleadapp.com';
+    const acceptUrl = `${adminBase}/accept-staff-invite?token=${invitation.token}`;
+    const roleLabel = role.replace('STAFF_', '').split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ');
+    EmailService.staffInvite(email, roleLabel, acceptUrl).catch((e) =>
+      Logger.warn(`[staff-audit] staff invite email failed for ${email}: ${e?.message}`));
+
     Logger.info(`[staff-audit] ${params.invitedBy} invited ${email} as ${role} (token ${invitation.token.slice(0, 8)}…)`);
     return invitation;
   }

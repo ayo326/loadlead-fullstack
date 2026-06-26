@@ -122,6 +122,25 @@ export const EmailService = {
     `));
   },
 
+  /**
+   * Platform-staff invitation. Sent when a STAFF_ADMIN invites an internal
+   * team member. Mirrors sendOrgInvitation but for the internal staff
+   * surface (admin.loadleadapp.com), with the role they're being granted.
+   */
+  async staffInvite(to: string, roleLabel: string, acceptUrl: string) {
+    await send(to, `🔐 You've been invited to the LoadLead staff team`, base(`
+      <h2 style="margin:0 0 8px;color:#1a3a5c;">You're invited to the LoadLead team</h2>
+      <p style="color:#555;margin:0 0 8px;">You've been invited to join the internal LoadLead platform team as
+        <strong>${roleLabel}</strong>.</p>
+      <p style="color:#888;font-size:13px;margin:0 0 24px;">Set a password to activate your staff account. This invite expires in 7 days and can only be used once.</p>
+      <a href="${acceptUrl}"
+         style="display:inline-block;background:#1a3a5c;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
+        Activate staff account
+      </a>
+      <p style="color:#aaa;font-size:12px;margin-top:24px;">If you weren't expecting this, you can safely ignore it.</p>
+    `));
+  },
+
   async adminSetupInvite(to: string, name: string, setupUrl: string) {
     await send(to, '🔐 Your LoadLead Admin Setup Link', base(`
       <h2 style="margin:0 0 8px;color:#1a3a5c;">You requested admin access</h2>
