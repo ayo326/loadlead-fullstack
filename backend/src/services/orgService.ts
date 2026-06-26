@@ -580,6 +580,37 @@ export class OrgInvitationService {
     return invitation;
   }
 
+  /**
+   * Platform-STAFF invitation. Reuses the exact same table / 32-byte token /
+   * TTL / revoke path as every other invite — the only difference is the
+   * `platformRole` field, which the staff-accept branch reads to create a
+   * role=ADMIN staffer with that tier. No orgId, no membership, no cohort.
+   * Extended, not duplicated.
+   */
+  static async createStaffInvitation(params: {
+    email: string;
+    platformRole: string;   // a PlatformRole value, validated by caller
+    invitedBy: string;
+  }): Promise<OrgInvitation> {
+    const token = crypto.randomBytes(32).toString('hex');
+    const now = Helpers.getCurrentTimestamp();
+
+    const invitation: OrgInvitation = {
+      token,
+      // NO orgId/orgRole/cohort — platformRole is the staff signal.
+      email: params.email.toLowerCase().trim(),
+      userRole: UserRole.ADMIN,           // staff accounts are role=ADMIN
+      platformRole: params.platformRole,
+      invitedBy: params.invitedBy,
+      expiresAt: now + INVITE_TTL_HOURS * 60 * 60 * 1000,
+      createdAt: now,
+    };
+
+    await Database.putItem(config.dynamodb.invitationsTable, invitation);
+    Logger.info(`Staff invitation created for ${params.email} (platformRole=${params.platformRole}) by ${params.invitedBy}`);
+    return invitation;
+  }
+
   static async getInvitationByToken(token: string): Promise<OrgInvitation | null> {
     return Database.getItem<OrgInvitation>(config.dynamodb.invitationsTable, { token });
   }

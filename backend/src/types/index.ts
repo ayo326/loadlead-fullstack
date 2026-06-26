@@ -429,6 +429,15 @@ export interface OrgInvitation {
   revokedBy?: string;
   /** Cohort tag stamped onto the resulting user when accepted under beta */
   cohort?: string;
+  /**
+   * PLATFORM-STAFF invite signal. When set (e.g. "STAFF_MANAGER"), this is
+   * a staff invite: acceptance creates/elevates a User with role=ADMIN +
+   * this platformRole — NOT a customer/cohort account, NOT public signup.
+   * Stored as the PlatformRole string value (same as User.platformRole).
+   * Same table / token format / TTL / revoke path as every other invite —
+   * extended, not duplicated. Mutually exclusive with orgId.
+   */
+  platformRole?: string;
   createdAt: number;
 }
 
