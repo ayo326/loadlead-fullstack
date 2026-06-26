@@ -36,6 +36,10 @@ vi.mock('../../../src/utils/logger', () => ({
   Logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
+// EmailService is fire-and-forget in invite(); stub it so no real send.
+vi.mock('../../../src/services/emailService', () => ({
+  EmailService: { staffInvite: vi.fn(async () => {}) },
+}));
 // AuthService.getUserByEmail reads the users store directly.
 vi.mock('../../../src/services/authService', () => ({
   AuthService: {
@@ -45,6 +49,7 @@ vi.mock('../../../src/services/authService', () => ({
 }));
 
 import { Database } from '../../../src/config/database';
+import { EmailService } from '../../../src/services/emailService';
 import { StaffService } from '../../../src/services/staffService';
 import { OrgInvitationService } from '../../../src/services/orgService';
 import { requireStaffTier } from '../../../src/middleware/auth';
@@ -75,6 +80,13 @@ describe('staff invites REUSE the existing Invitation flow', () => {
     const stored = await OrgInvitationService.getInvitationByToken(inv.token);
     expect(stored?.token).toBe(inv.token);
     expect(stored?.platformRole).toBe(PlatformRole.STAFF_MANAGER);
+    // …and the invite is EMAILED via the existing Resend adapter (with the
+    // role label + an accept link carrying the token).
+    expect(EmailService.staffInvite).toHaveBeenCalledTimes(1);
+    const [toArg, roleArg, urlArg] = (EmailService.staffInvite as any).mock.calls[0];
+    expect(toArg).toBe('new@staff.com');
+    expect(roleArg).toBe('Manager');
+    expect(urlArg).toContain(`token=${inv.token}`);
   });
 
   it('rejects an invalid platform role (exact-match, no substring)', async () => {
