@@ -295,24 +295,55 @@ export default function AdminDashboard() {
         subtitle="Real-time view of drivers, loads, and match quality across the network."
       />
 
-      {/* Order: highest-stakes first.
-            Orgs (IAM overrides) -> Support inbox -> Fleet -> Channels.
-            Redundant KPI cards + legacy Driver roster removed -- the
-            FleetFeed status pills already show those counts. */}
-
-      <OrgManagementPanel />
-
-      <SupportInbox />
-
-      <FleetFeed />
-
-      {/* Read-only attestation chain lookup for any loadId. Paste from
-          a FleetFeed row → see who signed what, when, with which photos. */}
-      <AttestationLookup />
-
-      <SupportChannels />
-
+      {/* Reorganized from one long scroll into separated sections. Each tab
+          is a focused workspace; the highest-stakes (Organisations / IAM
+          overrides) leads. Redundant KPI cards + the legacy Driver roster
+          were removed — FleetFeed's status pills already show those counts. */}
+      <OpsConsoleTabs />
     </>
+  );
+}
+
+// ─── Sectioned ops console (tabs instead of one continuous scroll) ──────────
+
+const OPS_SECTIONS = [
+  { id: "orgs",        label: "Organisations" },
+  { id: "support",     label: "Support inbox" },
+  { id: "fleet",       label: "Fleet feed" },
+  { id: "attestation", label: "Attestation lookup" },
+  { id: "channels",    label: "Support channels" },
+] as const;
+type OpsSection = typeof OPS_SECTIONS[number]["id"];
+
+function OpsConsoleTabs() {
+  const [section, setSection] = useState<OpsSection>("orgs");
+  return (
+    <div>
+      <nav className="flex flex-wrap gap-1 border-b border-border mb-5" aria-label="Operations sections">
+        {OPS_SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSection(s.id)}
+            aria-current={section === s.id ? "page" : undefined}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              section === s.id
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Each section is a focused workspace. Only the active one mounts so
+          the console isn't a continuous scroll of every panel at once. */}
+      {section === "orgs"        && <OrgManagementPanel />}
+      {section === "support"     && <SupportInbox />}
+      {section === "fleet"       && <FleetFeed />}
+      {section === "attestation" && <AttestationLookup />}
+      {section === "channels"    && <SupportChannels />}
+    </div>
   );
 }
 

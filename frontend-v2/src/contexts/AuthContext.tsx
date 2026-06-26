@@ -11,6 +11,10 @@ interface AuthUser {
   userId: string;
   email: string;
   role: string;
+  /** Platform-staff tier (STAFF_ADMIN/MANAGER/SUPERVISOR/TEAM_LEAD) for
+   *  role=ADMIN users. Used to gate the admin Settings/Staff UI; the server
+   *  is the real gate. */
+  platformRole?: string;
   headshotUrl?: string;
   displayName?: string;
   phone?: string;
