@@ -13,7 +13,7 @@ export default function Landing() {
       <header className="absolute top-0 inset-x-0 z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-5">
           <div className="text-primary-foreground">
-            <Logo variant="light" />
+            <Logo variant="light" height={44} />
           </div>
           <nav className="hidden md:flex items-center gap-8 text-sm text-primary-foreground/80">
             <a href="#how" className="hover:text-primary-foreground">How it works</a>
