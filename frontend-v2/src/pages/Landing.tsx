@@ -38,7 +38,7 @@ export default function Landing() {
           <div className="lg:col-span-7 text-primary-foreground">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-3 py-1 text-xs">
               <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-              Live rideshare-style dispatch · 15-min offer TTL
+              Real-time dispatch. 15-minute TTL countdown.
             </div>
             <h1 className="mt-6 text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05]">
               Freight that moves <span className="text-accent">the second</span> you post it.

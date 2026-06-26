@@ -1,9 +1,15 @@
 // LoadLead brand logo lockup.
 //
 // The official asset lives in frontend-v2/public/loadlead-logo.png
-// (transparent background, 1036×213, suitable for both light and dark
-// surfaces). On the dark sidebar surface we render the same asset --
-// the truck mark is white-on-black so it reads correctly on either.
+// (transparent background, 1036×213). The art is pure BLACK (the circle
+// badge + the "LoadLead" wordmark) with a white truck inside the badge —
+// so on a DARK surface the black circle and black wordmark disappear into
+// the background. To fix that without shipping a second asset, `variant="light"`
+// (used on dark hero / sidebar surfaces) inverts the PNG via CSS: black→white,
+// white→black, transparent stays transparent. Result on navy: a white badge
+// with a black truck + a white wordmark — the exact logo art, recolored to
+// read on dark. `variant="dark"` (default) renders the original black art
+// for light surfaces.
 //
 // The brand line "Where loads meet leads." sits under the wordmark
 // per the brand voice slot rule. The primary motto
@@ -20,7 +26,8 @@ export function Logo({
   /** When false, renders just the wordmark image; no tagline. */
   withTagline?: boolean;
 }) {
-  const tagline = variant === "light" ? "text-sidebar-foreground/60" : "text-muted-foreground";
+  const onDark = variant === "light";
+  const tagline = onDark ? "text-sidebar-foreground/60" : "text-muted-foreground";
 
   return (
     <a
@@ -32,7 +39,13 @@ export function Logo({
         src="/loadlead-logo.png"
         alt="LoadLead"
         height={height}
-        style={{ height: `${height}px`, width: "auto" }}
+        style={{
+          height: `${height}px`,
+          width: "auto",
+          // Invert the black logo art to white on dark surfaces so the
+          // badge + wordmark don't vanish into the background.
+          filter: onDark ? "invert(1)" : undefined,
+        }}
         className="select-none"
         draggable={false}
       />
