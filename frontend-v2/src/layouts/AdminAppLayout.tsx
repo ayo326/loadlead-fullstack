@@ -12,7 +12,7 @@
 
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  ShieldCheck, Inbox, Truck, LogOut, ChevronRight, Rocket,
+  ShieldCheck, Inbox, Truck, LogOut, ChevronRight, Rocket, Settings,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,9 @@ function envFromApi(): { label: string; tone: "prod" | "staging" | "dev" } {
 }
 
 const ADMIN_NAV = [
-  { title: "Operations console", url: "/admin",      icon: ShieldCheck, hint: "Orgs, fleet, support" },
-  { title: "Beta Program",       url: "/admin/beta", icon: Rocket,      hint: "Applications, cohort, admit" },
+  { title: "Operations console", url: "/admin",          icon: ShieldCheck, hint: "Orgs, fleet, support" },
+  { title: "Beta Program",       url: "/admin/beta",     icon: Rocket,      hint: "Applications, cohort, admit" },
+  { title: "Settings",           url: "/admin/settings", icon: Settings,    hint: "Staff & team, integrations" },
 ] as const;
 
 export default function AdminAppLayout() {

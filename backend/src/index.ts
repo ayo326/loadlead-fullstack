@@ -47,6 +47,8 @@ import ownerOperatorRoutes from './routes/ownerOperator';
 import setupRoutes from './routes/setup';
 import betaRoutes from './routes/beta';
 import adminBetaRoutes from './routes/adminBeta';
+import adminStaffRoutes, { acceptStaffInviteHandler, acceptStaffInviteValidators } from './routes/adminStaff';
+import { validate as validateBody } from './middleware/validation';
 import { tallyWebhookHandler } from './routes/tallyWebhook';
 import { diditWebhookHandler } from './services/verification';
 import factoringRoutes from './routes/factoring';
@@ -245,6 +247,11 @@ app.use('/api/beta', betaRoutes);
 // inside the router). Separate from /api/admin so the beta concern is
 // self-contained.
 app.use('/api/admin/beta', adminBetaRoutes);
+// Public staff-invite acceptance (the invitee has no session yet; the token
+// is the gate). Mounted BEFORE the gated staff router so it's reachable.
+app.post('/api/admin/staff/accept-invite', validateBody(acceptStaffInviteValidators), acceptStaffInviteHandler);
+// /api/admin/staff — platform-staff IAM (STAFF_ADMIN only, gated in-router).
+app.use('/api/admin/staff', adminStaffRoutes);
 app.use('/api/factoring', factoringRoutes);
 app.use('/api/reference', referenceRoutes);
 

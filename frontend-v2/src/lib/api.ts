@@ -55,6 +55,17 @@ export interface WaitlistRow {
   personaInterest?: string; source: string; status: string; createdAt: number;
 }
 
+// ─── Platform-staff IAM types (separate enum from carrier-org OrgRole) ──────
+export type PlatformRole = "STAFF_ADMIN" | "STAFF_MANAGER" | "STAFF_SUPERVISOR" | "STAFF_TEAM_LEAD";
+export interface StaffMember {
+  userId: string; email: string; fullName?: string;
+  platformRole: PlatformRole; status: "ACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION"; createdAt: number;
+}
+export interface PendingStaffInvite {
+  token: string; email: string; platformRole: PlatformRole;
+  invitedBy: string; expiresAt: number; createdAt: number;
+}
+
 // Auth uses httpOnly cookies — the browser sends ll_token automatically.
 // `credentials: 'include'` is required for cross-origin cookie delivery.
 // We no longer read from / write to localStorage for auth tokens.
@@ -152,7 +163,28 @@ export const api = {
       "POST", "/auth/login", { email, password }
     ),
 
-  me: () => request<{ user: { userId: string; email: string; role: string } }>("GET", "/auth/me"),
+  me: () => request<{ user: { userId: string; email: string; role: string; platformRole?: PlatformRole } }>("GET", "/auth/me"),
+
+  // Platform-staff IAM (STAFF_ADMIN only; server 403s lower tiers)
+  adminStaff: {
+    list: () => request<{ staff: StaffMember[] }>("GET", "/admin/staff"),
+    invite: (email: string, platformRole: PlatformRole) =>
+      request<{ ok: boolean; token: string; acceptUrl: string; email: string; platformRole: PlatformRole }>(
+        "POST", "/admin/staff/invite", { email, platformRole }),
+    changeRole: (userId: string, platformRole: PlatformRole) =>
+      request<{ ok: boolean; member: StaffMember }>("PUT", `/admin/staff/${userId}/role`, { platformRole }),
+    deactivate: (userId: string) =>
+      request<{ ok: boolean }>("POST", `/admin/staff/${userId}/deactivate`),
+    reactivate: (userId: string) =>
+      request<{ ok: boolean }>("POST", `/admin/staff/${userId}/reactivate`),
+    listInvites: () => request<{ invites: PendingStaffInvite[] }>("GET", "/admin/staff/invites"),
+    revokeInvite: (token: string) =>
+      request<{ ok: boolean }>("DELETE", `/admin/staff/invites/${token}`),
+    // PUBLIC — the invitee has no session yet; the token is the gate.
+    acceptInvite: (params: { token: string; password?: string; fullName?: string }) =>
+      request<{ ok: boolean; userId: string; platformRole: PlatformRole }>(
+        "POST", "/admin/staff/accept-invite", params),
+  },
   logout: () => request<{ message: string }>("POST", "/auth/logout"),
 
   // Driver
