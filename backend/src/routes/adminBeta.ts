@@ -26,6 +26,7 @@ import { BetaApplicationService, sideToUserRole, balanceVerdict } from '../servi
 import { BetaAllowlistService } from '../services/betaAllowlistService';
 import { WaitlistService } from '../services/waitlistService';
 import { OrgInvitationService } from '../services/orgService';
+import { EmailService } from '../services/emailService';
 import { findLaneOverlaps } from '../services/betaScoring';
 import { UserRole } from '../types';
 
@@ -180,12 +181,23 @@ router.post(
       wave,
     });
 
-    Logger.info(`[beta-admin] ${staffId} ADMITTED application ${app.applicationId} (${app.workEmail}, role=${userRole}, wave=${wave}) → invite ${invitation.token.slice(0, 8)}…`);
+    // Auto-send the applicant their private-beta access link. During private
+    // beta the app lives on the beta subdomain, so the link is absolute to
+    // BETA_FRONTEND_URL (default https://beta.loadleadapp.com). Fire-and-forget
+    // — a mail failure never rolls back the admit; the absolute URL is also
+    // returned so staff can copy it as a fallback.
+    const betaBase = process.env.BETA_FRONTEND_URL || 'https://beta.loadleadapp.com';
+    const acceptUrl = `${betaBase}/accept-invite?token=${invitation.token}`;
+    EmailService.betaAdmitInvite(app.workEmail, acceptUrl, wave).catch((e: any) =>
+      Logger.warn(`[beta-admin] admit email failed for ${app.workEmail}: ${e?.message}`));
+
+    Logger.info(`[beta-admin] ${staffId} ADMITTED application ${app.applicationId} (${app.workEmail}, role=${userRole}, wave=${wave}) → invite ${invitation.token.slice(0, 8)}… · auto-emailed beta link`);
 
     res.json({
       ok: true,
       invitationToken: invitation.token,
-      acceptUrl: `/accept-invite?token=${invitation.token}`,
+      acceptUrl,
+      emailed: true,
       cohort: wave,
       userRole,
     });

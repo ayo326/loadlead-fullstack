@@ -315,7 +315,7 @@ function ApplicationDetail({
     setBusy(true); setMsg("");
     try {
       const r = await api.adminBeta.admit(applicationId);
-      setMsg(`Admitted. Invite issued (${r.userRole}, ${r.cohort}). Accept URL: ${r.acceptUrl}`);
+      setMsg(`Admitted (${r.userRole}, ${r.cohort}). Beta access link auto-emailed to the applicant. Copy as fallback: ${r.acceptUrl}`);
       load(); onChanged();
     } catch (e) {
       setMsg(`Admit failed: ${(e as Error).message}`);

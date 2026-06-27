@@ -21,7 +21,14 @@ const PERSONA_OPTIONS = [
   { value: "RECEIVER", label: "Receiver (take delivery)" },
 ] as const;
 
-export default function PrivateBetaLanding() {
+/**
+ * @param signInHref Where "Have an invite? Sign in" points. Defaults to the
+ *   local /login. When this wall is rendered ON the apex (loadleadapp.com) as
+ *   the beta gate, callers pass the beta subdomain so invite-holders are sent
+ *   to where they actually sign in (beta.loadleadapp.com), not back to a loop.
+ */
+export default function PrivateBetaLanding({ signInHref = "/login" }: { signInHref?: string } = {}) {
+  const external = /^https?:\/\//.test(signInHref);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [personaInterest, setPersonaInterest] = useState("");
@@ -50,9 +57,15 @@ export default function PrivateBetaLanding() {
       <header className="border-b border-zinc-200 bg-white">
         <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
           <Link to="/" className="text-lg font-semibold text-zinc-900">LoadLead</Link>
-          <Link to="/login" className="text-sm text-zinc-600 hover:text-zinc-900">
-            Have an invite? Sign in
-          </Link>
+          {external ? (
+            <a href={signInHref} className="text-sm text-zinc-600 hover:text-zinc-900">
+              Have an invite? Sign in
+            </a>
+          ) : (
+            <Link to={signInHref} className="text-sm text-zinc-600 hover:text-zinc-900">
+              Have an invite? Sign in
+            </Link>
+          )}
         </div>
       </header>
 
@@ -78,7 +91,11 @@ export default function PrivateBetaLanding() {
               <p className="text-sm text-emerald-800">
                 We will email <span className="font-mono">{email}</span> when your spot opens. If
                 you have an invite already, you can{" "}
-                <Link to="/login" className="underline">sign in here</Link>.
+                {external ? (
+                  <a href={signInHref} className="underline">sign in here</a>
+                ) : (
+                  <Link to={signInHref} className="underline">sign in here</Link>
+                )}.
               </p>
             </div>
           ) : (

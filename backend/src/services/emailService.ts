@@ -142,6 +142,24 @@ export const EmailService = {
   },
 
   /**
+   * Beta ADMIT email. Sent automatically when a staff member admits a beta
+   * applicant. Hands them their private access link on the beta subdomain
+   * (beta.loadleadapp.com) where the full product lives during private beta.
+   */
+  async betaAdmitInvite(to: string, acceptUrl: string, cohort?: string) {
+    await send(to, `You're in — your LoadLead private beta access`, base(`
+      <h2 style="margin:0 0 8px;color:#1a3a5c;">You're in the LoadLead private beta 🎉</h2>
+      <p style="color:#555;margin:0 0 8px;">We reviewed your application and you've been admitted${cohort ? ` to the <strong>${cohort}</strong> cohort` : ''}. Welcome aboard.</p>
+      <p style="color:#555;margin:0 0 24px;">Click below to set up your account and start using LoadLead. This is your private beta link — please don't share it.</p>
+      <a href="${acceptUrl}"
+         style="display:inline-block;background:#1a3a5c;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
+        Set up my account
+      </a>
+      <p style="color:#aaa;font-size:12px;margin-top:24px;">During private beta the app lives at <a href="https://beta.loadleadapp.com" style="color:#1a3a5c;">beta.loadleadapp.com</a>. This invite expires in 7 days.</p>
+    `));
+  },
+
+  /**
    * Platform-staff invitation. Sent when a STAFF_ADMIN invites an internal
    * team member. Mirrors sendOrgInvitation but for the internal staff
    * surface (admin.loadleadapp.com), with the role they're being granted.
