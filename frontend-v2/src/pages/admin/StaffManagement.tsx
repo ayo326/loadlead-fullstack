@@ -112,7 +112,8 @@ export default function StaffManagement() {
         </form>
         {lastAcceptUrl && (
           <div className="mt-3 text-xs bg-muted rounded px-3 py-2 break-all">
-            Invite link (email delivery is stubbed — share this directly):{" "}
+            <span className="text-foreground font-medium">Invite sent by email.</span>{" "}
+            You can also copy this one-time link to share directly (it expires in 7 days):{" "}
             <span className="font-mono text-foreground">{location.origin}{lastAcceptUrl}</span>
           </div>
         )}
