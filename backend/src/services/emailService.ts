@@ -123,6 +123,25 @@ export const EmailService = {
   },
 
   /**
+   * Beta mailing-list → application-form email. Sent when a visitor submits
+   * their email on the sign-in page / beta landing to join the waitlist:
+   * we thank them + hand them the beta application form (Tally) so they can
+   * apply right away.
+   */
+  async betaFormInvite(to: string, formUrl: string) {
+    await send(to, `You're on the LoadLead beta list — here's the application`, base(`
+      <h2 style="margin:0 0 8px;color:#1a3a5c;">Thanks for your interest in LoadLead</h2>
+      <p style="color:#555;margin:0 0 8px;">You're on the founding-beta mailing list. We're admitting shippers and carriers in small, balanced waves.</p>
+      <p style="color:#555;margin:0 0 24px;">Want to be considered for the current wave? Take ~3 minutes to tell us about your freight:</p>
+      <a href="${formUrl}"
+         style="display:inline-block;background:#1a3a5c;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
+        Apply to the beta
+      </a>
+      <p style="color:#aaa;font-size:12px;margin-top:24px;">If you'd rather just stay on the list, no action needed — we'll reach out as seats open.</p>
+    `));
+  },
+
+  /**
    * Platform-staff invitation. Sent when a STAFF_ADMIN invites an internal
    * team member. Mirrors sendOrgInvitation but for the internal staff
    * surface (admin.loadleadapp.com), with the role they're being granted.
