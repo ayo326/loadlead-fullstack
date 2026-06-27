@@ -6,6 +6,61 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
+
+// ── Join-beta waitlist capture ──────────────────────────────────────────────
+// Anyone who hits the sign-in page can drop their email to join the mailing
+// list; the server adds them to the waitlist AND auto-emails the beta
+// application form. Honest copy, no fabricated success.
+
+function JoinBetaWaitlist() {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [msg, setMsg] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.includes("@")) return;
+    setState("sending");
+    try {
+      const r = await api.beta.joinWaitlist({ email: email.trim() });
+      setMsg(r.message ?? "Check your email for the beta application form.");
+      setState("done");
+      setEmail("");
+    } catch (err: any) {
+      setMsg(err?.message ?? "Something went wrong — please try again.");
+      setState("error");
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+      <p className="text-sm font-semibold text-gray-800">In private beta</p>
+      <p className="mt-0.5 text-xs text-gray-500">
+        Not invited yet? Drop your email and we'll send you the application form.
+      </p>
+      {state === "done" ? (
+        <p className="mt-3 text-sm text-green-700">{msg}</p>
+      ) : (
+        <form onSubmit={submit} className="mt-3 flex gap-2">
+          <Input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@company.com"
+            aria-label="Email to join the beta list"
+            className="h-10 flex-1"
+          />
+          <Button type="submit" disabled={state === "sending"} className="h-10 shrink-0">
+            {state === "sending" ? "Sending…" : "Send me the form"}
+          </Button>
+        </form>
+      )}
+      {state === "error" && <p className="mt-2 text-xs text-red-600">{msg}</p>}
+    </div>
+  );
+}
 
 // ── Role definitions ──────────────────────────────────────────────────────────
 
@@ -424,6 +479,10 @@ export default function Login() {
             </button>
           </form>
           )}
+
+          {/* Join the beta — anyone can drop their email to get the
+              application form (we're in private beta). */}
+          <JoinBetaWaitlist />
 
           {/* Footer links */}
           <div className="mt-6 space-y-2 text-center text-sm text-gray-500">

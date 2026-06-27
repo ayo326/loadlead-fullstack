@@ -20,7 +20,9 @@ import { body } from 'express-validator';
 import { asyncHandler } from '../middleware/errorHandler';
 import { validate } from '../middleware/validation';
 import { WaitlistService } from '../services/waitlistService';
+import { EmailService } from '../services/emailService';
 import { getBetaConfig, isTallyConnected } from '../config/beta';
+import { Logger } from '../utils/logger';
 import { UserRole } from '../types';
 
 const router = express.Router();
@@ -56,6 +58,15 @@ router.post(
       personaInterest,
       source: 'landing',
     });
+
+    // Auto-send the beta application form (Tally) so the visitor can apply
+    // right away. Fire-and-forget: a mail failure never breaks the waitlist
+    // join, and we never disclose existence via timing/status. The form URL
+    // is env-configurable; default is the public LoadLead beta form.
+    const formUrl = process.env.TALLY_FORM_URL || 'https://tally.so/r/Xxglrj';
+    EmailService.betaFormInvite(email, formUrl).catch((e) =>
+      Logger.warn(`[beta] form-invite email failed: ${e?.message}`));
+
     // We return the same shape whether the row was new or pre-existing —
     // the caller can't probe "is this email already on the list" by
     // inspecting the response.
@@ -63,8 +74,8 @@ router.post(
       ok: true,
       waitlistId: entry.waitlistId,
       message:
-        'Thanks — you are on the waitlist. We will be in touch when ' +
-        'your spot opens.',
+        'Thanks — you are on the list. Check your email for the beta ' +
+        'application form.',
     });
   }),
 );
