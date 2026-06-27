@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowRight, ShieldCheck, Truck, PackagePlus, Warehouse, AlertTriangle, Briefcase, ShipWheel,
 } from "lucide-react";
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
+import { isBetaHost, BETA_ORIGIN } from "@/lib/host";
+import PrivateBetaLanding from "@/pages/PrivateBetaLanding";
 
 // ── Join-beta waitlist capture ──────────────────────────────────────────────
 // Anyone who hits the sign-in page can drop their email to join the mailing
@@ -151,6 +153,21 @@ export default function Login() {
   const [twoFactorTicket, setTwoFactorTicket] = useState<string | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
 
+  // Private-beta state. On the apex (loadleadapp.com) while BETA_MODE is on,
+  // the login page shows ONLY the private-beta message — no sign-in form. The
+  // beta subdomain (beta.loadleadapp.com) always shows the real login. Gated
+  // on the live betaMode flag so flipping BETA_MODE=false reverts with no
+  // redeploy. Fail-open to the normal login if /beta/status is unreachable.
+  const [betaMode, setBetaMode] = useState(false);
+  useEffect(() => {
+    let active = true;
+    api.beta.status()
+      .then((s) => { if (active) setBetaMode(!!s.betaMode); })
+      .catch(() => { if (active) setBetaMode(false); });
+    return () => { active = false; };
+  }, []);
+  const betaWall = betaMode && !isBetaHost();
+
   const pick = (r: typeof roles[number]) => {
     setSelected(r);
     setError("");
@@ -199,6 +216,12 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  // Apex + BETA_MODE → show ONLY the private-beta wall (no sign-in form).
+  // Invite-holders are sent to the beta subdomain to actually sign in.
+  if (betaWall) {
+    return <PrivateBetaLanding signInHref={`${BETA_ORIGIN}/login`} />;
+  }
 
   return (
     <div className="font-display-hangar min-h-screen flex">
@@ -481,8 +504,8 @@ export default function Login() {
           )}
 
           {/* Join the beta — anyone can drop their email to get the
-              application form (we're in private beta). */}
-          <JoinBetaWaitlist />
+              application form. Only while BETA_MODE is on. */}
+          {betaMode && <JoinBetaWaitlist />}
 
           {/* Footer links */}
           <div className="mt-6 space-y-2 text-center text-sm text-gray-500">
