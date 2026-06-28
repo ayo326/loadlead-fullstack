@@ -2,7 +2,7 @@
 connie-title: LoadLead — Frontend Architecture (status-tagged)
 connie-publish: true
 status: Reconciled
-last-reconciled-against: 0f5588d
+last-reconciled-against: 2054ab2
 connie-page-id: '1966082'
 ---
 
@@ -134,3 +134,11 @@ All 6 are part of the `@H5..@H10` Pact features; see `docs/LoadLead_CrossPersona
 | k6 load | `tests/load/fan100.js` — 100 concurrent load lifecycles | repo root `tests/load/` |
 
 Frontend type-check: `0 errors` against the current main (`npx tsc --noEmit` in `frontend-v2/`).
+
+---
+
+## Reconciliation delta (prior pass → `2054ab2`) — Status: Done
+
+- **Admin console** ✅ — three sections: Operations console (`pages/admin/AdminDashboard.tsx` → Organisations / Support inbox / Fleet feed / Attestation lookup / Support channels), **Beta Program** (`BetaProgramDashboard.tsx` — pipeline, cohort-balance widget, applicant panel, admit→auto-email), **Settings** (`AdminSettings.tsx` — Staff/Team IAM + read-only integration states). Separate admin bundle (`npm run build:admin`).
+- **Private-beta surfaces** ✅ — `pages/PrivateBetaLanding.tsx` (waitlist wall) rendered on the apex `/login` **and** `/signup` while `BETA_MODE` is on (`isBetaHost()` gate, `lib/host.ts`); the beta subdomain shows the real app. `beta.loadleadapp.com` = exact-copy distribution.
+- **Glass design system** ✅ — shared CSS tokens: `styles/admin-glass.css` (`.admin-glass`, admin-only) and `styles/customer-glass.css` (`.cx-glass`, customer). Restyle only; admin and customer stay independent (no shared container). Landing uses the same `--cx-*` tokens (composition C).

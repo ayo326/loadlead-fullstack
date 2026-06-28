@@ -2,7 +2,7 @@
 connie-title: LoadLead — Backend Architecture (status-tagged)
 connie-publish: true
 status: Reconciled
-last-reconciled-against: 0f5588d
+last-reconciled-against: 2054ab2
 connie-page-id: '2097156'
 ---
 
@@ -278,3 +278,16 @@ All under Terraform management as of `d1a3ec6`. All have PITR enabled. Full sche
 | SNS topic | `loadlead-prod-ops-alerts` | ✅ (no subscriber yet — see [`PendingRegister.md`](PendingRegister.md)) |
 
 PITR-state alarms (gap if it gets disabled out-of-band) are a follow-up in `PendingRegister.md` item #8.
+
+---
+
+## Reconciliation delta (prior pass → `2054ab2`) — Status: Partial→Done
+
+Shipped since the last full pass; each verified against the route/service:
+
+- **Private-beta gate** ✅ — `middleware/betaGate.ts` `requireBetaGate({mode:'signup'|'login'})`; `BETA_MODE` flag; ADMIN + `user.betaUser` exempt; fail-closed on DB error. Mounted on auth routes.
+- **Beta program services** ✅ — `services/betaApplicationService.ts` (Tally ingest, field-label mapping, auto-qualify), `betaScoring.ts` (7-dim rubric), `betaAllowlistService.ts`, `waitlistService.ts`.
+- **Tally webhook** ✅ — `routes/tallyWebhook.ts` mounted at `POST /api/admin/beta/webhook` with `express.raw()` before `express.json`; raw-body HMAC-SHA256 (`TALLY_SIGNING_SECRET`); idempotent by `responseId`; inert 503 when unconfigured.
+- **Platform-staff IAM** ✅ — `types/platformRole.ts` (`PlatformRole` enum, separate from `OrgRole`), `services/staffService.ts`, `routes/adminStaff.ts`; gated by `requireStaffTier(...tiers)` (exact-match, `middleware/auth.ts:84`). Public `POST /api/admin/staff/accept-invite` validated separately.
+- **Email** ✅ — `services/emailService.ts` via the Resend adapter (`integrations/email.ts`); transactional + beta/staff templates; sender domain `loadleadapp.com` verified.
+- **New `/api` mounts** (`index.ts`): `/api/beta`, `/api/admin/beta`, `/api/admin/staff`, `/api/factoring`, `/api/reference`, `POST /api/webhooks/didit`.

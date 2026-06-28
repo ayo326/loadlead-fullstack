@@ -2,14 +2,14 @@
 connie-title: LoadLead — Pending Register (read this first)
 connie-publish: true
 status: Reconciled
-last-reconciled-against: 0f5588d
-generated-by: docs reconciliation pass 2026-06-25
+last-reconciled-against: 2054ab2
+generated-by: docs reconciliation pass 2026-06-28
 connie-page-id: '2228225'
 ---
 
 # LoadLead — Pending Register
 
-> **Read this first.** Every PARTIAL / PENDING / NOT-STARTED item across product and security, prioritized blockers-first. Reconciled against commit `0f5588d` (the actual code, not the specs).
+> **Read this first.** Every PARTIAL / PENDING / NOT-STARTED item across product and security, prioritized blockers-first. Reconciled against commit `2054ab2` (the actual code, not the specs).
 
 Each item carries: **Evidence** (where in the repo the gap shows up) · **Severity** (Critical / High / Med / Low) · **Owner** (when assigned) · **Fix** (one-line resolution). Anything marked Done is in the architecture/security docs with a file/route citation, not here.
 
@@ -30,6 +30,7 @@ No production-blocking items open right now. The blockers from earlier in this s
 | 3 | **Pact provider verification still uses in-process stub** | `backend/tests/contract/verify-provider.ts` builds a stub Express app with hand-mirrored handlers. Catches *structural* drift (renamed/missing fields, wrong status codes); does NOT catch *semantic* drift (real auth path, real DDB queries, real signature service). Documented follow-up in `docs/LoadLead_CrossPersona_Contract_UAT_BDD.md`. | High | Wire verify-provider against the real Express app + DDB Local sidecar. 1 session. |
 | 4 | **MFA enrollment exists for admin TOTP only** | `backend/src/routes/auth.ts:/2fa/*` — TOTP 2FA is plumbed end-to-end. No WebAuthn, no enforcement of MFA on privileged roles (CARRIER_ADMIN, OWNER_OPERATOR). STIG LL-IA-004 maps here. | High | Decide policy: (a) enforce TOTP for ADMIN at minimum, (b) extend the enforcement to CARRIER_ADMIN, (c) ship WebAuthn alongside. Policy + rollout = 1 session. |
 | 5 | **Stale Terraform state files in `_bootstrap/`** | `infra/terraform/_bootstrap/.terraform/`, `_bootstrap/terraform.tfstate`, `_bootstrap/terraform.tfstate.backup`, `_bootstrap/.terraform.lock.hcl` — untracked, local-only, but the dir lacks a `.gitignore` like `envs/prod/` does. Accidentally committing one of them would leak the AWS state path. | High | Add `infra/terraform/_bootstrap/.gitignore` listing `.terraform/`, `*.tfstate*`. 1-line fix. |
+| 5a | **bcrypt cost factor is 10; STIG LL-IA-001 recommends ≥12** | `backend/src/utils/helpers.ts:14` — `bcrypt.hash(password, 10)`. SecurityPosture §auth previously read "cost ≥ 10"; the literal is exactly 10, a ~4× lower work factor than the STIG target. Not exploitable online (auth is rate-limited + privileged accounts carry 2FA); the gap is offline-cracking margin if a hash dump ever leaks. | High | Raise to 12 in `helpers.ts`; transparently re-hash on next successful login (compare-then-upgrade). ~1 hr. |
 
 ---
 

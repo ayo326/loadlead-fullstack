@@ -2,7 +2,7 @@
 connie-title: LoadLead — System Overview (plain language)
 connie-publish: true
 status: Reconciled
-last-reconciled-against: 0f5588d
+last-reconciled-against: 2054ab2
 audience: 'investors, partners, non-engineering reviewers'
 connie-page-id: '2031622'
 ---
@@ -120,3 +120,12 @@ A reviewer's two-question checklist:
 - **Engineer onboarding** → `docs/Architecture_Backend.md` + `docs/Architecture_Frontend.md` + `docs/Data_API_Reference.md`.
 - **Security reviewer** → `docs/SecurityPosture.md` (full doc) + `docs/security/stig-checklist.md` + `docs/PendingRegister.md`.
 - **QA / contract owner** → `docs/LoadLead_CrossPersona_Contract_UAT_BDD.md` + `docs/UAT_CT_Checklist.md`.
+
+---
+
+## Reconciliation delta (prior pass → `2054ab2`) — Private beta
+
+LoadLead currently runs in **private beta** (`BETA_MODE=true`). Two surfaces:
+- **`loadleadapp.com`** (apex) — public marketing landing; `/login` and `/signup` show the **private-beta wall** (waitlist capture) instead of sign-in/account-creation. Server-side `requireBetaGate` is the real enforcement.
+- **`beta.loadleadapp.com`** — exact copy of prod where **admitted** testers sign in.
+- **Admission flow**: applicants submit a Tally form → webhook ingests + scores (7-dim) → staff *admit* in the Beta Program dashboard → applicant is auto-emailed their `beta.loadleadapp.com` access link. Reverts automatically when `BETA_MODE=false`.

@@ -2,15 +2,21 @@
 connie-title: LoadLead — Security Posture Assessment
 connie-publish: true
 status: Reconciled (CISO-grade)
-last-reconciled-against: 0f5588d
+last-reconciled-against: 2054ab2
 audience: 'CISO, board, partner security review'
-generated-by: docs reconciliation pass 2026-06-25
+generated-by: docs reconciliation pass 2026-06-28
 connie-page-id: '2260993'
 ---
 
 # LoadLead — Security Posture Assessment
 
-> CISO-lens assessment, reconciled against the actual code at commit `0f5588d`. No fabricated metrics; every number traces to a file, scan output, or CI run. Every implemented control is cited; every unimplemented control is in the [Pending Register](PendingRegister.md), not here.
+> CISO-lens assessment, reconciled against the actual code at commit `2054ab2`. No fabricated metrics; every number traces to a file, scan output, or CI run. Every implemented control is cited; every unimplemented control is in the [Pending Register](PendingRegister.md), not here.
+
+> **Reconciliation delta (prior pass → `2054ab2`).** Since the last full pass the following shipped and are folded into this assessment:
+> - **Private-beta gate** ✅ — `requireBetaGate({mode})` (`backend/src/middleware/betaGate.ts`), `BETA_MODE` env flag; `ADMIN`/`betaUser` exempt, fail-closed on error. Reduces public attack surface while in beta.
+> - **Tally application webhook** ✅ — `POST /api/admin/beta/webhook`, **raw-body HMAC-SHA256** verification (`TALLY_SIGNING_SECRET`), idempotent by `responseId`, inert 503 when unconfigured (`backend/src/routes/tallyWebhook.ts`). See **T8** below.
+> - **Platform-staff IAM** ✅ — separate `PlatformRole` enum, **exact-match** `requireStaffTier` (`middleware/auth.ts:84`); no substring matching (grep-verified). Covered under Authorization and **T1**.
+> - **Glass design restyle** — presentation-only (CSS tokens); no authN/authZ/data-path change, no new attack surface.
 
 ---
 
@@ -36,7 +42,7 @@ What is *not* yet done is operational rather than architectural: the [Pending Re
 | Transport | httpOnly cookie, `Secure`, `SameSite=Lax` | Cookie set in `routes/auth.ts:/login` |
 | Server-side validation | Every authenticated request runs `authenticate()` middleware which verifies signature + expiry against the user row | `middleware/auth.ts:authenticate` |
 | Session expiration | JWT `exp` claim (default 1h) | `auth.ts:issueToken` |
-| Password storage | bcrypt with cost ≥ 10 | `services/userService.ts:registerUser` |
+| Password storage | bcrypt, cost factor **10** (`utils/helpers.ts:14`) — **below STIG LL-IA-001's recommended ≥12** (🟡 tracked in [Pending Register](PendingRegister.md)) | `utils/helpers.ts:hashPassword` |
 | Account lockout / rate-limit | 15 attempts / 15 min per-IP on `/api/auth/*` | `middleware/auth.ts:authRateLimiter` |
 | 2FA (TOTP) | Enroll + verify + login challenge | `routes/auth.ts:/2fa/*` |
 
@@ -273,9 +279,22 @@ For a freight marketplace handling identity + financial-adjacent data, the top t
 
 ---
 
+### T8 — Webhook spoofing (Tally / Didit / Resend) (Medium)
+
+**Threat**: Forged inbound webhook POSTs fabricate beta applications or identity-verification results.
+
+**Mitigation (evidence):**
+- **Tally** (`POST /api/admin/beta/webhook`) — raw-body **HMAC-SHA256** verified against `TALLY_SIGNING_SECRET` before parsing; mounted with `express.raw()` *before* `express.json` so the signature checks the exact received bytes; **idempotent by `responseId`**; returns inert **503** when the secret is unset (`backend/src/routes/tallyWebhook.ts`).
+- **Didit** (`POST /api/webhooks/didit`) — HMAC verified (`LL-CR-004`); double-accept guarded by DynamoDB `ConditionExpression`.
+- **Resend** — outbound only; no inbound webhook trust path today.
+
+**Residual risk**: **Medium.** Signature verification is correct where present, but webhook-secret rotation is manual and there is no replay-window/nonce cache beyond per-`responseId` idempotency. STIG LL-CR-004 (Not Reviewed) covers this.
+
+---
+
 ## Security METRICS
 
-Computed from real signals at commit `0f5588d` on 2026-06-25. Each row cites its source.
+Computed from real signals at commit `2054ab2` on 2026-06-28. Each row cites its source.
 
 ### Control coverage
 
@@ -470,4 +489,4 @@ Trust boundaries:
 
 ---
 
-*This doc is reconciled against the actual code at commit `0f5588d` and re-generated on each reconciliation pass. Anything claimed Done is cited; anything Pending is in [PendingRegister.md](PendingRegister.md). No fabricated metrics.*
+*This doc is reconciled against the actual code at commit `2054ab2` and re-generated on each reconciliation pass. Anything claimed Done is cited; anything Pending is in [PendingRegister.md](PendingRegister.md). No fabricated metrics.*

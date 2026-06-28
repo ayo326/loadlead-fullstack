@@ -2,7 +2,7 @@
 connie-title: LoadLead — Data Model + API Reference (generated)
 connie-publish: true
 status: Reconciled
-last-reconciled-against: 0f5588d
+last-reconciled-against: 2054ab2
 generated-by: docs/.build/route_inventory.json (rebuild on every reconciliation pass)
 connie-page-id: '2162689'
 ---
@@ -360,3 +360,18 @@ Internal support ticket workflow.
 - **Role-gate coverage**: 120/156 = 77% of authenticated routes have an explicit role gate. The other 36 are "any authenticated user" — most are user-self routes (e.g. `/api/auth/me`) which are legit, but worth a focused audit when STIG LL-AC-001 review happens.
 - **This file is generated** from `backend/src/routes/*.ts` via the route-inventory script. If the routes change, re-run the reconciliation pass to refresh.
 
+
+---
+
+## Reconciliation delta (prior pass → `2054ab2`) — new routes
+
+| Route | Auth / gating | Source |
+|---|---|---|
+| `GET /api/beta/status` | public | `routes/beta.ts` |
+| `POST /api/beta/waitlist` | public (idempotent; auto-emails the application form) | `routes/beta.ts` |
+| `GET/POST /api/admin/beta/*` (applications, score, admit, cohort-balance, allowlist, waitlist) | `authenticate` + `requireAdmin` | `routes/adminBeta.ts` |
+| `POST /api/admin/beta/webhook` | **HMAC** (`TALLY_SIGNING_SECRET`), not a user session | `routes/tallyWebhook.ts` |
+| `GET/POST/PUT/DELETE /api/admin/staff/*` | `authenticate` + `requireStaffTier(DESTRUCTIVE_TIER)` | `routes/adminStaff.ts` |
+| `POST /api/admin/staff/accept-invite` | public (token-gated, validated) | `routes/adminStaff.ts` |
+| `POST /api/webhooks/didit` | **HMAC** | `index.ts` |
+| `/api/reference/*`, `/api/factoring/*` | see source | `routes/reference.ts`, `routes/factoring.ts` |
