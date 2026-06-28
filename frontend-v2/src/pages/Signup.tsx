@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
+import { isBetaHost, BETA_ORIGIN } from "@/lib/host";
+import PrivateBetaLanding from "@/pages/PrivateBetaLanding";
 
 // ── Role definitions ──────────────────────────────────────────────────────────
 
@@ -145,6 +147,21 @@ export default function Signup() {
   useEffect(() => {
     const inviteEmail = searchParams.get("email");
     if (inviteEmail) setEmail(inviteEmail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Private-beta wall: while BETA_MODE is on, public account creation is
+  // closed — visitors go to the waitlist, not the signup wizard. Invited
+  // users (?invite=1) and the beta subdomain bypass it. Fail-open if the
+  // status check is unreachable.
+  const [betaWall, setBetaWall] = useState(false);
+  useEffect(() => {
+    if (isBetaHost() || inviteMode) return;
+    let active = true;
+    api.beta.status()
+      .then((s) => { if (active) setBetaWall(!!s.betaMode); })
+      .catch(() => { if (active) setBetaWall(false); });
+    return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -311,6 +328,12 @@ export default function Signup() {
     steps.length - 1;
 
   // ── Invite-driven compact signup ────────────────────────────────────────
+  // Private-beta: public signup is closed → show the waitlist wall. Invited
+  // users (inviteMode) and the beta subdomain fall through to the real form.
+  if (betaWall) {
+    return <PrivateBetaLanding signInHref={`${BETA_ORIGIN}/login`} />;
+  }
+
   // Rendered before the wizard when the user arrived from AcceptInvite.
   // Collects email + password only; role comes from the invite, org
   // membership comes from accepting the invitation after signup.
