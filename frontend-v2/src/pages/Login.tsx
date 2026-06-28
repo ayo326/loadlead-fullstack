@@ -224,7 +224,7 @@ export default function Login() {
   }
 
   return (
-    <div className="font-display-hangar min-h-screen flex">
+    <div className="cx-glass font-display-hangar min-h-screen flex">
 
       {/* ── Left: blue brand panel + icon sidebar ──────────────────────────── */}
       <div className="hidden lg:flex shrink-0" style={{ width: "52%" }}>
@@ -319,7 +319,7 @@ export default function Login() {
       </div>
 
       {/* ── Right: form panel ────────────────────────────────────────────────── */}
-      <div className="flex flex-1 items-center justify-center bg-white px-8 py-12">
+      <div className="cx-authcard flex flex-1 items-center justify-center bg-white px-8 py-12">
         <div className="w-full max-w-[380px]">
 
           {/* Logo */}

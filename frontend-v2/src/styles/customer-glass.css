@@ -1,0 +1,89 @@
+/*
+ * Customer-facing glass language — chosen direction: variant 2
+ * "deeper tinted glass" (rich brand-navy backdrop, dark-glass app bar, light
+ * frosted content surfaces floating on navy, SOLID data backplates).
+ *
+ * This file is the SHARED TOKEN layer the customer surfaces consume — there is
+ * NO shared parameterised container. Each persona layout/page opts in via the
+ * `.cx-glass` root class (route-scoped in AppLayout, and on the login). The
+ * admin console has its own admin-glass.css and never imports this; the two
+ * surfaces stay independent, sharing only the token vocabulary below.
+ *
+ * AA strategy for a navy backdrop: all routed content sits on a frosted LIGHT
+ * canvas (so body/heading text is always dark-on-light), the app bar is dark
+ * glass with explicitly-lightened text, and dense data/inputs get solid white.
+ */
+
+:root {
+  /* shared glass tokens (the customer token vocabulary) */
+  --cx-blur: 20px;
+  --cx-saturate: 160%;
+  --cx-radius: 18px;
+  --cx-shadow: 0 20px 50px rgba(4, 18, 52, 0.30);
+  --cx-card: rgba(255, 255, 255, 0.92);
+  --cx-canvas: rgba(255, 255, 255, 0.72);
+  --cx-navy-1: #0a2a66;
+  --cx-navy-2: #0a3f9e;
+  --cx-navy-3: #1e54c0;
+}
+
+/* ── Deep navy ambient backdrop ────────────────────────────────────────── */
+.cx-glass {
+  background:
+    radial-gradient(360px 320px at 100% 0%, rgba(96, 165, 250, 0.28), transparent 62%),
+    linear-gradient(135deg, var(--cx-navy-1) 0%, var(--cx-navy-2) 55%, var(--cx-navy-3) 100%) !important;
+  background-attachment: fixed !important;
+}
+
+/* ── Dark-glass app bar (light text) ───────────────────────────────────── */
+.cx-glass header.h-page-header {
+  background: rgba(13, 38, 76, 0.55) !important;
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+.cx-glass header.h-page-header .text-muted-foreground { color: rgba(255, 255, 255, 0.78) !important; }
+.cx-glass header.h-page-header button svg,
+.cx-glass header.h-page-header .relative svg { color: rgba(255, 255, 255, 0.82) !important; }
+.cx-glass header.h-page-header input {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #fff !important;
+}
+.cx-glass header.h-page-header input::placeholder { color: rgba(255, 255, 255, 0.6) !important; }
+
+/* ── Frosted LIGHT content canvas: all routed content reads dark-on-light ─ */
+.cx-glass main {
+  background: var(--cx-canvas) !important;
+  backdrop-filter: blur(var(--cx-blur)) saturate(var(--cx-saturate));
+  -webkit-backdrop-filter: blur(var(--cx-blur)) saturate(var(--cx-saturate));
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--cx-radius);
+  margin: 12px;
+  box-shadow: var(--cx-shadow);
+}
+
+/* ── Frosted cards on the canvas ───────────────────────────────────────── */
+.cx-glass .bg-card {
+  background: var(--cx-card) !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 8px 24px rgba(4, 18, 52, 0.10);
+}
+
+/* ── SOLID backplates under dense data + form inputs (AA guarantee) ─────── */
+.cx-glass table { background: #fff; }
+.cx-glass .bg-card input,
+.cx-glass .bg-card textarea,
+.cx-glass .bg-card select { background: #fff !important; }
+.cx-glass .data-solid {
+  background: #fff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── Login: frosted auth panel floating on the navy backdrop ───────────── */
+.cx-glass .cx-authcard {
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+}

@@ -233,6 +233,7 @@ function AppSidebar({ onLogout }: { onLogout: () => void }) {
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const handleLogout = () => {
     logout().then(() => navigate("/login"));
@@ -241,9 +242,14 @@ export default function AppLayout() {
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "?";
   const headshotUrl = user?.headshotUrl;
 
+  // Customer glass language (variant 2 "deeper tinted glass"). Rolled out
+  // per-persona via the shared customer-glass tokens — Owner Operator first.
+  // Other personas keep the current theme until the look is approved.
+  const glass = pathname.startsWith("/owner-operator");
+
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className={`min-h-screen flex w-full bg-background${glass ? " cx-glass" : ""}`}>
         <AppSidebar onLogout={handleLogout} />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-page-header flex items-center gap-3 border-b border-border bg-card px-4 sticky top-0 z-10">
