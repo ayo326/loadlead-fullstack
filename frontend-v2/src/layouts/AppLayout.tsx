@@ -233,7 +233,6 @@ function AppSidebar({ onLogout }: { onLogout: () => void }) {
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
 
   const handleLogout = () => {
     logout().then(() => navigate("/login"));
@@ -242,10 +241,11 @@ export default function AppLayout() {
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "?";
   const headshotUrl = user?.headshotUrl;
 
-  // Customer glass language (variant 2 "deeper tinted glass"). Rolled out
-  // per-persona via the shared customer-glass tokens — Owner Operator first.
-  // Other personas keep the current theme until the look is approved.
-  const glass = pathname.startsWith("/owner-operator");
+  // Customer glass language (variant 2 "deeper tinted glass") — now applied
+  // across all customer personas via the shared customer-glass tokens. The
+  // frosted light content canvas keeps every routed surface AA regardless of
+  // persona. (Rolled out from Owner Operator after review.)
+  const glass = true;
 
   return (
     <SidebarProvider>
