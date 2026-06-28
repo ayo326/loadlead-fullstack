@@ -879,6 +879,16 @@
     "key": "SCRUM-119",
     "priority_set_by_sync": "High"
   },
+  "test:H10": {
+    "description_hash": "327f8ed2c86c95ae3ffe680bfc8931a25dd2121103221effc01f0a107cd443c6",
+    "key": "SCRUM-207",
+    "priority_set_by_sync": "Medium"
+  },
+  "test:H11": {
+    "description_hash": "253c6c55abbbeaeacd1a4371c4546a483fb6fc9a5cb2b5ccbb1c7396e7073cf3",
+    "key": "SCRUM-208",
+    "priority_set_by_sync": "Medium"
+  },
   "test:H2": {
     "description_hash": "2b1367f73257f52a29fd26acc1c0e40a66d26b7493fecca97a59dbe6da00d732",
     "key": "SCRUM-120",
@@ -893,6 +903,31 @@
     "description_hash": "e0cc3115d72a842e3693a8f5479fc0bdd72768442dc8d6c6ef5fb892640d74ef",
     "key": "SCRUM-122",
     "priority_set_by_sync": "High"
+  },
+  "test:H5": {
+    "description_hash": "e77dde1e731fbc1089fe105dfa1f5fc59f1ea7b204376667c2d99b1bfb285eb4",
+    "key": "SCRUM-202",
+    "priority_set_by_sync": "Medium"
+  },
+  "test:H6": {
+    "description_hash": "0fa93ee77c71e5435102ba6f2affba252588425b026b94696be8e08ef0bd22d3",
+    "key": "SCRUM-203",
+    "priority_set_by_sync": "Medium"
+  },
+  "test:H7": {
+    "description_hash": "f8b03d495cfd9f773b38298213bdcc5539818176bd4e82e8756e257d49d8c217",
+    "key": "SCRUM-204",
+    "priority_set_by_sync": "Medium"
+  },
+  "test:H8": {
+    "description_hash": "2f13a2d05cf3cd0f513af76c4dff8a7d7e4449eeb0f82eb513423793f6d2bf3f",
+    "key": "SCRUM-205",
+    "priority_set_by_sync": "Medium"
+  },
+  "test:H9": {
+    "description_hash": "5126940ecd60b15cc808e3b0dabac1320aaec8e02641c07ed52bd93df28217ac",
+    "key": "SCRUM-206",
+    "priority_set_by_sync": "Medium"
   },
   "test:section-A": {
     "description_hash": "d0a3333a0668ed95d71e176ded2dfe00ee9114840bde35d6783da94650088b1d",
@@ -933,6 +968,41 @@
     "description_hash": "f7dc45e56e7ac5166bc8a4af0bc45494f9bea1f1f103511800ccfc45338f919f",
     "key": "SCRUM-27",
     "priority_set_by_sync": ""
+  },
+  "uat:CT-A": {
+    "description_hash": "ace992b6b9f52c0da194c73292486c5676e5d8b012268061e3d31be13823384d",
+    "key": "SCRUM-214",
+    "priority_set_by_sync": "Medium"
+  },
+  "uat:CT-C": {
+    "description_hash": "ebe10c23cf4bbcbe4e4199dcece8ac02e9c70a73049c8d9bbe3ad3857082df03",
+    "key": "SCRUM-210",
+    "priority_set_by_sync": "Medium"
+  },
+  "uat:CT-D": {
+    "description_hash": "d7c28f25d09c7f788d8ee6b7553c9f1fc19a0e46e6c1c04a69379e93132ba5c7",
+    "key": "SCRUM-212",
+    "priority_set_by_sync": "Medium"
+  },
+  "uat:CT-O": {
+    "description_hash": "29e6f91387cc81a7f093aafb482b92849ee6c366b9cab023a90d0f9ba5b3fe79",
+    "key": "SCRUM-211",
+    "priority_set_by_sync": "Medium"
+  },
+  "uat:CT-R": {
+    "description_hash": "8eb2264656938a6250bb52002d4a9d36e2ca7d049be5c4237a1bbe2609451d90",
+    "key": "SCRUM-213",
+    "priority_set_by_sync": "Medium"
+  },
+  "uat:CT-S": {
+    "description_hash": "9c88b4383147e3fbf2954862c6d03847744083d28789b0ec15ac097b0e898850",
+    "key": "SCRUM-209",
+    "priority_set_by_sync": "Medium"
+  },
+  "uat:CT-X": {
+    "description_hash": "2e085459f7a2d7b28044288efdb70074fa121976cf3e81f9a7f6c705dbbc4d95",
+    "key": "SCRUM-215",
+    "priority_set_by_sync": "Medium"
   },
   "ui-e2e:UI-E2E-001": {
     "description_hash": "de370e85feaaa624c937b06bc78a16edcf98c4711a3a337114c2dbb57f388d1a",
