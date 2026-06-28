@@ -1,0 +1,9 @@
+# Python dependencies for the Jira sync tooling (jira/sync.py, jira/post-deploy.py).
+#
+# Install:
+#   /usr/bin/python3 -m pip install --user -r jira/requirements.txt
+#
+# Use /usr/bin/python3 (Apple's 3.9) — see jira/README.md for why the default
+# Homebrew `python3` may be broken on this machine.
+PyYAML>=6.0
+requests>=2.31
