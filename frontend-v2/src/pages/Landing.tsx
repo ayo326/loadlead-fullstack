@@ -10,7 +10,7 @@ export default function Landing() {
   return (
     <div className="font-display-hangar min-h-screen bg-background text-foreground">
       {/* Nav */}
-      <header className="absolute top-0 inset-x-0 z-20">
+      <header className="cx-nav absolute top-0 inset-x-0 z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-5">
           <div className="text-primary-foreground">
             <Logo variant="light" height={44} />
@@ -25,14 +25,14 @@ export default function Landing() {
               <Link to="/login">Sign in</Link>
             </Button>
             <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <Link to="/driver">Open dashboard <ArrowRight className="h-4 w-4" /></Link>
+              <Link to="/signup">Open dashboard <ArrowRight className="h-4 w-4" /></Link>
             </Button>
           </div>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-sidebar text-sidebar-foreground">
+      <section className="cx-hero relative overflow-hidden text-sidebar-foreground">
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "32px 32px" }} />
         <div className="relative max-w-7xl mx-auto px-6 pt-36 pb-28 grid lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-7 text-primary-foreground">
@@ -41,7 +41,7 @@ export default function Landing() {
               Real-time dispatch. 15-minute TTL countdown.
             </div>
             <h1 className="mt-6 text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05]">
-              Freight that moves <span className="text-accent">the second</span> you post it.
+              Freight that moves <span className="cx-hi">the second</span> you post it.
             </h1>
             <p className="mt-6 text-lg text-primary-foreground/75 max-w-xl">
               LoadLead broadcasts every load to drivers who actually qualify — by radius, capacity, equipment, and MC maturity. Match in seconds, not hours.
@@ -55,16 +55,16 @@ export default function Landing() {
               </Button>
             </div>
             <div className="mt-10 flex flex-wrap gap-6 text-sm text-primary-foreground/70">
-              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />Eligibility-aware</div>
-              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />Real-time offers</div>
-              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-accent" />5 roles, one platform</div>
+              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 cx-hi" />Eligibility-aware</div>
+              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 cx-hi" />Real-time offers</div>
+              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 cx-hi" />5 roles, one platform</div>
             </div>
           </div>
 
           {/* Offer mockup */}
           <div className="lg:col-span-5 relative">
             <div className="absolute -inset-4 bg-accent/20 blur-3xl rounded-full" />
-            <div className="relative bg-card text-card-foreground rounded-lg shadow-2xl border border-border overflow-hidden">
+            <div className="relative cx-frost text-card-foreground rounded-lg shadow-2xl overflow-hidden">
               <div className="bg-secondary/60 px-5 py-3 flex items-center justify-between border-b border-border">
                 <div className="flex items-center gap-2 text-xs font-semibold text-primary">
                   <Radio className="h-3.5 w-3.5" /> NEW LOAD OFFER
@@ -111,8 +111,9 @@ export default function Landing() {
       </section>
 
       {/* Metrics strip */}
-      <section id="metrics" className="border-y border-border bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      <section id="metrics" className="bg-background">
+        <div className="max-w-7xl mx-auto px-6 py-10">
+         <div className="cx-frost rounded-2xl px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
             { v: "47s", l: "avg. time to match" },
             { v: "94%", l: "offer accept rate" },
@@ -124,6 +125,7 @@ export default function Landing() {
               <div className="text-xs uppercase tracking-widest text-muted-foreground mt-2">{m.l}</div>
             </div>
           ))}
+         </div>
         </div>
       </section>
 
@@ -140,7 +142,7 @@ export default function Landing() {
             { icon: Radio, title: "Eligible drivers ping", body: "Only trucks within radius, with capacity and the right equipment, get the offer." },
             { icon: Gauge, title: "First accept wins", body: "Load books to the first qualified driver to tap accept inside the 15-min window." },
           ].map((s, i) => (
-            <div key={s.title} className="relative rounded-lg border border-border bg-card p-7">
+            <div key={s.title} className="relative rounded-lg cx-frost p-7">
               <div className="text-xs font-mono text-muted-foreground">0{i + 1}</div>
               <div className="mt-4 h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                 <s.icon className="h-5 w-5" />
@@ -183,7 +185,7 @@ export default function Landing() {
                   </div>
                 </>
               );
-              const className = "group rounded-lg border border-border bg-card p-6 hover:shadow-elev-2 hover:-translate-y-0.5 transition-all cursor-pointer block";
+              const className = "group rounded-lg cx-frost p-6 hover:shadow-elev-2 hover:-translate-y-0.5 transition-all cursor-pointer block";
               return <Link key={r.role} to={r.to} className={className}>{Card}</Link>;
             })}
           </div>
@@ -192,7 +194,7 @@ export default function Landing() {
 
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-6 py-24">
-        <div className="rounded-lg p-12 md:p-16 text-sidebar-foreground relative overflow-hidden bg-sidebar">
+        <div className="cx-footcta rounded-lg p-12 md:p-16 text-sidebar-foreground relative overflow-hidden">
           <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "28px 28px" }} />
           <div className="relative max-w-2xl">
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight">Ready to dispatch like it's 2026?</h2>
@@ -221,7 +223,7 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
   return (
     <div className="space-y-0.5">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className={`text-base font-semibold ${accent ? "text-accent" : ""}`}>{value}</div>
+      <div className={`text-base font-semibold ${accent ? "text-primary" : ""}`}>{value}</div>
     </div>
   );
 }
