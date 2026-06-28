@@ -89,7 +89,7 @@ export function OrgManagementPanel() {
   };
 
   return (
-    <div className="rounded-md border border-border bg-card overflow-hidden">
+    <div className="rounded-md border border-border bg-card overflow-hidden edge-orgs">
       {/* Header */}
       <div className="px-5 py-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">

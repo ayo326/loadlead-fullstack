@@ -27,6 +27,7 @@ import BetaProgramDashboard from "@/pages/admin/BetaProgramDashboard";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AcceptStaffInvite from "@/pages/admin/AcceptStaffInvite";
 import "./index.css";
+import "./styles/admin-glass.css";
 
 const queryClient = new QueryClient();
 

@@ -71,7 +71,7 @@ export function SupportChannels() {
   }, []);
 
   return (
-    <div className="rounded-md border border-border bg-card overflow-hidden">
+    <div className="rounded-md border border-border bg-card overflow-hidden edge-info">
       <div className="px-5 py-3 border-b border-border flex items-center gap-2">
         <span className="text-sm font-semibold">Support channels</span>
         <span className="text-xs text-muted-foreground">chat + click-to-call</span>

@@ -46,7 +46,7 @@ export function AttestationLookup() {
   }
 
   return (
-    <section className="rounded-md border border-border bg-card p-5" aria-label="Attestation lookup">
+    <section className="rounded-md border border-border bg-card p-5 edge-info" aria-label="Attestation lookup">
       <div className="flex items-center gap-2 mb-3">
         <ShieldCheck className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-semibold">Attestation chain lookup</h2>

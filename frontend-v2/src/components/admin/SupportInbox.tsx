@@ -65,7 +65,7 @@ export function SupportInbox() {
   const filtered = useMemo(() => tickets, [tickets]);
 
   return (
-    <div className="rounded-md border border-border bg-card overflow-hidden">
+    <div className="rounded-md border border-border bg-card overflow-hidden edge-attn">
       <div className="px-5 py-4 border-b border-border flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Inbox className="h-4 w-4 text-primary" />

@@ -41,7 +41,7 @@ export default function AdminAppLayout() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
+    <div className="admin-glass min-h-screen flex flex-col bg-background text-foreground">
       {/* Top bar -- internal-only branding + env badge */}
       <header
         className="px-4 py-3 border-b border-border flex items-center justify-between gap-3 sticky top-0 z-30 bg-background"

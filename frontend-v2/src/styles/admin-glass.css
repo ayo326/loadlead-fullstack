@@ -1,0 +1,107 @@
+/*
+ * Admin console — "white glass" theme (chosen: Composition B glassy frosted
+ * blue + variant C bolder edge accents). Imported ONLY by admin-main.tsx and
+ * every rule is scoped under `.admin-glass`, so it cannot bleed into the
+ * customer bundle. Shared glass TOKENS live in :root (the customer glass
+ * language reuses these), but the admin surface compositions stay here.
+ *
+ * Productive glass: translucent CHROME + CONTAINERS, SOLID high-contrast
+ * backplates under dense data (tables, inputs). The page gradient is light,
+ * so even nested translucent surfaces composite to a near-white fill — dark
+ * body text (#0f172a) and muted text (#475569) hold WCAG AA throughout.
+ */
+
+:root {
+  --glass-blur: 18px;
+  --glass-saturate: 175%;
+  --glass-radius: 14px;
+  --glass-shadow: 0 8px 26px rgba(13, 38, 76, 0.10);
+  --glass-border: rgba(255, 255, 255, 0.82);
+  /* semantic edge-marker palette (brand-derived) */
+  --edge-orgs: #6366f1;   /* organisations / identity      */
+  --edge-info: #3b82f6;   /* informational (brand accent)  */
+  --edge-live: #16a34a;   /* healthy / live                */
+  --edge-attn: #d97706;   /* needs attention               */
+  --edge-brand: #0a3f9e;  /* brand primary                 */
+}
+
+/* ── Page backdrop: frosted brand-blue gradient + soft glow ─────────────── */
+.admin-glass {
+  background:
+    radial-gradient(60% 45% at 100% 0%, rgba(59, 130, 246, 0.16), transparent 60%),
+    radial-gradient(45% 45% at 0% 100%, rgba(10, 63, 158, 0.10), transparent 60%),
+    linear-gradient(135deg, #dce8fb 0%, #eef2fb 45%, #e6ecf9 100%) !important;
+  background-attachment: fixed !important;
+}
+
+/* ── Glass chrome: top bar + side nav ──────────────────────────────────── */
+.admin-glass > header[role="banner"] {
+  background: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 4px 20px rgba(13, 38, 76, 0.06);
+}
+.admin-glass nav[aria-label="Operations console navigation"] {
+  background: rgba(255, 255, 255, 0.42) !important;
+  backdrop-filter: blur(22px) saturate(185%);
+  -webkit-backdrop-filter: blur(22px) saturate(185%);
+  border-right: 1px solid rgba(255, 255, 255, 0.7) !important;
+}
+/* active nav — variant C confident gradient */
+.admin-glass nav[aria-label="Operations console navigation"] a[aria-current="page"] {
+  background: linear-gradient(135deg, #0a3f9e, #1e54c0) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 16px rgba(10, 63, 158, 0.30);
+}
+.admin-glass nav[aria-label="Operations console navigation"] a[aria-current="page"] .opacity-50 {
+  opacity: 0.8 !important;
+}
+
+/* ── Container panels: frost every bg-card surface ─────────────────────── */
+.admin-glass .bg-card {
+  background: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border-color: var(--glass-border) !important;
+  box-shadow: var(--glass-shadow);
+}
+/* nested cards: calmer, no double shadow */
+.admin-glass .bg-card .bg-card { box-shadow: none; }
+
+/* ── SOLID backplates under dense data + controls (AA guarantee) ───────── */
+.admin-glass table { background: #fff; }
+.admin-glass thead th { background: #eef2f7 !important; }
+.admin-glass tbody tr { background: transparent; }
+.admin-glass input,
+.admin-glass textarea,
+.admin-glass select { background: #fff !important; }
+/* opt-out hook: force any element solid */
+.admin-glass .data-solid {
+  background: #fff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── Glass modals / dialogs / popovers ────────────────────────────────── */
+.admin-glass [role="dialog"] {
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+}
+
+/* ── Variant C: semantic left-edge accent markers on section cards ─────── */
+.admin-glass .edge-orgs  { border-left: 5px solid var(--edge-orgs)  !important; }
+.admin-glass .edge-info  { border-left: 5px solid var(--edge-info)  !important; }
+.admin-glass .edge-live  { border-left: 5px solid var(--edge-live)  !important; }
+.admin-glass .edge-attn  { border-left: 5px solid var(--edge-attn)  !important; }
+.admin-glass .edge-brand { border-left: 5px solid var(--edge-brand) !important; }
+
+/* ── Variant C: metric tiles — thick colored edge + faint matching wash ── */
+.admin-glass .gtile { border-left: 5px solid var(--edge-info) !important; position: relative; overflow: hidden; }
+.admin-glass .gtile-orgs  { border-left-color: var(--edge-orgs)  !important; background: linear-gradient(90deg, rgba(99,102,241,.13), rgba(255,255,255,.55) 38%) !important; }
+.admin-glass .gtile-info  { border-left-color: var(--edge-info)  !important; background: linear-gradient(90deg, rgba(59,130,246,.13), rgba(255,255,255,.55) 38%) !important; }
+.admin-glass .gtile-live  { border-left-color: var(--edge-live)  !important; background: linear-gradient(90deg, rgba(22,163,74,.13),  rgba(255,255,255,.55) 38%) !important; }
+.admin-glass .gtile-attn  { border-left-color: var(--edge-attn)  !important; background: linear-gradient(90deg, rgba(217,119,6,.13),  rgba(255,255,255,.55) 38%) !important; }
+.admin-glass .gtile-brand { border-left-color: var(--edge-brand) !important; background: linear-gradient(90deg, rgba(10,63,158,.13),  rgba(255,255,255,.55) 38%) !important; }

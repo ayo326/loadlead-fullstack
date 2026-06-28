@@ -124,7 +124,7 @@ function CohortBalanceWidget() {
   const badge = balanceBadge(b);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
+    <div className="rounded-lg border border-border bg-card p-5 gtile gtile-brand">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-sm font-semibold text-foreground">
           Cohort balance — {b.currentCohort}

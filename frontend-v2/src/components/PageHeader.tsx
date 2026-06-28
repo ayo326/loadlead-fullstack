@@ -38,17 +38,22 @@ export function StatCard({
   hint,
   trend,
   icon,
+  accent,
 }: {
   label: string;
   value: string;
   hint?: string;
   trend?: "up" | "down" | "flat";
   icon?: React.ReactNode;
+  /** Optional colored left-edge marker. Admin glass theme only — maps to the
+   *  .gtile-* classes in admin-glass.css; the customer surface never passes
+   *  it, so this is a no-op there. */
+  accent?: "orgs" | "info" | "live" | "attn" | "brand";
 }) {
   const trendColor =
     trend === "up" ? "text-success" : trend === "down" ? "text-destructive" : "text-muted-foreground";
   return (
-    <div className="rounded-md border border-border bg-card p-5">
+    <div className={`rounded-md border border-border bg-card p-5${accent ? ` gtile gtile-${accent}` : ""}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="text-overline font-mono text-muted-foreground">{label}</div>
         {icon && <div className="shrink-0">{icon}</div>}
