@@ -133,6 +133,12 @@ module "backend" {
     DYNAMODB_FLEET_INVITES_TABLE    = "${local.prefix}FleetInvites"
     DYNAMODB_VERIFICATIONS_TABLE    = "${local.prefix}Verifications"
     DYNAMODB_FACTORING_OPTINS_TABLE = "${local.prefix}FactoringOptIns"
+    DYNAMODB_SIGNATURES_TABLE        = "${local.prefix}Signatures"
+    DYNAMODB_POD_PHOTOS_TABLE        = "${local.prefix}PodPhotos"
+    DYNAMODB_BETA_ALLOWLIST_TABLE    = "${local.prefix}BetaAllowlist"
+    DYNAMODB_WAITLIST_TABLE          = "${local.prefix}Waitlist"
+    DYNAMODB_BETA_APPLICATIONS_TABLE = "${local.prefix}BetaApplications"
+    DYNAMODB_BETA_TRUST_EVENTS_TABLE = "${local.prefix}BetaTrustEvents"
     POD_S3_BUCKET                    = "loadlead-staging-pod-uploads"
   })
   tags = local.tags
