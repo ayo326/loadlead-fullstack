@@ -203,6 +203,16 @@ locals {
         { name = "workEmail-index",  hash_key = "workEmail" },
       ]
     }
+
+    # Beta-admin trust/operational events (no-show, trust incident). Deliberately
+    # SEPARATE from the Loads table: rows reference a load and carrier by id only
+    # and never live on the Load model. Mirrors the prod ddb_beta_trust_events
+    # block in envs/prod/main.tf. PITR comes from the module default.
+    BetaTrustEvents = {
+      hash_key   = "eventId"
+      attributes = [{ name = "eventId", type = "S" }]
+      gsis       = []
+    }
   }
 }
 
