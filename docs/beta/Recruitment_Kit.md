@@ -2,7 +2,8 @@
 connie-title: LoadLead — Beta Recruitment Kit (cohort plan + scorecard)
 connie-publish: true
 status: Authoritative
-audience: 'staff scoring applicants · founders setting cohort policy'
+audience: staff scoring applicants · founders setting cohort policy
+connie-page-id: '4489217'
 ---
 
 # LoadLead — Beta Recruitment Kit
