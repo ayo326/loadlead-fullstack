@@ -36,6 +36,9 @@ export const config = {
     betaAllowlistTable: process.env.DYNAMODB_BETA_ALLOWLIST_TABLE || 'LoadLead_BetaAllowlist',
     waitlistTable: process.env.DYNAMODB_WAITLIST_TABLE || 'LoadLead_Waitlist',
     betaApplicationsTable: process.env.DYNAMODB_BETA_APPLICATIONS_TABLE || 'LoadLead_BetaApplications',
+    // Beta-admin trust/operational events (no-show, trust incident). Intentionally
+    // separate from the Load model; records reference a load and carrier by id only.
+    betaTrustEventsTable: process.env.DYNAMODB_BETA_TRUST_EVENTS_TABLE || 'LoadLead_BetaTrustEvents',
     // Attestation chain — append-only, IAM-deny-update/delete, attribute_not_exists Put.
     signaturesTable: process.env.DYNAMODB_SIGNATURES_TABLE || 'LoadLead_Signatures',
     // Pod photo finalize step records contentHash + stage; same DDB row as the

@@ -146,5 +146,22 @@ module "ddb_pod_photos" {
   tags                = local.tags
 }
 
+# ─── LoadLead_BetaTrustEvents ───────────────────────────────────────────────
+# Beta-admin trust/operational events (no-show, trust incident). Deliberately
+# SEPARATE from the loads table: these records reference a load and carrier by
+# id only and never live on the Load model. Same posture as the other trust
+# tables (PITR on via the module, deletion protection on) since they are an
+# append-only trust signal.
+module "ddb_beta_trust_events" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_BetaTrustEvents"
+  hash_key            = "eventId"
+  attributes = [
+    { name = "eventId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
 output "signatures_table_arn" { value = module.ddb_signatures.arn }
 output "pod_photos_table_arn" { value = module.ddb_pod_photos.arn }

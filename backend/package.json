@@ -10,7 +10,10 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ci": "vitest run --coverage --reporter=default --reporter=json --outputFile=tests/.out/vitest.json && node tests/sync-tracker.js"
+    "test:ci": "vitest run --coverage --reporter=default --reporter=json --outputFile=tests/.out/vitest.json && node tests/sync-tracker.js",
+    "seed:beta-metrics": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedBetaMetrics.ts",
+    "teardown:beta-metrics": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/teardownBetaMetrics.ts",
+    "test:beta-metrics": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/verifyBetaMetrics.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.758.0",

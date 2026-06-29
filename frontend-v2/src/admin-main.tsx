@@ -24,6 +24,7 @@ import AdminAppLayout from "@/layouts/AdminAppLayout";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import BetaProgramDashboard from "@/pages/admin/BetaProgramDashboard";
+import LiquidityDashboard from "@/pages/admin/LiquidityDashboard";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AcceptStaffInvite from "@/pages/admin/AcceptStaffInvite";
 import "./index.css";
@@ -63,6 +64,7 @@ const AdminApp = () => (
             <Route element={<RequireAuth><AdminAppLayout /></RequireAuth>}>
               <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
               <Route path="/admin/beta" element={<RequireAdmin><BetaProgramDashboard /></RequireAdmin>} />
+              <Route path="/admin/liquidity" element={<RequireAdmin><LiquidityDashboard /></RequireAdmin>} />
               <Route path="/admin/settings" element={<RequireAdmin><AdminSettings /></RequireAdmin>} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>

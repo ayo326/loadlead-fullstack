@@ -47,6 +47,8 @@ import ownerOperatorRoutes from './routes/ownerOperator';
 import setupRoutes from './routes/setup';
 import betaRoutes from './routes/beta';
 import adminBetaRoutes from './routes/adminBeta';
+import adminBetaTrustRoutes from './routes/adminBetaTrust';
+import adminLiquidityRoutes from './routes/adminLiquidity';
 import adminStaffRoutes, { acceptStaffInviteHandler, acceptStaffInviteValidators } from './routes/adminStaff';
 import { validate as validateBody } from './middleware/validation';
 import { tallyWebhookHandler } from './routes/tallyWebhook';
@@ -246,12 +248,17 @@ app.use('/api/beta', betaRoutes);
 // /api/admin/beta — staff-only Beta Program management (exact-ADMIN gated
 // inside the router). Separate from /api/admin so the beta concern is
 // self-contained.
+// /api/admin/beta/trust-events — beta no-show/trust-incident events (own store, not
+// Load). Mounted before /api/admin/beta so this more specific prefix matches first.
+app.use('/api/admin/beta/trust-events', adminBetaTrustRoutes);
 app.use('/api/admin/beta', adminBetaRoutes);
 // Public staff-invite acceptance (the invitee has no session yet; the token
 // is the gate). Mounted BEFORE the gated staff router so it's reachable.
 app.post('/api/admin/staff/accept-invite', validateBody(acceptStaffInviteValidators), acceptStaffInviteHandler);
 // /api/admin/staff — platform-staff IAM (STAFF_ADMIN only, gated in-router).
 app.use('/api/admin/staff', adminStaffRoutes);
+// /api/admin/liquidity — Lane Liquidity analytics (authenticate + requireAdmin in-router).
+app.use('/api/admin/liquidity', adminLiquidityRoutes);
 app.use('/api/factoring', factoringRoutes);
 app.use('/api/reference', referenceRoutes);
 

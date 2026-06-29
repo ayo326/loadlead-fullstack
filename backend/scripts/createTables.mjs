@@ -120,6 +120,14 @@ const TABLES = [
     ],
     BillingMode: "PAY_PER_REQUEST",
   },
+  {
+    // Beta-admin trust/operational events (no-show, trust incident). Separate
+    // from the Load table on purpose; references a load and carrier by id only.
+    TableName: process.env.DYNAMODB_BETA_TRUST_EVENTS_TABLE || "LoadLead_BetaTrustEvents",
+    AttributeDefinitions: [{ AttributeName: "eventId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "eventId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
 ];
 
 async function tableExists(TableName) {
