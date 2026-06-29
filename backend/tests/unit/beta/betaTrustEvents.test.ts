@@ -89,6 +89,15 @@ describe('BetaTrustEventService', () => {
     expect(await BetaTrustEventService.getCounts()).toEqual({ noShows: 0, trustIncidents: 0 });
   });
 
+  it('degrades to empty (not a throw) when the table does not exist yet', async () => {
+    scan.mockImplementationOnce(async () => {
+      const e: any = new Error('Requested resource not found');
+      e.name = 'ResourceNotFoundException';
+      throw e;
+    });
+    expect(await BetaTrustEventService.getCounts()).toEqual({ noShows: 0, trustIncidents: 0 });
+  });
+
   it('windows counts by recordedAt', async () => {
     const ev = await BetaTrustEventService.record({ eventType: 'NO_SHOW', loadId: 'l', carrierId: 'c', recordedByAdminId: 'a' });
     expect(await BetaTrustEventService.getCounts({ toMs: ev.recordedAt - 1 })).toEqual({ noShows: 0, trustIncidents: 0 });

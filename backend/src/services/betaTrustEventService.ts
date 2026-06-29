@@ -17,6 +17,7 @@
 import { Database } from '../config/database';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
+import { Logger } from '../utils/logger';
 
 export type BetaTrustEventType = 'NO_SHOW' | 'TRUST_INCIDENT';
 
@@ -84,7 +85,7 @@ export class BetaTrustEventService {
 
   /** Recent events, newest first. Optionally filtered to one load. */
   static async list(filter?: { loadId?: string; limit?: number }): Promise<BetaTrustEvent[]> {
-    let events = await Database.scan<BetaTrustEvent>(config.dynamodb.betaTrustEventsTable);
+    let events = await this.scanAll();
     if (filter?.loadId) {
       events = events.filter((e) => e.loadId === filter.loadId);
     }
@@ -93,12 +94,33 @@ export class BetaTrustEventService {
   }
 
   private static async listInWindow(range?: { fromMs?: number; toMs?: number }): Promise<BetaTrustEvent[]> {
-    const events = await Database.scan<BetaTrustEvent>(config.dynamodb.betaTrustEventsTable);
+    const events = await this.scanAll();
     if (!range || (range.fromMs == null && range.toMs == null)) return events;
     return events.filter((e) => {
       if (range.fromMs != null && e.recordedAt < range.fromMs) return false;
       if (range.toMs != null && e.recordedAt > range.toMs) return false;
       return true;
     });
+  }
+
+  /**
+   * Scan the store, tolerating a not-yet-created table. If the table is missing
+   * (for example the backend deployed before its Terraform was applied), treat
+   * it as empty and log a warning rather than failing the caller. The dials then
+   * read a real 0 instead of taking down the whole liquidity panel.
+   */
+  private static async scanAll(): Promise<BetaTrustEvent[]> {
+    try {
+      return await Database.scan<BetaTrustEvent>(config.dynamodb.betaTrustEventsTable);
+    } catch (err: any) {
+      if (err?.name === 'ResourceNotFoundException') {
+        Logger.warn(
+          `BetaTrustEvents table ${config.dynamodb.betaTrustEventsTable} not found; ` +
+            `returning empty. Apply the Terraform that creates it.`
+        );
+        return [];
+      }
+      throw err;
+    }
   }
 }
