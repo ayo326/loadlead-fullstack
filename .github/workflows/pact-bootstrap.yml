@@ -1,0 +1,57 @@
+# One-shot: create the Pact Broker deployment environments the can-i-deploy
+# gates target. Run once after the broker (PactFlow) is wired up. Manual only.
+# Idempotent: re-running is harmless (create-environment for an existing name
+# just reports it already exists). Safe to keep around as documented tooling.
+name: Pact Bootstrap (one-shot)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    env:
+      PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
+      PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Guard — broker secrets must be set
+        run: |
+          if [ -z "$PACT_BROKER_BASE_URL" ] || [ -z "$PACT_BROKER_TOKEN" ]; then
+            echo "::error::PACT_BROKER_BASE_URL / PACT_BROKER_TOKEN secrets are not set."
+            exit 1
+          fi
+
+      # The pact CLI (pact-broker binary) comes from the workspace devDeps, so
+      # npm ci is what makes `npx pact-broker` resolve. Same pattern the deploy
+      # workflow's can-i-deploy step uses.
+      - name: Install pact CLI (workspace)
+        run: npm ci
+
+      - name: Create broker environments (idempotent)
+        run: |
+          for pair in "staging:Staging" "production:Production"; do
+            name="${pair%%:*}"; disp="${pair##*:}"
+            if npx pact-broker create-environment --name "$name" --display-name "$disp" \
+                 --broker-base-url "$PACT_BROKER_BASE_URL" --broker-token "$PACT_BROKER_TOKEN"; then
+              echo "created environment: $name"
+            else
+              echo "environment $name already exists or create skipped (ok)"
+            fi
+          done
+
+      - name: can-i-deploy (latest -> staging) [informational]
+        run: |
+          npx pact-broker can-i-deploy \
+            --pacticipant loadlead-api \
+            --latest \
+            --to-environment staging \
+            --broker-base-url "$PACT_BROKER_BASE_URL" \
+            --broker-token "$PACT_BROKER_TOKEN" \
+          || echo "::warning::Environments created. can-i-deploy not green yet — needs a verified provider version (verify-provider.yml) for the latest contracts."

@@ -87,6 +87,7 @@ jobs:
             --pacticipant loadlead-api \
             --version "${{ github.sha }}" \
             --to-environment staging \
+            --retry-while-unknown 6 --retry-interval 10 \
             --broker-base-url="${{ secrets.PACT_BROKER_BASE_URL }}" \
             --broker-token="${{ secrets.PACT_BROKER_TOKEN }}"
 
@@ -168,6 +169,7 @@ jobs:
             --pacticipant loadlead-api \
             --version "${{ github.sha }}" \
             --to-environment production \
+            --retry-while-unknown 6 --retry-interval 10 \
             --broker-base-url="${{ secrets.PACT_BROKER_BASE_URL }}" \
             --broker-token="${{ secrets.PACT_BROKER_TOKEN }}"
 
