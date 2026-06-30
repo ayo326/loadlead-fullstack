@@ -1,10 +1,19 @@
-name: DAST (authenticated, staging)
+name: DAST (ephemeral, in-CI)
 
-# Runs only after a successful staging backend deploy, never against production.
+# Stands up an ephemeral backend inside the runner (DynamoDB Local + stubbed
+# integrations), runs an authenticated OWASP ZAP OpenAPI scan against it, then
+# tears down. No standing infrastructure, no cloud secrets, fully reproducible
+# for the audit (an A-LIGN reviewer can re-run this exact job).
 on:
-  workflow_run:
-    workflows: ["Deploy Backend"]
-    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "openapi.yaml"
+      - ".zap/**"
+      - ".github/workflows/dast.yml"
+  schedule:
+    - cron: "0 8 * * 1" # weekly, Monday 08:00 UTC
   workflow_dispatch: {}
 
 permissions:
@@ -12,48 +21,102 @@ permissions:
 
 jobs:
   dast:
-    name: ZAP authenticated API scan
-    # Only when the upstream staging deploy succeeded on main, or manual dispatch.
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+    name: ZAP authenticated API scan (ephemeral)
     runs-on: ubuntu-latest
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:latest
+        ports: ["8000:8000"]
     env:
-      STAGING_API: https://staging-api.loadleadapp.com
+      # APP_ENV is non-production, so every integration adapter resolves to its
+      # safe stub/sandbox mode (no live Didit/FMCSA/Maps/Resend calls). The boot
+      # guard is satisfied because nothing resolves to "live" outside production.
+      APP_ENV: staging
+      NODE_ENV: development
+      PORT: "4000"
+      DYNAMODB_ENDPOINT: http://127.0.0.1:8000
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      FMCSA_MODE: stub
+      MAPS_MODE: stub
+      EMAIL_MODE: test
+      PUSH_MODE: capture
+      DIDIT_ENV: sandbox
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with: { node-version: "22" }
 
-      # 1) Acquire a JWT for a seeded, low-privilege carrier test user (no 2FA).
-      #    Login sets the ll_token httpOnly cookie; read it from the cookie jar.
-      #    The middleware also accepts Authorization: Bearer, which is what ZAP injects.
-      - name: Acquire JWT for seeded test user
+      - name: Generate ephemeral JWT secret
+        run: echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Build backend
+        working-directory: backend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Wait for DynamoDB Local, create tables, seed low-priv users
+        working-directory: backend
+        run: |
+          for i in $(seq 1 30); do curl -s http://localhost:8000 >/dev/null && break; sleep 1; done
+          node scripts/createTables.mjs
+          node scripts/seedLocalUsers.mjs
+
+      - name: Boot backend and wait for health
+        working-directory: backend
+        run: |
+          node dist/index.js > /tmp/api.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:4000/api/health >/dev/null && { echo "backend up"; break; }
+            sleep 2
+          done
+          curl -sf http://localhost:4000/api/health || { echo "backend did not boot"; cat /tmp/api.log; exit 1; }
+
+      - name: Acquire JWT for a seeded low-privilege user
         id: jwt
         run: |
           set -euo pipefail
-          curl -sf -c cookies.txt -X POST "$STAGING_API/api/auth/login" \
+          curl -sf -c cj.txt -X POST http://localhost:4000/api/auth/login \
             -H 'Content-Type: application/json' \
-            -d "{\"email\":\"${{ secrets.DAST_TEST_EMAIL }}\",\"password\":\"${{ secrets.DAST_TEST_PASSWORD }}\"}" \
-            -o /dev/null
-          TOKEN=$(awk '/ll_token/ {print $7}' cookies.txt)
-          if [ -z "$TOKEN" ]; then echo "::error::login did not return ll_token (2FA enabled, or bad creds, or staging down)"; exit 1; fi
+            -d '{"email":"shipper1@test.com","password":"Password123!"}' -o /dev/null
+          TOKEN=$(awk '/ll_token/ {print $7}' cj.txt)
+          if [ -z "$TOKEN" ]; then echo "::error::login did not set ll_token"; cat /tmp/api.log; exit 1; fi
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
-      # 2) Authenticated OpenAPI-driven active scan. ZAP attaches the bearer header
-      #    to every request via the documented ZAP_AUTH_HEADER env vars. The action
-      #    uploads the HTML/JSON/Markdown report as a run artifact (the DAST evidence),
-      #    and fails the job on FAIL-threshold (High-risk) alerts per .zap/rules.tsv.
-      - name: ZAP API scan (authenticated)
-        uses: zaproxy/action-api-scan@bd24b11e76da11ab60302c8ae87f091cbb11f034 # v0.10.0
+      - name: ZAP authenticated API scan (localhost target)
+        id: zap
+        run: |
+          mkdir -p zap-out && chmod 777 zap-out
+          # --network host lets the ZAP container reach the backend on the runner.
+          # -I = do not fail on warnings; .zap/rules.tsv marks SQLi/RCE/SSRF as FAIL.
+          set +e
+          docker run --rm --network host -v "$PWD:/zap/wrk:rw" \
+            -e ZAP_AUTH_HEADER=Authorization \
+            -e ZAP_AUTH_HEADER_VALUE="Bearer ${{ steps.jwt.outputs.token }}" \
+            -e ZAP_AUTH_HEADER_SITE=localhost:4000 \
+            ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py \
+              -t openapi.yaml -f openapi -O http://localhost:4000 \
+              -c .zap/rules.tsv -I \
+              -J zap-out/report.json -r zap-out/report.html
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Upload ZAP report (DAST evidence)
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          target: openapi.yaml
-          format: openapi
-          cmd_options: "-O ${{ env.STAGING_API }}"
-          rules_file_name: .zap/rules.tsv
-          allow_issue_writing: false
-          fail_action: true
-        env:
-          ZAP_AUTH_HEADER: Authorization
-          ZAP_AUTH_HEADER_VALUE: "Bearer ${{ steps.jwt.outputs.token }}"
-          ZAP_AUTH_HEADER_SITE: staging-api.loadleadapp.com
+          name: zap-dast-report
+          path: zap-out/*
+          if-no-files-found: warn
+
+      - name: Fail on High-risk alerts
+        run: |
+          code="${{ steps.zap.outputs.exit }}"
+          echo "zap-api-scan exit code: $code"
+          # Non-zero means a FAIL-threshold (High) alert was found (warnings are ignored via -I).
+          if [ "$code" != "0" ]; then
+            echo "::error::ZAP DAST found High-risk findings. See the zap-dast-report artifact."
+            exit 1
+          fi
