@@ -1,0 +1,110 @@
+openapi: 3.0.3
+info:
+  title: LoadLead API (DAST target map)
+  version: 0.1.0
+  description: >
+    Introspected from backend/src/routes. Security scheme bearerAuth represents
+    the JWT, sent either as the ll_token httpOnly cookie or as Authorization: Bearer.
+    This is a starting target map for DAST, expand as the full surface is formalized.
+servers:
+  - url: https://staging-api.loadleadapp.com
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+paths:
+  # ---- Unauthenticated boundary ----
+  /api/auth/login:
+    post:
+      summary: Login (sets ll_token cookie)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Credentials" }
+      responses: { "200": { description: ok }, "401": { description: invalid } }
+  /api/auth/signup:
+    post:
+      summary: Signup (beta-gated, unauth)
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object } } }
+      responses: { "201": { description: created } }
+  /api/auth/logout:
+    post: { summary: Logout, security: [], responses: { "200": { description: ok } } }
+  /api/reference/{collection}:
+    get:
+      summary: Public reference data
+      security: []
+      parameters:
+        - { name: collection, in: path, required: true, schema: { type: string } }
+      responses: { "200": { description: ok } }
+
+  # ---- Factoring funds-flow (BOLA/IDOR priority) ----
+  /api/factoring/profile:
+    get: { summary: Factoring profile, security: [{ bearerAuth: [] }], responses: { "200": { description: ok } } }
+  /api/factoring/byo:
+    post: { summary: Bring-your-own factor, security: [{ bearerAuth: [] }], responses: { "200": { description: ok } } }
+  /api/factoring/loads/{loadId}/opt-in:
+    post:
+      summary: Opt a load into integrated factoring (BOLA target)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: loadId, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok }, "403": { description: forbidden } }
+  /api/factoring/loads/{loadId}/payee:
+    get:
+      summary: Who receives the invoice payment (BOLA target)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: loadId, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok }, "403": { description: forbidden } }
+  /api/factoring/loads/{loadId}/pod:
+    get:
+      summary: POD completeness for a load (BOLA target)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: loadId, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  # EXCLUDED from active scan (real funds movement) - see .zap excludePaths
+  /api/factoring/release:
+    post: { summary: "Release funds (EXCLUDE from active scan)", security: [{ bearerAuth: [] }], responses: { "200": { description: ok } } }
+  /api/factoring/byo/confirm-remittance:
+    post: { summary: "Confirm remittance (EXCLUDE from active scan)", security: [{ bearerAuth: [] }], responses: { "200": { description: ok } } }
+
+  # ---- Carrier verification five-state machine ----
+  /api/driver/verification/idv:
+    get: { summary: Get IDV state, security: [{ bearerAuth: [] }], responses: { "200": { description: ok } } }
+    post: { summary: "Submit IDV (EXCLUDE active - live Didit)", security: [{ bearerAuth: [] }], responses: { "200": { description: ok } } }
+  /api/owner-operator/verification:
+    get: { summary: Get OO verification state, security: [{ bearerAuth: [] }], responses: { "200": { description: ok } } }
+  /api/owner-operator/verification/submit:
+    post: { summary: "Submit carrier docs (EXCLUDE active - live Didit/FMCSA)", security: [{ bearerAuth: [] }], responses: { "200": { description: ok } } }
+  /api/owner-operator/offers/{loadId}/accept:
+    post:
+      summary: Accept an offer (gated by requireVerifiedCarrier)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: loadId, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok }, "403": { description: not verified } }
+
+  # ---- Server-side egress (SSRF priority) ----
+  /api/maps/route:
+    post:
+      summary: Google Maps Routes egress (SSRF target)
+      security: [{ bearerAuth: [] }]
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses: { "200": { description: ok } }
+
+  # ---- Admin (representative) ----
+  /api/admin/liquidity:
+    get: { summary: Lane Liquidity analytics, security: [{ bearerAuth: [] }], responses: { "200": { description: ok }, "403": { description: forbidden } } }
+  /api/admin/beta/trust-events:
+    post: { summary: Record beta trust event, security: [{ bearerAuth: [] }], responses: { "201": { description: created } } }

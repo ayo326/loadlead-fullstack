@@ -1,0 +1,12 @@
+# ZAP alert thresholds for CI. Columns: pluginId<TAB>threshold<TAB>(name)
+# IGNORE = drop, WARN = report but do not fail, FAIL = fail the build on this alert.
+10096	IGNORE	(Timestamp Disclosure - noisy on JWT/epoch fields)
+10027	IGNORE	(Information Disclosure - Suspicious Comments)
+10055	WARN	(CSP)
+10038	WARN	(CSP header on API JSON)
+40018	FAIL	(SQL Injection)
+40019	FAIL	(SQL Injection - generic)
+90019	FAIL	(Server Side Code Injection)
+90020	FAIL	(Remote OS Command Injection)
+40046	FAIL	(SSRF)
+40042	FAIL	(Spring4Shell)

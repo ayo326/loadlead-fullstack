@@ -1,0 +1,21 @@
+# Fast local SAST so the obvious issues never reach CI.
+# Install once:  pipx install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/semgrep/semgrep
+    rev: v1.168.0
+    hooks:
+      - id: semgrep
+        name: semgrep (fast, blocking on errors)
+        # Fast, low-noise rulesets for the pre-commit path. CI runs the full set.
+        args:
+          - "--config=p/typescript"
+          - "--config=p/secrets"
+          - "--error" # nonzero exit on findings, blocks the commit
+          - "--skip-unknown-extensions"
+          - "--quiet"
+        files: ^(backend/src|frontend-v2/src)/.*\.(ts|tsx|js|jsx)$
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks # second secrets layer before code leaves the laptop
