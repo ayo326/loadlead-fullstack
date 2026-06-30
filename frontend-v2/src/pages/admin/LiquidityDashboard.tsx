@@ -215,7 +215,7 @@ export default function LiquidityDashboard() {
   }, [data, fillOk, ttcOk, trustOk]);
 
   return (
-    <div style={{ background: NAVY, color: INK, padding: 20, borderRadius: 12, fontFamily: "Calibri, Arial, sans-serif" }}>
+    <div className="liq-panel" style={{ background: NAVY, color: INK, padding: 20, borderRadius: 12, fontFamily: "Calibri, Arial, sans-serif" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
         <h2 style={{ margin: 0, fontSize: 20, color: "#fff" }}>Lane Liquidity</h2>
         <label style={{ fontSize: 13, color: MUTE }}>

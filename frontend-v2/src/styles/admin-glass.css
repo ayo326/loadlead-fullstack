@@ -73,6 +73,13 @@
 .admin-glass table { background: #fff; }
 .admin-glass thead th { background: #eef2f7 !important; }
 .admin-glass tbody tr { background: transparent; }
+
+/* The Lane Liquidity panel is a self-contained DARK widget (navy backplate,
+   light text). Opt its table out of the light table theme above so the light
+   cell text stays readable instead of going light-on-white. */
+.admin-glass .liq-panel table { background: transparent !important; }
+.admin-glass .liq-panel thead th { background: transparent !important; }
+.admin-glass .liq-panel tbody tr { background: transparent !important; }
 .admin-glass input,
 .admin-glass textarea,
 .admin-glass select { background: #fff !important; }
