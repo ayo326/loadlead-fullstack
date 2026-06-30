@@ -52,7 +52,10 @@ jobs:
         with: { node-version: "22" }
 
       - name: Generate ephemeral JWT secret
-        run: echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+        run: |
+          SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::$SECRET"
+          echo "JWT_SECRET=$SECRET" >> "$GITHUB_ENV"
 
       - name: Build backend
         working-directory: backend
