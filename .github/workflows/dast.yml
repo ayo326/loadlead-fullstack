@@ -33,6 +33,9 @@ jobs:
       # guard is satisfied because nothing resolves to "live" outside production.
       APP_ENV: staging
       NODE_ENV: development
+      # BETA_MODE defaults to true; turn it off so the seeded low-priv test user
+      # is not blocked by the private-beta login gate.
+      BETA_MODE: "off"
       PORT: "4000"
       DYNAMODB_ENDPOINT: http://127.0.0.1:8000
       AWS_REGION: us-east-1
