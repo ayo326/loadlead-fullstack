@@ -22,11 +22,11 @@ module "network" {
 }
 
 module "dynamodb" {
-  source               = "../../modules/dynamodb_tableset"
-  env                  = local.env
-  prefix               = local.prefix
-  deletion_protection  = false
-  tags                 = local.tags
+  source              = "../../modules/dynamodb_tableset"
+  env                 = local.env
+  prefix              = local.prefix
+  deletion_protection = false
+  tags                = local.tags
 }
 
 resource "aws_s3_bucket" "pod_uploads" {
@@ -46,8 +46,8 @@ resource "aws_s3_bucket_cors_configuration" "pod_uploads" {
   bucket = aws_s3_bucket.pod_uploads.id
   cors_rule {
     allowed_methods = ["PUT", "GET"]
-    allowed_origins  = ["*"] # presigned-URL uploads from the driver app — tighten to the dev frontend origin once it's stable
-    allowed_headers  = ["*"]
+    allowed_origins = ["*"] # presigned-URL uploads from the driver app — tighten to the dev frontend origin once it's stable
+    allowed_headers = ["*"]
   }
 }
 
@@ -61,72 +61,114 @@ resource "aws_s3_bucket_lifecycle_configuration" "pod_uploads" {
   }
 }
 
+# ACM cert for the dev CloudFront alias — must be requested in us-east-1
+resource "aws_acm_certificate" "dev" {
+  provider          = aws.us_east_1
+  domain_name       = var.dev_domain
+  validation_method = "DNS"
+  tags              = local.tags
+  lifecycle { create_before_destroy = true }
+}
+
+resource "aws_route53_record" "dev_cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.dev.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      type   = dvo.resource_record_type
+      record = dvo.resource_record_value
+    }
+  }
+  zone_id = var.route53_zone_id
+  name    = each.value.name
+  type    = each.value.type
+  records = [each.value.record]
+  ttl     = 60
+}
+
+resource "aws_acm_certificate_validation" "dev" {
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.dev.arn
+  validation_record_fqdns = [for r in aws_route53_record.dev_cert_validation : r.fqdn]
+}
+
 module "frontend" {
-  source      = "../../modules/frontend"
-  env         = local.env
-  bucket_name = "loadlead-dev-frontend"
-  domain_name = null # use the CloudFront default domain — no Route53/ACM needed for dev
-  price_class = "PriceClass_100"
-  tags        = local.tags
+  source              = "../../modules/frontend"
+  env                 = local.env
+  bucket_name         = "loadlead-dev-frontend"
+  domain_name         = var.dev_domain
+  acm_certificate_arn = aws_acm_certificate_validation.dev.certificate_arn
+  price_class         = "PriceClass_100"
+  tags                = local.tags
+}
+
+resource "aws_route53_record" "dev_alias" {
+  zone_id = var.route53_zone_id
+  name    = var.dev_domain
+  type    = "A"
+  alias {
+    name                   = module.frontend.distribution_domain_name
+    zone_id                = "Z2FDTNDATAQYW2" # CloudFront's fixed hosted zone ID — same for every distribution
+    evaluate_target_health = false
+  }
 }
 
 module "backend" {
   source                = "../../modules/backend_eb"
-  env                    = local.env
-  vpc_id                 = module.network.vpc_id
-  subnet_ids             = module.network.public_subnet_ids # no NAT in dev → instance must be public
-  elb_subnet_ids          = module.network.public_subnet_ids
-  security_group_id      = module.network.eb_instance_sg_id
-  instance_type          = "t3.micro"
-  min_instances          = 1
-  max_instances          = 1
-  environment_type       = "SingleInstance" # no ALB cost
-  dynamodb_table_prefix  = local.prefix
-  env_vars               = merge(var.backend_env_vars, {
-    NODE_ENV                       = "development"
-    FRONTEND_URL                   = "https://${module.frontend.distribution_domain_name}"
-    DYNAMODB_USERS_TABLE           = "${local.prefix}Users"
-    DYNAMODB_DRIVERS_TABLE         = "${local.prefix}Drivers"
-    DYNAMODB_SHIPPERS_TABLE        = "${local.prefix}Shippers"
-    DYNAMODB_RECEIVERS_TABLE       = "${local.prefix}Receivers"
-    DYNAMODB_LOADS_TABLE           = "${local.prefix}Loads"
-    DYNAMODB_OFFERS_TABLE          = "${local.prefix}Offers"
-    DYNAMODB_BOL_TABLE             = "${local.prefix}BOL"
-    DYNAMODB_ORGS_TABLE            = "${local.prefix}Organizations"
-    DYNAMODB_MEMBERSHIPS_TABLE     = "${local.prefix}Memberships"
-    DYNAMODB_INVITATIONS_TABLE     = "${local.prefix}Invitations"
-    DYNAMODB_OWNER_OPERATORS_TABLE = "${local.prefix}OwnerOperators"
-    DYNAMODB_FLEET_INVITES_TABLE   = "${local.prefix}FleetInvites"
-    DYNAMODB_VERIFICATIONS_TABLE   = "${local.prefix}Verifications"
-    DYNAMODB_FACTORING_OPTINS_TABLE = "${local.prefix}FactoringOptIns"
+  env                   = local.env
+  vpc_id                = module.network.vpc_id
+  subnet_ids            = module.network.public_subnet_ids # no NAT in dev → instance must be public
+  elb_subnet_ids        = module.network.public_subnet_ids
+  security_group_id     = module.network.eb_instance_sg_id
+  instance_type         = "t3.micro"
+  min_instances         = 1
+  max_instances         = 1
+  environment_type      = "SingleInstance" # no ALB cost
+  dynamodb_table_prefix = local.prefix
+  env_vars = merge(var.backend_env_vars, {
+    NODE_ENV                         = "development"
+    FRONTEND_URL                     = "https://${var.dev_domain}"
+    DYNAMODB_USERS_TABLE             = "${local.prefix}Users"
+    DYNAMODB_DRIVERS_TABLE           = "${local.prefix}Drivers"
+    DYNAMODB_SHIPPERS_TABLE          = "${local.prefix}Shippers"
+    DYNAMODB_RECEIVERS_TABLE         = "${local.prefix}Receivers"
+    DYNAMODB_LOADS_TABLE             = "${local.prefix}Loads"
+    DYNAMODB_OFFERS_TABLE            = "${local.prefix}Offers"
+    DYNAMODB_BOL_TABLE               = "${local.prefix}BOL"
+    DYNAMODB_ORGS_TABLE              = "${local.prefix}Organizations"
+    DYNAMODB_MEMBERSHIPS_TABLE       = "${local.prefix}Memberships"
+    DYNAMODB_INVITATIONS_TABLE       = "${local.prefix}Invitations"
+    DYNAMODB_OWNER_OPERATORS_TABLE   = "${local.prefix}OwnerOperators"
+    DYNAMODB_FLEET_INVITES_TABLE     = "${local.prefix}FleetInvites"
+    DYNAMODB_VERIFICATIONS_TABLE     = "${local.prefix}Verifications"
+    DYNAMODB_FACTORING_OPTINS_TABLE  = "${local.prefix}FactoringOptIns"
     DYNAMODB_SIGNATURES_TABLE        = "${local.prefix}Signatures"
     DYNAMODB_POD_PHOTOS_TABLE        = "${local.prefix}PodPhotos"
     DYNAMODB_BETA_ALLOWLIST_TABLE    = "${local.prefix}BetaAllowlist"
     DYNAMODB_WAITLIST_TABLE          = "${local.prefix}Waitlist"
     DYNAMODB_BETA_APPLICATIONS_TABLE = "${local.prefix}BetaApplications"
     DYNAMODB_BETA_TRUST_EVENTS_TABLE = "${local.prefix}BetaTrustEvents"
-    POD_S3_BUCKET                   = "loadlead-dev-pod-uploads"
+    POD_S3_BUCKET                    = "loadlead-dev-pod-uploads"
   })
   tags = local.tags
 }
 
 module "github_deploy_role" {
-  source                     = "../../modules/github_oidc_role"
-  env                         = local.env
-  github_oidc_provider_arn   = data.aws_iam_openid_connect_provider.github.arn
-  github_repo                 = var.github_repo
-  allowed_ref                 = "refs/heads/dev" # only the dev branch can assume this role
-  dynamodb_table_prefix       = local.prefix
-  eb_environment_name         = module.backend.environment_name
-  frontend_bucket_arn          = "arn:aws:s3:::loadlead-dev-frontend"
-  frontend_distribution_arn    = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${module.frontend.distribution_id}"
-  tags                         = local.tags
+  source                    = "../../modules/github_oidc_role"
+  env                       = local.env
+  github_oidc_provider_arn  = data.aws_iam_openid_connect_provider.github.arn
+  github_repo               = var.github_repo
+  allowed_ref               = "refs/heads/dev" # only the dev branch can assume this role
+  dynamodb_table_prefix     = local.prefix
+  eb_environment_name       = module.backend.environment_name
+  frontend_bucket_arn       = "arn:aws:s3:::loadlead-dev-frontend"
+  frontend_distribution_arn = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${module.frontend.distribution_id}"
+  tags                      = local.tags
 }
 
 data "aws_caller_identity" "current" {}
 
 output "frontend_url" {
-  value = "https://${module.frontend.distribution_domain_name}"
+  value = "https://${var.dev_domain}"
 }
 
 output "backend_url" {
