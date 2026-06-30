@@ -61,6 +61,11 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: staging
+    # The `secrets` context can't be used in a step `if:`. Surface it as a
+    # job-level env var (job env CAN read secrets) so the pact steps below can
+    # skip cleanly when the broker isn't configured.
+    env:
+      PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -75,7 +80,7 @@ jobs:
       # before the broker is wired up), so this is safe to land before
       # PactFlow is configured.
       - name: can-i-deploy (staging)
-        if: ${{ secrets.PACT_BROKER_BASE_URL != '' }}
+        if: ${{ env.PACT_BROKER_BASE_URL != '' }}
         run: |
           npm ci
           npx pact-broker can-i-deploy \
@@ -122,7 +127,7 @@ jobs:
       # NEXT can-i-deploy --to-environment=production sees the correct
       # "currently deployed" reference. Skipped if broker not configured.
       - name: Record provider deployment (staging)
-        if: ${{ secrets.PACT_BROKER_BASE_URL != '' }}
+        if: ${{ env.PACT_BROKER_BASE_URL != '' }}
         run: |
           npx pact-broker record-deployment \
             --pacticipant loadlead-api \
@@ -140,6 +145,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production # configure required reviewers on this Environment in repo settings
+    # See deploy-staging: secrets aren't allowed in a step `if:`, so expose the
+    # broker URL as job env for the pact gate's skip condition below.
+    env:
+      PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -152,7 +161,7 @@ jobs:
       # operator approving the prod workflow_dispatch can see which
       # persona's pact failed.
       - name: can-i-deploy (production)
-        if: ${{ secrets.PACT_BROKER_BASE_URL != '' }}
+        if: ${{ env.PACT_BROKER_BASE_URL != '' }}
         run: |
           npm ci
           npx pact-broker can-i-deploy \
@@ -194,7 +203,7 @@ jobs:
       # Tell the broker this provider version is now in production so the
       # NEXT can-i-deploy sees the correct "currently deployed" reference.
       - name: Record provider deployment (production)
-        if: ${{ secrets.PACT_BROKER_BASE_URL != '' }}
+        if: ${{ env.PACT_BROKER_BASE_URL != '' }}
         run: |
           npx pact-broker record-deployment \
             --pacticipant loadlead-api \
