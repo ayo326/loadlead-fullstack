@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { Logger } from '../utils/logger';
 
 type AsyncFn = (req: Request, res: Response, next: NextFunction) => Promise<any> | any;
 
@@ -33,17 +34,21 @@ export const errorHandler = (err: any, _req: Request, res: Response, _next: Next
   const statusCode = Number(err?.statusCode || err?.status || 500);
   const message = err?.message || 'Internal Server Error';
 
-  const isProd = process.env.NODE_ENV === 'production';
-
-  // avoid crashing inside error handler
-  if (!isProd) {
-    return res.status(statusCode).json({
-      message,
-      statusCode,
-      stack: err?.stack,
-      errors: err?.errors,
-    });
+  // Full detail goes to the server logs (where it belongs), never the response.
+  if (statusCode >= 500) {
+    Logger.error(`[errorHandler] ${statusCode} ${message}`, err?.stack || err);
   }
 
-  return res.status(statusCode).json({ message, statusCode });
+  // Do not disclose internals in the HTTP response by default. Stacks are logged,
+  // not returned; 5xx messages are generic unless EXPOSE_ERROR_STACK is explicitly
+  // set (local debugging only). 4xx messages stay informative for the client.
+  const exposeStack = process.env.EXPOSE_ERROR_STACK === 'true';
+  const safeMessage = statusCode >= 500 && !exposeStack ? 'Internal Server Error' : message;
+
+  return res.status(statusCode).json({
+    message: safeMessage,
+    statusCode,
+    ...(err?.errors ? { errors: err.errors } : {}),
+    ...(exposeStack ? { stack: err?.stack } : {}),
+  });
 };

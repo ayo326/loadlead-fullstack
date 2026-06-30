@@ -94,20 +94,27 @@ if (process.env.NODE_ENV === 'production') {
 // Helmet adds what Nginx doesn't: CSP (appropriate for a JSON API),
 // Cross-Origin-* family, X-Permitted-Cross-Domain-Policies, X-DNS-Prefetch.
 // Duplicating Nginx headers would produce double values, so those four are
-// disabled here.
+// still set so the app is self-sufficient even if the proxy is bypassed.
+// Never advertise the framework (defense in depth; helmet also strips it below).
+app.disable('x-powered-by');
 app.use(
   helmet({
-    // ── Handled by Nginx → disabled to prevent duplicate headers ──────────
-    hsts:           false,  // Nginx: Strict-Transport-Security (conditional on X-Forwarded-Proto)
-    frameguard:     false,  // Nginx: X-Frame-Options: DENY
-    noSniff:        false,  // Nginx: X-Content-Type-Options: nosniff
-    referrerPolicy: false,  // Nginx: Referrer-Policy
+    // App-owned now (Nginx may also set some of these; a duplicate identical
+    // value is harmless and the app no longer DEPENDS on the proxy for them).
+    hsts:           { maxAge: 63072000, includeSubDomains: true, preload: true },
+    frameguard:     { action: 'deny' },              // X-Frame-Options: DENY
+    noSniff:        true,                             // X-Content-Type-Options: nosniff
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 
-    // ── CSP: JSON API serves no HTML/JS — lock it down completely ─────────
+    // ── CSP: JSON API serves no HTML/JS — lock every directive to 'none' ──
     contentSecurityPolicy: {
       directives: {
         defaultSrc:     ["'none'"],
+        baseUri:        ["'none'"],
+        formAction:     ["'none'"],
         frameAncestors: ["'none'"],
+        scriptSrc:      ["'none'"],
+        objectSrc:      ["'none'"],
       },
     },
 
@@ -116,13 +123,22 @@ app.use(
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow fetch from our SPA
     crossOriginEmbedderPolicy: false, // not relevant for a JSON API
 
-    // ── X-Powered-By (helmet v8: xPoweredBy, NOT hidePoweredBy) ──────────
-    xPoweredBy:       false,  // removes 'X-Powered-By: Express'
+    xPoweredBy:       true,   // helmet strips X-Powered-By (also app.disable above)
 
     // ── Misc ──────────────────────────────────────────────────────────────
     originAgentCluster: true,
   })
 );
+
+// Permissions-Policy is not set by helmet. Lock down browser features the API
+// never needs (defense in depth for any error page or misrouted response).
+app.use((_req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'geolocation=(), camera=(), microphone=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=()'
+  );
+  next();
+});
 
 // Middleware
 const allowedOrigins = process.env.ALLOWED_ORIGINS
