@@ -3,7 +3,7 @@
 10096	IGNORE	(Timestamp Disclosure - noisy on JWT/epoch fields)
 10027	IGNORE	(Information Disclosure - Suspicious Comments)
 100001	IGNORE	(Unexpected Content-Type - API returns application/json; informational, not a vuln)
-10055	WARN	(CSP)
+10055	IGNORE	(CSP no-fallback directive - API serves application/json only; default-src 'none' already blocks all, CSP is defense in depth on a non-HTML surface)
 10038	WARN	(CSP header on API JSON)
 40018	FAIL	(SQL Injection)
 40019	FAIL	(SQL Injection - generic)
