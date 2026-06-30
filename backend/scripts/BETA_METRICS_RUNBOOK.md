@@ -86,6 +86,25 @@ never read or written.
 
 To create the table locally: `DYNAMODB_ENDPOINT=http://127.0.0.1:8000 node scripts/createTables.mjs`.
 
+## Realistic demo data (any environment)
+
+`scripts/seedLiquidityDemo.mjs` seeds/purges a realistic Lane Liquidity dataset
+(five Austin-anchored lanes, ~50 loads over 6 weeks, improving fill and
+time-to-cover, plus 2 no-show events). It is **safe by design: it only ever
+touches rows whose id begins with `SEED-`**, so real loads are never affected,
+and re-running replaces rather than duplicates.
+
+```
+cd backend
+node scripts/seedLiquidityDemo.mjs seed      # replace SEED-* demo data with a fresh set
+node scripts/seedLiquidityDemo.mjs purge     # delete the SEED-* demo data only
+```
+
+Targets AWS by default (`AWS_REGION` or us-east-1, tables `LoadLead_Loads` /
+`LoadLead_BetaTrustEvents`). Set `DYNAMODB_ENDPOINT=http://127.0.0.1:8000` to run
+it against DynamoDB Local instead. Purge the demo data with `purge` before real
+loads matter.
+
 ## Notes
 
 - `BASE_URL` overrides the endpoint the verifier targets (default
