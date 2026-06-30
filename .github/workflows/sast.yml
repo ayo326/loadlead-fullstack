@@ -67,7 +67,7 @@ jobs:
         with: { python-version: "3.12" }
 
       - name: Install njsscan
-        run: pip install --no-cache-dir njsscan==0.4.6
+        run: pip install --no-cache-dir njsscan==0.4.3
 
       - name: njsscan scan (SARIF)
         run: njsscan --sarif -o njsscan.sarif backend/src frontend-v2/src || true
