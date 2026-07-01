@@ -221,6 +221,66 @@ module "ddb_shipper_agreements" {
   tags                = local.tags
 }
 
+# ─── Platform-admin compliance/oversight layer ──────────────────────────────
+# All append-only; deletion protection + PITR (module default) since these hold
+# audit, legal, and law-enforcement records.
+module "ddb_admin_audit_log" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_AdminAuditLog"
+  hash_key            = "auditId"
+  attributes          = [{ name = "auditId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_compliance_grants" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_ComplianceGrants"
+  hash_key            = "userId"
+  attributes          = [{ name = "userId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_adjudications" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_Adjudications"
+  hash_key            = "adjudicationId"
+  attributes          = [{ name = "adjudicationId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_legal_holds" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_LegalHolds"
+  hash_key            = "holdId"
+  attributes          = [{ name = "holdId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_law_enforcement_requests" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_LawEnforcementRequests"
+  hash_key            = "recordId"
+  attributes          = [{ name = "recordId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_disclosures" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_Disclosures"
+  hash_key            = "disclosureId"
+  attributes          = [{ name = "disclosureId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_payout_intercepts" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_PayoutIntercepts"
+  hash_key            = "interceptId"
+  attributes          = [{ name = "interceptId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+
 # ─── LoadLead_StopEvents ────────────────────────────────────────────────────
 # Append-only stop-events log (check-in/check-out evidence). Detention and
 # layover compute from these immutable events; references load + stop by id

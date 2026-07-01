@@ -158,6 +158,49 @@ const TABLES = [
     KeySchema: [{ AttributeName: "agreementId", KeyType: "HASH" }],
     BillingMode: "PAY_PER_REQUEST",
   },
+  // ── Platform-admin compliance/oversight layer ─────────────────────────────
+  {
+    TableName: process.env.DYNAMODB_ADMIN_AUDIT_LOG_TABLE || "LoadLead_AdminAuditLog",
+    AttributeDefinitions: [{ AttributeName: "auditId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "auditId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    TableName: process.env.DYNAMODB_COMPLIANCE_GRANTS_TABLE || "LoadLead_ComplianceGrants",
+    AttributeDefinitions: [{ AttributeName: "userId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    TableName: process.env.DYNAMODB_ADJUDICATIONS_TABLE || "LoadLead_Adjudications",
+    AttributeDefinitions: [{ AttributeName: "adjudicationId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "adjudicationId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    TableName: process.env.DYNAMODB_LEGAL_HOLDS_TABLE || "LoadLead_LegalHolds",
+    AttributeDefinitions: [{ AttributeName: "holdId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "holdId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    TableName: process.env.DYNAMODB_LAW_ENFORCEMENT_REQUESTS_TABLE || "LoadLead_LawEnforcementRequests",
+    AttributeDefinitions: [{ AttributeName: "recordId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "recordId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    TableName: process.env.DYNAMODB_DISCLOSURES_TABLE || "LoadLead_Disclosures",
+    AttributeDefinitions: [{ AttributeName: "disclosureId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "disclosureId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    TableName: process.env.DYNAMODB_PAYOUT_INTERCEPTS_TABLE || "LoadLead_PayoutIntercepts",
+    AttributeDefinitions: [{ AttributeName: "interceptId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "interceptId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
   {
     // Append-only stop-events log (check-in/check-out evidence).
     TableName: process.env.DYNAMODB_STOP_EVENTS_TABLE || "LoadLead_StopEvents",

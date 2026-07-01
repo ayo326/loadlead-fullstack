@@ -54,6 +54,24 @@ export const config = {
     // Pins the agreed policy version + exact values; never updated or deleted.
     shipperAgreementsTable:
       process.env.DYNAMODB_SHIPPER_AGREEMENTS_TABLE || 'LoadLead_ShipperAgreements',
+
+    // ── Platform-admin compliance/oversight layer ───────────────────────────
+    // Append-only admin audit log (the audit of the auditors): every sensitive
+    // read, export, disclosure, adjudication, hold, and intercept.
+    adminAuditLogTable: process.env.DYNAMODB_ADMIN_AUDIT_LOG_TABLE || 'LoadLead_AdminAuditLog',
+    // Per-user compliance-role grants (DISPUTE_ADMIN, LEGAL_ADMIN, LAW_ENFORCEMENT_LIAISON).
+    complianceGrantsTable: process.env.DYNAMODB_COMPLIANCE_GRANTS_TABLE || 'LoadLead_ComplianceGrants',
+    // Append-only dispute/discrepancy adjudication outcomes (compensating entries).
+    adjudicationsTable: process.env.DYNAMODB_ADJUDICATIONS_TABLE || 'LoadLead_Adjudications',
+    // Append-only legal hold registry (place/release events) keyed by entity.
+    legalHoldsTable: process.env.DYNAMODB_LEGAL_HOLDS_TABLE || 'LoadLead_LegalHolds',
+    // Append-only law-enforcement request intake records (counsel-gated).
+    lawEnforcementRequestsTable:
+      process.env.DYNAMODB_LAW_ENFORCEMENT_REQUESTS_TABLE || 'LoadLead_LawEnforcementRequests',
+    // Append-only disclosure records (what left the platform, to whom, when, under which request).
+    disclosuresTable: process.env.DYNAMODB_DISCLOSURES_TABLE || 'LoadLead_Disclosures',
+    // Append-only payout-intercept records (garnishment, levy, lien).
+    payoutInterceptsTable: process.env.DYNAMODB_PAYOUT_INTERCEPTS_TABLE || 'LoadLead_PayoutIntercepts',
     // Append-only stop-events log (check-in/check-out). Detention/layover are
     // computed from these immutable events. References load + stop by id only.
     stopEventsTable: process.env.DYNAMODB_STOP_EVENTS_TABLE || 'LoadLead_StopEvents',

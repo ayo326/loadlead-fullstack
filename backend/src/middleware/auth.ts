@@ -3,7 +3,9 @@ import jwt from 'jsonwebtoken';
 import config from '../config/environment';
 import { UserRole, OrgCapability } from '../types';
 import { PlatformRole, resolvePlatformRole } from '../types/platformRole';
+import { ComplianceRole } from '../types/complianceRole';
 import { OrgService, OrgMembershipService } from '../services/orgService';
+import { ComplianceRoleService } from '../services/complianceRoleService';
 import { Database } from '../config/database';
 
 export interface AuthRequest extends Request {
@@ -86,6 +88,28 @@ export const requireStaffTier = (...allowed: PlatformRole[]) => {
       return next();
     } catch (err) {
       return res.status(500).json({ error: 'Tier check failed' });
+    }
+  };
+};
+
+/**
+ * Compliance-role gate for the platform-admin oversight layer. Caller must be an
+ * ADMIN-role user AND hold the specific compliance-role grant (checked against a
+ * fresh read of the grants store, not the JWT). Enforces least privilege and
+ * separation: a DISPUTE_ADMIN cannot reach a LAW_ENFORCEMENT_LIAISON surface.
+ * Use after `authenticate`.
+ */
+export const requireComplianceRole = (role: ComplianceRole) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.user.role !== UserRole.ADMIN) return res.status(403).json({ error: 'Forbidden' });
+    try {
+      const has = await ComplianceRoleService.hasRole(req.user.userId, role);
+      if (!has) return res.status(403).json({ error: `Forbidden: requires ${role} compliance role` });
+      (req as any).complianceRole = role;
+      return next();
+    } catch (err) {
+      return res.status(500).json({ error: 'Compliance role check failed' });
     }
   };
 };

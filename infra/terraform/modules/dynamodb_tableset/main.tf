@@ -250,6 +250,45 @@ locals {
       gsis       = []
     }
 
+    # ── Platform-admin compliance/oversight layer ──────────────────────────
+    # Append-only admin audit log, per-user compliance grants, adjudications,
+    # legal holds, law-enforcement requests, disclosures, and payout intercepts.
+    AdminAuditLog = {
+      hash_key   = "auditId"
+      attributes = [{ name = "auditId", type = "S" }]
+      gsis       = []
+    }
+    ComplianceGrants = {
+      hash_key   = "userId"
+      attributes = [{ name = "userId", type = "S" }]
+      gsis       = []
+    }
+    Adjudications = {
+      hash_key   = "adjudicationId"
+      attributes = [{ name = "adjudicationId", type = "S" }]
+      gsis       = []
+    }
+    LegalHolds = {
+      hash_key   = "holdId"
+      attributes = [{ name = "holdId", type = "S" }]
+      gsis       = []
+    }
+    LawEnforcementRequests = {
+      hash_key   = "recordId"
+      attributes = [{ name = "recordId", type = "S" }]
+      gsis       = []
+    }
+    Disclosures = {
+      hash_key   = "disclosureId"
+      attributes = [{ name = "disclosureId", type = "S" }]
+      gsis       = []
+    }
+    PayoutIntercepts = {
+      hash_key   = "interceptId"
+      attributes = [{ name = "interceptId", type = "S" }]
+      gsis       = []
+    }
+
     # Append-only stop-events log (check-in/check-out). Detention/layover compute
     # from these immutable events; references load + stop by id only. A loadId GSI
     # can be added before scale; reads scan + filter at beta volume.

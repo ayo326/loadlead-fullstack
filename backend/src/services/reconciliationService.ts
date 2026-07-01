@@ -37,7 +37,11 @@ export type ReconciliationOutcomeType =
   | 'SUPPLEMENTAL_ADVANCE'
   | 'ACCESSORIAL_TO_MOVER'
   | 'RECOURSE_BUYBACK'
-  | 'NON_RECOURSE_LOSS';
+  | 'NON_RECOURSE_LOSS'
+  // Admin oversight: a compensating entry from an adjudication or a payout
+  // intercept. Never edits an original; it is a new offsetting row.
+  | 'ADJUDICATION_COMPENSATION'
+  | 'INTERCEPT_APPLIED';
 
 export interface ReconciliationOutcome {
   outcomeId: string; // 'recon_...'
