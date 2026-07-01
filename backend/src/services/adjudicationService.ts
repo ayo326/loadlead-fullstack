@@ -104,13 +104,20 @@ export class AdjudicationService {
 
   /** All adjudications for a target, newest first. Append-only history. */
   static async listForTarget(targetId: string): Promise<Adjudication[]> {
-    let rows: Adjudication[];
+    return (await this.scanAll()).filter((a) => a.targetId === targetId).sort((a, b) => b.at - a.at);
+  }
+
+  /** All adjudications referencing an invoice, newest first. */
+  static async listForInvoice(invoiceId: string): Promise<Adjudication[]> {
+    return (await this.scanAll()).filter((a) => a.invoiceId === invoiceId).sort((a, b) => b.at - a.at);
+  }
+
+  private static async scanAll(): Promise<Adjudication[]> {
     try {
-      rows = await Database.scan<Adjudication>(config.dynamodb.adjudicationsTable);
+      return await Database.scan<Adjudication>(config.dynamodb.adjudicationsTable);
     } catch (err: any) {
       if (err?.name === 'ResourceNotFoundException') return [];
       throw err;
     }
-    return rows.filter((a) => a.targetId === targetId).sort((a, b) => b.at - a.at);
   }
 }

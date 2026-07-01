@@ -55,6 +55,7 @@ import { tallyWebhookHandler } from './routes/tallyWebhook';
 import { diditWebhookHandler } from './services/verification';
 import factoringRoutes from './routes/factoring';
 import accessorialRoutes from './routes/accessorials';
+import adminComplianceRoutes from './routes/adminCompliance';
 import referenceRoutes from './routes/reference';
 const app: Application = express();
 
@@ -278,6 +279,7 @@ app.use('/api/admin/staff', adminStaffRoutes);
 app.use('/api/admin/liquidity', adminLiquidityRoutes);
 app.use('/api/factoring', factoringRoutes);
 app.use('/api/accessorials', accessorialRoutes);
+app.use('/api/admin/compliance', adminComplianceRoutes);
 app.use('/api/reference', referenceRoutes);
 
 // Didit webhook — PUBLIC (no JWT); signature verified inside the handler
