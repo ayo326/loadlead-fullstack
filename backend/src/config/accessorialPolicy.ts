@@ -57,6 +57,24 @@ export interface AccessorialCaps {
 }
 
 /**
+ * The disclosure view of a load's policy: the single detention rate that applies
+ * to this load's freight class (resolved from the map), plus the free time,
+ * billing increment, and layover terms. This is exactly what the offer summary
+ * and the acknowledgment modal show, so the recorded acknowledgment matches the
+ * displayed numbers by construction. Money is integer cents; spans are minutes.
+ */
+export interface AccessorialDisclosure {
+  version: number;
+  rateClass: AccessorialRateClass;
+  freeTimeMinutes: number;
+  billingIncrementMinutes: number;
+  /** The detention hourly rate for this load's freight class, in cents. */
+  detentionHourlyRateCents: number;
+  layoverThresholdMinutes: number;
+  layoverDailyRateCents: number;
+}
+
+/**
  * Equipment that warrants the SPECIALIZED detention band (open-deck, temperature
  * controlled, or otherwise harder to load/unload). Everything else is STANDARD;
  * hazmat takes precedence over both.

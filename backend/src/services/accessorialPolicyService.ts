@@ -27,6 +27,7 @@ import {
   AccessorialPolicy,
   AccessorialCaps,
   AccessorialRateClass,
+  AccessorialDisclosure,
   DEFAULT_ACCESSORIAL_POLICY,
   ACCESSORIAL_POLICY_ATTESTATION,
   AccessorialSignatureType,
@@ -72,6 +73,17 @@ export interface AccessorialPolicyAcceptance {
   ipAddress?: string;
   userAgent?: string;
   signedAt: number;
+  /**
+   * The detention/layover disclosure the carrier acknowledged, captured on the
+   * same append-only acceptance row so there is a single provable acceptance
+   * carrying both the e-sign and the acknowledgment. The disclosure is derived
+   * server-side from the frozen policy, so it always matches what was shown.
+   */
+  acknowledgment?: {
+    acknowledged: true;
+    acknowledgedAt: number;
+    disclosure: AccessorialDisclosure;
+  };
 }
 
 export interface UpdatePolicyPatch {
@@ -95,6 +107,12 @@ export interface AcceptPolicyInput {
   consentGiven: boolean;
   ipAddress?: string;
   userAgent?: string;
+  /**
+   * When true, the carrier acknowledged the detention/layover disclosure. The
+   * disclosed values are derived server-side from the frozen policy and recorded
+   * on the acceptance, so the record always matches what the modal displayed.
+   */
+  acknowledged?: boolean;
 }
 
 /** Stable key-sorted JSON so the same policy always hashes the same. */
@@ -219,6 +237,29 @@ export class AccessorialPolicyService {
   }
 
   /**
+   * The disclosure view of a policy: the single detention rate for this load's
+   * freight class, plus free time, billing increment, and layover terms. This is
+   * what the offer summary and acknowledgment modal display, and what the
+   * acknowledgment records, so the shown and recorded numbers always agree.
+   */
+  static disclosureOf(p: LoadAccessorialPolicy): AccessorialDisclosure {
+    return {
+      version: p.version,
+      rateClass: p.rateClass,
+      freeTimeMinutes: p.policy.freeTimeMinutes,
+      billingIncrementMinutes: p.policy.billingIncrementMinutes,
+      detentionHourlyRateCents: p.policy.detentionHourlyRateCents[p.rateClass],
+      layoverThresholdMinutes: p.policy.layoverThresholdMinutes,
+      layoverDailyRateCents: p.policy.layoverDailyRateCents,
+    };
+  }
+
+  /** Convenience: get-or-create the load's policy and return its disclosure view. */
+  static async disclosureForLoad(load: { loadId: string; hazmat?: boolean; equipmentType: any }): Promise<AccessorialDisclosure> {
+    return this.disclosureOf(await this.getOrCreateForLoad(load));
+  }
+
+  /**
    * Record an append-only acceptance of the load's current policy. Consent must be
    * explicit. The accepted version and a hash of the exact terms are pinned so the
    * acceptance is reproducible even after the policy is later edited.
@@ -232,6 +273,7 @@ export class AccessorialPolicyService {
     }
     const policy = await this.getOrCreateForLoad(input.load);
     const snap = this.snapshotOf(policy);
+    const now = Helpers.getCurrentTimestamp();
 
     const acceptance: AccessorialPolicyAcceptance = {
       acceptanceId: Helpers.generateId('apaccept'),
@@ -247,7 +289,13 @@ export class AccessorialPolicyService {
       attestationText: ACCESSORIAL_POLICY_ATTESTATION.text,
       ...(input.ipAddress ? { ipAddress: input.ipAddress } : {}),
       ...(input.userAgent ? { userAgent: input.userAgent } : {}),
-      signedAt: Helpers.getCurrentTimestamp(),
+      signedAt: now,
+      // The acknowledgment travels on the same append-only row. The disclosed
+      // values are derived from the frozen policy (not trusted from the client),
+      // so what is recorded is exactly what the modal read from the snapshot.
+      ...(input.acknowledged === true
+        ? { acknowledgment: { acknowledged: true as const, acknowledgedAt: now, disclosure: this.disclosureOf(policy) } }
+        : {}),
     };
     await Database.putItem(config.dynamodb.accessorialPolicyAcceptancesTable, acceptance);
     return acceptance;

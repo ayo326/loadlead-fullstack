@@ -10,6 +10,7 @@ import { Countdown } from "@/components/Countdown";
 import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
 import { AttestationChain } from "@/components/attestation/AttestationChain";
 import { AccessorialsPanel } from "@/components/AccessorialsPanel";
+import { AccessorialTermsSummary, AccessorialDisclosureModal } from "@/components/AccessorialTerms";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -63,6 +64,7 @@ export default function DriverLoadDetail() {
   // same neutral block with a different `action` prop. The transition
   // endpoint is server-gated to fail without the matching signature.
   const [attestation, setAttestation] = useState<null | 'CARRIER_ACCEPT' | 'DRIVER_PICKUP' | 'DRIVER_DELIVER'>(null);
+  const [showDisclosure, setShowDisclosure] = useState(false);
 
   useEffect(() => {
     if (!loadId) return;
@@ -97,8 +99,10 @@ export default function DriverLoadDetail() {
     }
   };
 
-  // Replace the old single-call accept with attestation-gated flow.
-  const accept = () => setAttestation('CARRIER_ACCEPT');
+  // Accepting first opens the detention/layover disclosure. Its acknowledgment
+  // records the e-sign policy acceptance, then hands off to the load-tender
+  // attestation. Backing out of the disclosure writes nothing.
+  const accept = () => setShowDisclosure(true);
 
   const decline = async () => {
     if (!loadId) return;
@@ -277,6 +281,8 @@ export default function DriverLoadDetail() {
             <Row label="Endorsements" value={load.requiredEndorsements?.length ? load.requiredEndorsements.join(", ") : "None"} />
           </Section>
 
+          {offerActive && <AccessorialTermsSummary loadId={load.loadId} />}
+
           {offerActive && (
             <div className="flex flex-col gap-3">
               <Button
@@ -349,6 +355,15 @@ export default function DriverLoadDetail() {
         allowExceptions={attestation === 'DRIVER_DELIVER'}
         assignedDriverId={attestation === 'CARRIER_ACCEPT' ? (load?.assignedDriverId ?? undefined) : undefined}
         onSigned={() => { if (attestation) onAttestationSigned(attestation); }}
+      />
+
+      {/* Detention/layover disclosure gate. On acknowledge it records the e-sign
+          policy acceptance, then proceeds to the load-tender attestation. */}
+      <AccessorialDisclosureModal
+        loadId={load.loadId}
+        open={showDisclosure}
+        onOpenChange={setShowDisclosure}
+        onAccepted={() => setAttestation('CARRIER_ACCEPT')}
       />
     </>
   );

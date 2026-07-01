@@ -135,7 +135,9 @@ router.get(
       hazmat: load.hazmat,
       equipmentType: load.equipmentType,
     });
-    res.json({ policy });
+    // disclosure = the single freight-class detention rate + free time + layover
+    // terms the offer summary and acknowledgment modal display.
+    res.json({ policy, disclosure: AccessorialPolicyService.disclosureOf(policy) });
   })
 );
 
@@ -148,6 +150,7 @@ router.post(
     body('signatureType').isString().isIn(['typed', 'drawn', 'click']),
     body('signatureData').isString().isLength({ min: 1, max: 5000 }),
     body('consentGiven').isBoolean(),
+    body('acknowledged').optional().isBoolean(),
   ]),
   asyncHandler(async (req: AuthRequest, res) => {
     const load = await requireLoad(req.params.loadId);
@@ -158,6 +161,7 @@ router.post(
       signatureType: req.body.signatureType,
       signatureData: req.body.signatureData,
       consentGiven: req.body.consentGiven,
+      acknowledged: req.body.acknowledged === true,
       ipAddress: req.ip,
       userAgent: req.get('user-agent') || undefined,
     });

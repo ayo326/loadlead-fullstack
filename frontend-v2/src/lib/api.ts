@@ -595,6 +595,17 @@ export const api = {
   },
 
   accessorials: {
+    /** Load's accessorial policy + the disclosure (single freight-class rate + terms). */
+    getPolicy: (loadId: string) =>
+      request<{ policy: any; disclosure: AccessorialDisclosureDTO }>("GET", `/accessorials/policy/${loadId}`),
+    /** Record the e-sign policy acceptance + the detention/layover acknowledgment. */
+    acceptPolicy: (loadId: string, acknowledged: boolean) =>
+      request<{ acceptance: any }>("POST", `/accessorials/policy/${loadId}/accept`, {
+        signatureType: "click",
+        signatureData: "acknowledged detention and layover terms",
+        consentGiven: true,
+        acknowledged,
+      }),
     listCharges: (loadId: string) =>
       request<{ charges: AccessorialChargeDTO[]; count: number }>("GET", `/accessorials/loads/${loadId}/charges`),
     compute: (loadId: string, stopId: string) =>
@@ -643,6 +654,15 @@ export interface AccessorialChargeDTO {
   chargeId: string; loadId: string; stopId: string; type: "DETENTION" | "LAYOVER"; status: string;
   amountCents: number; billableMinutes: number; layoverDays: number; rateClass: string;
   dwellMinutes: number; provisional: boolean;
+}
+export interface AccessorialDisclosureDTO {
+  version: number;
+  rateClass: "STANDARD" | "SPECIALIZED" | "HAZMAT";
+  freeTimeMinutes: number;
+  billingIncrementMinutes: number;
+  detentionHourlyRateCents: number;
+  layoverThresholdMinutes: number;
+  layoverDailyRateCents: number;
 }
 
 /** Format integer cents as a USD string, e.g. 123456 -> "$1,234.56". */
