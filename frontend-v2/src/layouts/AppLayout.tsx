@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   BarChart3,
+  Banknote,
   ChevronRight,
   History,
   LogOut,
@@ -52,6 +53,7 @@ const allNav: {
   { title: "Dashboard",     url: "/owner-operator",            icon: TruckIcon,   hint: "Live status",              role: "OWNER_OPERATOR", exact: true  },
   { title: "Load History",  url: "/owner-operator/history",    icon: History,     hint: "Completed loads",          role: "OWNER_OPERATOR"               },
   { title: "Analytics",     url: "/owner-operator/analytics",  icon: BarChart3,   hint: "Fleet metrics",            role: "OWNER_OPERATOR"               },
+  { title: "Factoring",     url: "/owner-operator/factoring",  icon: Banknote,    hint: "Assign + export packet",   role: "OWNER_OPERATOR"               },
   { title: "Carrier",       url: "/carrier",                   icon: Truck,       hint: "Verification + roster",    role: "CARRIER_ADMIN",  exact: true  },
   { title: "Members",       url: "/carrier/members",           icon: Users,       hint: "Invite + manage team",     role: "CARRIER_ADMIN"                },
   { title: "Shipper",       url: "/shipper",                   icon: PackagePlus, hint: "Active loads",             role: "SHIPPER"                      },

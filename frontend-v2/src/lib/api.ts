@@ -548,4 +548,96 @@ export const api = {
     request<{ invite: any }>("POST", "/owner-operator/fleet/invite", { email }),
   getFleetInvites: () =>
     request<{ invites: any[] }>("GET", "/owner-operator/fleet/invites"),
+
+  // ─── Carrier payments + financing pipeline (mover-facing) ────────────────
+  factoring: {
+    getContact: () => request<{ contact: FactorContact | null }>("GET", "/factoring/contact"),
+    saveContact: (factorName: string, factorEmail: string) =>
+      request<{ contact: FactorContact }>("PUT", "/factoring/contact", { factorName, factorEmail }),
+    listAssignments: () =>
+      request<{ assignments: FactoringAssignmentDTO[]; count: number }>("GET", "/factoring/assignments"),
+    createAssignment: (params: {
+      invoiceId?: string; factorName: string; factorContact?: string;
+      recourseType: "RECOURSE" | "NON_RECOURSE"; scope?: "FULL_INVOICE" | "LINEHAUL_ONLY";
+      payoutDestination: string; debtorId?: string; debtorName?: string;
+    }) => request<{ assignment: FactoringAssignmentDTO; notice: any }>("POST", "/factoring/assignments", params),
+    releaseAssignment: (assignmentId: string) =>
+      request<{ released: FactoringAssignmentDTO }>("POST", `/factoring/assignments/${assignmentId}/release`),
+    getPackage: (invoiceId: string) =>
+      request<{ package: InvoicePackageDTO }>("GET", `/factoring/invoices/${invoiceId}/package`),
+    getPayee: (invoiceId: string) =>
+      request<{ payee: { type: "CARRIER" | "FACTOR" | "PARTNER"; destination: string; reason: string } }>(
+        "GET", `/factoring/invoices/${invoiceId}/payee`),
+    // Two-step export: without confirmed:true returns { requiresConfirmation, manifest, recipient }.
+    exportReview: (invoiceId: string, recipientEmail?: string) =>
+      request<
+        | { ok: true; requiresConfirmation: true; manifest: PacketManifestDTO; recipient: string }
+        | { ok: false; missing: string[] }
+      >("POST", "/factoring/export", { invoiceId, recipientEmail }),
+    exportSend: (params: {
+      invoiceId: string; recipientEmail?: string; moverReplyTo?: string; moverName?: string;
+      saveContact?: { factorName: string };
+    }) => request<
+      | { ok: true; submission: FactoringSubmissionDTO }
+      | { ok: false; missing: string[] }
+    >("POST", "/factoring/export", { ...params, confirmed: true }),
+    listSubmissions: () =>
+      request<{ submissions: FactoringSubmissionDTO[]; count: number }>("GET", "/factoring/submissions"),
+  },
+
+  accessorials: {
+    listCharges: (loadId: string) =>
+      request<{ charges: AccessorialChargeDTO[]; count: number }>("GET", `/accessorials/loads/${loadId}/charges`),
+    compute: (loadId: string, stopId: string) =>
+      request<{ charge: AccessorialChargeDTO | null }>("POST", `/accessorials/loads/${loadId}/stops/${stopId}/compute`),
+    checkIn: (loadId: string, stopId: string, body?: Record<string, unknown>) =>
+      request<{ event: any }>("POST", `/accessorials/loads/${loadId}/stops/${stopId}/check-in`, body ?? {}),
+    checkOut: (loadId: string, stopId: string, body?: Record<string, unknown>) =>
+      request<{ event: any }>("POST", `/accessorials/loads/${loadId}/stops/${stopId}/check-out`, body ?? {}),
+    approve: (chargeId: string) =>
+      request<{ charge: AccessorialChargeDTO }>("POST", `/accessorials/charges/${chargeId}/approve`),
+    adjust: (chargeId: string, newAmountCents: number, reason?: string) =>
+      request<{ charge: AccessorialChargeDTO }>("POST", `/accessorials/charges/${chargeId}/adjust`, { newAmountCents, reason }),
+    dispute: (chargeId: string, reason?: string) =>
+      request<{ charge: AccessorialChargeDTO }>("POST", `/accessorials/charges/${chargeId}/dispute`, { reason }),
+  },
 };
+
+// ─── Carrier payments + financing DTOs ──────────────────────────────────────
+export interface FactorContact { carrierId: string; factorName: string; factorEmail: string; createdAt: number; updatedAt: number; }
+export interface InvoiceLineDTO {
+  kind: "LINEHAUL" | "ACCESSORIAL"; chargeId?: string; accessorialType?: "DETENTION" | "LAYOVER";
+  amountCents: number; factorable: boolean; reason?: string;
+}
+export interface InvoicePackageDTO {
+  invoiceId: string; loadId: string;
+  debtor: { id: string; name?: string; verified: boolean };
+  mover: { id: string; verified: boolean };
+  lines: InvoiceLineDTO[]; podRef?: string; rateConfRef?: string;
+  activeAssignment?: FactoringAssignmentDTO | null; advanceableTotalCents: number;
+}
+export interface PacketManifestDTO {
+  invoiceId: string; loadId: string; carrierId: string; generatedAt: number;
+  sections: { name: string; kind: string; present: boolean; ref?: string }[];
+  totals: { linehaulCents: number; approvedAccessorialCents: number; advanceableTotalCents: number };
+}
+export interface FactoringSubmissionDTO {
+  submissionId: string; carrierId: string; invoiceIds: string[]; recipientEmail: string;
+  manifest: PacketManifestDTO; actorId: string; status: "SENT" | "FAILED"; error?: string; sentAt: number;
+}
+export interface FactoringAssignmentDTO {
+  assignmentId: string; carrierId: string; invoiceId?: string; accountLevel: boolean; factorName: string;
+  recourseType: "RECOURSE" | "NON_RECOURSE"; scope: "FULL_INVOICE" | "LINEHAUL_ONLY";
+  payoutDestination: string; status: "ACTIVE" | "RELEASED"; createdAt: number;
+}
+export interface AccessorialChargeDTO {
+  chargeId: string; loadId: string; stopId: string; type: "DETENTION" | "LAYOVER"; status: string;
+  amountCents: number; billableMinutes: number; layoverDays: number; rateClass: string;
+  dwellMinutes: number; provisional: boolean;
+}
+
+/** Format integer cents as a USD string, e.g. 123456 -> "$1,234.56". */
+export function formatCents(cents: number): string {
+  const neg = cents < 0; const abs = Math.abs(cents);
+  return `${neg ? "-" : ""}$${(Math.floor(abs / 100)).toLocaleString("en-US")}.${(abs % 100).toString().padStart(2, "0")}`;
+}

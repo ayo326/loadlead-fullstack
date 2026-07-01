@@ -27,6 +27,7 @@ import OwnerOperatorSettings from "./pages/owner-operator/OwnerOperatorSettings.
 import OwnerOperatorHistory from "./pages/owner-operator/OwnerOperatorHistory.tsx";
 import OwnerOperatorLoadDetail from "./pages/owner-operator/OwnerOperatorLoadDetail.tsx";
 import OwnerOperatorAnalytics from "./pages/owner-operator/OwnerOperatorAnalytics.tsx";
+import OwnerOperatorFactoring from "./pages/owner-operator/OwnerOperatorFactoring.tsx";
 import DriverAnalytics from "./pages/driver/DriverAnalytics.tsx";
 import CarrierDashboard from "./pages/carrier/CarrierDashboard.tsx";
 import { CarrierMembers } from "./pages/carrier/CarrierMembers.tsx";
@@ -100,6 +101,7 @@ const App = () => (
               <Route path="/owner-operator/history"  element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorHistory /></RequireRole>} />
               <Route path="/owner-operator/loads/:loadId" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorLoadDetail /></RequireRole>} />
               <Route path="/owner-operator/analytics" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorAnalytics /></RequireRole>} />
+              <Route path="/owner-operator/factoring" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorFactoring /></RequireRole>} />
               <Route path="/driver/analytics" element={<RequireRole role="DRIVER"><DriverAnalytics /></RequireRole>} />
               <Route path="/owner-operator/settings" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorSettings /></RequireRole>} />
               <Route path="/carrier" element={<RequireRole role="CARRIER_ADMIN"><CarrierDashboard /></RequireRole>} />
