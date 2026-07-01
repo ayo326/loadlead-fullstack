@@ -164,6 +164,15 @@ export class LawEnforcementService {
     return (rows.find((r) => r.kind === 'INTAKE') as LERequestIntake) ?? null;
   }
 
+  /** All counsel sign-offs recorded for a request (append-only, newest first). */
+  static async signOffsForRequest(requestId: string): Promise<CounselSignOff[]> {
+    const rows = await this.rowsForRequest(requestId);
+    return rows
+      .filter((r) => r.kind === 'COUNSEL_SIGNOFF')
+      .map((r) => r as CounselSignOff)
+      .sort((a, b) => b.at - a.at);
+  }
+
   /**
    * Disclose exactly the in-scope records for a request. BLOCKED until a counsel
    * sign-off is recorded. Writes an append-only disclosure record and audits it.

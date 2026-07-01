@@ -66,6 +66,66 @@ export interface PendingStaffInvite {
   invitedBy: string; expiresAt: number; createdAt: number;
 }
 
+// ─── Compliance / oversight layer (mirror backend services) ─────────────────
+// Separate axis from PlatformRole: a compliance grant is required in addition to
+// the ADMIN role. The server enforces every surface; these types drive the UI.
+export type ComplianceRole = "DISPUTE_ADMIN" | "LEGAL_ADMIN" | "LAW_ENFORCEMENT_LIAISON";
+export interface ComplianceMe {
+  userId: string; email: string;
+  complianceRoles: ComplianceRole[];
+  platformRole: PlatformRole | null;
+  isStaffAdmin: boolean;
+}
+export type DiscrepancySeverity = "INFO" | "WARN" | "CRITICAL";
+export interface DiscrepancyFinding {
+  code: string; severity: DiscrepancySeverity; message: string; refs: string[];
+}
+export type AdjudicationAction = "UPHOLD" | "REVERSE" | "ADJUST" | "ESCALATE";
+export type AdjudicationTargetType = "CHARGE_DISPUTE" | "RECOURSE_BUYBACK" | "DISCREPANCY";
+export interface Adjudication {
+  adjudicationId: string; targetType: AdjudicationTargetType; targetId: string;
+  invoiceId?: string; carrierId?: string; action: AdjudicationAction; reason: string;
+  actorId: string; compensatingOutcomeId?: string; at: number;
+}
+export interface LegalHoldEvent {
+  holdId: string; entityType: string; entityId: string;
+  eventType: "PLACE" | "RELEASE"; reason: string; authorityRef?: string;
+  actorId: string; at: number; seq?: number;
+}
+export interface CaseFileManifestEntry { kind: string; id: string; contentHash: string; }
+export interface CaseFileItem extends CaseFileManifestEntry { content: unknown; }
+export interface CaseFile {
+  subjectType: string; subjectId: string; assembledAt: number;
+  manifest: CaseFileManifestEntry[]; items: CaseFileItem[];
+}
+export interface CaseFileIntegrity { ok: boolean; gaps: string[]; }
+export type LERequestType = "SUBPOENA" | "COURT_ORDER" | "WARRANT" | "GARNISHMENT" | "LEVY" | "LIEN" | "OTHER";
+export interface LEScopeEntity { entityType: string; entityId: string; }
+export interface LERequestIntake {
+  recordId: string; requestId: string; kind: "INTAKE"; type: LERequestType;
+  issuingAuthority: string; receivedDate: string; describedScope: string;
+  scopeEntities: LEScopeEntity[]; validityReviewStatus: "PENDING_REVIEW";
+  nonDisclosure: boolean; nonDisclosureBasis?: string; actorId: string; at: number;
+}
+export interface CounselSignOff {
+  recordId: string; requestId: string; kind: "COUNSEL_SIGNOFF"; counselId: string;
+  validityDetermination: "VALID" | "INVALID" | "VALID_IN_PART"; note?: string; actorId: string; at: number;
+}
+export interface DisclosureRecord {
+  disclosureId: string; requestId: string; recipient: string;
+  recordRefs: string[]; actorId: string; at: number;
+}
+export interface PayoutIntercept {
+  interceptId: string; requestId: string; targetType: "CARRIER" | "INVOICE"; targetId: string;
+  carrierId: string; instrumentRef: string; amountCents?: number; percentageBps?: number;
+  priority: number; instruction: "HOLD" | "REDIRECT"; redirectTo?: string;
+  status: string; supersedesInterceptId?: string; actorId: string; at: number;
+}
+export interface AdminAuditEntry {
+  auditId: string; actorId: string; actorRole: string; action: string;
+  targetRefs?: string[]; reason?: string; authorityRef?: string; at: number;
+}
+
 // Auth uses httpOnly cookies — the browser sends ll_token automatically.
 // `credentials: 'include'` is required for cross-origin cookie delivery.
 // We no longer read from / write to localStorage for auth tokens.
@@ -185,6 +245,80 @@ export const api = {
       request<{ ok: boolean; userId: string; platformRole: PlatformRole }>(
         "POST", "/admin/staff/accept-invite", params),
   },
+
+  // Compliance / oversight console — all under /api/admin/compliance.
+  // Each call is gated server-side by the specific compliance role (grants are
+  // STAFF_ADMIN). `me` grants nothing; it only tells the UI which tabs to show.
+  adminCompliance: {
+    me: () => request<ComplianceMe>("GET", "/admin/compliance/me"),
+
+    // Grants (STAFF_ADMIN)
+    getGrants: (userId: string) =>
+      request<{ userId: string; roles: ComplianceRole[] }>("GET", `/admin/compliance/grants/${encodeURIComponent(userId)}`),
+    grant: (userId: string, role: ComplianceRole) =>
+      request<{ grant: any }>("POST", "/admin/compliance/grants", { userId, role }),
+    revoke: (userId: string, role: ComplianceRole) =>
+      request<{ grant: any }>("DELETE", `/admin/compliance/grants/${encodeURIComponent(userId)}/${role}`),
+
+    // Disputes (DISPUTE_ADMIN)
+    discrepancies: (loadId: string) =>
+      request<{ loadId: string; findings: DiscrepancyFinding[]; count: number }>(
+        "GET", `/admin/compliance/discrepancies/${encodeURIComponent(loadId)}`),
+    adjudicate: (params: {
+      targetType: AdjudicationTargetType; targetId: string;
+      action: AdjudicationAction; reason: string;
+      invoiceId?: string; carrierId?: string;
+      compensation?: { amountCents: number; note?: string };
+    }) => request<{ adjudication: Adjudication }>("POST", "/admin/compliance/adjudicate", params),
+
+    // Legal holds + case file + audit (LEGAL_ADMIN)
+    listHolds: (filter?: { entityType?: string; entityId?: string }) => {
+      const qs = new URLSearchParams(
+        Object.entries(filter ?? {}).filter(([, v]) => v) as [string, string][]
+      ).toString();
+      return request<{ holds: LegalHoldEvent[] }>("GET", `/admin/compliance/holds${qs ? `?${qs}` : ""}`);
+    },
+    placeHold: (params: { entityType: string; entityId: string; reason: string; authorityRef?: string }) =>
+      request<{ hold: LegalHoldEvent }>("POST", "/admin/compliance/holds", params),
+    releaseHold: (params: { entityType: string; entityId: string; reason: string; authorityRef?: string }) =>
+      request<{ hold: LegalHoldEvent }>("POST", "/admin/compliance/holds/release", params),
+    caseFile: (loadId: string) =>
+      request<{ caseFile: CaseFile; integrity: CaseFileIntegrity }>(
+        "GET", `/admin/compliance/case-file/${encodeURIComponent(loadId)}`),
+    audit: (filter?: { targetRef?: string; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (filter?.targetRef) q.set("targetRef", filter.targetRef);
+      if (filter?.limit) q.set("limit", String(filter.limit));
+      const qs = q.toString();
+      return request<{ entries: AdminAuditEntry[]; count: number }>("GET", `/admin/compliance/audit${qs ? `?${qs}` : ""}`);
+    },
+
+    // Law enforcement + intercepts (LAW_ENFORCEMENT_LIAISON, counsel-gated)
+    intake: (params: {
+      type: LERequestType; issuingAuthority: string; receivedDate: string;
+      describedScope: string; scopeEntities: LEScopeEntity[];
+      nonDisclosure?: boolean; nonDisclosureBasis?: string;
+    }) => request<{ intake: LERequestIntake }>("POST", "/admin/compliance/le/requests", params),
+    getRequest: (requestId: string) =>
+      request<{ intake: LERequestIntake; signOffs: CounselSignOff[]; counselSignedOff: boolean; disclosures: DisclosureRecord[] }>(
+        "GET", `/admin/compliance/le/requests/${encodeURIComponent(requestId)}`),
+    counselSignOff: (requestId: string, params: {
+      counselId: string; validityDetermination: "VALID" | "INVALID" | "VALID_IN_PART"; note?: string;
+    }) => request<{ signOff: CounselSignOff }>(
+      "POST", `/admin/compliance/le/requests/${encodeURIComponent(requestId)}/counsel-signoff`, params),
+    disclose: (requestId: string, params: { recipient: string; recordRefs: string[] }) =>
+      request<{ disclosure: DisclosureRecord }>(
+        "POST", `/admin/compliance/le/requests/${encodeURIComponent(requestId)}/disclose`, params),
+    createIntercept: (params: {
+      requestId: string; targetType: "CARRIER" | "INVOICE"; targetId: string; carrierId: string;
+      instrumentRef: string; amountCents?: number; percentageBps?: number; priority?: number;
+      instruction: "HOLD" | "REDIRECT"; redirectTo?: string;
+    }) => request<{ intercept: PayoutIntercept }>("POST", "/admin/compliance/intercepts", params),
+    listIntercepts: (invoiceId: string, carrierId: string) =>
+      request<{ intercepts: PayoutIntercept[] }>(
+        "GET", `/admin/compliance/intercepts?invoiceId=${encodeURIComponent(invoiceId)}&carrierId=${encodeURIComponent(carrierId)}`),
+  },
+
   logout: () => request<{ message: string }>("POST", "/auth/logout"),
 
   // Driver

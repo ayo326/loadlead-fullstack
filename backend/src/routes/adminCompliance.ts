@@ -13,9 +13,12 @@ import { body, param, query } from 'express-validator';
 import { authenticate, requireStaffTier, requireComplianceRole, AuthRequest } from '../middleware/auth';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { validate } from '../middleware/validation';
-import { PlatformRole } from '../types/platformRole';
+import { PlatformRole, resolvePlatformRole } from '../types/platformRole';
 import { ComplianceRole, ALL_COMPLIANCE_ROLES } from '../types/complianceRole';
 import { ComplianceRoleService } from '../services/complianceRoleService';
+import { UserRole } from '../types';
+import { Database } from '../config/database';
+import config from '../config/environment';
 import { AdminAuditService } from '../services/adminAuditService';
 import { detectDiscrepancies } from '../services/discrepancyDetector';
 import { AdjudicationService } from '../services/adjudicationService';
@@ -27,6 +30,30 @@ import { gatherForLoad, gatherCaseFileRecords } from '../services/complianceGath
 
 const router = express.Router();
 router.use(authenticate);
+
+// ── Caller self-context (any ADMIN) ─────────────────────────────────────────
+// The admin UI reads this to decide which compliance surfaces to show. It grants
+// no access on its own: every surface below is still gated by its own role, and
+// the server remains the real enforcement point. Reads the compliance grants and
+// the platform tier from fresh stores (never the JWT).
+router.get(
+  '/me',
+  asyncHandler(async (req: AuthRequest, res) => {
+    if (req.user!.role !== UserRole.ADMIN) throw new AppError('Forbidden', 403);
+    const [complianceRoles, user] = await Promise.all([
+      ComplianceRoleService.getRoles(req.user!.userId),
+      Database.getItem<any>(config.dynamodb.usersTable, { userId: req.user!.userId }),
+    ]);
+    const platformRole = resolvePlatformRole(user?.platformRole);
+    res.json({
+      userId: req.user!.userId,
+      email: req.user!.email,
+      complianceRoles,
+      platformRole,
+      isStaffAdmin: platformRole === PlatformRole.STAFF_ADMIN,
+    });
+  })
+);
 
 // ── Grant management (STAFF_ADMIN) ──────────────────────────────────────────
 router.post(
@@ -183,7 +210,12 @@ router.get(
   asyncHandler(async (req: AuthRequest, res) => {
     const intake = await LawEnforcementService.getIntake(req.params.requestId);
     if (!intake) throw new AppError('Request not found', 404);
-    res.json({ intake, disclosures: await LawEnforcementService.disclosuresForRequest(req.params.requestId) });
+    const [signOffs, disclosures, counselSignedOff] = await Promise.all([
+      LawEnforcementService.signOffsForRequest(req.params.requestId),
+      LawEnforcementService.disclosuresForRequest(req.params.requestId),
+      LawEnforcementService.hasCounselSignOff(req.params.requestId),
+    ]);
+    res.json({ intake, signOffs, counselSignedOff, disclosures });
   })
 );
 router.post(
