@@ -4,6 +4,7 @@ import { docClient } from '../config/aws';
 // — every public method below is unchanged.
 import { sendPush } from './integrations/push';
 import { NotificationService, NotificationKind } from './notificationService';
+import Logger from '../utils/logger';
 
 // Best-effort mapping from a push title to an inbox kind. Falls back to SYSTEM.
 function kindFromTitle(title: string): NotificationKind {
@@ -14,6 +15,30 @@ function kindFromTitle(title: string): NotificationKind {
   if (t.includes('invite')) return 'INVITE_RECEIVED';
   if (t.includes('verifi')) return 'VERIFICATION_UPDATE';
   return 'SYSTEM';
+}
+
+// Best-effort subject from a notification url (e.g. /driver/loads/<id> -> LOAD:<id>).
+function subjectFromUrl(url?: string): { entityType: string; entityId: string } | null {
+  if (!url) return null;
+  const m = url.match(/\/loads\/([^/?#]+)/);
+  return m ? { entityType: 'LOAD', entityId: m[1] } : null;
+}
+
+/**
+ * Suppress a routine user-facing notification when its subject entity is under a
+ * lawful non-disclosure order (law-enforcement layer). Fail open on any error so a
+ * transient check failure never blocks all notifications; suppress only on a
+ * confirmed restriction. A dynamic import avoids any static import cycle.
+ */
+async function isNotificationSuppressed(subject: { entityType: string; entityId: string } | null): Promise<boolean> {
+  if (!subject) return false;
+  try {
+    const { LawEnforcementService } = await import('./lawEnforcementService');
+    return await LawEnforcementService.isEntityRestricted(subject.entityType, subject.entityId);
+  } catch (err) {
+    Logger.error(`[push] restriction check failed (fail open): ${err}`);
+    return false;
+  }
 }
 
 const TABLE = process.env.DYNAMODB_PUSH_TABLE || 'LoadLead_PushSubscriptions';
@@ -33,6 +58,13 @@ export const PushService = {
   },
 
   async send(userId: string, title: string, body: string, url?: string) {
+    // Suppress routine notifications about a record under a lawful non-disclosure
+    // order, pending counsel guidance (law-enforcement layer). Neither the inbox
+    // record nor the push is sent when suppressed.
+    if (await isNotificationSuppressed(subjectFromUrl(url))) {
+      Logger.warn(`[push] suppressed notification for a restricted entity (url ${url})`);
+      return;
+    }
     // Inbox first (independent of push delivery): user sees it on next login
     // even if their push subscription is missing or expired.
     await NotificationService.record({ userId, kind: kindFromTitle(title), title, body, url });

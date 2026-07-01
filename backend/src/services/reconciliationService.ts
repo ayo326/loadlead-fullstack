@@ -148,6 +148,7 @@ export class ReconciliationService {
     collectedCents: number;
     feeCents?: number;
     reserveCents?: number;
+    actorId?: string;
   }): Promise<ReconciliationOutcome[]> {
     assertIntegerCents(args.collectedCents, 'collectedCents');
     const feeCents = args.feeCents ?? 0;
@@ -156,13 +157,30 @@ export class ReconciliationService {
     assertIntegerCents(reserveCents, 'reserveCents');
 
     const outcomes: ReconciliationOutcome[] = [];
+    let payeeAmount = args.collectedCents - feeCents;
+
+    // Payout intercepts (garnishment, levy, lien) apply only when the mover is
+    // the payee (money owed to the carrier). A dynamic import avoids a static
+    // import cycle. The intercepted portion is reduced/redirected here and
+    // recorded append-only by the intercept service; the remainder routes below.
+    if (args.payee.type === 'CARRIER' && payeeAmount > 0) {
+      const { PayoutInterceptService } = await import('./payoutInterceptService');
+      const applied = await PayoutInterceptService.applyAtSettlement({
+        invoiceId: args.invoiceId,
+        carrierId: args.carrierId,
+        grossCarrierCents: payeeAmount,
+        actorId: args.actorId ?? 'system',
+      });
+      payeeAmount = applied.carrierNetCents;
+    }
+
     outcomes.push(
       await this.recordOutcome({
         invoiceId: args.invoiceId,
         carrierId: args.carrierId,
         type: 'PAYMENT_ROUTED',
         payeeType: args.payee.type,
-        amountCents: args.collectedCents - feeCents,
+        amountCents: payeeAmount,
         feeCents,
         ...(args.payee.assignmentId ? { assignmentId: args.payee.assignmentId } : {}),
         note: `routed to ${args.payee.type}`,

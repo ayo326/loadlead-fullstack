@@ -19,6 +19,12 @@ import { ComplianceRole } from '../types/complianceRole';
 
 export type HoldEventType = 'PLACE' | 'RELEASE';
 
+// Process-monotonic sequence. Breaks ties when a place and a release land in the
+// same millisecond (same-process only). Across processes `at` dominates, and a
+// human place-then-release is always many seconds apart, so this only disambiguates
+// the same-instant case deterministically.
+let holdSeq = 0;
+
 export interface LegalHoldEvent {
   holdId: string; // 'hold_...'
   entityType: string; // LOAD | INVOICE | CARRIER | SHIPPER | RECORD
@@ -28,6 +34,7 @@ export interface LegalHoldEvent {
   authorityRef?: string;
   actorId: string;
   at: number;
+  seq: number; // monotonic tiebreaker for same-millisecond events
 }
 
 export class LegalHoldError extends Error {
@@ -58,7 +65,7 @@ export class LegalHoldService {
   static async isOnHold(entityType: string, entityId: string): Promise<boolean> {
     const events = (await this.scanAll())
       .filter((e) => e.entityType === entityType && e.entityId === entityId)
-      .sort((a, b) => b.at - a.at);
+      .sort((a, b) => b.at - a.at || (b.seq ?? 0) - (a.seq ?? 0));
     return events.length > 0 && events[0].eventType === 'PLACE';
   }
 
@@ -73,7 +80,7 @@ export class LegalHoldService {
     let rows = await this.scanAll();
     if (filter?.entityType) rows = rows.filter((e) => e.entityType === filter.entityType);
     if (filter?.entityId) rows = rows.filter((e) => e.entityId === filter.entityId);
-    return rows.sort((a, b) => b.at - a.at);
+    return rows.sort((a, b) => b.at - a.at || (b.seq ?? 0) - (a.seq ?? 0));
   }
 
   private static async recordEvent(eventType: HoldEventType, input: PlaceHoldInput): Promise<LegalHoldEvent> {
@@ -100,6 +107,7 @@ export class LegalHoldService {
       ...(input.authorityRef ? { authorityRef: input.authorityRef } : {}),
       actorId: input.actorId,
       at: Helpers.getCurrentTimestamp(),
+      seq: ++holdSeq,
     };
     await Database.putItem(config.dynamodb.legalHoldsTable, event);
     return event;
