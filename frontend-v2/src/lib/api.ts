@@ -335,6 +335,15 @@ export const api = {
   geocodeAddress: (address: string) =>
     request<{ lat: number; lng: number }>("GET", `/maps/geocode?address=${encodeURIComponent(address)}`),
 
+  /** Address suggestions as the user types. Empty list when Places is unavailable. */
+  addressAutocomplete: (q: string) =>
+    request<{ suggestions: { description: string; placeId: string }[] }>(
+      "GET", `/maps/autocomplete?q=${encodeURIComponent(q)}`),
+  /** Resolve a selected suggestion → structured address parts. */
+  addressPlace: (placeId: string) =>
+    request<{ street: string; city: string; state: string; zip: string; formatted: string }>(
+      "GET", `/maps/place?placeId=${encodeURIComponent(placeId)}`),
+
   // Capacity
   checkDriverCapacity: (payload: { totalWeightLbs: number; dimLengthIn?: number; dimWidthIn?: number; dimHeightIn?: number }) =>
     request<{ zone: string; remainingWeightLbs: number; remainingVolumeCuIn: number; blockMessage?: string; warningMessage?: string }>(

@@ -114,6 +114,91 @@ router.get(
 );
 
 /**
+ * GET /api/maps/autocomplete?q=...
+ * Address suggestions as the user types (US addresses). Proxies Google Places
+ * Autocomplete with the server-side key. Degrades to an empty list on any
+ * non-OK status (for example REQUEST_DENIED when the Places API is not enabled
+ * on the key), so the form still works with manual entry.
+ */
+router.get(
+  '/autocomplete',
+  asyncHandler(async (req, res) => {
+    const q = String((req.query.q ?? '')).trim();
+    if (q.length < 3) return res.json({ suggestions: [] });
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+    if (!apiKey) return res.json({ suggestions: [] });
+
+    const url =
+      'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=' +
+      encodeURIComponent(q) +
+      '&types=address&components=country:us&key=' +
+      encodeURIComponent(apiKey);
+
+    try {
+      const r = await fetch(url);
+      const data: any = await r.json();
+      if (data?.status !== 'OK') {
+        if (data?.status && data.status !== 'ZERO_RESULTS') {
+          console.warn(`[maps] autocomplete status=${data.status} ${data?.error_message ?? ''}`);
+        }
+        return res.json({ suggestions: [] });
+      }
+      const suggestions = (data.predictions ?? []).map((p: any) => ({
+        description: p.description,
+        placeId: p.place_id,
+      }));
+      res.json({ suggestions });
+    } catch (err: any) {
+      console.warn(`[maps] autocomplete failed: ${err?.message ?? err}`);
+      res.json({ suggestions: [] });
+    }
+  })
+);
+
+/**
+ * GET /api/maps/place?placeId=...
+ * Resolve a selected suggestion to structured address parts to fill the form.
+ */
+router.get(
+  '/place',
+  asyncHandler(async (req, res) => {
+    const placeId = String((req.query.placeId ?? '')).trim();
+    if (!placeId) return res.status(400).json({ error: 'placeId is required' });
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+    if (!apiKey) return res.status(503).json({ error: 'maps unavailable' });
+
+    const url =
+      'https://maps.googleapis.com/maps/api/place/details/json?place_id=' +
+      encodeURIComponent(placeId) +
+      '&fields=address_component,formatted_address&key=' +
+      encodeURIComponent(apiKey);
+
+    const r = await fetch(url);
+    const data: any = await r.json();
+    if (data?.status !== 'OK' || !data?.result) {
+      return res.status(422).json({ error: `Unable to resolve place (${data?.status ?? 'unknown'})` });
+    }
+
+    const comps: any[] = data.result.address_components ?? [];
+    const get = (type: string, short = false) => {
+      const c = comps.find((x) => (x.types ?? []).includes(type));
+      return c ? (short ? c.short_name : c.long_name) : '';
+    };
+    const streetNumber = get('street_number');
+    const route = get('route');
+    res.json({
+      street: [streetNumber, route].filter(Boolean).join(' '),
+      city: get('locality') || get('sublocality') || get('postal_town'),
+      state: get('administrative_area_level_1', true),
+      zip: get('postal_code'),
+      formatted: data.result.formatted_address ?? '',
+    });
+  })
+);
+
+/**
  * GET /api/maps/reverse-geocode?lat=...&lng=...
  * Returns { city, state } for GPS coordinates.
  * Called by the driver app to get a readable location name from browser GPS.

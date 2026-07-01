@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { api } from "@/lib/api";
 import { RouteMapCard } from "@/components/RouteMapCard";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
 import { toast } from "sonner";
 import { Combobox, MultiCombobox, AsyncCombobox } from "@/components/ui/combobox";
@@ -708,11 +709,17 @@ function AddressBlock({
     <div className="space-y-3">
       <div className="grid md:grid-cols-1 gap-3">
         <Field label="Street address *">
-          <Input
+          <AddressAutocomplete
             placeholder="e.g. 100 W Randolph St"
             value={values.street}
-            onChange={(e) => setField("street", e.target.value)}
             required
+            onChange={(v) => setField("street", v)}
+            onSelect={(p) => {
+              setField("street", p.street);
+              if (p.city) setField("city", p.city);
+              if (p.state) setField("state", p.state);
+              if (p.zip) setField("zip", p.zip);
+            }}
           />
         </Field>
       </div>
