@@ -128,6 +128,93 @@ const TABLES = [
     KeySchema: [{ AttributeName: "eventId", KeyType: "HASH" }],
     BillingMode: "PAY_PER_REQUEST",
   },
+  {
+    // Append-only platform fee policy changes (linehaul take rate + beta waiver).
+    // Current policy = newest row; rows are never updated or deleted.
+    TableName: process.env.DYNAMODB_PLATFORM_FEE_POLICY_TABLE || "LoadLead_PlatformFeePolicy",
+    AttributeDefinitions: [{ AttributeName: "changeId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "changeId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Per-load accessorial policy (detention/layover terms), keyed by loadId.
+    TableName: process.env.DYNAMODB_ACCESSORIAL_POLICIES_TABLE || "LoadLead_AccessorialPolicies",
+    AttributeDefinitions: [{ AttributeName: "loadId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "loadId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Append-only ESIGN/UETA acceptances of a load's accessorial policy.
+    TableName:
+      process.env.DYNAMODB_ACCESSORIAL_POLICY_ACCEPTANCES_TABLE || "LoadLead_AccessorialPolicyAcceptances",
+    AttributeDefinitions: [{ AttributeName: "acceptanceId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "acceptanceId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Append-only stop-events log (check-in/check-out evidence).
+    TableName: process.env.DYNAMODB_STOP_EVENTS_TABLE || "LoadLead_StopEvents",
+    AttributeDefinitions: [{ AttributeName: "eventId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "eventId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Accessorial charge ledger (DETENTION/LAYOVER), deterministic chargeId.
+    TableName: process.env.DYNAMODB_ACCESSORIAL_CHARGES_TABLE || "LoadLead_AccessorialCharges",
+    AttributeDefinitions: [{ AttributeName: "chargeId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "chargeId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Append-only charge status transitions.
+    TableName:
+      process.env.DYNAMODB_CHARGE_STATUS_HISTORY_TABLE || "LoadLead_AccessorialChargeStatusHistory",
+    AttributeDefinitions: [{ AttributeName: "historyId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "historyId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Append-only factoring assignment log (release/change = new row).
+    TableName: process.env.DYNAMODB_FACTORING_ASSIGNMENTS_TABLE || "LoadLead_FactoringAssignments",
+    AttributeDefinitions: [{ AttributeName: "assignmentId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "assignmentId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Append-only Notices of Assignment (legal redirection snapshots).
+    TableName: process.env.DYNAMODB_NOTICES_OF_ASSIGNMENT_TABLE || "LoadLead_NoticesOfAssignment",
+    AttributeDefinitions: [{ AttributeName: "noaId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "noaId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Append-only funding advances (no advance vs non-APPROVED accessorial).
+    TableName: process.env.DYNAMODB_FUNDING_ADVANCES_TABLE || "LoadLead_FundingAdvances",
+    AttributeDefinitions: [{ AttributeName: "advanceId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "advanceId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Append-only reconciliation + recourse outcomes.
+    TableName: process.env.DYNAMODB_RECONCILIATION_OUTCOMES_TABLE || "LoadLead_ReconciliationOutcomes",
+    AttributeDefinitions: [{ AttributeName: "outcomeId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "outcomeId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Saved factor contact per carrier/owner-operator (pre-fills the recipient).
+    TableName: process.env.DYNAMODB_FACTOR_CONTACTS_TABLE || "LoadLead_FactorContacts",
+    AttributeDefinitions: [{ AttributeName: "carrierId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "carrierId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Append-only factoring submission records (export-and-send disclosure trail).
+    TableName: process.env.DYNAMODB_FACTORING_SUBMISSIONS_TABLE || "LoadLead_FactoringSubmissions",
+    AttributeDefinitions: [{ AttributeName: "submissionId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "submissionId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
 ];
 
 async function tableExists(TableName) {

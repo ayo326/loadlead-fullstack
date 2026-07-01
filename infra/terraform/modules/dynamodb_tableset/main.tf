@@ -213,6 +213,105 @@ locals {
       attributes = [{ name = "eventId", type = "S" }]
       gsis       = []
     }
+
+    # ── Carrier payments + financing ─────────────────────────────────────
+    # Append-only platform fee policy changes (linehaul take rate + beta
+    # waiver). The current policy is the newest row; rows are never updated
+    # or deleted. Each change carries an actor and a timestamp. PITR comes
+    # from the module default.
+    PlatformFeePolicy = {
+      hash_key   = "changeId"
+      attributes = [{ name = "changeId", type = "S" }]
+      gsis       = []
+    }
+
+    # Per-load accessorial policy (detention/layover terms), keyed by loadId.
+    # Editable until a charge freezes a snapshot of it; references the load by
+    # id only and never lives on the Load model.
+    AccessorialPolicies = {
+      hash_key   = "loadId"
+      attributes = [{ name = "loadId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only ESIGN/UETA acceptances of a load's accessorial policy. Pins the
+    # accepted version + policy hash; rows are never updated or deleted.
+    AccessorialPolicyAcceptances = {
+      hash_key   = "acceptanceId"
+      attributes = [{ name = "acceptanceId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only stop-events log (check-in/check-out). Detention/layover compute
+    # from these immutable events; references load + stop by id only. A loadId GSI
+    # can be added before scale; reads scan + filter at beta volume.
+    StopEvents = {
+      hash_key   = "eventId"
+      attributes = [{ name = "eventId", type = "S" }]
+      gsis       = []
+    }
+
+    # Accessorial charge ledger (DETENTION/LAYOVER). Deterministic chargeId so a
+    # recompute updates in place; the live row carries status + amount and the
+    # immutable trail lives in AccessorialChargeStatusHistory.
+    AccessorialCharges = {
+      hash_key   = "chargeId"
+      attributes = [{ name = "chargeId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only charge status transitions (original/new amounts on adjust).
+    AccessorialChargeStatusHistory = {
+      hash_key   = "historyId"
+      attributes = [{ name = "historyId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only factoring assignment log. A release/change is a new row; the
+    # active assignment resolves with invoice-level precedence over account-level.
+    FactoringAssignments = {
+      hash_key   = "assignmentId"
+      attributes = [{ name = "assignmentId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only Notices of Assignment (legal redirection snapshots).
+    NoticesOfAssignment = {
+      hash_key   = "noaId"
+      attributes = [{ name = "noaId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only funding advances (no advance vs non-APPROVED accessorial;
+    # idempotent per invoice line).
+    FundingAdvances = {
+      hash_key   = "advanceId"
+      attributes = [{ name = "advanceId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only reconciliation + recourse outcomes (payment routing, reserve
+    # release, supplemental advance, recourse buyback, non-recourse loss).
+    ReconciliationOutcomes = {
+      hash_key   = "outcomeId"
+      attributes = [{ name = "outcomeId", type = "S" }]
+      gsis       = []
+    }
+
+    # Saved factor contact per carrier/owner-operator (pre-fills the recipient).
+    FactorContacts = {
+      hash_key   = "carrierId"
+      attributes = [{ name = "carrierId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only factoring submission records (export-and-send disclosure trail:
+    # what financial documents left the platform, to whom, and when).
+    FactoringSubmissions = {
+      hash_key   = "submissionId"
+      attributes = [{ name = "submissionId", type = "S" }]
+      gsis       = []
+    }
   }
 }
 

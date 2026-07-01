@@ -21,12 +21,25 @@ const sesClient = new SESv2Client({ region: process.env.AWS_REGION || 'us-east-1
 // SES raw email send. Builds a complete RFC-822 message with the
 // threading headers in the right places so customer email clients
 // stitch the reply into the original conversation.
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
+/** Wrap base64 at 76 columns per RFC 2045 so MIME parsers accept the attachment. */
+function base64Lines(buf: Buffer): string {
+  return (buf.toString('base64').match(/.{1,76}/g) ?? []).join('\r\n');
+}
+
 async function sendRawViaSes(params: {
   to: string;
   from?: string;
+  replyTo?: string;
   subject: string;
   bodyHtml: string;
   headers?: Record<string, string>;
+  attachments?: EmailAttachment[];
 }): Promise<void> {
   const from    = params.from ?? process.env.SUPPORT_FROM_ADDRESS ?? FROM;
   const boundary = `bnd_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -34,24 +47,40 @@ async function sendRawViaSes(params: {
   const extra: Record<string, string> = {};
   for (const [k, v] of Object.entries(params.headers ?? {})) if (v) extra[k] = v;
 
+  const hasAttachments = (params.attachments?.length ?? 0) > 0;
+  const topContentType = hasAttachments
+    ? `multipart/mixed; boundary="${boundary}"`
+    : `multipart/alternative; boundary="${boundary}"`;
+
   const headerLines = [
     `From: ${from}`,
     `To: ${params.to}`,
+    ...(params.replyTo ? [`Reply-To: ${params.replyTo}`] : []),
     `Subject: ${params.subject}`,
     'MIME-Version: 1.0',
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    `Content-Type: ${topContentType}`,
     ...Object.entries(extra).map(([k, v]) => `${k}: ${v}`),
   ];
-  const body = [
+
+  const parts: string[] = [
     `--${boundary}`,
     'Content-Type: text/html; charset=UTF-8',
     'Content-Transfer-Encoding: 7bit',
     '',
     params.bodyHtml,
-    `--${boundary}--`,
-    '',
-  ].join('\r\n');
-  const raw = headerLines.join('\r\n') + '\r\n\r\n' + body;
+  ];
+  for (const att of params.attachments ?? []) {
+    parts.push(
+      `--${boundary}`,
+      `Content-Type: ${att.contentType ?? 'application/octet-stream'}; name="${att.filename}"`,
+      'Content-Transfer-Encoding: base64',
+      `Content-Disposition: attachment; filename="${att.filename}"`,
+      '',
+      base64Lines(att.content)
+    );
+  }
+  parts.push(`--${boundary}--`, '');
+  const raw = headerLines.join('\r\n') + '\r\n\r\n' + parts.join('\r\n');
 
   await sesClient.send(new SendEmailCommand({
     Content: { Raw: { Data: Buffer.from(raw, 'utf8') } },
@@ -127,9 +156,11 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
 export async function sendRawEmail(params: {
   to: string;
   from?: string;
+  replyTo?: string;
   subject: string;
   bodyHtml: string;
   headers?: Record<string, string>;
+  attachments?: EmailAttachment[];
 }): Promise<void> {
   const mode     = resolveMode('email');
   const actualTo = mode === 'live' ? params.to : buildTestRecipient(params.to);
@@ -143,9 +174,13 @@ export async function sendRawEmail(params: {
       await resend.emails.send({
         from:    params.from ?? FROM,
         to:      actualTo,
+        ...(params.replyTo ? { replyTo: params.replyTo } : {}),
         subject: params.subject,
         html:    params.bodyHtml,
         headers: params.headers ?? {},
+        ...(params.attachments?.length
+          ? { attachments: params.attachments.map((a) => ({ filename: a.filename, content: a.content })) }
+          : {}),
       });
     }
   } catch (err: any) {
