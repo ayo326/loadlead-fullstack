@@ -50,6 +50,10 @@ export const config = {
     // the load by id; pins the accepted version + policy hash. Never updated/deleted.
     accessorialPolicyAcceptancesTable:
       process.env.DYNAMODB_ACCESSORIAL_POLICY_ACCEPTANCES_TABLE || 'LoadLead_AccessorialPolicyAcceptances',
+    // Append-only shipper agreements to a load's accessorial terms at posting.
+    // Pins the agreed policy version + exact values; never updated or deleted.
+    shipperAgreementsTable:
+      process.env.DYNAMODB_SHIPPER_AGREEMENTS_TABLE || 'LoadLead_ShipperAgreements',
     // Append-only stop-events log (check-in/check-out). Detention/layover are
     // computed from these immutable events. References load + stop by id only.
     stopEventsTable: process.env.DYNAMODB_STOP_EVENTS_TABLE || 'LoadLead_StopEvents',

@@ -242,6 +242,14 @@ locals {
       gsis       = []
     }
 
+    # Append-only shipper agreements to a load's accessorial terms at posting.
+    # Pins the agreed policy version + exact values; never updated or deleted.
+    ShipperAgreements = {
+      hash_key   = "agreementId"
+      attributes = [{ name = "agreementId", type = "S" }]
+      gsis       = []
+    }
+
     # Append-only stop-events log (check-in/check-out). Detention/layover compute
     # from these immutable events; references load + stop by id only. A loadId GSI
     # can be added before scale; reads scan + filter at beta volume.

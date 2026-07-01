@@ -57,6 +57,35 @@ export interface AccessorialCaps {
 }
 
 /**
+ * Allowed bounds for a shipper's per-load override. Detention bands mirror the
+ * rate-card comments (standard $25 to $100, specialized and hazmat $125 to $250);
+ * layover is $50 to $200 per day. Enforced server-side at posting so an override
+ * can never be set outside the rate card. All money is integer cents.
+ */
+export interface Bound {
+  min: number;
+  max: number;
+}
+export interface AccessorialBounds {
+  freeTimeMinutes: Bound;
+  billingIncrementMinutes: Bound;
+  detentionHourlyRateCents: Record<AccessorialRateClass, Bound>;
+  layoverThresholdMinutes: Bound;
+  layoverDailyRateCents: Bound;
+}
+export const ACCESSORIAL_BOUNDS: AccessorialBounds = {
+  freeTimeMinutes: { min: 0, max: 480 }, // up to 8 hours
+  billingIncrementMinutes: { min: 1, max: 60 },
+  detentionHourlyRateCents: {
+    STANDARD: { min: 2500, max: 10000 }, // $25 to $100
+    SPECIALIZED: { min: 12500, max: 25000 }, // $125 to $250
+    HAZMAT: { min: 12500, max: 25000 }, // $125 to $250
+  },
+  layoverThresholdMinutes: { min: 720, max: 2880 }, // 12 to 48 hours
+  layoverDailyRateCents: { min: 5000, max: 20000 }, // $50 to $200
+};
+
+/**
  * The disclosure view of a load's policy: the single detention rate that applies
  * to this load's freight class (resolved from the map), plus the free time,
  * billing increment, and layover terms. This is exactly what the offer summary

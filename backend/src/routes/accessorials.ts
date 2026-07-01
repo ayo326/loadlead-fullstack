@@ -10,7 +10,8 @@
  */
 
 import express from 'express';
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
+import { ACCESSORIAL_BOUNDS } from '../config/accessorialPolicy';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { validate } from '../middleware/validation';
@@ -119,6 +120,25 @@ router.post(
       req.user!.userId
     );
     res.json({ charge });
+  })
+);
+
+/**
+ * GET /api/accessorials/rate-card?equipmentType=&hazmat=
+ * The prefilled disclosure for a freight class + the allowed override bounds.
+ * Used by the shipper's Post Load confirmation before the load exists.
+ */
+router.get(
+  '/rate-card',
+  validate([
+    query('equipmentType').optional().isString().isLength({ max: 40 }),
+    query('hazmat').optional().isString(),
+  ]),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const equipmentType = String(req.query.equipmentType || 'DRY_VAN');
+    const hazmat = req.query.hazmat === 'true' || req.query.hazmat === '1';
+    const disclosure = AccessorialPolicyService.rateCardDisclosure({ equipmentType, hazmat });
+    res.json({ disclosure, bounds: ACCESSORIAL_BOUNDS });
   })
 );
 

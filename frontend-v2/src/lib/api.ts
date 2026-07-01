@@ -595,6 +595,10 @@ export const api = {
   },
 
   accessorials: {
+    /** Prefilled terms + allowed override bounds for a freight class (no load needed). */
+    rateCard: (equipmentType: string, hazmat: boolean) =>
+      request<{ disclosure: AccessorialDisclosureDTO; bounds: AccessorialBoundsDTO }>(
+        "GET", `/accessorials/rate-card?equipmentType=${encodeURIComponent(equipmentType)}&hazmat=${hazmat}`),
     /** Load's accessorial policy + the disclosure (single freight-class rate + terms). */
     getPolicy: (loadId: string) =>
       request<{ policy: any; disclosure: AccessorialDisclosureDTO }>("GET", `/accessorials/policy/${loadId}`),
@@ -663,6 +667,22 @@ export interface AccessorialDisclosureDTO {
   detentionHourlyRateCents: number;
   layoverThresholdMinutes: number;
   layoverDailyRateCents: number;
+}
+export interface Bound { min: number; max: number; }
+export interface AccessorialBoundsDTO {
+  freeTimeMinutes: Bound;
+  billingIncrementMinutes: Bound;
+  detentionHourlyRateCents: Record<"STANDARD" | "SPECIALIZED" | "HAZMAT", Bound>;
+  layoverThresholdMinutes: Bound;
+  layoverDailyRateCents: Bound;
+}
+export interface ShipperAccessorialAgreementValue {
+  agreed: boolean;
+  override?: {
+    freeTimeMinutes?: number;
+    detentionHourlyRateCents?: Record<string, number>;
+    layoverDailyRateCents?: number;
+  };
 }
 
 /** Format integer cents as a USD string, e.g. 123456 -> "$1,234.56". */

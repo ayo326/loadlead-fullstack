@@ -30,6 +30,7 @@ import {
   AccessorialDisclosure,
   DEFAULT_ACCESSORIAL_POLICY,
   ACCESSORIAL_POLICY_ATTESTATION,
+  ACCESSORIAL_BOUNDS,
   AccessorialSignatureType,
   resolveRateClass,
 } from '../config/accessorialPolicy';
@@ -84,6 +85,18 @@ export interface AccessorialPolicyAcceptance {
     acknowledgedAt: number;
     disclosure: AccessorialDisclosure;
   };
+}
+
+/** One append-only shipper agreement to a load's accessorial terms at posting. */
+export interface ShipperPolicyAgreement {
+  agreementId: string; // 'shipagree_...'
+  loadId: string;
+  shipperId: string;
+  agreedVersion: number;
+  policyHash: string;
+  disclosure: AccessorialDisclosure; // the exact values agreed
+  actorId: string;
+  agreedAt: number;
 }
 
 export interface UpdatePolicyPatch {
@@ -299,6 +312,99 @@ export class AccessorialPolicyService {
     };
     await Database.putItem(config.dynamodb.accessorialPolicyAcceptancesTable, acceptance);
     return acceptance;
+  }
+
+  // ── Shipper side: rate-card preview, bounds, freeze-and-agree at posting ────
+
+  /**
+   * The disclosure prefilled from the default rate card for a load's freight
+   * class, WITHOUT needing the load to exist yet. Used by the posting preview so
+   * the shipper sees the terms before submitting. Version 1 = the prefill.
+   */
+  static rateCardDisclosure(load: { hazmat?: boolean; equipmentType: any }): AccessorialDisclosure {
+    const rateClass = resolveRateClass(load);
+    const p = DEFAULT_ACCESSORIAL_POLICY;
+    return {
+      version: 1,
+      rateClass,
+      freeTimeMinutes: p.freeTimeMinutes,
+      billingIncrementMinutes: p.billingIncrementMinutes,
+      detentionHourlyRateCents: p.detentionHourlyRateCents[rateClass],
+      layoverThresholdMinutes: p.layoverThresholdMinutes,
+      layoverDailyRateCents: p.layoverDailyRateCents,
+    };
+  }
+
+  /**
+   * Validate a shipper override against the rate-card bounds for the load's
+   * freight class. Throws with a clear message when any value is out of band.
+   */
+  static assertOverrideWithinBounds(patch: UpdatePolicyPatch, rateClass: AccessorialRateClass): void {
+    const b = ACCESSORIAL_BOUNDS;
+    const chk = (label: string, v: number | undefined, bound: { min: number; max: number }) => {
+      if (v == null) return;
+      if (v < bound.min || v > bound.max) {
+        throw new Error(`OVERRIDE_OUT_OF_BOUNDS: ${label} ${v} is outside [${bound.min}, ${bound.max}]`);
+      }
+    };
+    chk('freeTimeMinutes', patch.freeTimeMinutes, b.freeTimeMinutes);
+    chk('billingIncrementMinutes', patch.billingIncrementMinutes, b.billingIncrementMinutes);
+    chk('layoverThresholdMinutes', patch.layoverThresholdMinutes, b.layoverThresholdMinutes);
+    chk('layoverDailyRateCents', patch.layoverDailyRateCents, b.layoverDailyRateCents);
+    if (patch.detentionHourlyRateCents) {
+      for (const k of Object.keys(patch.detentionHourlyRateCents) as AccessorialRateClass[]) {
+        chk(`detentionHourlyRateCents.${k}`, patch.detentionHourlyRateCents[k], b.detentionHourlyRateCents[k]);
+      }
+    }
+    // The class the shipper is setting must itself be within its band.
+    const forClass = patch.detentionHourlyRateCents?.[rateClass];
+    if (forClass != null) chk(`detentionHourlyRateCents.${rateClass}`, forClass, b.detentionHourlyRateCents[rateClass]);
+  }
+
+  /**
+   * Freeze the load's accessorial policy at posting and record the shipper's
+   * append-only agreement. Applies a bounds-checked override if given (a new
+   * version), then pins the agreed version + exact disclosed values. The frozen
+   * policy is the same row the carrier's offer view and acknowledgment later read,
+   * so both sides agree to one snapshot at one version.
+   */
+  static async freezeAndAgreeAtPosting(input: {
+    load: { loadId: string; hazmat?: boolean; equipmentType: any };
+    shipperId: string;
+    actorId: string;
+    override?: UpdatePolicyPatch;
+  }): Promise<{ policy: LoadAccessorialPolicy; disclosure: AccessorialDisclosure; agreement: ShipperPolicyAgreement }> {
+    let policy = await this.getOrCreateForLoad(input.load);
+    if (input.override && Object.keys(input.override).length > 0) {
+      this.assertOverrideWithinBounds(input.override, policy.rateClass);
+      policy = await this.updatePolicy(input.load, input.override);
+    }
+    const disclosure = this.disclosureOf(policy);
+    const snap = this.snapshotOf(policy);
+    const agreement: ShipperPolicyAgreement = {
+      agreementId: Helpers.generateId('shipagree'),
+      loadId: input.load.loadId,
+      shipperId: input.shipperId,
+      agreedVersion: policy.version,
+      policyHash: snap.policyHash,
+      disclosure,
+      actorId: input.actorId,
+      agreedAt: Helpers.getCurrentTimestamp(),
+    };
+    await Database.putItem(config.dynamodb.shipperAgreementsTable, agreement);
+    return { policy, disclosure, agreement };
+  }
+
+  /** All shipper agreements for a load, newest first. Append-only history. */
+  static async listShipperAgreements(loadId: string): Promise<ShipperPolicyAgreement[]> {
+    let rows: ShipperPolicyAgreement[];
+    try {
+      rows = await Database.scan<ShipperPolicyAgreement>(config.dynamodb.shipperAgreementsTable);
+    } catch (err: any) {
+      if (err?.name === 'ResourceNotFoundException') return [];
+      throw err;
+    }
+    return rows.filter((r) => r.loadId === loadId).sort((a, b) => b.agreedAt - a.agreedAt);
   }
 
   /** All acceptances for a load, newest first. Append-only history. */

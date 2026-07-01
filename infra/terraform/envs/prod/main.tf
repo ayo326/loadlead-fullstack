@@ -208,6 +208,19 @@ module "ddb_accessorial_policy_acceptances" {
   tags                = local.tags
 }
 
+# ─── LoadLead_ShipperAgreements ─────────────────────────────────────────────
+# Append-only shipper agreements to a load's accessorial terms at posting.
+module "ddb_shipper_agreements" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_ShipperAgreements"
+  hash_key            = "agreementId"
+  attributes = [
+    { name = "agreementId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
 # ─── LoadLead_StopEvents ────────────────────────────────────────────────────
 # Append-only stop-events log (check-in/check-out evidence). Detention and
 # layover compute from these immutable events; references load + stop by id
@@ -339,6 +352,7 @@ output "pod_photos_table_arn" { value = module.ddb_pod_photos.arn }
 output "platform_fee_policy_table_arn" { value = module.ddb_platform_fee_policy.arn }
 output "accessorial_policies_table_arn" { value = module.ddb_accessorial_policies.arn }
 output "accessorial_policy_acceptances_table_arn" { value = module.ddb_accessorial_policy_acceptances.arn }
+output "shipper_agreements_table_arn" { value = module.ddb_shipper_agreements.arn }
 output "stop_events_table_arn" { value = module.ddb_stop_events.arn }
 output "accessorial_charges_table_arn" { value = module.ddb_accessorial_charges.arn }
 output "charge_status_history_table_arn" { value = module.ddb_charge_status_history.arn }

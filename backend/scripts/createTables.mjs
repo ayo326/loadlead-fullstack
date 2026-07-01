@@ -152,6 +152,13 @@ const TABLES = [
     BillingMode: "PAY_PER_REQUEST",
   },
   {
+    // Append-only shipper agreements to a load's accessorial terms at posting.
+    TableName: process.env.DYNAMODB_SHIPPER_AGREEMENTS_TABLE || "LoadLead_ShipperAgreements",
+    AttributeDefinitions: [{ AttributeName: "agreementId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "agreementId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
     // Append-only stop-events log (check-in/check-out evidence).
     TableName: process.env.DYNAMODB_STOP_EVENTS_TABLE || "LoadLead_StopEvents",
     AttributeDefinitions: [{ AttributeName: "eventId", AttributeType: "S" }],
