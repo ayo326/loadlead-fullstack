@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Countdown } from "@/components/Countdown";
 import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
 import { AttestationChain } from "@/components/attestation/AttestationChain";
+import { AccessorialsPanel } from "@/components/AccessorialsPanel";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -320,6 +321,9 @@ export default function DriverLoadDetail() {
 
           {/* Read-only attestation chain for this load */}
           <AttestationChain loadId={load.loadId} />
+
+          {/* Stop check-in/out + detention/layover accessorials for the mover. */}
+          <AccessorialsPanel loadId={load.loadId} role="MOVER" />
         </aside>
       </div>
 

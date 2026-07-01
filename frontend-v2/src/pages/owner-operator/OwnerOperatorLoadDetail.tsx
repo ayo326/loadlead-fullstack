@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Clock, MapPin, Package, Truck, FileText, DollarSign } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { AccessorialsPanel } from "@/components/AccessorialsPanel";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -136,6 +137,9 @@ export default function OwnerOperatorLoadDetail() {
             <Row label="Shipper ref #" value={load.referenceNumber} />
           </Section>
         )}
+
+        {/* Stop check-in/out + detention/layover accessorials for the mover. */}
+        <AccessorialsPanel loadId={loadId!} role="MOVER" />
       </div>
     </div>
   );

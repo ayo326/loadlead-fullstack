@@ -8,6 +8,7 @@ import { PageHeader, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { RouteMapCard } from "@/components/RouteMapCard";
 import { AttestationChain } from "@/components/attestation/AttestationChain";
+import { AccessorialsPanel } from "@/components/AccessorialsPanel";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -272,6 +273,9 @@ export default function ShipperLoadDetail() {
 
           {/* Read-only attestation chain — visible to the load's parties + admin. */}
           <AttestationChain loadId={load.loadId} />
+
+          {/* Detention/layover charge review (approve / adjust / dispute). */}
+          <AccessorialsPanel loadId={load.loadId} role="SHIPPER" />
         </aside>
       </div>
     </>
