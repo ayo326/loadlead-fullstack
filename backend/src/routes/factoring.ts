@@ -6,6 +6,8 @@ import express from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { OwnerOperatorService } from '../services/ownerOperatorService';
+import { OrgService, OrgMembershipService } from '../services/orgService';
+import { OrgRole, OrgCapability } from '../types';
 import {
   getFactoringProfile,
   registerByoFactor,
@@ -36,12 +38,48 @@ import { dollarsToCents } from '../utils/money';
 const router = express.Router();
 router.use(authenticate);
 
-// Resolve the carrierId for the authenticated user (OO only for now;
-// extend to org CARRIER roles when org factoring is needed).
+/**
+ * Org roles allowed to act for a carrier org in factoring. Factoring decisions
+ * (registering a factor, assignments, export-and-send) bind the ORGANIZATION,
+ * so only management may take them: dispatchers and org drivers cannot commit
+ * the fleet's receivables. Deprecated aliases resolve as MANAGER (IAM-1).
+ */
+const FACTORING_ORG_ROLES: ReadonlySet<OrgRole> = new Set<OrgRole>([
+  OrgRole.OWNER,
+  OrgRole.MANAGER,
+  OrgRole.ORG_ADMIN, // deprecated alias of MANAGER
+  OrgRole.ADMIN, // deprecated alias of MANAGER
+]);
+
+/**
+ * Resolve the carrierId the authenticated user acts for. Mirrors the
+ * carrier-of-record precedence (services/carrierOfRecord.ts — identity team,
+ * consumed here per the payee seam):
+ *   1. Owner Operator profile        -> operatorId
+ *   2. ACTIVE management membership in a CARRIER-capability org -> orgId
+ *   3. Neither                       -> 404 (no carrier to act for)
+ * Exported for unit tests.
+ */
+export async function resolveCarrierIdForUser(userId: string): Promise<string> {
+  const profile = await OwnerOperatorService.getByUserId(userId);
+  if (profile) return profile.operatorId;
+
+  const memberships = await OrgMembershipService.getMembershipsForUser(userId);
+  for (const m of memberships) {
+    if (m.status !== 'ACTIVE') continue;
+    if (!FACTORING_ORG_ROLES.has(m.orgRole)) continue;
+    const org = await OrgService.getOrgById(m.orgId);
+    if (org?.capabilities?.includes(OrgCapability.CARRIER)) return org.orgId;
+  }
+
+  throw new AppError(
+    'No carrier profile: caller is neither an owner operator nor a manager of a carrier organization',
+    404
+  );
+}
+
 async function resolveCarrierId(req: AuthRequest): Promise<string> {
-  const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
-  if (!profile) throw new AppError('Owner operator profile not found', 404);
-  return profile.operatorId;
+  return resolveCarrierIdForUser(req.user!.userId);
 }
 
 // ── Profile (account-level mode) ─────────────────────────────────────────────
