@@ -714,3 +714,112 @@ resource "aws_dynamodb_table" "ddb_support_tickets" {
 #   aws_dynamodb_table.ddb_support_messages  ->  LoadLead_SupportMessages
 #   aws_dynamodb_table.ddb_support_settings  ->  LoadLead_SupportSettings
 #   aws_dynamodb_table.ddb_support_tickets  ->  LoadLead_SupportTickets
+
+# ─── Beta program tables (imported 2026-07-01; mirror live config) ──────────
+# NOTE: live tables have PITR disabled and no deletion protection — mirrored
+# here so the import plans clean. Enabling both is a recommended follow-up
+# (BetaApplications holds applicant PII).
+
+resource "aws_dynamodb_table" "ddb_beta_allowlist" {
+  name         = "LoadLead_BetaAllowlist"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "allowlistId"
+
+  attribute {
+    name = "allowlistId"
+    type = "S"
+  }
+  attribute {
+    name = "value"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "value-index"
+    hash_key        = "value"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = false
+  }
+
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_beta_applications" {
+  name         = "LoadLead_BetaApplications"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "applicationId"
+
+  attribute {
+    name = "applicationId"
+    type = "S"
+  }
+  attribute {
+    name = "responseId"
+    type = "S"
+  }
+  attribute {
+    name = "status"
+    type = "S"
+  }
+  attribute {
+    name = "workEmail"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "status-index"
+    hash_key        = "status"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "workEmail-index"
+    hash_key        = "workEmail"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "responseId-index"
+    hash_key        = "responseId"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = false
+  }
+
+  deletion_protection_enabled = false
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "ddb_waitlist" {
+  name         = "LoadLead_Waitlist"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "waitlistId"
+
+  attribute {
+    name = "waitlistId"
+    type = "S"
+  }
+  attribute {
+    name = "email"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "email-index"
+    hash_key        = "email"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = false
+  }
+
+  deletion_protection_enabled = false
+  tags = local.tags
+}
