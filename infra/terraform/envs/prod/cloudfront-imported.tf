@@ -121,7 +121,10 @@ resource "aws_cloudfront_distribution" "customer" {
   default_root_object = ""
   price_class         = "PriceClass_All"
   http_version        = "http2"
-  aliases             = ["loadleadapp.com"]
+  # www added 2026-07-02: DNS already pointed here and the ACM cert carries the
+  # www SAN, but the missing alias made CloudFront reject the www SNI (TLS
+  # handshake failure for anyone visiting www.loadleadapp.com).
+  aliases             = ["loadleadapp.com", "www.loadleadapp.com"]
 
   web_acl_id = "arn:aws:wafv2:us-east-1:552011299815:global/webacl/CreatedByCloudFront-c79dce87/7f4c255b-241a-45c5-afba-6d30e1317fe0"
 
