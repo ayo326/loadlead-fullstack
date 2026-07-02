@@ -101,7 +101,7 @@ merge. The three code seams above are real wires in the codebase today, not theo
 
 | Team | Follow-up |
 |---|---|
-| `compliance` | **Separate the three compliance roles across distinct people** before production use — one super-admin (`davidejidiran@gmail.com`) currently holds DISPUTE_ADMIN + LEGAL_ADMIN + LAW_ENFORCEMENT_LIAISON. Use the Compliance Console → Grants tab. |
+| `compliance` | **Role separation — deliberately deferred (decision 2026-07-01):** `davidejidiran@gmail.com` holds all three compliance roles (DISPUTE_ADMIN + LEGAL_ADMIN + LAW_ENFORCEMENT_LIAISON) by choice while the admin team is one person. Every action is individually audited in the admin audit log, which is the compensating control. Revisit when a second platform admin exists — split via Compliance Console → Grants. |
 | `platform` | **`terraform import` the CLI-created prod tables** (13 payments + 7 compliance + `ShipperAgreements`) into prod state so Terraform stops drifting from reality. |
 | `settlements` | Replace invoice-package caveats: verification/terms currently assumed true; `rateconf:<loadId>` is a synthetic ref (no rate-confirmation doc yet). |
 | `settlements` + `identity` | Factoring `carrierId` resolves owner-operators only — extend payee resolution to fleet-carrier orgs. |
