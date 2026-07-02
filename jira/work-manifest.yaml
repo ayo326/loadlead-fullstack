@@ -213,6 +213,22 @@ families:
         Then the artefact / approval / signed agreement is on file
         And it does not block the dependent engineering or commercial work
 
+  telem:
+    context: |
+      Terminal telematics integration, sequenced per the platform review in
+      docs/telematics-integration-review.md (staged go). Tiers map to priority:
+      Now = High, Next = Medium, Later = Low. Stores are DynamoDB per platform
+      convention (the proposal's Postgres stores were rejected in review).
+    user_story:
+      as_a: LoadLead operator
+      i_want: "{{title}}"
+      so_that: carrier telematics powers load visibility, detention accuracy, and HOS-safe matching without weakening the platform's security or deploy posture
+    gherkin: |
+      Scenario: {{title}}
+        Given the acceptance criteria in docs/telematics-integration-review.md for this item
+        When the item is implemented against the cited platform conventions
+        Then its verification steps pass and the dependent items are unblocked
+
   # Epics inherit a thin template — their description is mostly the human-readable
   # text already in the `epics:` block. We still want the 3-section structure.
   epic:
@@ -233,6 +249,19 @@ families:
 # EPICS
 # =====================================================================
 epics:
+  - ext_id: epic:telematics
+    title: Terminal Telematics Integration (staged go)
+    description: |
+      Carrier telematics via Terminal, sequenced per the platform review
+      docs/telematics-integration-review.md (commit a022210, verdict staged go).
+      NOW: enablers (SNS subscriber, KMS envelope helper) then connection,
+      roster, on-demand HOS, webhook skeleton. NEXT: scheduled worker, tracking
+      ingestion, geofenced stop events (settlements-gated). LATER: PostGIS
+      analytics tier per docs/database-analytics/analytics-db-spec.md.
+      All transactional stores are DynamoDB; the proposed Postgres stores were
+      rejected in review as conflicting with the platform.
+    labels: [telematics, integration]
+    status: To Do
 
   - ext_id: epic:carrier-refactor
     title: Carrier-of-record Refactor
@@ -1376,3 +1405,21 @@ items:
   - { ext_id: uat:CT-R, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-R manual sign-off on @H9 receiver-web",  status_source: manifest, status: "To Do" }
   - { ext_id: uat:CT-A, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-A manual sign-off on @H10 admin-console", status_source: manifest, status: "To Do" }
   - { ext_id: uat:CT-X, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-X manual sign-off on @H11 cross-persona gate", status_source: manifest, status: "To Do" }
+
+  # ── EPIC: Terminal Telematics Integration (docs/telematics-integration-review.md) ──
+  # Tier NOW = High, NEXT = Medium, LATER = Low. Links encode the dependency graph.
+  - { ext_id: "telem:sns-subscriber",      parent_ext_id: "epic:telematics", type: Task,  title: "Subscribe ops email to loadlead-prod-ops-alerts SNS (alerting is theater until this)", status_source: manifest, status: "To Do", labels: [telematics, enabler, observability], priority_hint: High }
+  - { ext_id: "telem:kms-envelope",        parent_ext_id: "epic:telematics", type: Story, title: "KMS envelope-encryption helper (key + utils/crypto + EB role grant) for connection tokens", status_source: manifest, status: "To Do", labels: [telematics, enabler, security], priority_hint: High }
+  - { ext_id: "telem:connection",          parent_ext_id: "epic:telematics", type: Story, title: "Carrier telematics connection: Link flow, encrypted token store (DynamoDB), connect/disconnect routes via resolveCarrierIdForUser", status_source: manifest, status: "To Do", labels: [telematics, connection], priority_hint: High, links: ["telem:kms-envelope"] }
+  - { ext_id: "telem:connect-ui",          parent_ext_id: "epic:telematics", type: Task,  title: "ConnectTelematics React component + VITE publishable key wiring", status_source: manifest, status: "To Do", labels: [telematics, frontend], priority_hint: High, links: ["telem:connection"] }
+  - { ext_id: "telem:vehicle-roster",      parent_ext_id: "epic:telematics", type: Story, title: "Equipment roster: LoadLead_Vehicles table + idempotent Vehicle sync", status_source: manifest, status: "To Do", labels: [telematics, roster], priority_hint: High, links: ["telem:connection"] }
+  - { ext_id: "telem:hos-eligibility",     parent_ext_id: "epic:telematics", type: Story, title: "Load eligibility: on-demand HOS Available Time at offer time (decide fail-open vs fail-closed)", status_source: manifest, status: "To Do", labels: [telematics, hos, safety], priority_hint: High, links: ["telem:connection"] }
+  - { ext_id: "telem:confirm-signature",   parent_ext_id: "epic:telematics", type: Task,  title: "CONFIRM against vendor docs: webhook signature scheme (header, algorithm, replay window)", status_source: manifest, status: "To Do", labels: [telematics, confirm], priority_hint: High }
+  - { ext_id: "telem:webhook-skeleton",    parent_ext_id: "epic:telematics", type: Task,  title: "Terminal webhook endpoint, Tally pattern: raw-body HMAC, idempotent, inert until configured, no test-event bypass", status_source: manifest, status: "To Do", labels: [telematics, webhook], priority_hint: Medium, links: ["telem:confirm-signature", "telem:connection"] }
+  - { ext_id: "telem:confirm-fieldsets",   parent_ext_id: "epic:telematics", type: Task,  title: "CONFIRM against vendor docs: Driver, Trailer, Trip, Connection, Sync field sets (mapper freeze)", status_source: manifest, status: "To Do", labels: [telematics, confirm], priority_hint: Medium }
+  - { ext_id: "telem:rate-cost-budget",    parent_ext_id: "epic:telematics", type: Task,  title: "CONFIRM vendor pricing + rate limits; set polling cadence and cost budget for location + HOS", status_source: manifest, status: "To Do", labels: [telematics, confirm, cost], priority_hint: Medium }
+  - { ext_id: "telem:polling-worker",      parent_ext_id: "epic:telematics", type: Story, title: "Scheduled worker: EventBridge -> Lambda poller (also retires the rebroadcast setInterval debt in index.ts)", status_source: manifest, status: "To Do", labels: [telematics, infra, worker], priority_hint: Medium, links: ["telem:rate-cost-budget"] }
+  - { ext_id: "telem:tracking-ingestion",  parent_ext_id: "epic:telematics", type: Story, title: "Tracking ingestion: latest-location DynamoDB cache; flip fleet map from heartbeat to telematics with honest labeling", status_source: manifest, status: "To Do", labels: [telematics, tracking], priority_hint: Medium, links: ["telem:polling-worker", "telem:connection"] }
+  - { ext_id: "telem:geofence-stop-events", parent_ext_id: "epic:telematics", type: Story, title: "Geofenced stop events -> detention: settlements-approved trusted-source extension to stopEventService + dual-writer precedence policy", status_source: manifest, status: "To Do", labels: [telematics, detention, settlements-seam], priority_hint: Medium, links: ["telem:tracking-ingestion"] }
+  - { ext_id: "telem:observability",       parent_ext_id: "epic:telematics", type: Task,  title: "Connection-health observability: webhook failure + sync-lag alarms, AdminSettings integrations panel wiring", status_source: manifest, status: "To Do", labels: [telematics, observability], priority_hint: Medium, links: ["telem:sns-subscriber"] }
+  - { ext_id: "telem:postgres-decision",   parent_ext_id: "epic:telematics", type: Task,  title: "Record the store decision: proposal's Postgres stores re-targeted to DynamoDB; PostGIS remains the analytics-replica path only", status_source: manifest, status: "To Do", labels: [telematics, decision], priority_hint: Low }

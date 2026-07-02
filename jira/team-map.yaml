@@ -64,7 +64,11 @@ family_defaults:
   ui-e2e:    marketplace   # product UI end-to-end
   test:      identity      # legacy suite is the carrier-refactor matrix; parent-walk refines per-epic
   epic:      marketplace
+  telem:     platform      # telematics integration default; per-item overrides below
 
 # Explicit per-issue overrides (ext_id -> team). Win over everything. Add entries
 # here as new payments/compliance work lands in the manifest so it routes cleanly.
-overrides: {}
+overrides:
+  epic:telematics: platform                  # integration epic, platform-led
+  telem:geofence-stop-events: settlements  # writes money-bearing stop events
+  telem:hos-eligibility: marketplace         # offer/matching gate

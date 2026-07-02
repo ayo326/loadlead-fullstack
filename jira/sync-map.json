@@ -209,6 +209,11 @@
     "key": "SCRUM-8",
     "priority_set_by_sync": ""
   },
+  "epic:telematics": {
+    "description_hash": "c9cbc20fdebe9515ca83f4914ddc8c3efbfaf382853302c6dbf6b9742675b362",
+    "key": "SCRUM-216",
+    "priority_set_by_sync": "Medium"
+  },
   "epic:test-suite": {
     "description_hash": "3daa140c121c07e9e69eaac3cf8900c17a1829107ff064b796bd52e7ad2e72b8",
     "key": "SCRUM-6",
@@ -578,6 +583,81 @@
     "description_hash": "c7e01262a2438de674eec1ccc164960b904ed06f9ea4dfab57c40cce466cd1d1",
     "key": "SCRUM-43",
     "priority_set_by_sync": ""
+  },
+  "telem:confirm-fieldsets": {
+    "description_hash": "645ef392710bf8475b35bd8bfdae5b716a67de0214653ac7de6aa569b0063a31",
+    "key": "SCRUM-228",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:confirm-signature": {
+    "description_hash": "e9311f890aa148ca181061a3a829a313a8f20ec164816e5ba852cd994625bfab",
+    "key": "SCRUM-226",
+    "priority_set_by_sync": "High"
+  },
+  "telem:connect-ui": {
+    "description_hash": "11adeb14dee2974542f2492696af840f3738e50638c6fa0e23af30a38556f84b",
+    "key": "SCRUM-225",
+    "priority_set_by_sync": "High"
+  },
+  "telem:connection": {
+    "description_hash": "6d0e3d8909e4a3426158c50a33d62232116c99377989c6607a48f9b9b6369e46",
+    "key": "SCRUM-218",
+    "priority_set_by_sync": "High"
+  },
+  "telem:geofence-stop-events": {
+    "description_hash": "aaab4210a5a9ed7b98b05db4c5bdf7b76653edd0b9b5f92e53f21dde87920dc9",
+    "key": "SCRUM-223",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:hos-eligibility": {
+    "description_hash": "1d5d1a46d2a638b904e6e93aedb2a310a87741be93c608da8d5753f40dc40f5d",
+    "key": "SCRUM-220",
+    "priority_set_by_sync": "High"
+  },
+  "telem:kms-envelope": {
+    "description_hash": "50447a3d168aaf32cb7fdbd10f1da502eb3ade81e875662bab8443daf10b57ba",
+    "key": "SCRUM-217",
+    "priority_set_by_sync": "High"
+  },
+  "telem:observability": {
+    "description_hash": "f44cbd8b71c976550d7fafa2d12ae0cc94f774c1a1b106f1444424eb1b209250",
+    "key": "SCRUM-230",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:polling-worker": {
+    "description_hash": "8d8cef90a6e6c1ed49a42390ff4f213919862cd742912bb16b6d85c4aa84d89b",
+    "key": "SCRUM-221",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:postgres-decision": {
+    "description_hash": "314c26df1c2da931403c6109c67cb8080e3fa8458ee036cf72966f692a296595",
+    "key": "SCRUM-231",
+    "priority_set_by_sync": "Low"
+  },
+  "telem:rate-cost-budget": {
+    "description_hash": "34cce9ba7c62a5364486def56bad01ff4ff844b072e670aedd46692b71e70bfc",
+    "key": "SCRUM-229",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:sns-subscriber": {
+    "description_hash": "ff9db6d3649ad59612ad9b85aba69618b015dbf20fb5317df2f9a58adb950f83",
+    "key": "SCRUM-224",
+    "priority_set_by_sync": "High"
+  },
+  "telem:tracking-ingestion": {
+    "description_hash": "47b8f39cadada99f01a7440ddb79bb5cceb9cea46760f5ed0f338c2972089193",
+    "key": "SCRUM-222",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:vehicle-roster": {
+    "description_hash": "9ff6f1f6c3277cfee38c511edead7e52038d83394acd81c4eac9c6b2e36ef66c",
+    "key": "SCRUM-219",
+    "priority_set_by_sync": "High"
+  },
+  "telem:webhook-skeleton": {
+    "description_hash": "c24d4ac532599a4a65524ebeb7f9903499bf1cf8f51393f4cd37b445fa9e2b06",
+    "key": "SCRUM-227",
+    "priority_set_by_sync": "Medium"
   },
   "test:A1": {
     "description_hash": "ccf445d4e5415a472aa592fe467f5cd57286f8903031791081e7d84498642f7e",
