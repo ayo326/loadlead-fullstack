@@ -716,8 +716,7 @@ resource "aws_dynamodb_table" "ddb_support_tickets" {
 #   aws_dynamodb_table.ddb_support_tickets  ->  LoadLead_SupportTickets
 
 # ─── Beta program tables (imported 2026-07-01; mirror live config) ──────────
-# NOTE: live tables have PITR disabled and no deletion protection — mirrored
-# here so the import plans clean. Enabling both is a recommended follow-up
+# Hardened 2026-07-01: PITR + deletion protection enabled via TF apply
 # (BetaApplications holds applicant PII).
 
 resource "aws_dynamodb_table" "ddb_beta_allowlist" {
@@ -741,10 +740,10 @@ resource "aws_dynamodb_table" "ddb_beta_allowlist" {
   }
 
   point_in_time_recovery {
-    enabled = false
+    enabled = true
   }
 
-  deletion_protection_enabled = false
+  deletion_protection_enabled = true
   tags = local.tags
 }
 
@@ -789,10 +788,10 @@ resource "aws_dynamodb_table" "ddb_beta_applications" {
   }
 
   point_in_time_recovery {
-    enabled = false
+    enabled = true
   }
 
-  deletion_protection_enabled = false
+  deletion_protection_enabled = true
   tags = local.tags
 }
 
@@ -817,9 +816,9 @@ resource "aws_dynamodb_table" "ddb_waitlist" {
   }
 
   point_in_time_recovery {
-    enabled = false
+    enabled = true
   }
 
-  deletion_protection_enabled = false
+  deletion_protection_enabled = true
   tags = local.tags
 }
