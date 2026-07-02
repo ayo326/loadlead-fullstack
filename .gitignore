@@ -65,7 +65,9 @@ compliance/out/
 compliance-results.json
 .markdown-confluence.json
 .markdown-confluence.json
-.claude/
+# Local Claude Code state stays out, but shared project commands are versioned.
+.claude/*
+!.claude/commands/
 
 # E2E test artifacts (k6 summary + Cypress axe / actors)
 tests/load/.state/

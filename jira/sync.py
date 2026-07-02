@@ -64,6 +64,7 @@ except ImportError:
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = REPO_ROOT / "jira" / "work-manifest.yaml"
+TEAM_MAP = REPO_ROOT / "jira" / "team-map.yaml"
 SYNC_MAP = REPO_ROOT / "jira" / "sync-map.json"
 PROJECT_KEY = os.environ.get("JIRA_PROJECT_KEY", "SCRUM")
 
@@ -320,6 +321,49 @@ def resolve_status(item: dict, tests: Dict[str, str], compliance: Dict[str, str]
     return TARGET_TODO
 
 
+def load_team_map() -> dict:
+    """Team ownership map (jira/team-map.yaml). Missing file => no team labels."""
+    if not TEAM_MAP.exists():
+        return {"epics": {}, "family_defaults": {}, "overrides": {}}
+    with TEAM_MAP.open() as f:
+        m = yaml.safe_load(f) or {}
+    m.setdefault("epics", {})
+    m.setdefault("family_defaults", {})
+    m.setdefault("overrides", {})
+    return m
+
+
+def resolve_team(ext_id: str, parent_of: Dict[str, Optional[str]], cfg: dict) -> Optional[str]:
+    """Owning-team slug for an issue. Precedence: override > epic > nearest epic/override
+    ancestor (walk parent_ext_id) > family default > None."""
+    if ext_id in cfg["overrides"]:
+        return cfg["overrides"][ext_id]
+    if ext_id in cfg["epics"]:
+        return cfg["epics"][ext_id]
+    seen, cur = set(), parent_of.get(ext_id)
+    while cur and cur not in seen:
+        seen.add(cur)
+        if cur in cfg["overrides"]:
+            return cfg["overrides"][cur]
+        if cur in cfg["epics"]:
+            return cfg["epics"][cur]
+        cur = parent_of.get(cur)
+    family = ext_id.split(":", 1)[0]
+    return cfg["family_defaults"].get(family)
+
+
+def stamp_team_labels(specs: List[JiraIssueSpec]) -> None:
+    """Add a `team:<slug>` label (normalised to `team-<slug>`) to each spec based
+    on the team-map. Idempotent: re-stamping replaces any prior team- label."""
+    cfg = load_team_map()
+    parent_of = {s.ext_id: s.parent_ext_id for s in specs}
+    for s in specs:
+        team = resolve_team(s.ext_id, parent_of, cfg)
+        s.labels = [l for l in s.labels if not l.lower().startswith("team-") and not l.lower().startswith("team:")]
+        if team:
+            s.labels.append(f"team:{team}")
+
+
 def build_specs() -> List[JiraIssueSpec]:
     """Compose manifest + live status into a flat list of JiraIssueSpecs."""
     epics, items, families = load_manifest()
@@ -365,6 +409,7 @@ def build_specs() -> List[JiraIssueSpec]:
             gherkin=gherkin,
             target_priority=resolve_priority(it),
         ))
+    stamp_team_labels(specs)
     return specs
 
 
