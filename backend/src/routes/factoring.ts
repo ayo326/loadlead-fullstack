@@ -394,7 +394,11 @@ router.post(
       carrierId,
       pkg,
       ...(podRef ? { podRef } : {}),
-      rateConfRef: `rateconf:${invoiceId}`,
+      // The REAL agreed-terms record resolved by buildPackageForInvoice (carrier
+      // acceptance else shipper agreement). When neither exists this is omitted
+      // and the assembler honestly reports "rate confirmation" missing (422)
+      // instead of shipping a synthetic rateconf:<loadId> pointer.
+      ...(pkg.rateConfRef ? { rateConfRef: pkg.rateConfRef } : {}),
       stopEvents,
       notice,
     });
