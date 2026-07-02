@@ -7,7 +7,12 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { OwnerOperatorService } from '../services/ownerOperatorService';
 import { OrgService, OrgMembershipService } from '../services/orgService';
-import { OrgRole, OrgCapability } from '../types';
+import { OrgRole, OrgCapability, UserStatus } from '../types';
+import { getVerification } from '../services/verification';
+import { ShipperService } from '../services/shipperService';
+import { AccessorialPolicyService } from '../services/accessorialPolicyService';
+import { Database } from '../config/database';
+import config from '../config/environment';
 import {
   getFactoringProfile,
   registerByoFactor,
@@ -179,7 +184,31 @@ function loadLinehaulGrossCents(load: any): number {
   return dollarsToCents(dollars);
 }
 
-async function buildPackageForInvoice(invoiceId: string, carrierId: string) {
+/**
+ * Aging window for withinTerms: an invoice is inside terms until this many days
+ * after the attested delivery. Before delivery nothing has aged (the POD gate
+ * governs factorability there), so withinTerms is true.
+ */
+const FACTORING_TERMS_WINDOW_DAYS = 90;
+
+/**
+ * Resolve the REAL facts for the invoice package (the service is the canonical
+ * assessor; this caller must not assume). Exported for unit tests.
+ *
+ *   mover.verified  — Verifications table for the carrier of record (FMCSA/KYB),
+ *                     same store requireVerifiedCarrier gates hauling on.
+ *   debtor.verified — LoadLead runs no shipper KYB program, so this attests the
+ *                     weaker fact we can actually stand behind: the shipper is a
+ *                     known account in good standing (profile exists + user not
+ *                     suspended). Factors underwrite debtor credit themselves.
+ *   withinTerms     — delivery attested no more than FACTORING_TERMS_WINDOW_DAYS ago.
+ *   rateConfRef     — the newest REAL agreed-terms record for the load: the
+ *                     carrier's e-sign policy acceptance, else the shipper's
+ *                     posting agreement. Omitted when neither exists — no more
+ *                     synthetic rateconf:<loadId> pointer to a document that
+ *                     does not exist.
+ */
+export async function buildPackageForInvoice(invoiceId: string, carrierId: string) {
   const load = await LoadService.getLoadById(invoiceId);
   if (!load) throw new AppError(`Load ${invoiceId} not found`, 404);
   const settlement = await PlatformFeeService.computeLinehaulSettlement(loadLinehaulGrossCents(load));
@@ -188,17 +217,46 @@ async function buildPackageForInvoice(invoiceId: string, carrierId: string) {
   const chain = await getChain(invoiceId).catch(() => [] as any[]);
   const deliver = chain.find((s: any) => s.action === 'DRIVER_DELIVER');
   const podAttested = !!deliver || chain.some((s: any) => s.action === 'RECEIVER_CONFIRM');
+
+  const [moverVerification, shipperProfile, acceptances, shipperAgreements] = await Promise.all([
+    getVerification(carrierId),
+    load.shipperId ? ShipperService.getProfileById(load.shipperId) : Promise.resolve(null),
+    AccessorialPolicyService.listAcceptances(invoiceId),
+    AccessorialPolicyService.listShipperAgreements(invoiceId),
+  ]);
+
+  const moverVerified = moverVerification?.verificationStatus === 'VERIFIED';
+
+  let debtorVerified = false;
+  if (shipperProfile) {
+    const shipperUser = await Database.getItem<{ status?: UserStatus }>(
+      config.dynamodb.usersTable,
+      { userId: shipperProfile.userId }
+    );
+    // Pre-status accounts carry no status field; treat as ACTIVE (back-compat).
+    debtorVerified = shipperUser != null && (shipperUser.status ?? UserStatus.ACTIVE) === UserStatus.ACTIVE;
+  }
+
+  const deliveredAtMs = deliver?.signedAt ? Date.parse(deliver.signedAt) : NaN;
+  const withinTerms = Number.isFinite(deliveredAtMs)
+    ? Date.now() - deliveredAtMs <= FACTORING_TERMS_WINDOW_DAYS * 86_400_000
+    : true;
+
+  // Newest-first per the service sorts; carrier acceptance is the stronger
+  // record (it carries the e-sign + acknowledgment), shipper agreement second.
+  const rateConfRef = acceptances[0]?.acceptanceId ?? shipperAgreements[0]?.agreementId;
+
   const pkg = InvoicePackageService.build({
     invoiceId,
     loadId: invoiceId,
     carrierId,
-    debtor: { id: load.shipperId, verified: true },
-    mover: { id: carrierId, verified: true },
+    debtor: { id: load.shipperId, verified: debtorVerified },
+    mover: { id: carrierId, verified: moverVerified },
     linehaulAmountCents: settlement.carrierNetCents,
     podAttested,
-    withinTerms: true,
+    withinTerms,
     ...(deliver ? { podRef: deliver.signatureId } : {}),
-    rateConfRef: `rateconf:${invoiceId}`,
+    ...(rateConfRef ? { rateConfRef } : {}),
     charges,
     activeAssignment,
   });
