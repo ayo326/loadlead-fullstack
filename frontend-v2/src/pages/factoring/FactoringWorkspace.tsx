@@ -1,3 +1,13 @@
+/**
+ * Factoring workspace — shared by BOTH carrier personas:
+ *   /owner-operator/factoring  (OWNER_OPERATOR)
+ *   /carrier/factoring         (CARRIER_ADMIN — fleet-carrier org managers)
+ *
+ * The backend resolves who the caller acts for (routes/factoring.ts
+ * resolveCarrierIdForUser: OO profile first, else ACTIVE OWNER/MANAGER
+ * membership in a CARRIER org), so this component is persona-neutral and
+ * never needs to know which carrier kind it is serving.
+ */
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +49,7 @@ function Badge({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   );
 }
 
-export default function OwnerOperatorFactoring() {
+export default function FactoringWorkspace() {
   // Saved factor contact
   const [contact, setContact] = useState<FactorContact | null>(null);
   const [factorName, setFactorName] = useState("");
