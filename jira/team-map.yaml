@@ -65,10 +65,16 @@ family_defaults:
   test:      identity      # legacy suite is the carrier-refactor matrix; parent-walk refines per-epic
   epic:      marketplace
   telem:     platform      # telematics integration default; per-item overrides below
+  sms:       platform      # SMS program default; per-item overrides below
 
 # Explicit per-issue overrides (ext_id -> team). Win over everything. Add entries
 # here as new payments/compliance work lands in the manifest so it routes cleanly.
 overrides:
+  epic:sms-program: platform                 # integration epic, platform-led
+  sms:consent-store: identity                # consent of a user, onboarding-adjacent
+  sms:legal-pages: marketplace               # public surface, design system
+  sms:optin-ui: marketplace                  # onboarding UI surface
+  sms:send-chokepoint: marketplace           # broadcast/notify wiring (compliance consulted)
   epic:telematics: platform                  # integration epic, platform-led
   telem:geofence-stop-events: settlements  # writes money-bearing stop events
   telem:hos-eligibility: marketplace         # offer/matching gate

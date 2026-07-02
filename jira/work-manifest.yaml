@@ -229,6 +229,24 @@ families:
         When the item is implemented against the cited platform conventions
         Then its verification steps pass and the dependent items are unblocked
 
+  sms:
+    context: |
+      Carrier SMS opt-in program, sequenced per the platform review in
+      docs/sms-program-review.md (staged go, six COAs). Tiers map to priority:
+      Now = High, Next = Medium, Later = Low. Consent store is DynamoDB per
+      COA-1A with IAM-deny immutability per COA-2B; messaging adapter lives in
+      services/integrations per COA-4A; all sends pass the consent + legal
+      suppression chokepoint per COA-5A.
+    user_story:
+      as_a: LoadLead operator
+      i_want: "{{title}}"
+      so_that: verified carriers receive TCPA-compliant SMS load alerts backed by an immutable consent record and a provider-neutral messaging layer
+    gherkin: |
+      Scenario: {{title}}
+        Given the acceptance criteria in docs/sms-program-review.md for this item
+        When the item is implemented against the cited platform conventions and COAs
+        Then its verification steps pass and the dependent items are unblocked
+
   # Epics inherit a thin template — their description is mostly the human-readable
   # text already in the `epics:` block. We still want the 3-section structure.
   epic:
@@ -249,6 +267,21 @@ families:
 # EPICS
 # =====================================================================
 epics:
+  - ext_id: epic:sms-program
+    title: Carrier SMS Opt-In Program (staged go)
+    description: |
+      TCPA/A2P-compliant SMS load alerts per the platform review
+      docs/sms-program-review.md (commit dcdeb27, verdict staged go).
+      Two parallel tracks: ops (legal pages first, then 10DLC brand,
+      campaign, number - the calendar long pole) and code (DynamoDB
+      consent store with IAM-deny immutability, opt-in UI, messaging
+      adapter in services/integrations, SNS ingress with signature
+      verification, one send chokepoint enforcing consent AND the
+      compliance non-disclosure suppression seam). Go-live gated on
+      campaign approval, number association, sandbox exit, spend cap,
+      simulator loop, and counsel sign-off.
+    labels: [sms, tcpa, messaging]
+    status: To Do
   - ext_id: epic:telematics
     title: Terminal Telematics Integration (staged go)
     description: |
@@ -1423,3 +1456,19 @@ items:
   - { ext_id: "telem:geofence-stop-events", parent_ext_id: "epic:telematics", type: Story, title: "Geofenced stop events -> detention: settlements-approved trusted-source extension to stopEventService + dual-writer precedence policy", status_source: manifest, status: "To Do", labels: [telematics, detention, settlements-seam], priority_hint: Medium, links: ["telem:tracking-ingestion"] }
   - { ext_id: "telem:observability",       parent_ext_id: "epic:telematics", type: Task,  title: "Connection-health observability: webhook failure + sync-lag alarms, AdminSettings integrations panel wiring", status_source: manifest, status: "To Do", labels: [telematics, observability], priority_hint: Medium, links: ["telem:sns-subscriber"] }
   - { ext_id: "telem:postgres-decision",   parent_ext_id: "epic:telematics", type: Task,  title: "Record the store decision: proposal's Postgres stores re-targeted to DynamoDB; PostGIS remains the analytics-replica path only", status_source: manifest, status: "To Do", labels: [telematics, decision], priority_hint: Low }
+
+  # ── EPIC: Carrier SMS Opt-In Program (docs/sms-program-review.md) ──
+  # Tier NOW = High, NEXT = Medium, LATER = Low. Links encode the dependency graph.
+  - { ext_id: "sms:legal-pages",        parent_ext_id: "epic:sms-program", type: Story, title: "Public SMS Privacy Policy + SMS Terms pages (exact copy, house design system per COA-3A) + shared Footer", status_source: manifest, status: "To Do", labels: [sms, legal, frontend], priority_hint: High }
+  - { ext_id: "sms:brand-registration", parent_ext_id: "epic:sms-program", type: Task,  title: "OPS runbook Part A: register 10DLC brand (EIN-exact legal details; start immediately - calendar long pole)", status_source: manifest, status: "To Do", labels: [sms, ops, a2p], priority_hint: High, links: ["sms:legal-pages"] }
+  - { ext_id: "sms:consent-store",      parent_ext_id: "epic:sms-program", type: Story, title: "Append-only DynamoDB SmsConsentEvents + disclosure constant/sha256 + opt-in endpoint + resolver (COA-1A) + IAM-deny immutability (COA-2B)", status_source: manifest, status: "To Do", labels: [sms, consent, backend], priority_hint: High }
+  - { ext_id: "sms:optin-ui",           parent_ext_id: "epic:sms-program", type: Story, title: "CarrierSmsConsent onboarding UI: unchecked box, verbatim disclosure, OPT_IN/DECLINED both recorded, phone prefill (produces Part C screenshot)", status_source: manifest, status: "To Do", labels: [sms, frontend, onboarding], priority_hint: High, links: ["sms:consent-store"] }
+  - { ext_id: "sms:messaging-adapter",  parent_ext_id: "epic:sms-program", type: Story, title: "MessagingProvider adapter family in services/integrations: AWS End User Messaging live, Telnyx/Plivo stubs, factory on MESSAGING_PROVIDER (COA-4A)", status_source: manifest, status: "To Do", labels: [sms, integration, adapter], priority_hint: Medium }
+  - { ext_id: "sms:sns-ingress",        parent_ext_id: "epic:sms-program", type: Story, title: "SNS ingress endpoint: SubscriptionConfirmation handshake, SNS signature verification, TopicArn allowlist, idempotent STOP/HELP + delivery events; terraform for 2 topics + config set", status_source: manifest, status: "To Do", labels: [sms, sns, security], priority_hint: Medium, links: ["sms:messaging-adapter"] }
+  - { ext_id: "sms:send-chokepoint",    parent_ext_id: "epic:sms-program", type: Story, title: "Single SMS send chokepoint: consent resolver + isEntityRestricted suppression seam (COA-5A), then broadcast wiring", status_source: manifest, status: "To Do", labels: [sms, broadcast, compliance-seam], priority_hint: Medium, links: ["sms:consent-store", "sms:messaging-adapter"] }
+  - { ext_id: "sms:campaign-number",    parent_ext_id: "epic:sms-program", type: Task,  title: "OPS runbook Parts C-D: register 10DLC campaign (transactional, paste-ready content) + provision and associate number", status_source: manifest, status: "To Do", labels: [sms, ops, a2p], priority_hint: Medium, links: ["sms:brand-registration", "sms:optin-ui"] }
+  - { ext_id: "sms:ops-setup",          parent_ext_id: "epic:sms-program", type: Task,  title: "OPS runbook Parts E-I: config set + SNS event destinations, two-way SMS, spend cap, sandbox exit case, least-privilege IAM (scoped to number ARN)", status_source: manifest, status: "To Do", labels: [sms, ops, infra], priority_hint: Medium }
+  - { ext_id: "sms:tests",              parent_ext_id: "epic:sms-program", type: Task,  title: "Tests: OPT_IN/DECLINED/STOP->OPT_OUT loop, resolver latest-state, factory provider swap, legal routes public 200 (route-test harness pattern)", status_source: manifest, status: "To Do", labels: [sms, tests], priority_hint: Medium, links: ["sms:consent-store", "sms:messaging-adapter"] }
+  - { ext_id: "sms:go-live",            parent_ext_id: "epic:sms-program", type: Task,  title: "Go-live gate (runbook J-L): simulator loop green, sandbox exited, spend cap set, counsel sign-off on legal copy, then real sends", status_source: manifest, status: "To Do", labels: [sms, ops, gate], priority_hint: Low, links: ["sms:campaign-number", "sms:send-chokepoint", "sms:ops-setup"] }
+  - { ext_id: "sms:worm-mirror",        parent_ext_id: "epic:sms-program", type: Task,  title: "Mirror consent events into the S3 WORM sink pipeline (COA-2C, gold-tier immutability - when volume or counsel asks)", status_source: manifest, status: "To Do", labels: [sms, consent, worm], priority_hint: Low, links: ["sms:consent-store"] }
+  - { ext_id: "sms:alt-providers",      parent_ext_id: "epic:sms-program", type: Task,  title: "Telnyx/Plivo real implementations + voice (only if AWS End User Messaging proves limiting)", status_source: manifest, status: "To Do", labels: [sms, adapter, later], priority_hint: Low, links: ["sms:messaging-adapter"] }

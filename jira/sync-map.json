@@ -204,6 +204,11 @@
     "key": "SCRUM-11",
     "priority_set_by_sync": ""
   },
+  "epic:sms-program": {
+    "description_hash": "6c00e398faf078386e4a5c8a437e6951aa0f6f47abe6ec33461a24935dd2925f",
+    "key": "SCRUM-232",
+    "priority_set_by_sync": "Medium"
+  },
   "epic:stig-compliance": {
     "description_hash": "e65e31a360ac5fb19589e0e540dd4068ef9ccba2a383d0ad9d7c94b1255ce10d",
     "key": "SCRUM-8",
@@ -343,6 +348,71 @@
     "description_hash": "d85039272ccf016f3455d454924997a876dd73bf6cb43e5fc66101328803e256",
     "key": "SCRUM-12",
     "priority_set_by_sync": "High"
+  },
+  "sms:alt-providers": {
+    "description_hash": "488730b068412776764d0780df14b872163fa77bdd2baca8967118f1ee06980b",
+    "key": "SCRUM-245",
+    "priority_set_by_sync": "Low"
+  },
+  "sms:brand-registration": {
+    "description_hash": "0c6865f7253936fe41b00a36bf2a62556f64e9fc5fd7287bc24017a2560a7fc2",
+    "key": "SCRUM-239",
+    "priority_set_by_sync": "High"
+  },
+  "sms:campaign-number": {
+    "description_hash": "935aa8f7ea312f38db5ea17210e8ad1c82c8504ada80d15e13633595d05a78d2",
+    "key": "SCRUM-240",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:consent-store": {
+    "description_hash": "e1b57377a637a1ba36246a802c71e4d54b52321d45d768fdb3713ed7bcc06336",
+    "key": "SCRUM-234",
+    "priority_set_by_sync": "High"
+  },
+  "sms:go-live": {
+    "description_hash": "975fc9421704f1d278682f0aabc80c4a11c203c94a30410e407cce26c8906d42",
+    "key": "SCRUM-243",
+    "priority_set_by_sync": "Low"
+  },
+  "sms:legal-pages": {
+    "description_hash": "46da10a89858c2789b05446710732adc78c7d44fa0edee3e5d09e9efd3fe9e54",
+    "key": "SCRUM-233",
+    "priority_set_by_sync": "High"
+  },
+  "sms:messaging-adapter": {
+    "description_hash": "4d5d4861f0f179cfb5eeb560387a906ab8be0e76efdb050c38b52a0e138cb9a7",
+    "key": "SCRUM-236",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:ops-setup": {
+    "description_hash": "78ec69682a2f9bf41f15a369066cefe948f463b4d7648cccee68f146c0b80a88",
+    "key": "SCRUM-241",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:optin-ui": {
+    "description_hash": "fb11df39920fce733d2c182a532bd0989dca1611a61f2cf7ff44b16783106ef7",
+    "key": "SCRUM-235",
+    "priority_set_by_sync": "High"
+  },
+  "sms:send-chokepoint": {
+    "description_hash": "07724ddb9aeac5d7c05b3bbccca2abc2b97204053ce1dbe7e0ef3e2e5ade2b51",
+    "key": "SCRUM-238",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:sns-ingress": {
+    "description_hash": "76c3357e5c125cf0b17f601da20fed6dd643cd70b5a58c2b0524e179766fc486",
+    "key": "SCRUM-237",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:tests": {
+    "description_hash": "bbaf9079694a5276c211320ec78974a52b8c0a590c2f932a9ff4f64987cd1427",
+    "key": "SCRUM-242",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:worm-mirror": {
+    "description_hash": "63adfe903ff97808614eb1330751725e7d4d4ed9d0986ca797ab4c205a74a72c",
+    "key": "SCRUM-244",
+    "priority_set_by_sync": "Low"
   },
   "stig:LL-AC-001": {
     "description_hash": "aa743b7db502de606cc4ce92cff413fa1296d273259018c183b6752043a6e46d",
