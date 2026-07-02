@@ -523,12 +523,24 @@ class JiraClient:
         return r.ok
 
     # ── Search (label-based rebuild path) ────────────────────────────────────
+    # Uses /rest/api/3/search/jql — Atlassian removed the old GET /search?jql=
+    # endpoint (mid-2025). The new API paginates with nextPageToken.
     def search_by_label(self, label: str) -> List[dict]:
         jql = f'project = {PROJECT_KEY} AND labels = "{label}"'
-        r = self._req("GET", f"/rest/api/3/search?jql={urllib.parse.quote(jql)}&fields=summary,labels")
-        if not r.ok:
-            return []
-        return r.json().get("issues", [])
+        issues: List[dict] = []
+        token: Optional[str] = None
+        while True:
+            qs = f"jql={urllib.parse.quote(jql)}&fields=summary,labels&maxResults=100"
+            if token:
+                qs += f"&nextPageToken={urllib.parse.quote(token)}"
+            r = self._req("GET", f"/rest/api/3/search/jql?{qs}")
+            if not r.ok:
+                return issues
+            body = r.json()
+            issues.extend(body.get("issues", []))
+            token = body.get("nextPageToken")
+            if not token:
+                return issues
 
     # ── Mutations ────────────────────────────────────────────────────────────
     def create_issue(self, payload: dict) -> dict:
