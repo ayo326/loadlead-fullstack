@@ -3,6 +3,8 @@ import {
   assertProductionNotContaminated,
   assertNonProductionSafe,
   assertProductionHardened,
+  assertTablesEnvIsolated,
+  prodFormTableNames,
   BootGuardError,
 } from '../../../src/services/integrations/bootGuard';
 
@@ -155,5 +157,48 @@ describe('assertProductionHardened', () => {
     // broken. This test documents the intent: the self-check re-derives the
     // answer rather than trusting a cached flag.
     expect(() => assertProductionHardened({ _router: { stack: [] } })).not.toThrow();
+  });
+});
+
+describe('assertTablesEnvIsolated (H1 table isolation)', () => {
+  const PROBE = 'DYNAMODB_ISOLATION_PROBE_TABLE';
+  let savedEndpoint: string | undefined;
+
+  beforeEach(() => {
+    savedEndpoint = process.env.DYNAMODB_ENDPOINT;
+    delete process.env[PROBE];
+  });
+  afterEach(() => {
+    if (savedEndpoint === undefined) delete process.env.DYNAMODB_ENDPOINT;
+    else process.env.DYNAMODB_ENDPOINT = savedEndpoint;
+    delete process.env[PROBE];
+  });
+
+  it('prodFormTableNames flags LoadLead_ (prod) names and passes prefixed / unset ones', () => {
+    expect(prodFormTableNames({ a: 'LoadLead-Staging-Loads', b: 'LoadLead_Loads' })).toEqual([
+      'b=LoadLead_Loads',
+    ]);
+    expect(prodFormTableNames({ a: 'LoadLead-Dev-Users', c: undefined })).toEqual([]);
+  });
+
+  it('is a no-op in production — production owns the LoadLead_ names', () => {
+    process.env.APP_ENV = 'production';
+    delete process.env.DYNAMODB_ENDPOINT;
+    process.env[PROBE] = 'LoadLead_Whatever';
+    expect(() => assertTablesEnvIsolated()).not.toThrow();
+  });
+
+  it('is a no-op for local dev — a local DynamoDB endpoint makes the names harmless', () => {
+    process.env.APP_ENV = 'development';
+    process.env.DYNAMODB_ENDPOINT = 'http://127.0.0.1:8000';
+    process.env[PROBE] = 'LoadLead_Whatever';
+    expect(() => assertTablesEnvIsolated()).not.toThrow();
+  });
+
+  it('throws outside prod (no local endpoint) when a table resolves to the prod LoadLead_ form', () => {
+    process.env.APP_ENV = 'staging';
+    delete process.env.DYNAMODB_ENDPOINT;
+    process.env[PROBE] = 'LoadLead_Whatever';
+    expect(() => assertTablesEnvIsolated()).toThrowError(/PRODUCTION data/);
   });
 });

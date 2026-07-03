@@ -359,6 +359,55 @@ locals {
       attributes = [{ name = "submissionId", type = "S" }]
       gsis       = []
     }
+
+    # ── Load negotiation (engage/bid/counter/accept) ─────────────────────
+    # Session rows, append-only offer rows, and the per-load exclusivity lock.
+    # The Load model is never touched; everything references load + parties by
+    # id. Key schemas mirror prod exactly (describe-table verified 2026-07-03);
+    # negotiations are read by scan+filter at beta volume — a loadId GSI can be
+    # added here (and to prod) together when the M3 scan fix lands.
+    LoadNegotiations = {
+      hash_key   = "negotiationId"
+      attributes = [{ name = "negotiationId", type = "S" }]
+      gsis       = []
+    }
+    NegotiationOffers = {
+      hash_key   = "negOfferId"
+      attributes = [{ name = "negOfferId", type = "S" }]
+      gsis       = []
+    }
+    NegotiationLocks = {
+      hash_key   = "loadId"
+      attributes = [{ name = "loadId", type = "S" }]
+      gsis       = []
+    }
+
+    # In-app notification inbox (per-user feed). userId-index powers the
+    # "my notifications" list without a scan.
+    Notifications = {
+      hash_key = "notificationId"
+      attributes = [
+        { name = "notificationId", type = "S" },
+        { name = "userId", type = "S" },
+      ]
+      gsis = [{ name = "userId-index", hash_key = "userId" }]
+    }
+
+    # Saved carrier factoring profile (opt-in status + factor details), keyed by
+    # carrierId (owner-operator or org — the carrier of record).
+    CarrierFactoringProfiles = {
+      hash_key   = "carrierId"
+      attributes = [{ name = "carrierId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only admin-bootstrap attempt log (the race-safe record behind the
+    # one-time ADMIN bootstrap; referenced by the bootstrap flow's guard).
+    AdminBootstrapAttempts = {
+      hash_key   = "attemptId"
+      attributes = [{ name = "attemptId", type = "S" }]
+      gsis       = []
+    }
   }
 }
 

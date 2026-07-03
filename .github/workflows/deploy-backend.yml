@@ -27,6 +27,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
 
+      # H1 gate: refuse to deploy a non-prod env whose Terraform doesn't
+      # override every DynamoDB table the backend reads — otherwise it would
+      # silently read/write PRODUCTION tables. Fast, zero-dependency.
+      - name: Verify non-prod table isolation (H1)
+        run: node scripts/check-table-env-parity.mjs
+
       - name: Install & build
         working-directory: backend
         run: |
@@ -79,6 +85,12 @@ jobs:
       # Skipped when PACT_BROKER_BASE_URL secret is unset (workflows ran
       # before the broker is wired up), so this is safe to land before
       # PactFlow is configured.
+      # H1 gate: refuse to deploy a non-prod env whose Terraform doesn't
+      # override every DynamoDB table the backend reads — otherwise it would
+      # silently read/write PRODUCTION tables. Fast, zero-dependency.
+      - name: Verify non-prod table isolation (H1)
+        run: node scripts/check-table-env-parity.mjs
+
       - name: can-i-deploy (staging)
         if: ${{ env.PACT_BROKER_BASE_URL != '' }}
         run: |
