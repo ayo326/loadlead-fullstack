@@ -38,6 +38,10 @@ import { resolveCarrierOfRecord } from '../services/carrierOfRecord';
 import { requireVerifiedCarrier } from '../services/verification';
 import { PushService } from '../services/pushService';
 import { LoadService } from '../services/loadService';
+import { OwnerOperatorService } from '../services/ownerOperatorService';
+import { OrgMembershipService } from '../services/orgService';
+import { hasPermission } from '../services/orgPermissions';
+import { VerificationEntityType, Driver, CarrierOfRecord } from '../types';
 
 const router = express.Router();
 router.use(authenticate);
@@ -45,6 +49,7 @@ router.use(authenticate);
 // An offer is EITHER cents per mile (PER_MILE loads) or a flat total in cents
 // (FLAT_RATE loads). The service validates the field against the load's basis.
 const offerValidators = [
+  body('driverId').optional().isString().isLength({ min: 1, max: 200 }),
   body('ratePerMileCents').optional().isInt({ min: 1 }),
   body('totalCents').optional().isInt({ min: 1 }),
   body().custom((b) => {
@@ -59,12 +64,66 @@ const offerAmountOf = (b: any) => ({
   ...(b.totalCents != null ? { totalCents: Number(b.totalCents) } : {}),
 });
 
+/**
+ * Resolve which driver a hauler request acts on, and authorize the acting user
+ * to act on it. Backward compatible: with no `requestedDriverId` this returns
+ * the caller's own driver (the original self-haul behavior — the E2E and every
+ * existing client hit this path). With a `requestedDriverId` the caller must be
+ * authorized to dispatch that driver, mirroring who may sign CARRIER_ACCEPT
+ * (the `loads:accept` permission):
+ *   (a) it is the caller's own driver profile, or
+ *   (b) the caller is the owner-operator that owns the driver (fleet), or
+ *   (c) the caller is an active carrier-org member with `loads:accept` over the
+ *       org the driver belongs to — OWNER / MANAGER / DISPATCHER (Carrier Admin).
+ * The negotiation binds to the resolved DRIVER, so any later action on the same
+ * negotiation must resolve to the same driver (the service checks driverId).
+ */
+async function resolveHaulerDriver(
+  actingUserId: string,
+  requestedDriverId?: string,
+): Promise<{ driver: Driver; cor: CarrierOfRecord }> {
+  if (!requestedDriverId) {
+    const own = await DriverService.getProfileByUserId(actingUserId);
+    if (!own) throw new AppError('Driver profile not found', 404);
+    const cor = await resolveCarrierOfRecord(own);
+    if (!cor) throw new AppError('You must belong to a carrier to negotiate loads', 403);
+    return { driver: own, cor };
+  }
+
+  const target = await DriverService.getProfileById(requestedDriverId);
+  if (!target) throw new AppError('Driver not found', 404);
+  const cor = await resolveCarrierOfRecord(target);
+  if (!cor) throw new AppError('That driver is not affiliated with a carrier', 403);
+
+  // (a) your own driver profile — always allowed.
+  if (target.userId === actingUserId) return { driver: target, cor };
+
+  // (b) owner-operator acting on a driver in their own fleet (cor.entityId is
+  //     the operatorId that owns the driver).
+  if (cor.entityType === VerificationEntityType.OWNER_OPERATOR) {
+    const op = await OwnerOperatorService.getByUserId(actingUserId);
+    if (op && op.operatorId === cor.entityId) return { driver: target, cor };
+    throw new AppError('That driver is not in your fleet', 403);
+  }
+
+  // (c) carrier-org member with dispatch authority over the driver's org.
+  if (cor.entityType === VerificationEntityType.CARRIER_ORG) {
+    const m = await OrgMembershipService.getMembership(cor.entityId, actingUserId);
+    if (m && m.status === 'ACTIVE' && hasPermission(m.orgRole, 'loads:accept')) {
+      return { driver: target, cor };
+    }
+    throw new AppError('You are not authorized to dispatch this driver', 403);
+  }
+
+  throw new AppError('You are not authorized to act on this driver', 403);
+}
+
 async function haulerActor(req: AuthRequest): Promise<{ party: NegotiationParty; driverId: string; userId: string; carrierId: string }> {
-  const driver = await DriverService.getProfileByUserId(req.user!.userId);
-  if (!driver) throw new AppError('Driver profile not found', 404);
-  const cor = await resolveCarrierOfRecord(driver);
-  if (!cor) throw new AppError('You must belong to a carrier to negotiate loads', 403);
-  return { party: 'HAULER', driverId: driver.driverId, userId: req.user!.userId, carrierId: cor.entityId };
+  const requestedDriverId = (req.body?.driverId ?? undefined) as string | undefined;
+  const { driver, cor } = await resolveHaulerDriver(req.user!.userId, requestedDriverId);
+  // haulerUserId tracks the DRIVER who will haul (notifications reach them). In
+  // self-haul this is the acting user; for dispatch-on-behalf it is the driver.
+  return { party: 'HAULER', driverId: driver.driverId, userId: driver.userId, carrierId: cor.entityId };
 }
 
 async function shipperActor(req: AuthRequest, neg: LoadNegotiation): Promise<{ party: NegotiationParty; shipperId: string }> {
@@ -181,7 +240,10 @@ function viewFor(neg: LoadNegotiation, viewer: NegotiationParty) {
 router.post(
   '/loads/:loadId/engage',
   requireVerifiedCarrier(),
-  validate([param('loadId').isString().isLength({ min: 1, max: 200 })]),
+  validate([
+    param('loadId').isString().isLength({ min: 1, max: 200 }),
+    body('driverId').optional().isString().isLength({ min: 1, max: 200 }),
+  ]),
   asyncHandler(async (req: AuthRequest, res) => {
     const actor = await haulerActor(req);
     // No e-sign gate here: CARRIER_ACCEPT is an ASSIGNMENT attestation (its
