@@ -66,7 +66,7 @@
         {
           "title": "Negotiation — HAULER (owner-operator)",
           "file": "haulerFlows.spec.ts",
-          "line": 12,
+          "line": 19,
           "column": 6,
           "specs": [
             {
@@ -85,12 +85,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 667,
+                      "duration": 702,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:36.769Z",
+                      "startTime": "2026-07-03T17:01:24.856Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -100,7 +100,7 @@
               ],
               "id": "df115692e428ab3e8fb5-8e51b24b1b2bc75fb308",
               "file": "haulerFlows.spec.ts",
-              "line": 13,
+              "line": 20,
               "column": 3
             },
             {
@@ -119,12 +119,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1250,
+                      "duration": 1516,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:37.682Z",
+                      "startTime": "2026-07-03T17:01:25.822Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -134,7 +134,7 @@
               ],
               "id": "df115692e428ab3e8fb5-32e9c8cb3d4bbba08dad",
               "file": "haulerFlows.spec.ts",
-              "line": 24,
+              "line": 31,
               "column": 3
             },
             {
@@ -153,12 +153,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 576,
+                      "duration": 707,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:38.936Z",
+                      "startTime": "2026-07-03T17:01:27.342Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -168,7 +168,7 @@
               ],
               "id": "df115692e428ab3e8fb5-b26ee391e832eed2aebd",
               "file": "haulerFlows.spec.ts",
-              "line": 32,
+              "line": 40,
               "column": 3
             },
             {
@@ -187,12 +187,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1285,
+                      "duration": 1565,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:39.516Z",
+                      "startTime": "2026-07-03T17:01:28.053Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -202,7 +202,7 @@
               ],
               "id": "df115692e428ab3e8fb5-6e2f1a5f3dc8e9a338fc",
               "file": "haulerFlows.spec.ts",
-              "line": 44,
+              "line": 53,
               "column": 3
             },
             {
@@ -221,12 +221,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1648,
+                      "duration": 2463,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:40.806Z",
+                      "startTime": "2026-07-03T17:01:29.622Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -236,7 +236,7 @@
               ],
               "id": "df115692e428ab3e8fb5-1667be490a83338b871a",
               "file": "haulerFlows.spec.ts",
-              "line": 58,
+              "line": 68,
               "column": 3
             },
             {
@@ -255,12 +255,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 888,
+                      "duration": 921,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:42.459Z",
+                      "startTime": "2026-07-03T17:01:32.089Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -270,7 +270,7 @@
               ],
               "id": "df115692e428ab3e8fb5-3b648646e4f75c701798",
               "file": "haulerFlows.spec.ts",
-              "line": 71,
+              "line": 82,
               "column": 3
             },
             {
@@ -289,12 +289,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 404,
+                      "duration": 463,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:43.351Z",
+                      "startTime": "2026-07-03T17:01:33.014Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -304,7 +304,7 @@
               ],
               "id": "df115692e428ab3e8fb5-55aeb498a075837bd155",
               "file": "haulerFlows.spec.ts",
-              "line": 87,
+              "line": 99,
               "column": 3
             },
             {
@@ -323,12 +323,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1153,
+                      "duration": 1207,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:43.759Z",
+                      "startTime": "2026-07-03T17:01:33.483Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -338,11 +338,11 @@
               ],
               "id": "df115692e428ab3e8fb5-865814890e5cbe881a97",
               "file": "haulerFlows.spec.ts",
-              "line": 95,
+              "line": 107,
               "column": 3
             },
             {
-              "title": "H8 e-sign gate: assign is blocked (412) until the carrier has signed",
+              "title": "H8 e-sign gate: assign requires signing CARRIER_ACCEPT first",
               "ok": true,
               "tags": [],
               "tests": [
@@ -357,12 +357,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2157,
+                      "duration": 1793,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:44.917Z",
+                      "startTime": "2026-07-03T17:01:34.694Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -370,9 +370,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "df115692e428ab3e8fb5-301f6f6dc1a948fac9c0",
+              "id": "df115692e428ab3e8fb5-b1945de83c44653e94cd",
               "file": "haulerFlows.spec.ts",
-              "line": 107,
+              "line": 119,
               "column": 3
             }
           ]
@@ -408,12 +408,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1076,
+                      "duration": 1083,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:47.086Z",
+                      "startTime": "2026-07-03T17:01:36.497Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -442,12 +442,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1938,
+                      "duration": 1943,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:48.167Z",
+                      "startTime": "2026-07-03T17:01:37.584Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -476,12 +476,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1164,
+                      "duration": 1185,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:50.110Z",
+                      "startTime": "2026-07-03T17:01:39.531Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -510,12 +510,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1162,
+                      "duration": 1194,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:51.277Z",
+                      "startTime": "2026-07-03T17:01:40.721Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -544,12 +544,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1076,
+                      "duration": 1077,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T06:40:52.443Z",
+                      "startTime": "2026-07-03T17:01:41.919Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -569,8 +569,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-07-03T06:40:36.390Z",
-    "duration": 17178.567000000003,
+    "startTime": "2026-07-03T17:01:24.594Z",
+    "duration": 18457.403,
     "expected": 14,
     "skipped": 0,
     "unexpected": 0,

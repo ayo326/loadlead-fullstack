@@ -136,6 +136,13 @@ export async function installNegotiationMock(
       return json(route, { chain: [] });
     }
 
+    // ── attestation: the hauler signs CARRIER_ACCEPT before their first bid /
+    //    accept (the AttestationDialog posts here). ──
+    if (method === "POST" && /\/attestation\/sign/.test(path)) {
+      hit("attestationSign");
+      return json(route, { signatureId: "sig-e2e", documentHash: "hash-e2e", signedAt: new Date().toISOString() });
+    }
+
     // ── negotiation: long-poll events (hold, then answer) ──
     if (/\/negotiations\/loads\/.*\/events/.test(path)) {
       hit("events");

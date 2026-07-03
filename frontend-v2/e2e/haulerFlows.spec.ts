@@ -1,5 +1,12 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { installNegotiationMock } from "./support/negotiationMock";
+
+/** One-click CARRIER_ACCEPT signing in the AttestationDialog the hauler must
+ *  complete before their first bid / accept (the accept step is gated on it). */
+async function signCarrierAccept(page: Page) {
+  await page.locator("[data-cy=attestation-consent]").check();
+  await page.locator("[data-cy=attestation-submit]").click();
+}
 
 /**
  * HAULER-side negotiation E2E, driven through the REAL Owner-Operator Load
@@ -26,6 +33,7 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await page.goto(URL);
     await page.getByRole("button", { name: /Engage to negotiate/ }).click();
     await page.getByRole("button", { name: "Accept load" }).click();
+    await signCarrierAccept(page); // sign CARRIER_ACCEPT, then it assigns
     await expect(page.getByText(/Assigned at \$2\.50\/mi/)).toBeVisible();
   });
 
@@ -36,6 +44,7 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await page.getByRole("button", { name: "Bid" }).click();
     await page.locator("#neg-rate").fill("2.75");
     await page.getByRole("button", { name: "Send" }).click();
+    await signCarrierAccept(page); // sign CARRIER_ACCEPT so the shipper can accept the bid
     await expect(page.getByText(/On the table/)).toBeVisible();
     await expect(page.getByText("$2.75/mi")).toBeVisible();
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible();
@@ -48,6 +57,7 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await page.getByRole("button", { name: "Bid" }).click();
     await page.locator("#neg-rate").fill("2.75");
     await page.getByRole("button", { name: "Send" }).click();
+    await signCarrierAccept(page); // bid requires the CARRIER_ACCEPT signature
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible();
     // Shipper counters at $2.60 — should arrive through the events channel.
     nm.shipperCounter(260);
@@ -62,6 +72,7 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await page.getByRole("button", { name: "Bid" }).click();
     await page.locator("#neg-rate").fill("2.75");
     await page.getByRole("button", { name: "Send" }).click();
+    await signCarrierAccept(page); // bid requires the CARRIER_ACCEPT signature
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible(); // bid settled
     nm.shipperCounter(260);
     await page.getByRole("button", { name: "Accept counter" }).click();
@@ -75,6 +86,7 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await page.getByRole("button", { name: "Bid" }).click();
     await page.locator("#neg-rate").fill("2.75");
     await page.getByRole("button", { name: "Send" }).click();
+    await signCarrierAccept(page); // bid requires the CARRIER_ACCEPT signature
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible(); // bid settled
     nm.shipperCounter(260);
     await page.getByRole("button", { name: "Counter offer" }).click();
@@ -104,23 +116,21 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await expect(page.getByText(/returned to the board/)).toBeVisible();
   });
 
-  test("H8 e-sign gate: assign is blocked (412) until the carrier has signed", async ({ page }) => {
-    const nm = await installNegotiationMock(page, "HAULER");
+  test("H8 e-sign gate: assign requires signing CARRIER_ACCEPT first", async ({ page }) => {
+    await installNegotiationMock(page, "HAULER");
     await page.goto(URL);
     await page.getByRole("button", { name: /Engage to negotiate/ }).click();
-    await expect(page.getByRole("button", { name: "Accept load" })).toBeVisible();
-
-    // No CARRIER_ACCEPT signature yet → the assign is refused, the negotiation
-    // stays ENGAGED (still offering Accept load), and nothing is assigned.
-    nm.setEsignBlocked(true);
     await page.getByRole("button", { name: "Accept load" }).click();
-    await expect(page.getByText(/signature is required/i)).toBeVisible();
+
+    // The signing dialog gates the assignment. Cancel it → nothing is assigned.
+    await expect(page.getByText("Sign carrier acceptance")).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByText(/Assigned at/)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Accept load" })).toBeVisible();
 
-    // Carrier signs → the same action now assigns at the posted rate.
-    nm.setEsignBlocked(false);
+    // Sign it → the load assigns at the posted rate.
     await page.getByRole("button", { name: "Accept load" }).click();
+    await signCarrierAccept(page);
     await expect(page.getByText(/Assigned at \$2\.50\/mi/)).toBeVisible();
   });
 });

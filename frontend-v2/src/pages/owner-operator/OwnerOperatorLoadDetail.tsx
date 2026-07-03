@@ -140,7 +140,7 @@ export default function OwnerOperatorLoadDetail() {
         )}
 
         {/* Stop check-in/out + detention/layover accessorials for the mover. */}
-        <NegotiationPanel loadId={loadId!} party="HAULER" onAssigned={() => window.location.reload()} />
+        <NegotiationPanel loadId={loadId!} party="HAULER" driverId={driverId} onAssigned={() => window.location.reload()} />
         <AccessorialsPanel loadId={loadId!} role="MOVER" />
       </div>
     </div>

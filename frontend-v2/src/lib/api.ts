@@ -346,18 +346,21 @@ export const api = {
 
   // Load negotiation (engage/bid/counter). Rates are integer cents per mile.
   negotiation: {
-    engage: (loadId: string) =>
-      request<{ negotiation: NegotiationView }>("POST", `/negotiations/loads/${loadId}/engage`),
+    // driverId is optional and hauler-side only: omit it to act as your own
+    // driver (self-haul); pass a fleet/org driverId to negotiate on behalf of
+    // that driver (a dispatcher / carrier-admin / fleet owner-operator).
+    engage: (loadId: string, driverId?: string) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/loads/${loadId}/engage`, driverId ? { driverId } : undefined),
     forLoad: (loadId: string) =>
       request<{ negotiation: NegotiationView | null; offers?: NegotiationOfferRow[]; underNegotiation?: boolean }>(
         "GET", `/negotiations/loads/${loadId}`),
-    acceptLoad: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/accept-load`),
-    bid: (id: string, amount: NegotiationOfferAmount) =>
-      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/bid`, amount),
-    counter: (id: string, amount: NegotiationOfferAmount) =>
-      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/counter`, amount),
-    accept: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/accept`),
-    reject: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/reject`),
+    acceptLoad: (id: string, driverId?: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/accept-load`, driverId ? { driverId } : undefined),
+    bid: (id: string, amount: NegotiationOfferAmount, driverId?: string) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/bid`, { ...amount, ...(driverId ? { driverId } : {}) }),
+    counter: (id: string, amount: NegotiationOfferAmount, driverId?: string) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/counter`, { ...amount, ...(driverId ? { driverId } : {}) }),
+    accept: (id: string, driverId?: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/accept`, driverId ? { driverId } : undefined),
+    reject: (id: string, driverId?: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/reject`, driverId ? { driverId } : undefined),
     shipperCounter: (id: string, amount: NegotiationOfferAmount) =>
       request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/counter`, amount),
     // Long poll: resolves when the negotiation changes past `since` (or ~25s).

@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { api, type NegotiationView } from "@/lib/api";
+import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
 
 const POLL_MS = 10_000;
 
@@ -30,10 +31,15 @@ function mmss(total: number): string {
 export function NegotiationPanel({
   loadId,
   party,
+  driverId,
   onAssigned,
 }: {
   loadId: string;
   party: "HAULER" | "SHIPPER";
+  /** Hauler-side: the driver this negotiation acts for. Self-haul passes their
+   *  own driver; a dispatcher / fleet owner-operator passes the fleet/org
+   *  driver. Required to sign CARRIER_ACCEPT (it binds the assigned driver). */
+  driverId?: string;
   onAssigned?: () => void;
 }) {
   const [neg, setNeg] = useState<NegotiationView | null>(null);
@@ -42,6 +48,11 @@ export function NegotiationPanel({
   const [rateInput, setRateInput] = useState("");
   const [showRate, setShowRate] = useState(false);
   const [remaining, setRemaining] = useState(0);
+  // A hauler must attest CARRIER_ACCEPT before their first binding commitment
+  // out of ENGAGED (accept the posted rate, or place a bid the shipper can
+  // accept). `signThen` holds the action to run once the signature is recorded;
+  // one signature then satisfies the accept/assign gate for the rest of the flow.
+  const [signThen, setSignThen] = useState<null | { run: () => Promise<{ negotiation: NegotiationView }>; ok: string }>(null);
   const timer = useRef<number | null>(null);
 
   const sinceRef = useRef(0);
@@ -108,6 +119,13 @@ export function NegotiationPanel({
     }
   }
 
+  // Open the CARRIER_ACCEPT signing dialog, then run the action once signed.
+  // Guards on driverId because the signature binds the assigned driver.
+  function signThenAct(run: () => Promise<{ negotiation: NegotiationView }>, ok: string) {
+    if (!driverId) { toast.error("No driver is resolved for this load"); return; }
+    setSignThen({ run, ok });
+  }
+
   const flat = neg?.rateBasis === "FLAT_TOTAL";
 
   function parsedCents(): number | null {
@@ -121,9 +139,11 @@ export function NegotiationPanel({
     if (cents == null) { toast.error(flat ? "Enter a total price like 1850" : "Enter a rate per mile like 2.75"); return; }
     if (!neg) return;
     const amount = flat ? { totalCents: cents } : { ratePerMileCents: cents };
-    if (neg.status === "ENGAGED") return act(() => api.negotiation.bid(neg.negotiationId, amount), "Bid sent to the shipper");
+    // A hauler's first bid needs the CARRIER_ACCEPT attestation so the shipper
+    // can accept it (the accept step is gated on that signature).
+    if (neg.status === "ENGAGED") return signThenAct(() => api.negotiation.bid(neg.negotiationId, amount, driverId), "Bid sent to the shipper");
     if (party === "SHIPPER") return act(() => api.negotiation.shipperCounter(neg.negotiationId, amount), "Counter sent to the hauler");
-    return act(() => api.negotiation.counter(neg.negotiationId, amount), "Counter sent to the shipper");
+    return act(() => api.negotiation.counter(neg.negotiationId, amount, driverId), "Counter sent to the shipper");
   }
 
   if (!loaded) return null;
@@ -140,7 +160,7 @@ export function NegotiationPanel({
         <p className="text-xs text-muted-foreground">
           Engage to hold the load exclusively for 20 minutes. You can accept it at the posted rate or bid your own rate per mile. While you hold it, no other hauler can see it.
         </p>
-        <Button size="sm" disabled={busy} onClick={() => act(() => api.negotiation.engage(loadId), "Load engaged - it is yours for 20 minutes")}>
+        <Button size="sm" disabled={busy} onClick={() => act(() => api.negotiation.engage(loadId, driverId), "Load engaged - it is yours for 20 minutes")}>
           <Handshake className="h-4 w-4 mr-1.5" aria-hidden /> Engage to negotiate
         </Button>
       </div>
@@ -213,7 +233,7 @@ export function NegotiationPanel({
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             {has("ACCEPT_LOAD") && (
-              <Button size="sm" disabled={busy} onClick={() => act(() => api.negotiation.acceptLoad(neg.negotiationId), "Load accepted at the posted rate")}>
+              <Button size="sm" disabled={busy} onClick={() => signThenAct(() => api.negotiation.acceptLoad(neg.negotiationId, driverId), "Load accepted at the posted rate")}>
                 Accept load
               </Button>
             )}
@@ -223,7 +243,7 @@ export function NegotiationPanel({
               </Button>
             )}
             {has("ACCEPT_COUNTER") && (
-              <Button size="sm" disabled={busy} onClick={() => act(() => api.negotiation.accept(neg.negotiationId), "Counter accepted - load assigned")}>
+              <Button size="sm" disabled={busy} onClick={() => act(() => api.negotiation.accept(neg.negotiationId, driverId), "Counter accepted - load assigned")}>
                 Accept counter
               </Button>
             )}
@@ -235,7 +255,7 @@ export function NegotiationPanel({
             {has("REJECT") && (
               <Button size="sm" variant="ghost" disabled={busy}
                 onClick={() => act(
-                  () => (party === "SHIPPER" ? api.negotiation.shipperReject(neg.negotiationId) : api.negotiation.reject(neg.negotiationId)),
+                  () => (party === "SHIPPER" ? api.negotiation.shipperReject(neg.negotiationId) : api.negotiation.reject(neg.negotiationId, driverId)),
                   "Negotiation ended - the load rebroadcasts"
                 )}>
                 {party === "SHIPPER" ? "Reject bid" : "Reject"}
@@ -251,6 +271,21 @@ export function NegotiationPanel({
             </div>
           )}
         </div>
+      )}
+      {signThen && (
+        <AttestationDialog
+          open={true}
+          onOpenChange={(o) => { if (!o) setSignThen(null); }}
+          title="Sign carrier acceptance"
+          subtitle="Attest that this driver will haul the load if the rate is accepted."
+          loadId={loadId}
+          action="CARRIER_ACCEPT"
+          attestationText={ATTESTATION_TEXT.CARRIER_ACCEPT}
+          attestationVersion={ATTESTATION_VERSION}
+          allowedSignatureTypes={["click"]}
+          assignedDriverId={driverId}
+          onSigned={() => { const a = signThen; setSignThen(null); if (a) act(a.run, a.ok); }}
+        />
       )}
     </div>
   );
