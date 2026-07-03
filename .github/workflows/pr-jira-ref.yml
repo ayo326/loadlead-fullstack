@@ -42,8 +42,12 @@ jobs:
           # the commit was authored before the issue existed.
           haystack=$(printf '%s\n--TITLE--\n%s\n--BODY--\n%s\n' "$range_log" "$PR_TITLE" "$PR_BODY")
 
-          if printf '%s' "$haystack" | grep -Eq 'SCRUM-[0-9]+'; then
-            keys=$(printf '%s' "$haystack" | grep -oE 'SCRUM-[0-9]+' | sort -u | tr '\n' ' ')
+          # Use grep -oE (reads the WHOLE input) rather than `grep -q`, which
+          # exits on the first match and closes the pipe — under `set -o pipefail`
+          # that makes the upstream `printf` fail with a broken pipe on a large
+          # haystack (a long PR body), producing a false "no SCRUM key" negative.
+          keys=$(grep -oE 'SCRUM-[0-9]+' <<<"$haystack" | sort -u | tr '\n' ' ' || true)
+          if [ -n "${keys// /}" ]; then
             echo "✓ found SCRUM key(s): $keys"
             exit 0
           fi
