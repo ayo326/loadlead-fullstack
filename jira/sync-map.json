@@ -320,7 +320,7 @@
     "priority_set_by_sync": "High"
   },
   "negot:flat-rate": {
-    "description_hash": "525a5990a9f9f3931ee0f72825a72716ec0de9f9afab929a1efd628d98c13848",
+    "description_hash": "cc4e478bba4373f173b8a01aa83488b39271f21059ed270fb9ead25aa62e9285",
     "key": "SCRUM-249",
     "priority_set_by_sync": "Medium"
   },
@@ -330,7 +330,7 @@
     "priority_set_by_sync": "Low"
   },
   "negot:realtime": {
-    "description_hash": "f7614fc0036fe934b56720ecc65bd1fdc588ae2ce07bdf75bd3cad171e4448b7",
+    "description_hash": "63f83864986c70be670e5a4726092e02c60db93841f895e9b36f600532ec4c11",
     "key": "SCRUM-248",
     "priority_set_by_sync": "Medium"
   },
