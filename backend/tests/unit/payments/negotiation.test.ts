@@ -158,7 +158,7 @@ describe('accept load at the posted rate', () => {
 describe('bid -> shipper actions', () => {
   it('bid then shipper accept assigns at the hauler rate with linehaul round(rate x miles)', async () => {
     const neg = await NegotiationService.engage(HAULER);
-    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 });
     const done = await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
     expect(done.status).toBe('ACCEPTED');
     expect(done.outcome).toBe('ACCEPT_BID');
@@ -169,8 +169,8 @@ describe('bid -> shipper actions', () => {
 
   it('bid, shipper counter, hauler accept-counter assigns at the shipper rate', async () => {
     const neg = await NegotiationService.engage(HAULER);
-    await NegotiationService.bid(neg.negotiationId, 'drv-1', 320);
-    await NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, 280);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 320 });
+    await NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, { ratePerMileCents: 280 });
     const done = await NegotiationService.acceptOffer(neg.negotiationId, { party: 'HAULER', driverId: 'drv-1' });
     expect(done.outcome).toBe('ACCEPT_COUNTER');
     expect(done.agreedRatePerMileCents).toBe(280);
@@ -179,17 +179,17 @@ describe('bid -> shipper actions', () => {
 
   it('turn enforcement: the hauler cannot act on the shipper turn and the reverse', async () => {
     const neg = await NegotiationService.engage(HAULER);
-    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300); // now PENDING_SHIPPER
-    await expect(NegotiationService.counter(neg.negotiationId, { party: 'HAULER', driverId: 'drv-1' }, 310))
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 }); // now PENDING_SHIPPER
+    await expect(NegotiationService.counter(neg.negotiationId, { party: 'HAULER', driverId: 'drv-1' }, { ratePerMileCents: 310 }))
       .rejects.toThrow(/not your turn/);
-    await NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, 275); // now PENDING_HAULER
-    await expect(NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, 270))
+    await NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, { ratePerMileCents: 275 }); // now PENDING_HAULER
+    await expect(NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, { ratePerMileCents: 270 }))
       .rejects.toThrow(/not your turn/);
   });
 
   it('reject rebroadcasts: lock released, load unassigned, offer row appended', async () => {
     const neg = await NegotiationService.engage(HAULER);
-    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 });
     const done = await NegotiationService.reject(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
     expect(done.status).toBe('REJECTED');
     expect((await NegotiationService.activeLockedLoadIds()).size).toBe(0);
@@ -210,7 +210,7 @@ describe('bid -> shipper actions', () => {
 describe('window expiry', () => {
   it('an action after the deadline expires the negotiation and rebroadcasts', async () => {
     const neg = await NegotiationService.engage(HAULER);
-    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 });
     vi.spyOn(Date, 'now').mockReturnValue(neg.deadlineAt + 60_000);
     await expect(NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }))
       .rejects.toThrow(/expired/);
@@ -234,7 +234,7 @@ describe('window expiry', () => {
 describe('idempotency and validation', () => {
   it('a repeated accept does not assign twice', async () => {
     const neg = await NegotiationService.engage(HAULER);
-    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 });
     const once = await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
     const twice = await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
     expect(twice.negotiationId).toBe(once.negotiationId);
@@ -244,15 +244,15 @@ describe('idempotency and validation', () => {
 
   it('a non-positive or non-integer bid is rejected', async () => {
     const neg = await NegotiationService.engage(HAULER);
-    await expect(NegotiationService.bid(neg.negotiationId, 'drv-1', 0)).rejects.toThrow(/at least/);
-    await expect(NegotiationService.bid(neg.negotiationId, 'drv-1', 250.5 as any)).rejects.toThrow(/integer/);
+    await expect(NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 0 })).rejects.toThrow(/at least/);
+    await expect(NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 250.5 as any })).rejects.toThrow(/integer/);
   });
 
   it('every action is a new append-only offer row; nothing is mutated', async () => {
     const neg = await NegotiationService.engage(HAULER);
-    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
-    await NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, 280);
-    await NegotiationService.counter(neg.negotiationId, { party: 'HAULER', driverId: 'drv-1' }, 290);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 });
+    await NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, { ratePerMileCents: 280 });
+    await NegotiationService.counter(neg.negotiationId, { party: 'HAULER', driverId: 'drv-1' }, { ratePerMileCents: 290 });
     await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
     const offers = await NegotiationService.offersFor(neg.negotiationId);
     expect(offers.map((o) => `${o.party}:${o.action}`)).toEqual([
@@ -263,25 +263,65 @@ describe('idempotency and validation', () => {
 
   it('the Load model is never written by the negotiation store (only assignDriver on accept)', async () => {
     const neg = await NegotiationService.engage(HAULER);
-    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 });
     await NegotiationService.reject(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
     expect(H.assignDriver).not.toHaveBeenCalled();
     expect(H.loads.get('load-1')).toEqual(LOAD()); // untouched
   });
 
-  it('a FLAT_RATE load can be accepted at the posted rate but not bid per mile', async () => {
+  it('a FLAT_RATE load negotiates in flat totals: per-mile field rejected, totalCents flows end to end', async () => {
     H.loads.set('load-1', { loadId: 'load-1', shipperId: 'ship-1', rateType: 'FLAT_RATE', rateAmount: 1200, totalMiles: 400 });
     const neg = await NegotiationService.engage(HAULER);
-    await expect(NegotiationService.bid(neg.negotiationId, 'drv-1', 300)).rejects.toThrow(/flat rate/);
+    expect(neg.rateBasis).toBe('FLAT_TOTAL');
+    // wrong-unit fields are rejected in both directions
+    await expect(NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 })).rejects.toThrow(/flat rate/);
+    // hauler bids a flat total, shipper counters a flat total, hauler accepts
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { totalCents: 135000 });
+    await expect(NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, { ratePerMileCents: 280 })).rejects.toThrow(/flat rate/);
+    await NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, { totalCents: 125000 });
+    const done = await NegotiationService.acceptOffer(neg.negotiationId, { party: 'HAULER', driverId: 'drv-1' });
+    expect(done.status).toBe('ACCEPTED');
+    expect(done.agreedRatePerMileCents).toBeNull();
+    expect(done.agreedLinehaulCents).toBe(125000); // the accepted flat total
+    expect(H.assignDriver).toHaveBeenCalledWith('load-1', 'drv-1');
+  });
+
+  it('a FLAT_RATE load can still be accepted at the posted amount', async () => {
+    H.loads.set('load-1', { loadId: 'load-1', shipperId: 'ship-1', rateType: 'FLAT_RATE', rateAmount: 1200, totalMiles: 400 });
+    const neg = await NegotiationService.engage(HAULER);
     const done = await NegotiationService.acceptLoad(neg.negotiationId, 'drv-1');
     expect(done.status).toBe('ACCEPTED');
     expect(done.agreedLinehaulCents).toBe(120000); // the flat amount in cents
   });
 
+  it('a PER_MILE load rejects a totalCents offer (unit safety both ways)', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await expect(NegotiationService.bid(neg.negotiationId, 'drv-1', { totalCents: 100000 })).rejects.toThrow(/cents per mile/);
+  });
+
+  it('waitForChange resolves as soon as the negotiation moves past since (long-poll seam)', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    const since = neg.updatedAt;
+    const wait = NegotiationService.waitForChange('load-1', since, { holdMs: 3000, stepMs: 20 });
+    // act after the wait has armed
+    await new Promise((r) => setTimeout(r, 40));
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 });
+    const changed = await wait;
+    expect(changed).not.toBeNull();
+    expect(changed!.status).toBe('PENDING_SHIPPER');
+    expect(changed!.updatedAt).toBeGreaterThan(since);
+  });
+
+  it('waitForChange returns null when nothing changes inside the hold window', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    const out = await NegotiationService.waitForChange('load-1', neg.updatedAt, { holdMs: 80, stepMs: 20 });
+    expect(out).toBeNull();
+  });
+
   it('settlement seam: agreedLinehaulCentsFor returns the negotiated linehaul only when ACCEPTED', async () => {
     const neg = await NegotiationService.engage(HAULER);
     expect(await NegotiationService.agreedLinehaulCentsFor('load-1')).toBeNull();
-    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 });
     await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
     expect(await NegotiationService.agreedLinehaulCentsFor('load-1')).toBe(120000);
   });
