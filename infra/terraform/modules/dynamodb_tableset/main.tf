@@ -363,18 +363,27 @@ locals {
     # ── Load negotiation (engage/bid/counter/accept) ─────────────────────
     # Session rows, append-only offer rows, and the per-load exclusivity lock.
     # The Load model is never touched; everything references load + parties by
-    # id. Key schemas mirror prod exactly (describe-table verified 2026-07-03);
-    # negotiations are read by scan+filter at beta volume — a loadId GSI can be
-    # added here (and to prod) together when the M3 scan fix lands.
+    # id. M3: the loadId / negotiationId GSIs let latestForLoad + offersFor query
+    # instead of scanning the whole table (the long-poll hot path). The service
+    # prefers these indexes and falls back to a scan until they're live, so this
+    # is safe to apply to prod (add the same GSIs there) independently of deploy.
     LoadNegotiations = {
-      hash_key   = "negotiationId"
-      attributes = [{ name = "negotiationId", type = "S" }]
-      gsis       = []
+      hash_key = "negotiationId"
+      attributes = [
+        { name = "negotiationId", type = "S" },
+        { name = "loadId", type = "S" },
+        { name = "createdAt", type = "N" },
+      ]
+      gsis = [{ name = "loadId-createdAt-index", hash_key = "loadId", range_key = "createdAt" }]
     }
     NegotiationOffers = {
-      hash_key   = "negOfferId"
-      attributes = [{ name = "negOfferId", type = "S" }]
-      gsis       = []
+      hash_key = "negOfferId"
+      attributes = [
+        { name = "negOfferId", type = "S" },
+        { name = "negotiationId", type = "S" },
+        { name = "createdAt", type = "N" },
+      ]
+      gsis = [{ name = "negotiationId-createdAt-index", hash_key = "negotiationId", range_key = "createdAt" }]
     }
     NegotiationLocks = {
       hash_key   = "loadId"

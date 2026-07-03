@@ -100,6 +100,15 @@ function isConditionFailure(err: any): boolean {
   return err?.name === 'ConditionalCheckFailedException' || err?.name === 'TransactionCanceledException';
 }
 
+/**
+ * A Query against a GSI that isn't created yet raises ValidationException
+ * ("The table does not have the specified index"). Callers fall back to a
+ * scan until the index is live (backfilled) in this environment.
+ */
+function isMissingIndex(err: any): boolean {
+  return err?.name === 'ValidationException' && /index/i.test(String(err?.message ?? ''));
+}
+
 /** Whole-cents linehaul for a load at a given per-mile rate. Explicit rounding. */
 export function linehaulCentsAt(ratePerMileCents: number, totalMiles: number): number {
   const cents = Math.round(ratePerMileCents * totalMiles);
@@ -216,11 +225,44 @@ export class NegotiationService {
 
   /** Latest negotiation for a load (any status), newest first. */
   static async latestForLoad(loadId: string): Promise<LoadNegotiation | null> {
-    const all = await this.scanNegs();
-    return all.filter((n) => n.loadId === loadId).sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+    const rows = await this.negsForLoad(loadId);
+    return rows.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+  }
+
+  /**
+   * Negotiations for a load. M3: the long-poll hot path calls this every ~1s,
+   * so query the loadId GSI instead of scanning the whole table; fall back to a
+   * filtered scan until the index is live in this environment.
+   */
+  private static async negsForLoad(loadId: string): Promise<LoadNegotiation[]> {
+    // Prefer the GSI; fall back to a filtered scan when the query path isn't
+    // usable — the index isn't backfilled yet (ValidationException) or the data
+    // layer doesn't expose query. The scan is always correct, just slower.
+    if (typeof Database.query === 'function') {
+      try {
+        return await Database.query<LoadNegotiation>(
+          T().neg, 'loadId-createdAt-index', '#l = :l', { '#l': 'loadId' }, { ':l': loadId },
+        );
+      } catch (err: any) {
+        if (err?.name === 'ResourceNotFoundException') return [];
+        if (!isMissingIndex(err)) throw err;
+      }
+    }
+    return (await this.scanNegs()).filter((n) => n.loadId === loadId);
   }
 
   static async offersFor(negotiationId: string): Promise<NegotiationOffer[]> {
+    if (typeof Database.query === 'function') {
+      try {
+        const rows = await Database.query<NegotiationOffer>(
+          T().offers, 'negotiationId-createdAt-index', '#n = :n', { '#n': 'negotiationId' }, { ':n': negotiationId },
+        );
+        return rows.sort((a, b) => a.createdAt - b.createdAt);
+      } catch (err: any) {
+        if (err?.name === 'ResourceNotFoundException') return [];
+        if (!isMissingIndex(err)) throw err;
+      }
+    }
     try {
       const rows = await Database.scan<NegotiationOffer>(T().offers);
       return rows.filter((o) => o.negotiationId === negotiationId).sort((a, b) => a.createdAt - b.createdAt);
