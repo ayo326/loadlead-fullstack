@@ -155,6 +155,36 @@ describe('accept load at the posted rate', () => {
   });
 });
 
+describe('defensive guards (path-coverage COAs)', () => {
+  it('U7: refuses to assign if the load was taken by another driver mid-negotiation', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    // The load gets assigned to a different driver out-of-band — should be
+    // impossible while we hold the lock; this proves the guard is live code.
+    H.loads.get('load-1').assignedDriverId = 'other-drv';
+    await expect(NegotiationService.acceptLoad(neg.negotiationId, 'drv-1'))
+      .rejects.toThrow(/assigned to another driver/i);
+    expect(H.assignDriver).not.toHaveBeenCalled();
+  });
+
+  it('U3: accepting with no offer on the table returns 409 (stale-view accept)', async () => {
+    // A PENDING_SHIPPER negotiation with no current offer — the normal flow
+    // never produces this; it is reachable only from a stale client view.
+    const now = Date.now();
+    await H.putItem(config.dynamodb.loadNegotiationsTable, {
+      negotiationId: 'neg-u3', loadId: 'load-1', shipperId: 'ship-1',
+      haulerCarrierId: 'carrier-1', haulerDriverId: 'drv-1', haulerUserId: 'user-h',
+      status: 'PENDING_SHIPPER', rateBasis: 'PER_MILE',
+      postedRatePerMileCents: 250, postedLinehaulCents: 100000,
+      currentOfferRatePerMileCents: null, currentOfferTotalCents: null, currentOfferParty: 'HAULER',
+      totalMiles: 400, roundCount: 1,
+      startedAt: now, deadlineAt: now + 600_000, createdAt: now, updatedAt: now,
+    });
+    await expect(NegotiationService.acceptOffer('neg-u3', { party: 'SHIPPER', shipperId: 'ship-1' }))
+      .rejects.toThrow(/No offer is on the table/i);
+    expect(H.assignDriver).not.toHaveBeenCalled();
+  });
+});
+
 describe('bid -> shipper actions', () => {
   it('bid then shipper accept assigns at the hauler rate with linehaul round(rate x miles)', async () => {
     const neg = await NegotiationService.engage(HAULER);
