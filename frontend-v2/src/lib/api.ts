@@ -66,6 +66,86 @@ export interface PendingStaffInvite {
   invitedBy: string; expiresAt: number; createdAt: number;
 }
 
+// ─── Load negotiation (mirror backend negotiationService) ───────────────────
+export interface NegotiationView {
+  negotiationId: string; loadId: string;
+  status: "ENGAGED" | "PENDING_SHIPPER" | "PENDING_HAULER" | "ACCEPTED" | "REJECTED" | "EXPIRED";
+  display: string; actions: string[];
+  rateBasis: "PER_MILE" | "FLAT_TOTAL";
+  postedRatePerMileCents: number | null;
+  postedLinehaulCents: number;
+  currentOfferRatePerMileCents: number | null;
+  currentOfferTotalCents: number | null;
+  currentOfferParty: "HAULER" | "SHIPPER" | null;
+  roundCount: number; secondsRemaining: number; deadlineAt: number; updatedAt: number;
+  agreedRatePerMileCents: number | null; agreedLinehaulCents: number | null;
+}
+export type NegotiationOfferAmount = { ratePerMileCents: number } | { totalCents: number };
+export interface NegotiationOfferRow {
+  negOfferId: string; negotiationId: string; party: "HAULER" | "SHIPPER";
+  action: string; ratePerMileCents?: number; createdAt: number;
+}
+
+// ─── Compliance / oversight layer (mirror backend services) ─────────────────
+// Separate axis from PlatformRole: a compliance grant is required in addition to
+// the ADMIN role. The server enforces every surface; these types drive the UI.
+export type ComplianceRole = "DISPUTE_ADMIN" | "LEGAL_ADMIN" | "LAW_ENFORCEMENT_LIAISON";
+export interface ComplianceMe {
+  userId: string; email: string;
+  complianceRoles: ComplianceRole[];
+  platformRole: PlatformRole | null;
+  isStaffAdmin: boolean;
+}
+export type DiscrepancySeverity = "INFO" | "WARN" | "CRITICAL";
+export interface DiscrepancyFinding {
+  code: string; severity: DiscrepancySeverity; message: string; refs: string[];
+}
+export type AdjudicationAction = "UPHOLD" | "REVERSE" | "ADJUST" | "ESCALATE";
+export type AdjudicationTargetType = "CHARGE_DISPUTE" | "RECOURSE_BUYBACK" | "DISCREPANCY";
+export interface Adjudication {
+  adjudicationId: string; targetType: AdjudicationTargetType; targetId: string;
+  invoiceId?: string; carrierId?: string; action: AdjudicationAction; reason: string;
+  actorId: string; compensatingOutcomeId?: string; at: number;
+}
+export interface LegalHoldEvent {
+  holdId: string; entityType: string; entityId: string;
+  eventType: "PLACE" | "RELEASE"; reason: string; authorityRef?: string;
+  actorId: string; at: number; seq?: number;
+}
+export interface CaseFileManifestEntry { kind: string; id: string; contentHash: string; }
+export interface CaseFileItem extends CaseFileManifestEntry { content: unknown; }
+export interface CaseFile {
+  subjectType: string; subjectId: string; assembledAt: number;
+  manifest: CaseFileManifestEntry[]; items: CaseFileItem[];
+}
+export interface CaseFileIntegrity { ok: boolean; gaps: string[]; }
+export type LERequestType = "SUBPOENA" | "COURT_ORDER" | "WARRANT" | "GARNISHMENT" | "LEVY" | "LIEN" | "OTHER";
+export interface LEScopeEntity { entityType: string; entityId: string; }
+export interface LERequestIntake {
+  recordId: string; requestId: string; kind: "INTAKE"; type: LERequestType;
+  issuingAuthority: string; receivedDate: string; describedScope: string;
+  scopeEntities: LEScopeEntity[]; validityReviewStatus: "PENDING_REVIEW";
+  nonDisclosure: boolean; nonDisclosureBasis?: string; actorId: string; at: number;
+}
+export interface CounselSignOff {
+  recordId: string; requestId: string; kind: "COUNSEL_SIGNOFF"; counselId: string;
+  validityDetermination: "VALID" | "INVALID" | "VALID_IN_PART"; note?: string; actorId: string; at: number;
+}
+export interface DisclosureRecord {
+  disclosureId: string; requestId: string; recipient: string;
+  recordRefs: string[]; actorId: string; at: number;
+}
+export interface PayoutIntercept {
+  interceptId: string; requestId: string; targetType: "CARRIER" | "INVOICE"; targetId: string;
+  carrierId: string; instrumentRef: string; amountCents?: number; percentageBps?: number;
+  priority: number; instruction: "HOLD" | "REDIRECT"; redirectTo?: string;
+  status: string; supersedesInterceptId?: string; actorId: string; at: number;
+}
+export interface AdminAuditEntry {
+  auditId: string; actorId: string; actorRole: string; action: string;
+  targetRefs?: string[]; reason?: string; authorityRef?: string; at: number;
+}
+
 // Auth uses httpOnly cookies — the browser sends ll_token automatically.
 // `credentials: 'include'` is required for cross-origin cookie delivery.
 // We no longer read from / write to localStorage for auth tokens.
@@ -130,6 +210,11 @@ export const api = {
       request<{ application: BetaApplicationRow; laneOverlaps: LaneOverlap[] }>(
         "GET", `/admin/beta/applications/${id}`
       ),
+    // The submitted Tally intake for an email (allowlist/waitlist drawer).
+    getApplicationByEmail: (email: string) =>
+      request<{ application: BetaApplicationRow | null }>(
+        "GET", `/admin/beta/applications/by-email/${encodeURIComponent(email)}`
+      ),
     score: (id: string, scores: { segmentFit?: number; laneOverlap?: number; pain?: number; responsiveness?: number }) =>
       request<{ application: BetaApplicationRow }>(
         "PUT", `/admin/beta/applications/${id}/score`, scores
@@ -185,6 +270,107 @@ export const api = {
       request<{ ok: boolean; userId: string; platformRole: PlatformRole }>(
         "POST", "/admin/staff/accept-invite", params),
   },
+
+  // Compliance / oversight console — all under /api/admin/compliance.
+  // Each call is gated server-side by the specific compliance role (grants are
+  // STAFF_ADMIN). `me` grants nothing; it only tells the UI which tabs to show.
+  adminCompliance: {
+    me: () => request<ComplianceMe>("GET", "/admin/compliance/me"),
+
+    // Grants (STAFF_ADMIN)
+    getGrants: (userId: string) =>
+      request<{ userId: string; roles: ComplianceRole[] }>("GET", `/admin/compliance/grants/${encodeURIComponent(userId)}`),
+    grant: (userId: string, role: ComplianceRole) =>
+      request<{ grant: any }>("POST", "/admin/compliance/grants", { userId, role }),
+    revoke: (userId: string, role: ComplianceRole) =>
+      request<{ grant: any }>("DELETE", `/admin/compliance/grants/${encodeURIComponent(userId)}/${role}`),
+
+    // Disputes (DISPUTE_ADMIN)
+    discrepancies: (loadId: string) =>
+      request<{ loadId: string; findings: DiscrepancyFinding[]; count: number }>(
+        "GET", `/admin/compliance/discrepancies/${encodeURIComponent(loadId)}`),
+    adjudicate: (params: {
+      targetType: AdjudicationTargetType; targetId: string;
+      action: AdjudicationAction; reason: string;
+      invoiceId?: string; carrierId?: string;
+      compensation?: { amountCents: number; note?: string };
+    }) => request<{ adjudication: Adjudication }>("POST", "/admin/compliance/adjudicate", params),
+
+    // Legal holds + case file + audit (LEGAL_ADMIN)
+    listHolds: (filter?: { entityType?: string; entityId?: string }) => {
+      const qs = new URLSearchParams(
+        Object.entries(filter ?? {}).filter(([, v]) => v) as [string, string][]
+      ).toString();
+      return request<{ holds: LegalHoldEvent[] }>("GET", `/admin/compliance/holds${qs ? `?${qs}` : ""}`);
+    },
+    placeHold: (params: { entityType: string; entityId: string; reason: string; authorityRef?: string }) =>
+      request<{ hold: LegalHoldEvent }>("POST", "/admin/compliance/holds", params),
+    releaseHold: (params: { entityType: string; entityId: string; reason: string; authorityRef?: string }) =>
+      request<{ hold: LegalHoldEvent }>("POST", "/admin/compliance/holds/release", params),
+    caseFile: (loadId: string) =>
+      request<{ caseFile: CaseFile; integrity: CaseFileIntegrity }>(
+        "GET", `/admin/compliance/case-file/${encodeURIComponent(loadId)}`),
+    audit: (filter?: { targetRef?: string; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (filter?.targetRef) q.set("targetRef", filter.targetRef);
+      if (filter?.limit) q.set("limit", String(filter.limit));
+      const qs = q.toString();
+      return request<{ entries: AdminAuditEntry[]; count: number }>("GET", `/admin/compliance/audit${qs ? `?${qs}` : ""}`);
+    },
+
+    // Law enforcement + intercepts (LAW_ENFORCEMENT_LIAISON, counsel-gated)
+    intake: (params: {
+      type: LERequestType; issuingAuthority: string; receivedDate: string;
+      describedScope: string; scopeEntities: LEScopeEntity[];
+      nonDisclosure?: boolean; nonDisclosureBasis?: string;
+    }) => request<{ intake: LERequestIntake }>("POST", "/admin/compliance/le/requests", params),
+    getRequest: (requestId: string) =>
+      request<{ intake: LERequestIntake; signOffs: CounselSignOff[]; counselSignedOff: boolean; disclosures: DisclosureRecord[] }>(
+        "GET", `/admin/compliance/le/requests/${encodeURIComponent(requestId)}`),
+    counselSignOff: (requestId: string, params: {
+      counselId: string; validityDetermination: "VALID" | "INVALID" | "VALID_IN_PART"; note?: string;
+    }) => request<{ signOff: CounselSignOff }>(
+      "POST", `/admin/compliance/le/requests/${encodeURIComponent(requestId)}/counsel-signoff`, params),
+    disclose: (requestId: string, params: { recipient: string; recordRefs: string[] }) =>
+      request<{ disclosure: DisclosureRecord }>(
+        "POST", `/admin/compliance/le/requests/${encodeURIComponent(requestId)}/disclose`, params),
+    createIntercept: (params: {
+      requestId: string; targetType: "CARRIER" | "INVOICE"; targetId: string; carrierId: string;
+      instrumentRef: string; amountCents?: number; percentageBps?: number; priority?: number;
+      instruction: "HOLD" | "REDIRECT"; redirectTo?: string;
+    }) => request<{ intercept: PayoutIntercept }>("POST", "/admin/compliance/intercepts", params),
+    listIntercepts: (invoiceId: string, carrierId: string) =>
+      request<{ intercepts: PayoutIntercept[] }>(
+        "GET", `/admin/compliance/intercepts?invoiceId=${encodeURIComponent(invoiceId)}&carrierId=${encodeURIComponent(carrierId)}`),
+  },
+
+  // Load negotiation (engage/bid/counter). Rates are integer cents per mile.
+  negotiation: {
+    // driverId is optional and hauler-side only: omit it to act as your own
+    // driver (self-haul); pass a fleet/org driverId to negotiate on behalf of
+    // that driver (a dispatcher / carrier-admin / fleet owner-operator).
+    engage: (loadId: string, driverId?: string) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/loads/${loadId}/engage`, driverId ? { driverId } : undefined),
+    forLoad: (loadId: string) =>
+      request<{ negotiation: NegotiationView | null; offers?: NegotiationOfferRow[]; underNegotiation?: boolean }>(
+        "GET", `/negotiations/loads/${loadId}`),
+    acceptLoad: (id: string, driverId?: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/accept-load`, driverId ? { driverId } : undefined),
+    bid: (id: string, amount: NegotiationOfferAmount, driverId?: string) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/bid`, { ...amount, ...(driverId ? { driverId } : {}) }),
+    counter: (id: string, amount: NegotiationOfferAmount, driverId?: string) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/counter`, { ...amount, ...(driverId ? { driverId } : {}) }),
+    accept: (id: string, driverId?: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/accept`, driverId ? { driverId } : undefined),
+    reject: (id: string, driverId?: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/reject`, driverId ? { driverId } : undefined),
+    shipperCounter: (id: string, amount: NegotiationOfferAmount) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/counter`, amount),
+    // Long poll: resolves when the negotiation changes past `since` (or ~25s).
+    events: (loadId: string, since: number) =>
+      request<{ changed: boolean; negotiation?: NegotiationView }>(
+        "GET", `/negotiations/loads/${loadId}/events?since=${since}`),
+    shipperAccept: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/accept`),
+    shipperReject: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/reject`),
+  },
+
   logout: () => request<{ message: string }>("POST", "/auth/logout"),
 
   // Driver
@@ -335,6 +521,15 @@ export const api = {
   geocodeAddress: (address: string) =>
     request<{ lat: number; lng: number }>("GET", `/maps/geocode?address=${encodeURIComponent(address)}`),
 
+  /** Address suggestions as the user types. Empty list when Places is unavailable. */
+  addressAutocomplete: (q: string) =>
+    request<{ suggestions: { description: string; placeId: string }[] }>(
+      "GET", `/maps/autocomplete?q=${encodeURIComponent(q)}`),
+  /** Resolve a selected suggestion → structured address parts. */
+  addressPlace: (placeId: string) =>
+    request<{ street: string; city: string; state: string; zip: string; formatted: string }>(
+      "GET", `/maps/place?placeId=${encodeURIComponent(placeId)}`),
+
   // Capacity
   checkDriverCapacity: (payload: { totalWeightLbs: number; dimLengthIn?: number; dimWidthIn?: number; dimHeightIn?: number }) =>
     request<{ zone: string; remainingWeightLbs: number; remainingVolumeCuIn: number; blockMessage?: string; warningMessage?: string }>(
@@ -403,6 +598,10 @@ export const api = {
     actualAt?: string;
     geo?: { lat: number; lng: number };
     assignedDriverId?: string;
+    // Negotiated rate to bind into a CARRIER_ACCEPT signature (cents). Send the
+    // one that matches the load basis; omit for a straight claim (posted rate).
+    ratePerMileCents?: number;
+    totalCents?: number;
   }) => request<{
     signatureId: string;
     documentHash: string;
@@ -548,4 +747,136 @@ export const api = {
     request<{ invite: any }>("POST", "/owner-operator/fleet/invite", { email }),
   getFleetInvites: () =>
     request<{ invites: any[] }>("GET", "/owner-operator/fleet/invites"),
+
+  // ─── Carrier payments + financing pipeline (mover-facing) ────────────────
+  factoring: {
+    getContact: () => request<{ contact: FactorContact | null }>("GET", "/factoring/contact"),
+    saveContact: (factorName: string, factorEmail: string) =>
+      request<{ contact: FactorContact }>("PUT", "/factoring/contact", { factorName, factorEmail }),
+    listAssignments: () =>
+      request<{ assignments: FactoringAssignmentDTO[]; count: number }>("GET", "/factoring/assignments"),
+    createAssignment: (params: {
+      invoiceId?: string; factorName: string; factorContact?: string;
+      recourseType: "RECOURSE" | "NON_RECOURSE"; scope?: "FULL_INVOICE" | "LINEHAUL_ONLY";
+      payoutDestination: string; debtorId?: string; debtorName?: string;
+    }) => request<{ assignment: FactoringAssignmentDTO; notice: any }>("POST", "/factoring/assignments", params),
+    releaseAssignment: (assignmentId: string) =>
+      request<{ released: FactoringAssignmentDTO }>("POST", `/factoring/assignments/${assignmentId}/release`),
+    getPackage: (invoiceId: string) =>
+      request<{ package: InvoicePackageDTO }>("GET", `/factoring/invoices/${invoiceId}/package`),
+    getPayee: (invoiceId: string) =>
+      request<{ payee: { type: "CARRIER" | "FACTOR" | "PARTNER"; destination: string; reason: string } }>(
+        "GET", `/factoring/invoices/${invoiceId}/payee`),
+    // Two-step export: without confirmed:true returns { requiresConfirmation, manifest, recipient }.
+    exportReview: (invoiceId: string, recipientEmail?: string) =>
+      request<
+        | { ok: true; requiresConfirmation: true; manifest: PacketManifestDTO; recipient: string }
+        | { ok: false; missing: string[] }
+      >("POST", "/factoring/export", { invoiceId, recipientEmail }),
+    exportSend: (params: {
+      invoiceId: string; recipientEmail?: string; moverReplyTo?: string; moverName?: string;
+      saveContact?: { factorName: string };
+    }) => request<
+      | { ok: true; submission: FactoringSubmissionDTO }
+      | { ok: false; missing: string[] }
+    >("POST", "/factoring/export", { ...params, confirmed: true }),
+    listSubmissions: () =>
+      request<{ submissions: FactoringSubmissionDTO[]; count: number }>("GET", "/factoring/submissions"),
+  },
+
+  accessorials: {
+    /** Prefilled terms + allowed override bounds for a freight class (no load needed). */
+    rateCard: (equipmentType: string, hazmat: boolean) =>
+      request<{ disclosure: AccessorialDisclosureDTO; bounds: AccessorialBoundsDTO }>(
+        "GET", `/accessorials/rate-card?equipmentType=${encodeURIComponent(equipmentType)}&hazmat=${hazmat}`),
+    /** Load's accessorial policy + the disclosure (single freight-class rate + terms). */
+    getPolicy: (loadId: string) =>
+      request<{ policy: any; disclosure: AccessorialDisclosureDTO }>("GET", `/accessorials/policy/${loadId}`),
+    /** Record the e-sign policy acceptance + the detention/layover acknowledgment. */
+    acceptPolicy: (loadId: string, acknowledged: boolean) =>
+      request<{ acceptance: any }>("POST", `/accessorials/policy/${loadId}/accept`, {
+        signatureType: "click",
+        signatureData: "acknowledged detention and layover terms",
+        consentGiven: true,
+        acknowledged,
+      }),
+    listCharges: (loadId: string) =>
+      request<{ charges: AccessorialChargeDTO[]; count: number }>("GET", `/accessorials/loads/${loadId}/charges`),
+    compute: (loadId: string, stopId: string) =>
+      request<{ charge: AccessorialChargeDTO | null }>("POST", `/accessorials/loads/${loadId}/stops/${stopId}/compute`),
+    checkIn: (loadId: string, stopId: string, body?: Record<string, unknown>) =>
+      request<{ event: any }>("POST", `/accessorials/loads/${loadId}/stops/${stopId}/check-in`, body ?? {}),
+    checkOut: (loadId: string, stopId: string, body?: Record<string, unknown>) =>
+      request<{ event: any }>("POST", `/accessorials/loads/${loadId}/stops/${stopId}/check-out`, body ?? {}),
+    approve: (chargeId: string) =>
+      request<{ charge: AccessorialChargeDTO }>("POST", `/accessorials/charges/${chargeId}/approve`),
+    adjust: (chargeId: string, newAmountCents: number, reason?: string) =>
+      request<{ charge: AccessorialChargeDTO }>("POST", `/accessorials/charges/${chargeId}/adjust`, { newAmountCents, reason }),
+    dispute: (chargeId: string, reason?: string) =>
+      request<{ charge: AccessorialChargeDTO }>("POST", `/accessorials/charges/${chargeId}/dispute`, { reason }),
+  },
 };
+
+// ─── Carrier payments + financing DTOs ──────────────────────────────────────
+export interface FactorContact { carrierId: string; factorName: string; factorEmail: string; createdAt: number; updatedAt: number; }
+export interface InvoiceLineDTO {
+  kind: "LINEHAUL" | "ACCESSORIAL"; chargeId?: string; accessorialType?: "DETENTION" | "LAYOVER";
+  amountCents: number; factorable: boolean; reason?: string;
+}
+export interface InvoicePackageDTO {
+  invoiceId: string; loadId: string;
+  debtor: { id: string; name?: string; verified: boolean };
+  mover: { id: string; verified: boolean };
+  lines: InvoiceLineDTO[]; podRef?: string; rateConfRef?: string;
+  activeAssignment?: FactoringAssignmentDTO | null; advanceableTotalCents: number;
+}
+export interface PacketManifestDTO {
+  invoiceId: string; loadId: string; carrierId: string; generatedAt: number;
+  sections: { name: string; kind: string; present: boolean; ref?: string }[];
+  totals: { linehaulCents: number; approvedAccessorialCents: number; advanceableTotalCents: number };
+}
+export interface FactoringSubmissionDTO {
+  submissionId: string; carrierId: string; invoiceIds: string[]; recipientEmail: string;
+  manifest: PacketManifestDTO; actorId: string; status: "SENT" | "FAILED"; error?: string; sentAt: number;
+}
+export interface FactoringAssignmentDTO {
+  assignmentId: string; carrierId: string; invoiceId?: string; accountLevel: boolean; factorName: string;
+  recourseType: "RECOURSE" | "NON_RECOURSE"; scope: "FULL_INVOICE" | "LINEHAUL_ONLY";
+  payoutDestination: string; status: "ACTIVE" | "RELEASED"; createdAt: number;
+}
+export interface AccessorialChargeDTO {
+  chargeId: string; loadId: string; stopId: string; type: "DETENTION" | "LAYOVER"; status: string;
+  amountCents: number; billableMinutes: number; layoverDays: number; rateClass: string;
+  dwellMinutes: number; provisional: boolean;
+}
+export interface AccessorialDisclosureDTO {
+  version: number;
+  rateClass: "STANDARD" | "SPECIALIZED" | "HAZMAT";
+  freeTimeMinutes: number;
+  billingIncrementMinutes: number;
+  detentionHourlyRateCents: number;
+  layoverThresholdMinutes: number;
+  layoverDailyRateCents: number;
+}
+export interface Bound { min: number; max: number; }
+export interface AccessorialBoundsDTO {
+  freeTimeMinutes: Bound;
+  billingIncrementMinutes: Bound;
+  detentionHourlyRateCents: Record<"STANDARD" | "SPECIALIZED" | "HAZMAT", Bound>;
+  layoverThresholdMinutes: Bound;
+  layoverDailyRateCents: Bound;
+}
+export interface ShipperAccessorialAgreementValue {
+  agreed: boolean;
+  override?: {
+    freeTimeMinutes?: number;
+    detentionHourlyRateCents?: Record<string, number>;
+    layoverDailyRateCents?: number;
+  };
+}
+
+/** Format integer cents as a USD string, e.g. 123456 -> "$1,234.56". */
+export function formatCents(cents: number): string {
+  const neg = cents < 0; const abs = Math.abs(cents);
+  return `${neg ? "-" : ""}$${(Math.floor(abs / 100)).toLocaleString("en-US")}.${(abs % 100).toString().padStart(2, "0")}`;
+}

@@ -163,5 +163,296 @@ module "ddb_beta_trust_events" {
   tags                = local.tags
 }
 
+# ─── LoadLead_PlatformFeePolicy ─────────────────────────────────────────────
+# Append-only platform fee policy changes (linehaul take rate + beta waiver).
+# The current policy is the newest row; rows are never updated or deleted, and
+# each change carries an actor and a timestamp. Same append-only trust posture
+# as the tables above (PITR on via the module, deletion protection on).
+module "ddb_platform_fee_policy" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_PlatformFeePolicy"
+  hash_key            = "changeId"
+  attributes = [
+    { name = "changeId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_AccessorialPolicies ───────────────────────────────────────────
+# Per-load accessorial policy (detention/layover terms), keyed by loadId.
+# Editable until a charge freezes a snapshot; references the load by id only and
+# never lives on the Load model.
+module "ddb_accessorial_policies" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_AccessorialPolicies"
+  hash_key            = "loadId"
+  attributes = [
+    { name = "loadId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_AccessorialPolicyAcceptances ──────────────────────────────────
+# Append-only ESIGN/UETA acceptances of a load's accessorial policy. Pins the
+# accepted version + policy hash; rows are never updated or deleted.
+module "ddb_accessorial_policy_acceptances" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_AccessorialPolicyAcceptances"
+  hash_key            = "acceptanceId"
+  attributes = [
+    { name = "acceptanceId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_ShipperAgreements ─────────────────────────────────────────────
+# Append-only shipper agreements to a load's accessorial terms at posting.
+module "ddb_shipper_agreements" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_ShipperAgreements"
+  hash_key            = "agreementId"
+  attributes = [
+    { name = "agreementId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── Platform-admin compliance/oversight layer ──────────────────────────────
+# All append-only; deletion protection + PITR (module default) since these hold
+# audit, legal, and law-enforcement records.
+module "ddb_admin_audit_log" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_AdminAuditLog"
+  hash_key            = "auditId"
+  attributes          = [{ name = "auditId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_compliance_grants" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_ComplianceGrants"
+  hash_key            = "userId"
+  attributes          = [{ name = "userId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_adjudications" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_Adjudications"
+  hash_key            = "adjudicationId"
+  attributes          = [{ name = "adjudicationId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_legal_holds" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_LegalHolds"
+  hash_key            = "holdId"
+  attributes          = [{ name = "holdId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_law_enforcement_requests" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_LawEnforcementRequests"
+  hash_key            = "recordId"
+  attributes          = [{ name = "recordId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_disclosures" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_Disclosures"
+  hash_key            = "disclosureId"
+  attributes          = [{ name = "disclosureId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+module "ddb_payout_intercepts" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_PayoutIntercepts"
+  hash_key            = "interceptId"
+  attributes          = [{ name = "interceptId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── Load negotiation (engage/bid/counter) ──────────────────────────────────
+# Session rows, append-only offers, and the per-load exclusivity lock. The
+# Load model is never touched; sessions reference load + parties by id.
+module "ddb_load_negotiations" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_LoadNegotiations"
+  hash_key            = "negotiationId"
+  attributes = [
+    { name = "negotiationId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+module "ddb_negotiation_offers" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_NegotiationOffers"
+  hash_key            = "negOfferId"
+  attributes = [
+    { name = "negOfferId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+module "ddb_negotiation_locks" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_NegotiationLocks"
+  hash_key            = "loadId"
+  attributes = [
+    { name = "loadId", type = "S" },
+  ]
+  deletion_protection = false # ephemeral lock rows; deleted on release by design
+  tags                = local.tags
+}
+
+# ─── LoadLead_StopEvents ────────────────────────────────────────────────────
+# Append-only stop-events log (check-in/check-out evidence). Detention and
+# layover compute from these immutable events; references load + stop by id
+# only. Same append-only posture as the trust tables.
+module "ddb_stop_events" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_StopEvents"
+  hash_key            = "eventId"
+  attributes = [
+    { name = "eventId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_AccessorialCharges ────────────────────────────────────────────
+# Accessorial charge ledger (DETENTION/LAYOVER). Deterministic chargeId so a
+# recompute updates in place; the live row carries status + amount and the
+# immutable trail lives in the status-history table below.
+module "ddb_accessorial_charges" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_AccessorialCharges"
+  hash_key            = "chargeId"
+  attributes = [
+    { name = "chargeId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_AccessorialChargeStatusHistory ────────────────────────────────
+# Append-only charge status transitions (original/new amounts on adjust).
+module "ddb_charge_status_history" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_AccessorialChargeStatusHistory"
+  hash_key            = "historyId"
+  attributes = [
+    { name = "historyId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_FactoringAssignments ──────────────────────────────────────────
+# Append-only factoring assignment log. A release/change is a new row; the
+# active assignment resolves with invoice-level precedence over account-level.
+module "ddb_factoring_assignments" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_FactoringAssignments"
+  hash_key            = "assignmentId"
+  attributes = [
+    { name = "assignmentId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_NoticesOfAssignment ───────────────────────────────────────────
+# Append-only Notices of Assignment (legal redirection snapshots). References
+# the assignment, carrier, invoice, and debtor by id.
+module "ddb_notices_of_assignment" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_NoticesOfAssignment"
+  hash_key            = "noaId"
+  attributes = [
+    { name = "noaId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_FundingAdvances ───────────────────────────────────────────────
+# Append-only funding advances. No advance against a non-APPROVED accessorial;
+# idempotent per (invoice, line). References invoice/carrier/charge by id.
+module "ddb_funding_advances" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_FundingAdvances"
+  hash_key            = "advanceId"
+  attributes = [
+    { name = "advanceId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_ReconciliationOutcomes ────────────────────────────────────────
+# Append-only reconciliation + recourse outcomes (payment routing, reserve
+# release, supplemental advance, recourse buyback, non-recourse loss).
+module "ddb_reconciliation_outcomes" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_ReconciliationOutcomes"
+  hash_key            = "outcomeId"
+  attributes = [
+    { name = "outcomeId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_FactorContacts ────────────────────────────────────────────────
+# Saved factor contact per carrier/owner-operator (pre-fills the send recipient).
+module "ddb_factor_contacts" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_FactorContacts"
+  hash_key            = "carrierId"
+  attributes = [
+    { name = "carrierId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+# ─── LoadLead_FactoringSubmissions ──────────────────────────────────────────
+# Append-only factoring submission records: the disclosure trail of what
+# financial documents left the platform, to whom, and when.
+module "ddb_factoring_submissions" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_FactoringSubmissions"
+  hash_key            = "submissionId"
+  attributes = [
+    { name = "submissionId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
 output "signatures_table_arn" { value = module.ddb_signatures.arn }
 output "pod_photos_table_arn" { value = module.ddb_pod_photos.arn }
+output "platform_fee_policy_table_arn" { value = module.ddb_platform_fee_policy.arn }
+output "accessorial_policies_table_arn" { value = module.ddb_accessorial_policies.arn }
+output "accessorial_policy_acceptances_table_arn" { value = module.ddb_accessorial_policy_acceptances.arn }
+output "shipper_agreements_table_arn" { value = module.ddb_shipper_agreements.arn }
+output "stop_events_table_arn" { value = module.ddb_stop_events.arn }
+output "accessorial_charges_table_arn" { value = module.ddb_accessorial_charges.arn }
+output "charge_status_history_table_arn" { value = module.ddb_charge_status_history.arn }
+output "factoring_assignments_table_arn" { value = module.ddb_factoring_assignments.arn }
+output "notices_of_assignment_table_arn" { value = module.ddb_notices_of_assignment.arn }
+output "funding_advances_table_arn" { value = module.ddb_funding_advances.arn }
+output "reconciliation_outcomes_table_arn" { value = module.ddb_reconciliation_outcomes.arn }

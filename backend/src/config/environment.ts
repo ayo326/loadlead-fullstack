@@ -39,6 +39,75 @@ export const config = {
     // Beta-admin trust/operational events (no-show, trust incident). Intentionally
     // separate from the Load model; records reference a load and carrier by id only.
     betaTrustEventsTable: process.env.DYNAMODB_BETA_TRUST_EVENTS_TABLE || 'LoadLead_BetaTrustEvents',
+    // Append-only platform fee policy changes (linehaul take rate + beta waiver).
+    // Current policy = newest row; never updated or deleted. Each change carries
+    // an actor and timestamp. Falls back to the seeded default when empty/missing.
+    platformFeePolicyTable: process.env.DYNAMODB_PLATFORM_FEE_POLICY_TABLE || 'LoadLead_PlatformFeePolicy',
+    // Per-load accessorial policy (detention/layover terms), keyed by loadId.
+    // Pre-filled from defaults + the load's rate class; charges freeze a snapshot.
+    accessorialPoliciesTable: process.env.DYNAMODB_ACCESSORIAL_POLICIES_TABLE || 'LoadLead_AccessorialPolicies',
+    // Append-only ESIGN/UETA acceptances of a load's accessorial policy. References
+    // the load by id; pins the accepted version + policy hash. Never updated/deleted.
+    accessorialPolicyAcceptancesTable:
+      process.env.DYNAMODB_ACCESSORIAL_POLICY_ACCEPTANCES_TABLE || 'LoadLead_AccessorialPolicyAcceptances',
+    // Append-only shipper agreements to a load's accessorial terms at posting.
+    // Pins the agreed policy version + exact values; never updated or deleted.
+    shipperAgreementsTable:
+      process.env.DYNAMODB_SHIPPER_AGREEMENTS_TABLE || 'LoadLead_ShipperAgreements',
+
+    // ── Platform-admin compliance/oversight layer ───────────────────────────
+    // Append-only admin audit log (the audit of the auditors): every sensitive
+    // read, export, disclosure, adjudication, hold, and intercept.
+    adminAuditLogTable: process.env.DYNAMODB_ADMIN_AUDIT_LOG_TABLE || 'LoadLead_AdminAuditLog',
+    // Per-user compliance-role grants (DISPUTE_ADMIN, LEGAL_ADMIN, LAW_ENFORCEMENT_LIAISON).
+    complianceGrantsTable: process.env.DYNAMODB_COMPLIANCE_GRANTS_TABLE || 'LoadLead_ComplianceGrants',
+    // Append-only dispute/discrepancy adjudication outcomes (compensating entries).
+    adjudicationsTable: process.env.DYNAMODB_ADJUDICATIONS_TABLE || 'LoadLead_Adjudications',
+    // Append-only legal hold registry (place/release events) keyed by entity.
+    legalHoldsTable: process.env.DYNAMODB_LEGAL_HOLDS_TABLE || 'LoadLead_LegalHolds',
+    // Append-only law-enforcement request intake records (counsel-gated).
+    lawEnforcementRequestsTable:
+      process.env.DYNAMODB_LAW_ENFORCEMENT_REQUESTS_TABLE || 'LoadLead_LawEnforcementRequests',
+    // Append-only disclosure records (what left the platform, to whom, when, under which request).
+    disclosuresTable: process.env.DYNAMODB_DISCLOSURES_TABLE || 'LoadLead_Disclosures',
+    // Append-only payout-intercept records (garnishment, levy, lien).
+    payoutInterceptsTable: process.env.DYNAMODB_PAYOUT_INTERCEPTS_TABLE || 'LoadLead_PayoutIntercepts',
+    // Load negotiation (engage/bid/counter): session rows, append-only offer
+    // rows, and the per-load exclusivity lock. The Load model is never touched;
+    // everything references the load and the parties by id.
+    loadNegotiationsTable: process.env.DYNAMODB_LOAD_NEGOTIATIONS_TABLE || 'LoadLead_LoadNegotiations',
+    negotiationOffersTable: process.env.DYNAMODB_NEGOTIATION_OFFERS_TABLE || 'LoadLead_NegotiationOffers',
+    negotiationLocksTable: process.env.DYNAMODB_NEGOTIATION_LOCKS_TABLE || 'LoadLead_NegotiationLocks',
+    // Append-only stop-events log (check-in/check-out). Detention/layover are
+    // computed from these immutable events. References load + stop by id only.
+    stopEventsTable: process.env.DYNAMODB_STOP_EVENTS_TABLE || 'LoadLead_StopEvents',
+    // Accessorial charge ledger (DETENTION/LAYOVER), keyed by deterministic
+    // chargeId so a recompute updates in place. Live status/amount; the immutable
+    // trail is the status-history table below.
+    accessorialChargesTable: process.env.DYNAMODB_ACCESSORIAL_CHARGES_TABLE || 'LoadLead_AccessorialCharges',
+    // Append-only charge status transitions (original/new amounts on adjust).
+    chargeStatusHistoryTable:
+      process.env.DYNAMODB_CHARGE_STATUS_HISTORY_TABLE || 'LoadLead_AccessorialChargeStatusHistory',
+    // Append-only factoring assignment log. A release/change is a new row; the
+    // active assignment resolves with invoice-level precedence over account-level.
+    factoringAssignmentsTable:
+      process.env.DYNAMODB_FACTORING_ASSIGNMENTS_TABLE || 'LoadLead_FactoringAssignments',
+    // Append-only Notices of Assignment. Snapshots the legal redirection text;
+    // references the assignment, carrier, invoice, and debtor by id.
+    noticesOfAssignmentTable:
+      process.env.DYNAMODB_NOTICES_OF_ASSIGNMENT_TABLE || 'LoadLead_NoticesOfAssignment',
+    // Append-only funding advances. No advance against a non-APPROVED accessorial;
+    // idempotent per (invoice, line). References invoice/carrier/charge by id.
+    fundingAdvancesTable: process.env.DYNAMODB_FUNDING_ADVANCES_TABLE || 'LoadLead_FundingAdvances',
+    // Append-only reconciliation + recourse outcomes (payment routing, reserve
+    // release, supplemental advance, recourse buyback, non-recourse loss).
+    reconciliationOutcomesTable:
+      process.env.DYNAMODB_RECONCILIATION_OUTCOMES_TABLE || 'LoadLead_ReconciliationOutcomes',
+    // Saved factor contact per carrier/owner-operator (pre-fills the send recipient).
+    factorContactsTable: process.env.DYNAMODB_FACTOR_CONTACTS_TABLE || 'LoadLead_FactorContacts',
+    // Append-only factoring submission records (export-and-send disclosure trail).
+    factoringSubmissionsTable:
+      process.env.DYNAMODB_FACTORING_SUBMISSIONS_TABLE || 'LoadLead_FactoringSubmissions',
     // Attestation chain — append-only, IAM-deny-update/delete, attribute_not_exists Put.
     signaturesTable: process.env.DYNAMODB_SIGNATURES_TABLE || 'LoadLead_Signatures',
     // Pod photo finalize step records contentHash + stage; same DDB row as the

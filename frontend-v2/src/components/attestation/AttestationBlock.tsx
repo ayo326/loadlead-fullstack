@@ -55,6 +55,10 @@ interface AttestationBlockProps {
   /** For CARRIER_ACCEPT only — the driverId being assigned. Server uses
    * this for resolveCarrierOfRecord() and embeds it in the documentHash. */
   assignedDriverId?: string;
+  /** For CARRIER_ACCEPT only — the negotiated rate to bind (cents). Send the
+   * one matching the load basis; omit to bind the load's posted rate. */
+  ratePerMileCents?: number;
+  totalCents?: number;
 
   onSigned?: (result: { signatureId: string; documentHash: string; signedAt: string }) => void;
   onCancel?: () => void;
@@ -70,7 +74,7 @@ export function AttestationBlock(props: AttestationBlockProps) {
     attestationText, attestationVersion,
     allowedSignatureTypes = ['typed', 'drawn'],
     stage, requirePhotos = false, allowExceptions = false,
-    assignedDriverId,
+    assignedDriverId, ratePerMileCents, totalCents,
     onSigned, onCancel,
   } = props;
 
@@ -142,6 +146,8 @@ export function AttestationBlock(props: AttestationBlockProps) {
         photoIds: photos.map((p) => p.photoId),
         exceptions: allowExceptions && excCode ? { code: excCode, description: excText } : undefined,
         assignedDriverId,
+        ratePerMileCents,
+        totalCents,
       });
       onSigned?.({ signatureId: r.signatureId, documentHash: r.documentHash, signedAt: r.signedAt });
     } catch (e: any) {

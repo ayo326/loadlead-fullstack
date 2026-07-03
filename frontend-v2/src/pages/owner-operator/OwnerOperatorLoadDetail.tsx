@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Clock, MapPin, Package, Truck, FileText, DollarSign } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { AccessorialsPanel } from "@/components/AccessorialsPanel";
+import { NegotiationPanel } from "@/components/NegotiationPanel";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -53,12 +55,17 @@ export default function OwnerOperatorLoadDetail() {
   const [driverId, setDriverId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadOffer = useCallback(() => {
     if (!loadId) return;
     api.getOwnerOperatorOffer(loadId)
       .then((r) => { setLoad(r.load); setOffer(r.offer); setDriverId(r.driverId); })
       .catch(() => toast.error("Could not load load details."))
       .finally(() => setLoading(false));
+  }, [loadId]);
+
+  useEffect(() => {
+    if (!loadId) return;
+    loadOffer();
   }, [loadId]);
 
   if (loading) {
@@ -136,6 +143,10 @@ export default function OwnerOperatorLoadDetail() {
             <Row label="Shipper ref #" value={load.referenceNumber} />
           </Section>
         )}
+
+        {/* Stop check-in/out + detention/layover accessorials for the mover. */}
+        <NegotiationPanel loadId={loadId!} party="HAULER" driverId={driverId} onAssigned={loadOffer} />
+        <AccessorialsPanel loadId={loadId!} role="MOVER" />
       </div>
     </div>
   );

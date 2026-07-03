@@ -408,7 +408,7 @@ router.patch(
 
     // Find driverId for this userId
     const qRes = await docClient.send(new QueryCommand({
-      TableName: process.env.DYNAMODB_DRIVERS_TABLE || 'LoadLead-Drivers',
+      TableName: process.env.DYNAMODB_DRIVERS_TABLE || 'LoadLead_Drivers',
       IndexName: 'userId-index',
       KeyConditionExpression: '#u = :u',
       ExpressionAttributeNames: { '#u': 'userId' },
@@ -418,7 +418,7 @@ router.patch(
     if (!driver) throw new AppError('No driver profile found for this owner', 404);
 
     await docClient.send(new UpdateCommand({
-      TableName: process.env.DYNAMODB_DRIVERS_TABLE || 'LoadLead-Drivers',
+      TableName: process.env.DYNAMODB_DRIVERS_TABLE || 'LoadLead_Drivers',
       Key: { driverId: driver.driverId },
       UpdateExpression: 'SET safetyBufferPct = :pct, bufferSetBy = :by, bufferSetByRole = :role, updatedAt = :ts',
       ExpressionAttributeValues: {

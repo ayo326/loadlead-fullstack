@@ -32,6 +32,8 @@ interface Props {
   allowExceptions?: boolean;
   allowedSignatureTypes?: SignatureMode[];
   assignedDriverId?: string;
+  ratePerMileCents?: number;
+  totalCents?: number;
   onSigned: (sig: { signatureId: string; documentHash: string; signedAt: string }) => void;
 }
 
@@ -53,6 +55,8 @@ export function AttestationDialog(p: Props) {
           allowExceptions={p.allowExceptions}
           allowedSignatureTypes={p.allowedSignatureTypes}
           assignedDriverId={p.assignedDriverId}
+          ratePerMileCents={p.ratePerMileCents}
+          totalCents={p.totalCents}
           onCancel={() => p.onOpenChange(false)}
           onSigned={p.onSigned}
         />

@@ -754,7 +754,11 @@ export function TourMount() {
   useEffect(() => {
     if (!persona) return;
     const path = location.pathname;
-    const onDashboard = path.startsWith(dashboardPaths[persona]);
+    // Auto-start ONLY on the persona's dashboard root, never on deep sub-routes
+    // (e.g. /owner-operator/loads/:id) — the tour's modal overlay would
+    // otherwise intercept clicks on those pages' panels.
+    const home = dashboardPaths[persona];
+    const onDashboard = path === home || path === home + "/";
     const onSettings = path.startsWith("/settings") || path.startsWith("/owner-operator/settings");
 
     // Auto-start the SETTINGS tour the first time the user lands on Settings -

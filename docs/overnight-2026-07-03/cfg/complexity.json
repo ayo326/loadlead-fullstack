@@ -1,0 +1,92 @@
+{
+  "engage": {
+    "N": 14,
+    "E": 18,
+    "decisions": 5,
+    "tested": 5,
+    "total_basis": 6,
+    "vg_edges": 6,
+    "vg_decisions": 6,
+    "path_cov_pct": 83
+  },
+  "acceptLoad": {
+    "N": 9,
+    "E": 11,
+    "decisions": 3,
+    "tested": 4,
+    "total_basis": 4,
+    "vg_edges": 4,
+    "vg_decisions": 4,
+    "path_cov_pct": 100
+  },
+  "bid": {
+    "N": 13,
+    "E": 16,
+    "decisions": 4,
+    "tested": 5,
+    "total_basis": 5,
+    "vg_edges": 5,
+    "vg_decisions": 5,
+    "path_cov_pct": 100
+  },
+  "counter": {
+    "N": 14,
+    "E": 18,
+    "decisions": 5,
+    "tested": 5,
+    "total_basis": 6,
+    "vg_edges": 6,
+    "vg_decisions": 6,
+    "path_cov_pct": 83
+  },
+  "acceptOffer": {
+    "N": 18,
+    "E": 25,
+    "decisions": 8,
+    "tested": 8,
+    "total_basis": 9,
+    "vg_edges": 9,
+    "vg_decisions": 9,
+    "path_cov_pct": 89
+  },
+  "reject": {
+    "N": 11,
+    "E": 14,
+    "decisions": 4,
+    "tested": 4,
+    "total_basis": 5,
+    "vg_edges": 5,
+    "vg_decisions": 5,
+    "path_cov_pct": 80
+  },
+  "expireIfOverdue": {
+    "N": 9,
+    "E": 11,
+    "decisions": 3,
+    "tested": 2,
+    "total_basis": 4,
+    "vg_edges": 4,
+    "vg_decisions": 4,
+    "path_cov_pct": 50
+  },
+  "finishAccepted": {
+    "N": 16,
+    "E": 21,
+    "decisions": 6,
+    "tested": 6,
+    "total_basis": 7,
+    "vg_edges": 7,
+    "vg_decisions": 7,
+    "path_cov_pct": 86
+  },
+  "requireCarrierAcceptForAssignment": {
+    "N": 7,
+    "E": 8,
+    "decisions": 2,
+    "tested": 3,
+    "total_basis": 3,
+    "vg_edges": 3,
+    "vg_decisions": 3,
+    "path_cov_pct": 100
+  }
+}

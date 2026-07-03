@@ -128,8 +128,17 @@ router.get(
     if (!driver) return res.json({ loads: [] });
 
     const offers = await OfferService.getActiveOffersByDriver(driver.driverId);
+    // Pool exclusion: a load under an active negotiation is visible ONLY to
+    // the engaged hauler. Everyone else's loadboard hides it until the
+    // negotiation ends (ACCEPTED, REJECTED, or EXPIRED releases the lock).
+    const { NegotiationService } = await import('../services/negotiationService');
+    const locks = await NegotiationService.activeLockedLoadIds();
+    const visible = offers.filter((o) => {
+      const holder = locks.get(o.loadId);
+      return holder === undefined || holder === driver.driverId;
+    });
     const loadsWithOffers = await Promise.all(
-      offers.map(async (offer) => ({ load: await LoadService.getLoadById(offer.loadId), offer }))
+      visible.map(async (offer) => ({ load: await LoadService.getLoadById(offer.loadId), offer }))
     );
 
     res.json({ loads: loadsWithOffers });

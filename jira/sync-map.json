@@ -204,10 +204,25 @@
     "key": "SCRUM-11",
     "priority_set_by_sync": ""
   },
+  "epic:negotiation": {
+    "description_hash": "0631ea2b914662a96b7be27e975454c9ecc4e29d5641153b754dc8164e635fff",
+    "key": "SCRUM-246",
+    "priority_set_by_sync": "Medium"
+  },
+  "epic:sms-program": {
+    "description_hash": "6c00e398faf078386e4a5c8a437e6951aa0f6f47abe6ec33461a24935dd2925f",
+    "key": "SCRUM-232",
+    "priority_set_by_sync": "Medium"
+  },
   "epic:stig-compliance": {
     "description_hash": "e65e31a360ac5fb19589e0e540dd4068ef9ccba2a383d0ad9d7c94b1255ce10d",
     "key": "SCRUM-8",
     "priority_set_by_sync": ""
+  },
+  "epic:telematics": {
+    "description_hash": "c9cbc20fdebe9515ca83f4914ddc8c3efbfaf382853302c6dbf6b9742675b362",
+    "key": "SCRUM-216",
+    "priority_set_by_sync": "Medium"
   },
   "epic:test-suite": {
     "description_hash": "3daa140c121c07e9e69eaac3cf8900c17a1829107ff064b796bd52e7ad2e72b8",
@@ -299,6 +314,36 @@
     "key": "SCRUM-191",
     "priority_set_by_sync": "Low"
   },
+  "negot:core": {
+    "description_hash": "8b7da4f89acf1283dcc5337e2f9dabba156157f22eec03a03ddf9c439ca094f1",
+    "key": "SCRUM-247",
+    "priority_set_by_sync": "High"
+  },
+  "negot:flat-rate": {
+    "description_hash": "cc4e478bba4373f173b8a01aa83488b39271f21059ed270fb9ead25aa62e9285",
+    "key": "SCRUM-249",
+    "priority_set_by_sync": "Medium"
+  },
+  "negot:lock-scale": {
+    "description_hash": "01f151a5038392cc61732c3ce5164d14b28806505ae3b7376f7ddb30073537a7",
+    "key": "SCRUM-250",
+    "priority_set_by_sync": "Low"
+  },
+  "negot:realtime": {
+    "description_hash": "63f83864986c70be670e5a4726092e02c60db93841f895e9b36f600532ec4c11",
+    "key": "SCRUM-248",
+    "priority_set_by_sync": "Medium"
+  },
+  "negot:sweeper-worker": {
+    "description_hash": "7ba5dd7c6c688d6281be5cbb808e557cb68924c21b9d3a10e0e4dd4036f4598e",
+    "key": "SCRUM-252",
+    "priority_set_by_sync": "Low"
+  },
+  "negot:trust-signals": {
+    "description_hash": "8e48abf7cf3a8fb0a23fdcc82865f6a0a71264adfbbee2fb0ab19bd171adb204",
+    "key": "SCRUM-251",
+    "priority_set_by_sync": "Low"
+  },
   "refactor:capabilities": {
     "description_hash": "366d0a65ec46068bf0d8409393d1e785c9907e4a2b55df5b7f4b46132d98c6a4",
     "key": "SCRUM-15",
@@ -338,6 +383,71 @@
     "description_hash": "d85039272ccf016f3455d454924997a876dd73bf6cb43e5fc66101328803e256",
     "key": "SCRUM-12",
     "priority_set_by_sync": "High"
+  },
+  "sms:alt-providers": {
+    "description_hash": "488730b068412776764d0780df14b872163fa77bdd2baca8967118f1ee06980b",
+    "key": "SCRUM-245",
+    "priority_set_by_sync": "Low"
+  },
+  "sms:brand-registration": {
+    "description_hash": "0c6865f7253936fe41b00a36bf2a62556f64e9fc5fd7287bc24017a2560a7fc2",
+    "key": "SCRUM-239",
+    "priority_set_by_sync": "High"
+  },
+  "sms:campaign-number": {
+    "description_hash": "935aa8f7ea312f38db5ea17210e8ad1c82c8504ada80d15e13633595d05a78d2",
+    "key": "SCRUM-240",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:consent-store": {
+    "description_hash": "e1b57377a637a1ba36246a802c71e4d54b52321d45d768fdb3713ed7bcc06336",
+    "key": "SCRUM-234",
+    "priority_set_by_sync": "High"
+  },
+  "sms:go-live": {
+    "description_hash": "975fc9421704f1d278682f0aabc80c4a11c203c94a30410e407cce26c8906d42",
+    "key": "SCRUM-243",
+    "priority_set_by_sync": "Low"
+  },
+  "sms:legal-pages": {
+    "description_hash": "46da10a89858c2789b05446710732adc78c7d44fa0edee3e5d09e9efd3fe9e54",
+    "key": "SCRUM-233",
+    "priority_set_by_sync": "High"
+  },
+  "sms:messaging-adapter": {
+    "description_hash": "4d5d4861f0f179cfb5eeb560387a906ab8be0e76efdb050c38b52a0e138cb9a7",
+    "key": "SCRUM-236",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:ops-setup": {
+    "description_hash": "78ec69682a2f9bf41f15a369066cefe948f463b4d7648cccee68f146c0b80a88",
+    "key": "SCRUM-241",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:optin-ui": {
+    "description_hash": "fb11df39920fce733d2c182a532bd0989dca1611a61f2cf7ff44b16783106ef7",
+    "key": "SCRUM-235",
+    "priority_set_by_sync": "High"
+  },
+  "sms:send-chokepoint": {
+    "description_hash": "07724ddb9aeac5d7c05b3bbccca2abc2b97204053ce1dbe7e0ef3e2e5ade2b51",
+    "key": "SCRUM-238",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:sns-ingress": {
+    "description_hash": "76c3357e5c125cf0b17f601da20fed6dd643cd70b5a58c2b0524e179766fc486",
+    "key": "SCRUM-237",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:tests": {
+    "description_hash": "bbaf9079694a5276c211320ec78974a52b8c0a590c2f932a9ff4f64987cd1427",
+    "key": "SCRUM-242",
+    "priority_set_by_sync": "Medium"
+  },
+  "sms:worm-mirror": {
+    "description_hash": "63adfe903ff97808614eb1330751725e7d4d4ed9d0986ca797ab4c205a74a72c",
+    "key": "SCRUM-244",
+    "priority_set_by_sync": "Low"
   },
   "stig:LL-AC-001": {
     "description_hash": "aa743b7db502de606cc4ce92cff413fa1296d273259018c183b6752043a6e46d",
@@ -578,6 +688,81 @@
     "description_hash": "c7e01262a2438de674eec1ccc164960b904ed06f9ea4dfab57c40cce466cd1d1",
     "key": "SCRUM-43",
     "priority_set_by_sync": ""
+  },
+  "telem:confirm-fieldsets": {
+    "description_hash": "645ef392710bf8475b35bd8bfdae5b716a67de0214653ac7de6aa569b0063a31",
+    "key": "SCRUM-228",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:confirm-signature": {
+    "description_hash": "e9311f890aa148ca181061a3a829a313a8f20ec164816e5ba852cd994625bfab",
+    "key": "SCRUM-226",
+    "priority_set_by_sync": "High"
+  },
+  "telem:connect-ui": {
+    "description_hash": "11adeb14dee2974542f2492696af840f3738e50638c6fa0e23af30a38556f84b",
+    "key": "SCRUM-225",
+    "priority_set_by_sync": "High"
+  },
+  "telem:connection": {
+    "description_hash": "6d0e3d8909e4a3426158c50a33d62232116c99377989c6607a48f9b9b6369e46",
+    "key": "SCRUM-218",
+    "priority_set_by_sync": "High"
+  },
+  "telem:geofence-stop-events": {
+    "description_hash": "aaab4210a5a9ed7b98b05db4c5bdf7b76653edd0b9b5f92e53f21dde87920dc9",
+    "key": "SCRUM-223",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:hos-eligibility": {
+    "description_hash": "1d5d1a46d2a638b904e6e93aedb2a310a87741be93c608da8d5753f40dc40f5d",
+    "key": "SCRUM-220",
+    "priority_set_by_sync": "High"
+  },
+  "telem:kms-envelope": {
+    "description_hash": "50447a3d168aaf32cb7fdbd10f1da502eb3ade81e875662bab8443daf10b57ba",
+    "key": "SCRUM-217",
+    "priority_set_by_sync": "High"
+  },
+  "telem:observability": {
+    "description_hash": "f44cbd8b71c976550d7fafa2d12ae0cc94f774c1a1b106f1444424eb1b209250",
+    "key": "SCRUM-230",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:polling-worker": {
+    "description_hash": "8d8cef90a6e6c1ed49a42390ff4f213919862cd742912bb16b6d85c4aa84d89b",
+    "key": "SCRUM-221",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:postgres-decision": {
+    "description_hash": "314c26df1c2da931403c6109c67cb8080e3fa8458ee036cf72966f692a296595",
+    "key": "SCRUM-231",
+    "priority_set_by_sync": "Low"
+  },
+  "telem:rate-cost-budget": {
+    "description_hash": "34cce9ba7c62a5364486def56bad01ff4ff844b072e670aedd46692b71e70bfc",
+    "key": "SCRUM-229",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:sns-subscriber": {
+    "description_hash": "ff9db6d3649ad59612ad9b85aba69618b015dbf20fb5317df2f9a58adb950f83",
+    "key": "SCRUM-224",
+    "priority_set_by_sync": "High"
+  },
+  "telem:tracking-ingestion": {
+    "description_hash": "47b8f39cadada99f01a7440ddb79bb5cceb9cea46760f5ed0f338c2972089193",
+    "key": "SCRUM-222",
+    "priority_set_by_sync": "Medium"
+  },
+  "telem:vehicle-roster": {
+    "description_hash": "9ff6f1f6c3277cfee38c511edead7e52038d83394acd81c4eac9c6b2e36ef66c",
+    "key": "SCRUM-219",
+    "priority_set_by_sync": "High"
+  },
+  "telem:webhook-skeleton": {
+    "description_hash": "c24d4ac532599a4a65524ebeb7f9903499bf1cf8f51393f4cd37b445fa9e2b06",
+    "key": "SCRUM-227",
+    "priority_set_by_sync": "Medium"
   },
   "test:A1": {
     "description_hash": "ccf445d4e5415a472aa592fe467f5cd57286f8903031791081e7d84498642f7e",

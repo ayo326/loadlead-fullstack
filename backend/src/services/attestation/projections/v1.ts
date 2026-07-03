@@ -31,6 +31,12 @@ export interface ProjectionInput {
   shipperUserId?:      string | null;
   carrierOfRecord?:    ResolvedCoR | null;
   assignedDriverId?:   string | null;
+  /** The rate the carrier is committing to (negotiated/agreed). When set it
+   *  overrides the load's posted rate in the CARRIER_ACCEPT projection so the
+   *  attestation binds what settlement pays. rateAmount is in the same units as
+   *  Load.rateAmount (dollars): $/mi for PER_MILE, total $ for FLAT_RATE. */
+  rateAmount?:         number | null;
+  rateType?:           string | null;
   /** Photos for THIS handoff. Already filtered + READY (contentHash set). */
   photos?:             ProofPhoto[];
   exceptions?:         { code: string; description: string } | null;
@@ -125,8 +131,12 @@ function projectCarrierAccept(i: ProjectionInput): Record<string, unknown> {
     carrierOfRecord_entityType: i.carrierOfRecord.entityType,
     carrierOfRecord_entityId:   i.carrierOfRecord.entityId,
     assignedDriverId: i.assignedDriverId ?? l.assignedDriverId ?? null,
-    rateAmount:    num(l.rateAmount),
-    rateType:      l.rateType ?? null,
+    // Bind the rate the carrier actually commits to. A negotiated accept passes
+    // the agreed/offered rate (i.rateAmount / i.rateType); a straight claim
+    // falls back to the load's posted rate. Keeps the attestation's bound rate
+    // equal to what settlement pays out (no reconciliation drift).
+    rateAmount:    num(i.rateAmount ?? l.rateAmount),
+    rateType:      i.rateType ?? l.rateType ?? null,
   };
 }
 

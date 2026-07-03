@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { api } from "@/lib/api";
 import { RouteMapCard } from "@/components/RouteMapCard";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { ShipperAccessorialAgreement } from "@/components/ShipperAccessorialAgreement";
+import type { ShipperAccessorialAgreementValue } from "@/lib/api";
 import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
 import { toast } from "sonner";
 import { Combobox, MultiCombobox, AsyncCombobox } from "@/components/ui/combobox";
@@ -95,6 +98,7 @@ export default function PostLoad() {
   const [commodity, setCommodity]         = useState<{ value: string; label: string } | null>(null);
   const [isHazmat, setIsHazmat]           = useState<boolean>(false);
   const [hazmatClass, setHazmatClass]     = useState<string | null>(null);
+  const [accAgreement, setAccAgreement]   = useState<ShipperAccessorialAgreementValue>({ agreed: false });
 
   // Reference data
   const eqClasses = useEquipmentClasses();
@@ -328,6 +332,12 @@ export default function PostLoad() {
         experienceRequired:    1,
         broadcastRadiusMiles:  Number(form.radiusMiles),
         offerTtlMinutes:       60,
+        // Shipper detention/layover agreement. Freezes the policy snapshot and
+        // records an append-only agreement; ignored by the Load model itself.
+        accessorial: {
+          agreed: accAgreement.agreed,
+          ...(accAgreement.override ? { override: accAgreement.override } : {}),
+        },
       });
 
       // Phase-1 attestation gate: open the BOL_SUBMIT attestation block.
@@ -652,10 +662,17 @@ export default function PostLoad() {
             )}
           </div>
 
-          <Button type="submit" className="w-full h-11" disabled={submitting}>
+          <ShipperAccessorialAgreement
+            equipmentType={CLASS_CODE_TO_TRAILER_TYPE[equipmentClasses[0]] ?? "DRY_VAN"}
+            hazmat={isHazmat}
+            value={accAgreement}
+            onChange={setAccAgreement}
+          />
+
+          <Button type="submit" className="w-full h-11" disabled={submitting || !accAgreement.agreed}>
             {submitting ? (
               <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Broadcasting…</>
-            ) : "Submit & broadcast"}
+            ) : !accAgreement.agreed ? "Agree to the terms to post" : "Submit & broadcast"}
           </Button>
         </aside>
       </form>
@@ -708,11 +725,17 @@ function AddressBlock({
     <div className="space-y-3">
       <div className="grid md:grid-cols-1 gap-3">
         <Field label="Street address *">
-          <Input
+          <AddressAutocomplete
             placeholder="e.g. 100 W Randolph St"
             value={values.street}
-            onChange={(e) => setField("street", e.target.value)}
             required
+            onChange={(v) => setField("street", v)}
+            onSelect={(p) => {
+              setField("street", p.street);
+              if (p.city) setField("city", p.city);
+              if (p.state) setField("state", p.state);
+              if (p.zip) setField("zip", p.zip);
+            }}
           />
         </Field>
       </div>

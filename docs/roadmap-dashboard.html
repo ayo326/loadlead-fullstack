@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LoadLead - Quarterly Product Roadmap</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --card:#ffffff; --ink:#16202e; --mute:#5b6673; --line:#dfe5ec;
+    --platform:#2563eb; --marketplace:#059669; --identity:#7c3aed; --compliance:#dc2626;
+    --settlements:#d97706; --mobile:#0891b2; --product:#475569;
+    --accent:#16202e;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{font:14px/1.5 -apple-system,"Helvetica Neue",Arial,sans-serif; background:var(--bg); color:var(--ink); padding:18px}
+  h1{font-size:22px; letter-spacing:-.3px}
+  h2{font-size:15px; margin:0 0 10px}
+  h3{font-size:13px; margin:0 0 6px}
+  .sub{color:var(--mute); font-size:12.5px; margin-top:2px}
+  .top{display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; justify-content:space-between; margin-bottom:14px}
+  .legend{display:flex; gap:10px; flex-wrap:wrap; font-size:11.5px}
+  .chip{display:inline-flex; align-items:center; gap:5px}
+  .dot{width:10px; height:10px; border-radius:3px; display:inline-block}
+  .tabs{display:flex; gap:6px; margin:10px 0 14px; flex-wrap:wrap}
+  .tab{border:1px solid var(--line); background:var(--card); border-radius:8px; padding:7px 14px; cursor:pointer; font-weight:600; font-size:13px}
+  .tab.active{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .layout{display:grid; grid-template-columns:1fr 330px; gap:14px}
+  @media(max-width:1000px){.layout{grid-template-columns:1fr}}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px}
+  .qgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px}
+  .qbox{border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#fbfcfe}
+  .qbox b{font-size:12.5px}
+  .qbox input[type=date]{width:100%; margin-top:4px; border:1px solid var(--line); border-radius:6px; padding:3px 6px; font-size:12px}
+  .qtheme{font-size:11px; color:var(--mute); margin-top:3px}
+  /* gantt */
+  .gwrap{overflow-x:auto}
+  .gantt{min-width:860px}
+  .grow{display:grid; grid-template-columns:230px 1fr; align-items:center; border-top:1px solid #eef1f5}
+  .grow:first-child{border-top:none}
+  .glabel{padding:7px 8px 7px 2px; font-size:12px; cursor:pointer; display:flex; gap:6px; align-items:center}
+  .glabel:hover{color:var(--platform)}
+  .glabel .dot{flex:none}
+  .gtrack{position:relative; height:30px; background:
+    repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), #e8edf3 calc(25% - 1px) 25%)}
+  .gbar{position:absolute; top:6px; height:18px; border-radius:5px; cursor:pointer; opacity:.92; min-width:8px}
+  .gbar:hover{opacity:1; outline:2px solid var(--ink)}
+  .ghead{display:grid; grid-template-columns:230px 1fr; font-size:11px; color:var(--mute); margin-bottom:4px}
+  .ghead .cols{display:grid; grid-template-columns:repeat(4,1fr)}
+  .ghead .cols div{padding:2px 6px; border-left:1px solid var(--line)}
+  .wsname{font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--mute); padding:10px 0 3px}
+  /* side panel */
+  .side h2{display:flex; justify-content:space-between; align-items:center}
+  .field{margin:8px 0}
+  .field label{display:block; font-size:11px; color:var(--mute); margin-bottom:3px; font-weight:600}
+  .field select,.field input,.field textarea{width:100%; border:1px solid var(--line); border-radius:7px; padding:6px 8px; font:inherit; font-size:12.5px}
+  .field textarea{min-height:84px; resize:vertical}
+  .jira{display:inline-block; font-size:12px; color:var(--platform); text-decoration:none; font-weight:600}
+  .meta{font-size:12px; color:var(--mute)}
+  .btn{border:1px solid var(--line); background:#fff; border-radius:7px; padding:6px 11px; cursor:pointer; font-weight:600; font-size:12px}
+  .btn.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .btnrow{display:flex; gap:7px; flex-wrap:wrap; margin-top:8px}
+  .pill{display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:99px; color:#fff}
+  /* breakdown */
+  .qcol{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px}
+  .item{border:1px solid var(--line); border-radius:9px; padding:8px 10px; margin-bottom:7px; cursor:pointer; background:#fff}
+  .item:hover{border-color:var(--ink)}
+  .item b{font-size:12.5px}
+  .item .meta{margin-top:2px}
+  table{border-collapse:collapse; width:100%; font-size:12.5px}
+  th,td{border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top}
+  th{background:#f0f3f7}
+  .rec{background:#ecfdf5}
+  .hidden{display:none}
+  .notewrap{margin-top:10px}
+  .savemsg{font-size:11px; color:var(--marketplace); height:14px}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div>
+    <h1>LoadLead - Quarterly Product Roadmap</h1>
+    <div class="sub">Compiled 2026-07-02 from 245 Jira issues (~187 open), docs/PendingRegister.md (zero go-live blockers), the platform reviews, and the live codebase. Edits persist in this browser (localStorage). <a class="jira" href="https://loadlleadllc.atlassian.net/jira/software/projects/SCRUM/boards/1" target="_blank">Open Jira board</a></div>
+  </div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="layout">
+  <div>
+    <!-- QUARTER CALENDAR -->
+    <div class="card" style="margin-bottom:14px">
+      <h2>Quarter calendar <span class="meta" style="font-weight:400">- shift a start date and the Gantt re-flows</span></h2>
+      <div class="qgrid" id="qgrid"></div>
+    </div>
+
+    <!-- GANTT VIEW -->
+    <div class="card view" id="view-gantt">
+      <h2>Editable Gantt <span class="meta" style="font-weight:400">- click any bar or label to edit it in the side panel</span></h2>
+      <div class="gwrap">
+        <div class="ghead"><div></div><div class="cols" id="gcols"></div></div>
+        <div class="gantt" id="gantt"></div>
+      </div>
+    </div>
+
+    <!-- BREAKDOWN VIEW -->
+    <div class="card view hidden" id="view-breakdown">
+      <h2>Quarter-by-quarter breakdown</h2>
+      <div class="qcol" id="breakdown"></div>
+    </div>
+
+    <!-- COA VIEW -->
+    <div class="card view hidden" id="view-coas">
+      <h2>Courses of action</h2>
+      <div id="coas"></div>
+    </div>
+
+    <!-- COMPETITIVE VIEW -->
+    <div class="card view hidden" id="view-bets">
+      <h2>Competitive feature bets - why LoadLead wins</h2>
+      <div id="bets"></div>
+    </div>
+
+    <!-- MOBILE VIEW -->
+    <div class="card view hidden" id="view-mobile">
+      <h2>Web to Mobile migration track</h2>
+      <div id="mobiletrack"></div>
+    </div>
+  </div>
+
+  <!-- SIDE PANEL -->
+  <div class="card side" id="side">
+    <h2>Details &amp; notes</h2>
+    <div id="sidebody" class="meta">Click a roadmap item to inspect and edit it. Your quarter/duration edits re-draw the Gantt instantly; notes are saved per item.</div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:12px 0">
+    <h3>Roadmap notes (global)</h3>
+    <div class="field"><textarea id="globalnotes" placeholder="Decisions, meeting notes, date rationale..."></textarea></div>
+    <div class="savemsg" id="gsave"></div>
+    <div class="btnrow">
+      <button class="btn" id="exportBtn">Export JSON</button>
+      <button class="btn" id="resetBtn">Reset to plan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ───────────────────────── data ─────────────────────────
+const TEAMS = {
+  platform:{label:"Platform", c:"var(--platform)"},
+  marketplace:{label:"Marketplace", c:"var(--marketplace)"},
+  identity:{label:"Identity", c:"var(--identity)"},
+  compliance:{label:"Compliance", c:"var(--compliance)"},
+  settlements:{label:"Settlements", c:"var(--settlements)"},
+  mobile:{label:"Mobile", c:"var(--mobile)"},
+  product:{label:"Product/Ops", c:"var(--product)"},
+};
+const JIRA = "https://loadlleadllc.atlassian.net/browse/";
+
+const DEFAULT_QUARTERS = [
+  {name:"Q3 2026", start:"2026-07-06", theme:"Prove the money loop, open the gates"},
+  {name:"Q4 2026", start:"2026-10-05", theme:"Live tracking + mobile foundation"},
+  {name:"Q1 2027", start:"2027-01-04", theme:"Driver app launch + differentiation"},
+  {name:"Q2 2027", start:"2027-04-05", theme:"Scale + intelligence"},
+];
+
+// q: quarter index; off: offset weeks into quarter; dur: duration weeks
+const DEFAULT_ITEMS = [
+  // ── Q3 2026 ──
+  {id:"sms-now", ws:"SMS program", title:"SMS NOW tier: legal pages, consent store, opt-in UI", team:"identity", q:0, off:0, dur:3, jira:"SCRUM-233", deps:"", why:"Gates A2P campaign review; carrier acquisition channel. Consent record is the TCPA defense."},
+  {id:"sms-brand", ws:"SMS program", title:"10DLC brand + campaign registration (ops long pole)", team:"product", q:0, off:0, dur:8, jira:"SCRUM-239", deps:"sms-now", why:"2-6 weeks of vendor waiting. Start day 1 of the quarter; everything SMS gates on it."},
+  {id:"telem-now", ws:"Telematics", title:"Telematics NOW tier: KMS enabler, connection, roster, HOS", team:"platform", q:0, off:1, dur:6, jira:"SCRUM-218", deps:"", why:"Gateway for live tracking and HOS-safe matching. Staged-go verdict in the platform review."},
+  {id:"sec-high", ws:"Security & compliance", title:"STIG burn-down slice 1: all HIGH items (of 49 open)", team:"compliance", q:0, off:2, dur:8, jira:"SCRUM-8", deps:"", why:"49 open STIG items is the largest backlog block; HIGH slice first, feeds the SOC 2 story."},
+  {id:"e2e-beta", ws:"Quality", title:"E2E/UAT pass for the founding cohort flows", team:"marketplace", q:0, off:4, dur:5, jira:"SCRUM-7", deps:"", why:"7 e2e-uat + 38 test-matrix items open; certify the five personas end to end before cohort scale-up."},
+  {id:"cohort-1", ws:"Growth", title:"Texas founding cohort: admit, run real detention-to-factoring loops", team:"marketplace", q:0, off:2, dur:10, jira:"", deps:"", why:"The money loop (detention -> approve -> factor -> payout) is built and seeded; prove it with real freight."},
+  {id:"mob-m0", ws:"Mobile migration", title:"M0 PWA hardening: manifest, installable, offline shell, push deep links", team:"mobile", q:0, off:6, dur:5, jira:"", deps:"", why:"sw.js exists but no manifest - the app is not even installable today. Cheapest mobile win, ships in weeks."},
+  {id:"neg-shipped", ws:"Marketplace core", title:"Load negotiation (engage/bid/counter) - SHIPPED 2026-07-02", team:"marketplace", q:0, off:0, dur:1, jira:"", deps:"", why:"Shipped in commit 8a3849a: exclusive engage lock, 20-min window, agreed-rate settlement, both UIs. Residuals tracked in the negotiation epic."},
+  {id:"neg-residuals", ws:"Marketplace core", title:"Negotiation residuals: trust signals, lock-scan scale, shared-worker sweeper", team:"marketplace", q:0, off:2, dur:4, jira:"", deps:"neg-shipped", why:"Live updates (long-poll) and FLAT_RATE total bidding shipped 2026-07-02; remaining: trust signals, lock-scan scale, sweeper migration."},
+  // ── Q4 2026 ──
+  {id:"telem-next", ws:"Telematics", title:"Tracking tier: scheduled worker, ingestion, geofenced stop events", team:"settlements", q:1, off:0, dur:9, jira:"SCRUM-221", deps:"telem-now", why:"The money feature: hardware-attested detention. Needs the worker enabler + settlements sign-off on the stop-events seam."},
+  {id:"sms-next", ws:"SMS program", title:"SMS NEXT tier: adapter, SNS ingress, chokepoint, go-live", team:"platform", q:1, off:0, dur:6, jira:"SCRUM-236", deps:"sms-brand", why:"Go-live gated on campaign approval + counsel sign-off; alerts become the carrier engagement loop."},
+  {id:"analytics-t1", ws:"Analytics", title:"Analytics Tier 1: PostGIS replica + shipper lane dashboards", team:"platform", q:1, off:2, dur:9, jira:"SCRUM-161", deps:"", why:"14 open items, spec complete (docs/database-analytics). Feeds lane-liquidity and pricing intelligence."},
+  {id:"mob-m1", ws:"Mobile migration", title:"M1 Expo driver app shell: auth, loadboard, offers, stop check-in", team:"mobile", q:1, off:1, dur:10, jira:"", deps:"mob-m0", why:"Driver-first per COA-M: the driver lives in the truck. Reuses the TS API client and React skills."},
+  {id:"ga-flip", ws:"Growth", title:"GA decision: BETA_MODE off, apex marketing surface", team:"product", q:1, off:8, dur:3, jira:"", deps:"e2e-beta,sec-high", why:"Flip after the E2E pass + HIGH security slice; beta.loadleadapp.com stays as the staging surface."},
+  {id:"admin-ops", ws:"Business ops", title:"Administrative backlog: brokerage license, GTM, legal-compliance items", team:"product", q:1, off:0, dur:11, jira:"SCRUM-162", deps:"", why:"9 open admin items incl. broker authority - some gate revenue mechanics; run in parallel."},
+  // ── Q1 2027 ──
+  {id:"mob-m2", ws:"Mobile migration", title:"M2 Store launch: background GPS, offline POD, App/Play review", team:"mobile", q:2, off:0, dur:10, jira:"", deps:"mob-m1", why:"Store review cycles + background-location entitlements have lead time; GPS ties into telematics fallback."},
+  {id:"bet-instantpay", ws:"Competitive bets", title:"Bet 1 - Instant Pay: same-day factoring-backed payout on POD", team:"settlements", q:2, off:0, dur:8, jira:"", deps:"telem-next", why:"The factoring rails exist. Same-day pay is the #1 carrier switching trigger vs DAT/Truckstop."},
+  {id:"bet-detention", ws:"Competitive bets", title:"Bet 2 - Zero-Dispute Detention: geofence-attested, auto-computed, pre-agreed", team:"settlements", q:2, off:4, dur:7, jira:"", deps:"telem-next", why:"80% built (policy freeze + calc + geofence events). Productize the industry's #1 pain as a headline feature."},
+  {id:"bet-shield", ws:"Competitive bets", title:"Bet 3 - Double-Broker Shield: IDV + carrier-of-record + WORM chain, marketed", team:"identity", q:2, off:2, dur:8, jira:"", deps:"", why:"Double brokering is freight's biggest fraud wave; LoadLead already has the primitives competitors bolt on."},
+  {id:"sec-med", ws:"Security & compliance", title:"STIG slice 2 (MEDIUM) + SOC 2 Type I readiness kickoff", team:"compliance", q:2, off:0, dur:12, jira:"", deps:"sec-high", why:"SOC 2 unlocks enterprise shippers; the compliance layer + WORM sink are strong evidence already."},
+  // ── Q2 2027 ──
+  {id:"bet-hos", ws:"Competitive bets", title:"Bet 4 - HOS-aware matching: only show loads a driver can legally run", team:"marketplace", q:3, off:0, dur:8, jira:"SCRUM-220", deps:"telem-now", why:"Safety as a feature: fewer violations, better on-time. Needs telematics HOS + the consolidated matching rule."},
+  {id:"bet-backhaul", ws:"Competitive bets", title:"Bet 5 - Backhaul optimizer + lane-liquidity heatmap for shippers", team:"marketplace", q:3, off:2, dur:9, jira:"", deps:"analytics-t1", why:"Deadhead is carriers' hidden cost; liquidity heatmaps are the shipper-side hook. Built on Analytics Tier 1."},
+  {id:"mob-m3", ws:"Mobile migration", title:"M3 Fleet mode + shipper companion (or full responsive parity)", team:"mobile", q:3, off:0, dur:10, jira:"", deps:"mob-m2", why:"Extend mobile beyond drivers once the driver app proves retention."},
+  {id:"soc2-audit", ws:"Security & compliance", title:"SOC 2 Type I audit window", team:"compliance", q:3, off:4, dur:8, jira:"", deps:"sec-med", why:"Timed after two STIG slices; the enterprise-shipper unlock."},
+  {id:"cohort-2", ws:"Growth", title:"Cohort 2: expand beyond Texas, referral loop", team:"marketplace", q:3, off:0, dur:12, jira:"", deps:"ga-flip", why:"Scale the marketplace once GA + SMS + mobile retention are in place."},
+];
+
+const COAS = [
+  {id:"COA-M", title:"Mobile strategy", options:[
+    {name:"A. PWA-only", pros:"Days-weeks; no store friction; one codebase", cons:"No reliable background GPS on iOS; weak store presence; push limits on iOS", rec:false},
+    {name:"B. PWA now, Expo/React Native driver app next (staged)", pros:"M0 ships value in weeks; RN reuses the TS/React skillset and API client; background location + store presence where they matter (drivers)", cons:"Two surfaces to maintain during transition", rec:true},
+    {name:"C. Full native Swift/Kotlin", pros:"Best platform integration", cons:"Two new codebases and skillsets for a small team; slowest", rec:false},
+    {name:"D. Capacitor wrapper of the SPA", pros:"Fast store presence", cons:"Wrapped-web UX for drivers with gloves in trucks; background services still need native work", rec:false},
+  ], why:"The driver persona decides mobile. Drivers need install-and-forget, offline POD, and background location. B gets there without betting the company on new skillsets, and M0 (PWA) de-risks it by shipping installability first."},
+  {id:"COA-G", title:"GA timing", options:[
+    {name:"A. Flip GA end of Q3", pros:"Faster growth", cons:"Ahead of the E2E pass and security slice; support load hits early", rec:false},
+    {name:"B. Flip GA mid-Q4 after E2E + HIGH security slice", pros:"Certified flows; SMS acquisition live to catch the demand", cons:"One quarter slower", rec:true},
+    {name:"C. Stay beta through 2026", pros:"Maximum polish", cons:"Wastes the SMS/telematics differentiation window", rec:false},
+  ], why:"GA is a one-way door for reputation. B times it right after quality gates and right before the mobile push."},
+  {id:"COA-S", title:"Security debt (49 STIG items)", options:[
+    {name:"A. Stop-the-line: burn all 49 first", pros:"Clean slate", cons:"Freezes product two quarters; most items are MEDIUM/LOW", rec:false},
+    {name:"B. Sliced: HIGH in Q3, MEDIUM+SOC2 prep in Q1, audit Q2", pros:"Risk-ranked; keeps roadmap moving; builds the SOC 2 narrative on real evidence", cons:"Carries known MEDIUMs for two quarters", rec:true},
+    {name:"C. Defer until an enterprise deal demands it", pros:"Max feature velocity", cons:"Retrofitting under deal pressure is the most expensive way; contradicts the compliance posture already built", rec:false},
+  ], why:"The compliance layer, WORM sink, and audit trails are genuine differentiators - the sliced plan converts the backlog into a sales asset (SOC 2) instead of a tax."},
+  {id:"COA-D", title:"Differentiation focus", options:[
+    {name:"A. Money-loop bets first (Instant Pay, Zero-Dispute Detention, Double-Broker Shield)", pros:"Leverages what is uniquely already built (factoring rails, geofence detention, IDV/WORM); direct carrier switching triggers", cons:"Settlement-heavy quarters", rec:true},
+    {name:"B. Matching intelligence first (HOS-aware, backhaul)", pros:"Strong long-term moat", cons:"Depends on telematics volume that does not exist yet", rec:false},
+    {name:"C. Growth marketing first", pros:"Top-line now", cons:"Without differentiation, LoadLead is a smaller DAT; churn risk", rec:false},
+  ], why:"Sequence bets behind their enablers: money-loop bets ride Q4 telematics; intelligence bets ride the data those features generate. A then B is one roadmap, not a choice."},
+];
+
+const BETS = [
+  {n:1, name:"Instant Pay", vs:"DAT/Truckstop pay in 30-90 days via external factors", edge:"Factoring rails, payee routing, and reconciliation are ALREADY BUILT (payments pipeline v3). Same-day payout on attested POD is a switching trigger, not a feature.", team:"settlements"},
+  {n:2, name:"Zero-Dispute Detention", vs:"Industry norm: detention is a fight carriers usually lose", edge:"Policy frozen at posting + both-sides e-sign + geofence-attested stop events + auto-computed charges = detention that pays itself. 80% of the machinery is live today.", team:"settlements"},
+  {n:3, name:"Double-Broker Shield", vs:"Load boards bolt on fraud tools after the fact", edge:"Carrier-of-record resolution, IDV, FMCSA verification, and a WORM-backed signature chain are native primitives. Market the trust, not just the tech.", team:"identity"},
+  {n:4, name:"HOS-Aware Matching", vs:"Boards show loads drivers cannot legally run", edge:"Telematics HOS + the consolidated matching rule = only legal, feasible loads. Safety as product.", team:"marketplace"},
+  {n:5, name:"Backhaul Optimizer + Liquidity Heatmap", vs:"Deadhead miles are the industry's silent margin killer", edge:"PostGIS analytics tier + lane liquidity metrics (already prototyped in the admin console) turned carrier-facing and shipper-facing.", team:"marketplace"},
+  {n:6, name:"SMS Claim-by-Reply", vs:"App-only claiming loses drivers mid-route", edge:"The SMS program's two-way SNS ingress makes 'reply 1 to claim' a small extension with outsized driver love.", team:"marketplace"},
+];
+
+const MOBILE = [
+  {m:"M0 - PWA hardening", when:"Q3 2026", what:"Web manifest, installable prompt, offline app shell, push deep links, icon set. Fixes: sw.js exists but there is no manifest today.", exit:"Lighthouse PWA pass; installed-user push reopens the app to the right load."},
+  {m:"M1 - Expo driver app shell", when:"Q4 2026", what:"React Native (Expo) app: auth (httpOnly-cookie bridge or token exchange), driver loadboard, offer accept, stop check-in/out reusing the accessorials API. Shares the TS types and API client shapes from frontend-v2/src/lib/api.ts.", exit:"Internal TestFlight/Play internal track build a beta driver uses for a full load."},
+  {m:"M2 - Store launch", when:"Q1 2027", what:"Background location (ties into telematics fallback when a carrier has no ELD), offline POD photo capture + queued upload, push notifications, App Store / Play review (allow 2-4 weeks incl. background-location entitlement review).", exit:"Public store listings; >=60% of active drivers on the app."},
+  {m:"M3 - Beyond drivers", when:"Q2 2027", what:"Fleet-manager mode (carrier org), shipper companion (track + approve charges), or invest the same effort in full responsive parity - decide on M2 retention data.", exit:"Second-persona weekly active on mobile."},
+];
+
+// ───────────────────────── state ─────────────────────────
+const LS_KEY = "loadlead-roadmap-v3";
+let state = load();
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(LS_KEY));
+    if(s && s.items && s.quarters) return s;
+  }catch(e){}
+  return fresh();
+}
+function fresh(){
+  return {
+    quarters: DEFAULT_QUARTERS.map(q=>({...q})),
+    items: DEFAULT_ITEMS.map(i=>({...i})),
+    notes: {}, globalNotes: ""
+  };
+}
+function save(msg){
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+  if(msg){ const g=document.getElementById("gsave"); g.textContent=msg; setTimeout(()=>g.textContent="",1400); }
+}
+
+// ───────────────────────── helpers ─────────────────────────
+const WEEK = 7*86400000;
+function qStart(i){ return new Date(state.quarters[i].start+"T00:00:00"); }
+function timelineStart(){ return qStart(0); }
+function timelineEnd(){ return new Date(qStart(3).getTime() + 13*WEEK); }
+function itemStart(it){ return new Date(qStart(it.q).getTime() + it.off*WEEK); }
+function itemEnd(it){ return new Date(itemStart(it).getTime() + it.dur*WEEK); }
+function pct(d){ const a=timelineStart().getTime(), b=timelineEnd().getTime(); return Math.max(0,Math.min(100,(d.getTime()-a)/(b-a)*100)); }
+function fmt(d){ return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"2-digit"}); }
+
+// ───────────────────────── render: legend, tabs, calendar ─────────────────────────
+document.getElementById("legend").innerHTML = Object.entries(TEAMS)
+  .map(([k,t])=>`<span class="chip"><span class="dot" style="background:${t.c}"></span>${t.label}</span>`).join("");
+
+const VIEWS = [["gantt","Gantt"],["breakdown","Breakdown"],["coas","COAs"],["bets","Competitive bets"],["mobile","Mobile track"]];
+const tabsEl = document.getElementById("tabs");
+VIEWS.forEach(([id,label],i)=>{
+  const b=document.createElement("button");
+  b.className="tab"+(i===0?" active":""); b.textContent=label;
+  b.onclick=()=>{ document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active")); b.classList.add("active");
+    document.querySelectorAll(".view").forEach(v=>v.classList.add("hidden"));
+    document.getElementById("view-"+id).classList.remove("hidden"); };
+  tabsEl.appendChild(b);
+});
+
+function renderCalendar(){
+  document.getElementById("qgrid").innerHTML = state.quarters.map((q,i)=>`
+    <div class="qbox">
+      <b>${q.name}</b>
+      <input type="date" value="${q.start}" onchange="setQuarterStart(${i}, this.value)">
+      <div class="qtheme">${q.theme}</div>
+    </div>`).join("");
+  document.getElementById("gcols").innerHTML = state.quarters.map(q=>`<div>${q.name} - ${fmt(qStart(state.quarters.indexOf(q)))}</div>`).join("");
+}
+window.setQuarterStart = (i,v)=>{ if(!v) return; state.quarters[i].start=v; save("Quarter shifted"); renderAll(); };
+
+// ───────────────────────── render: gantt ─────────────────────────
+function renderGantt(){
+  const byWs = {};
+  state.items.forEach(it=>{ (byWs[it.ws] ??= []).push(it); });
+  let html = "";
+  for(const [ws,items] of Object.entries(byWs)){
+    html += `<div class="wsname">${ws}</div>`;
+    for(const it of items){
+      const l = pct(itemStart(it)), r = pct(itemEnd(it));
+      html += `<div class="grow">
+        <div class="glabel" onclick="openItem('${it.id}')"><span class="dot" style="background:${TEAMS[it.team].c}"></span>${it.title.split(":")[0]}</div>
+        <div class="gtrack"><div class="gbar" onclick="openItem('${it.id}')" title="${it.title} (${fmt(itemStart(it))} - ${fmt(itemEnd(it))})" style="left:${l}%;width:${Math.max(1,r-l)}%;background:${TEAMS[it.team].c}"></div></div>
+      </div>`;
+    }
+  }
+  document.getElementById("gantt").innerHTML = html;
+}
+
+// ───────────────────────── render: breakdown ─────────────────────────
+function renderBreakdown(){
+  document.getElementById("breakdown").innerHTML = state.quarters.map((q,qi)=>{
+    const items = state.items.filter(i=>i.q===qi);
+    return `<div>
+      <h3>${q.name} <span class="meta">- ${q.theme}</span></h3>
+      ${items.map(it=>`<div class="item" onclick="openItem('${it.id}')">
+         <span class="pill" style="background:${TEAMS[it.team].c}">${TEAMS[it.team].label}</span>
+         <b> ${it.title}</b>
+         <div class="meta">${fmt(itemStart(it))} - ${fmt(itemEnd(it))} (${it.dur}w)${it.jira?` · <a class="jira" href="${JIRA+it.jira}" target="_blank" onclick="event.stopPropagation()">${it.jira}</a>`:""}</div>
+       </div>`).join("") || '<div class="meta">No items scheduled.</div>'}
+    </div>`;
+  }).join("");
+}
+
+// ───────────────────────── render: COAs / bets / mobile ─────────────────────────
+document.getElementById("coas").innerHTML = COAS.map(c=>`
+  <h3 style="margin-top:14px">${c.id}: ${c.title}</h3>
+  <table><tr><th style="width:26%">Option</th><th>Pros</th><th>Cons</th></tr>
+  ${c.options.map(o=>`<tr class="${o.rec?"rec":""}"><td><b>${o.name}</b>${o.rec?" ✅ recommended":""}</td><td>${o.pros}</td><td>${o.cons}</td></tr>`).join("")}
+  </table><div class="meta" style="margin-top:5px"><b>Why:</b> ${c.why}</div>`).join("");
+
+document.getElementById("bets").innerHTML = `<table>
+  <tr><th>#</th><th>Bet</th><th>The market today</th><th>Why LoadLead wins</th><th>Team</th></tr>
+  ${BETS.map(b=>`<tr><td>${b.n}</td><td><b>${b.name}</b></td><td>${b.vs}</td><td>${b.edge}</td>
+    <td><span class="pill" style="background:${TEAMS[b.team].c}">${TEAMS[b.team].label}</span></td></tr>`).join("")}
+  </table>
+  <div class="meta" style="margin-top:8px">Bets 1-3 leverage machinery that already exists in prod (payments pipeline, geofence detention design, IDV/WORM chain) - they are productization, not greenfield. Bets 4-6 ride the telematics, analytics, and SMS enablers landing in Q3-Q4.</div>`;
+
+document.getElementById("mobiletrack").innerHTML = `<table>
+  <tr><th style="width:18%">Milestone</th><th style="width:10%">Target</th><th>Scope</th><th style="width:24%">Exit criteria</th></tr>
+  ${MOBILE.map(m=>`<tr><td><b>${m.m}</b></td><td>${m.when}</td><td>${m.what}</td><td>${m.exit}</td></tr>`).join("")}
+  </table>
+  <div class="meta" style="margin-top:8px">Strategy per COA-M option B: PWA first (weeks, de-risks), then an Expo/React Native driver-first app (background GPS + store presence where they matter), then expand by retention data. The M2 background-location work double-serves the telematics tracking tier as the no-ELD fallback.</div>`;
+
+// ───────────────────────── side panel ─────────────────────────
+window.openItem = (id)=>{
+  const it = state.items.find(i=>i.id===id); if(!it) return;
+  const t = TEAMS[it.team];
+  document.getElementById("sidebody").innerHTML = `
+    <div><span class="pill" style="background:${t.c}">${t.label}</span></div>
+    <h3 style="margin-top:8px">${it.title}</h3>
+    <div class="meta">${it.why}</div>
+    <div class="meta" style="margin-top:6px">
+      ${it.jira?`Jira: <a class="jira" href="${JIRA+it.jira}" target="_blank">${it.jira}</a> · `:""}
+      ${it.deps?`Depends on: ${it.deps}`:"No upstream dependency"}
+    </div>
+    <div class="field"><label>Quarter</label>
+      <select onchange="editItem('${it.id}','q',+this.value)">
+        ${state.quarters.map((q,qi)=>`<option value="${qi}" ${qi===it.q?"selected":""}>${q.name}</option>`).join("")}
+      </select></div>
+    <div class="field"><label>Offset into quarter (weeks): <b>${it.off}</b></label>
+      <input type="range" min="0" max="12" value="${it.off}" oninput="editItem('${it.id}','off',+this.value)"></div>
+    <div class="field"><label>Duration (weeks): <b>${it.dur}</b></label>
+      <input type="range" min="1" max="13" value="${it.dur}" oninput="editItem('${it.id}','dur',+this.value)"></div>
+    <div class="meta">Schedule: ${fmt(itemStart(it))} to ${fmt(itemEnd(it))}</div>
+    <div class="field notewrap"><label>Notes for this item</label>
+      <textarea oninput="noteItem('${it.id}', this.value)" placeholder="Decisions, owners, links...">${state.notes[it.id]||""}</textarea></div>`;
+};
+window.editItem = (id,k,v)=>{ const it=state.items.find(i=>i.id===id); it[k]=v; save(); renderGantt(); renderBreakdown(); openItem(id); };
+window.noteItem = (id,v)=>{ state.notes[id]=v; save(); };
+
+// global notes + buttons
+const gn = document.getElementById("globalnotes");
+gn.value = state.globalNotes||"";
+gn.oninput = ()=>{ state.globalNotes = gn.value; save("Saved"); };
+document.getElementById("exportBtn").onclick = ()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="loadlead-roadmap-export.json"; a.click();
+};
+document.getElementById("resetBtn").onclick = ()=>{
+  if(confirm("Reset all edits and notes back to the committed plan?")){ state=fresh(); save(); renderAll(); document.getElementById("sidebody").innerHTML="Reset done."; gn.value=""; }
+};
+
+function renderAll(){ renderCalendar(); renderGantt(); renderBreakdown(); }
+renderAll();
+</script>
+</body>
+</html>

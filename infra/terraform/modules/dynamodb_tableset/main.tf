@@ -61,7 +61,7 @@ locals {
       gsis       = [{ name = "status-index", hash_key = "verificationStatus" }]
     }
     Loads = {
-      hash_key   = "loadId"
+      hash_key = "loadId"
       attributes = [
         { name = "loadId", type = "S" }, { name = "status", type = "S" },
         { name = "createdAt", type = "N" }, { name = "shipperId", type = "S" },
@@ -127,11 +127,11 @@ locals {
     # app layer. PITR comes from the module default. Holds Signature rows
     # bound to documentHash + proofPhotoIds for non-repudiation.
     Signatures = {
-      hash_key   = "signatureId"
+      hash_key = "signatureId"
       attributes = [
         { name = "signatureId", type = "S" },
-        { name = "loadId",      type = "S" },
-        { name = "signedAt",    type = "S" },
+        { name = "loadId", type = "S" },
+        { name = "signedAt", type = "S" },
       ]
       gsis = [
         { name = "loadId-signedAt-index", hash_key = "loadId", range_key = "signedAt" },
@@ -144,10 +144,10 @@ locals {
     # UpdateItem because PENDING→READY is the one allowed transition; the
     # condition guard pins the state machine to exactly one direction.
     PodPhotos = {
-      hash_key   = "photoId"
+      hash_key = "photoId"
       attributes = [
         { name = "photoId", type = "S" },
-        { name = "loadId",  type = "S" },
+        { name = "loadId", type = "S" },
       ]
       gsis = [
         { name = "loadId-index", hash_key = "loadId" },
@@ -161,10 +161,10 @@ locals {
     # without a full scan; the gate normalises (lowercase, strip leading '@')
     # before querying.
     BetaAllowlist = {
-      hash_key   = "allowlistId"
+      hash_key = "allowlistId"
       attributes = [
         { name = "allowlistId", type = "S" },
-        { name = "value",       type = "S" },
+        { name = "value", type = "S" },
       ]
       gsis = [
         { name = "value-index", hash_key = "value" },
@@ -175,10 +175,10 @@ locals {
     # asks to be let in). The dashboard promotes these into real invites.
     # email-index makes "is this email already on the waitlist?" cheap.
     Waitlist = {
-      hash_key   = "waitlistId"
+      hash_key = "waitlistId"
       attributes = [
         { name = "waitlistId", type = "S" },
-        { name = "email",      type = "S" },
+        { name = "email", type = "S" },
       ]
       gsis = [
         { name = "email-index", hash_key = "email" },
@@ -190,17 +190,17 @@ locals {
     # status-index drives the pipeline kanban; workEmail-index is for the
     # "did this person already apply?" check before insert.
     BetaApplications = {
-      hash_key   = "applicationId"
+      hash_key = "applicationId"
       attributes = [
         { name = "applicationId", type = "S" },
-        { name = "responseId",    type = "S" },
-        { name = "status",        type = "S" },
-        { name = "workEmail",     type = "S" },
+        { name = "responseId", type = "S" },
+        { name = "status", type = "S" },
+        { name = "workEmail", type = "S" },
       ]
       gsis = [
         { name = "responseId-index", hash_key = "responseId" },
-        { name = "status-index",     hash_key = "status" },
-        { name = "workEmail-index",  hash_key = "workEmail" },
+        { name = "status-index", hash_key = "status" },
+        { name = "workEmail-index", hash_key = "workEmail" },
       ]
     }
 
@@ -213,11 +213,206 @@ locals {
       attributes = [{ name = "eventId", type = "S" }]
       gsis       = []
     }
+
+    # ── Carrier payments + financing ─────────────────────────────────────
+    # Append-only platform fee policy changes (linehaul take rate + beta
+    # waiver). The current policy is the newest row; rows are never updated
+    # or deleted. Each change carries an actor and a timestamp. PITR comes
+    # from the module default.
+    PlatformFeePolicy = {
+      hash_key   = "changeId"
+      attributes = [{ name = "changeId", type = "S" }]
+      gsis       = []
+    }
+
+    # Per-load accessorial policy (detention/layover terms), keyed by loadId.
+    # Editable until a charge freezes a snapshot of it; references the load by
+    # id only and never lives on the Load model.
+    AccessorialPolicies = {
+      hash_key   = "loadId"
+      attributes = [{ name = "loadId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only ESIGN/UETA acceptances of a load's accessorial policy. Pins the
+    # accepted version + policy hash; rows are never updated or deleted.
+    AccessorialPolicyAcceptances = {
+      hash_key   = "acceptanceId"
+      attributes = [{ name = "acceptanceId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only shipper agreements to a load's accessorial terms at posting.
+    # Pins the agreed policy version + exact values; never updated or deleted.
+    ShipperAgreements = {
+      hash_key   = "agreementId"
+      attributes = [{ name = "agreementId", type = "S" }]
+      gsis       = []
+    }
+
+    # ── Platform-admin compliance/oversight layer ──────────────────────────
+    # Append-only admin audit log, per-user compliance grants, adjudications,
+    # legal holds, law-enforcement requests, disclosures, and payout intercepts.
+    AdminAuditLog = {
+      hash_key   = "auditId"
+      attributes = [{ name = "auditId", type = "S" }]
+      gsis       = []
+    }
+    ComplianceGrants = {
+      hash_key   = "userId"
+      attributes = [{ name = "userId", type = "S" }]
+      gsis       = []
+    }
+    Adjudications = {
+      hash_key   = "adjudicationId"
+      attributes = [{ name = "adjudicationId", type = "S" }]
+      gsis       = []
+    }
+    LegalHolds = {
+      hash_key   = "holdId"
+      attributes = [{ name = "holdId", type = "S" }]
+      gsis       = []
+    }
+    LawEnforcementRequests = {
+      hash_key   = "recordId"
+      attributes = [{ name = "recordId", type = "S" }]
+      gsis       = []
+    }
+    Disclosures = {
+      hash_key   = "disclosureId"
+      attributes = [{ name = "disclosureId", type = "S" }]
+      gsis       = []
+    }
+    PayoutIntercepts = {
+      hash_key   = "interceptId"
+      attributes = [{ name = "interceptId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only stop-events log (check-in/check-out). Detention/layover compute
+    # from these immutable events; references load + stop by id only. A loadId GSI
+    # can be added before scale; reads scan + filter at beta volume.
+    StopEvents = {
+      hash_key   = "eventId"
+      attributes = [{ name = "eventId", type = "S" }]
+      gsis       = []
+    }
+
+    # Accessorial charge ledger (DETENTION/LAYOVER). Deterministic chargeId so a
+    # recompute updates in place; the live row carries status + amount and the
+    # immutable trail lives in AccessorialChargeStatusHistory.
+    AccessorialCharges = {
+      hash_key   = "chargeId"
+      attributes = [{ name = "chargeId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only charge status transitions (original/new amounts on adjust).
+    AccessorialChargeStatusHistory = {
+      hash_key   = "historyId"
+      attributes = [{ name = "historyId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only factoring assignment log. A release/change is a new row; the
+    # active assignment resolves with invoice-level precedence over account-level.
+    FactoringAssignments = {
+      hash_key   = "assignmentId"
+      attributes = [{ name = "assignmentId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only Notices of Assignment (legal redirection snapshots).
+    NoticesOfAssignment = {
+      hash_key   = "noaId"
+      attributes = [{ name = "noaId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only funding advances (no advance vs non-APPROVED accessorial;
+    # idempotent per invoice line).
+    FundingAdvances = {
+      hash_key   = "advanceId"
+      attributes = [{ name = "advanceId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only reconciliation + recourse outcomes (payment routing, reserve
+    # release, supplemental advance, recourse buyback, non-recourse loss).
+    ReconciliationOutcomes = {
+      hash_key   = "outcomeId"
+      attributes = [{ name = "outcomeId", type = "S" }]
+      gsis       = []
+    }
+
+    # Saved factor contact per carrier/owner-operator (pre-fills the recipient).
+    FactorContacts = {
+      hash_key   = "carrierId"
+      attributes = [{ name = "carrierId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only factoring submission records (export-and-send disclosure trail:
+    # what financial documents left the platform, to whom, and when).
+    FactoringSubmissions = {
+      hash_key   = "submissionId"
+      attributes = [{ name = "submissionId", type = "S" }]
+      gsis       = []
+    }
+
+    # ── Load negotiation (engage/bid/counter/accept) ─────────────────────
+    # Session rows, append-only offer rows, and the per-load exclusivity lock.
+    # The Load model is never touched; everything references load + parties by
+    # id. Key schemas mirror prod exactly (describe-table verified 2026-07-03);
+    # negotiations are read by scan+filter at beta volume — a loadId GSI can be
+    # added here (and to prod) together when the M3 scan fix lands.
+    LoadNegotiations = {
+      hash_key   = "negotiationId"
+      attributes = [{ name = "negotiationId", type = "S" }]
+      gsis       = []
+    }
+    NegotiationOffers = {
+      hash_key   = "negOfferId"
+      attributes = [{ name = "negOfferId", type = "S" }]
+      gsis       = []
+    }
+    NegotiationLocks = {
+      hash_key   = "loadId"
+      attributes = [{ name = "loadId", type = "S" }]
+      gsis       = []
+    }
+
+    # In-app notification inbox (per-user feed). userId-index powers the
+    # "my notifications" list without a scan.
+    Notifications = {
+      hash_key = "notificationId"
+      attributes = [
+        { name = "notificationId", type = "S" },
+        { name = "userId", type = "S" },
+      ]
+      gsis = [{ name = "userId-index", hash_key = "userId" }]
+    }
+
+    # Saved carrier factoring profile (opt-in status + factor details), keyed by
+    # carrierId (owner-operator or org — the carrier of record).
+    CarrierFactoringProfiles = {
+      hash_key   = "carrierId"
+      attributes = [{ name = "carrierId", type = "S" }]
+      gsis       = []
+    }
+
+    # Append-only admin-bootstrap attempt log (the race-safe record behind the
+    # one-time ADMIN bootstrap; referenced by the bootstrap flow's guard).
+    AdminBootstrapAttempts = {
+      hash_key   = "attemptId"
+      attributes = [{ name = "attemptId", type = "S" }]
+      gsis       = []
+    }
   }
 }
 
 module "table" {
-  source = "../dynamodb_table"
+  source   = "../dynamodb_table"
   for_each = local.tables
 
   name                     = "${var.prefix}${each.key}"

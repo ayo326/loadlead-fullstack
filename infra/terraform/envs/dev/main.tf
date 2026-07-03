@@ -147,7 +147,41 @@ module "backend" {
     DYNAMODB_WAITLIST_TABLE          = "${local.prefix}Waitlist"
     DYNAMODB_BETA_APPLICATIONS_TABLE = "${local.prefix}BetaApplications"
     DYNAMODB_BETA_TRUST_EVENTS_TABLE = "${local.prefix}BetaTrustEvents"
-    POD_S3_BUCKET                    = "loadlead-dev-pod-uploads"
+    # identity / infra
+    DYNAMODB_PUSH_TABLE             = "${local.prefix}PushSubscriptions"
+    DYNAMODB_RESET_TABLE            = "${local.prefix}PasswordResets"
+    DYNAMODB_SETUP_TOKENS_TABLE     = "${local.prefix}SetupTokens"
+    DYNAMODB_NOTIFICATIONS_TABLE    = "${local.prefix}Notifications"
+    DYNAMODB_MEMBERSHIP_AUDIT_TABLE = "${local.prefix}MembershipAuditLogs"
+    DYNAMODB_BOOTSTRAP_AUDIT_TABLE  = "${local.prefix}AdminBootstrapAttempts"
+    # negotiation
+    DYNAMODB_LOAD_NEGOTIATIONS_TABLE  = "${local.prefix}LoadNegotiations"
+    DYNAMODB_NEGOTIATION_OFFERS_TABLE = "${local.prefix}NegotiationOffers"
+    DYNAMODB_NEGOTIATION_LOCKS_TABLE  = "${local.prefix}NegotiationLocks"
+    # payments / financing
+    DYNAMODB_PLATFORM_FEE_POLICY_TABLE            = "${local.prefix}PlatformFeePolicy"
+    DYNAMODB_ACCESSORIAL_POLICIES_TABLE           = "${local.prefix}AccessorialPolicies"
+    DYNAMODB_ACCESSORIAL_POLICY_ACCEPTANCES_TABLE = "${local.prefix}AccessorialPolicyAcceptances"
+    DYNAMODB_SHIPPER_AGREEMENTS_TABLE             = "${local.prefix}ShipperAgreements"
+    DYNAMODB_STOP_EVENTS_TABLE                    = "${local.prefix}StopEvents"
+    DYNAMODB_ACCESSORIAL_CHARGES_TABLE            = "${local.prefix}AccessorialCharges"
+    DYNAMODB_CHARGE_STATUS_HISTORY_TABLE          = "${local.prefix}AccessorialChargeStatusHistory"
+    DYNAMODB_FACTORING_ASSIGNMENTS_TABLE          = "${local.prefix}FactoringAssignments"
+    DYNAMODB_FACTORING_PROFILES_TABLE             = "${local.prefix}CarrierFactoringProfiles"
+    DYNAMODB_FACTORING_SUBMISSIONS_TABLE          = "${local.prefix}FactoringSubmissions"
+    DYNAMODB_FACTOR_CONTACTS_TABLE                = "${local.prefix}FactorContacts"
+    DYNAMODB_FUNDING_ADVANCES_TABLE               = "${local.prefix}FundingAdvances"
+    DYNAMODB_NOTICES_OF_ASSIGNMENT_TABLE          = "${local.prefix}NoticesOfAssignment"
+    DYNAMODB_RECONCILIATION_OUTCOMES_TABLE        = "${local.prefix}ReconciliationOutcomes"
+    # compliance / oversight
+    DYNAMODB_ADMIN_AUDIT_LOG_TABLE          = "${local.prefix}AdminAuditLog"
+    DYNAMODB_COMPLIANCE_GRANTS_TABLE        = "${local.prefix}ComplianceGrants"
+    DYNAMODB_ADJUDICATIONS_TABLE            = "${local.prefix}Adjudications"
+    DYNAMODB_LEGAL_HOLDS_TABLE              = "${local.prefix}LegalHolds"
+    DYNAMODB_LAW_ENFORCEMENT_REQUESTS_TABLE = "${local.prefix}LawEnforcementRequests"
+    DYNAMODB_DISCLOSURES_TABLE              = "${local.prefix}Disclosures"
+    DYNAMODB_PAYOUT_INTERCEPTS_TABLE        = "${local.prefix}PayoutIntercepts"
+    POD_S3_BUCKET                           = "loadlead-dev-pod-uploads"
   })
   tags = local.tags
 }

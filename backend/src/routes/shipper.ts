@@ -3,6 +3,7 @@ import { ShipperService } from '../services/shipperService';
 import { RoutingService } from '../services/routingService';
 import { LoadService } from '../services/loadService';
 import { DriverService } from '../services/driverService';
+import { AccessorialPolicyService } from '../services/accessorialPolicyService';
 import { authenticate, requireShipper, AuthRequest } from '../middleware/auth';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { shipperValidators, loadValidators } from '../utils/validators';
@@ -87,6 +88,25 @@ router.post('/admin-request', asyncHandler(requireProfile), asyncHandler(async (
 router.post('/loads/draft', asyncHandler(requireProfile), validate(loadValidators.createLoad), asyncHandler(async (req: AuthRequest, res) => {
   const shipper = (req as any).shipperProfile;
   const load = await LoadService.createDraft(shipper.shipperId, req.body);
+
+  // Freeze the accessorial policy and record the shipper's append-only agreement
+  // to the detention/layover terms. The frozen policy is the same snapshot the
+  // carrier later reads and acknowledges. The `accessorial` block is ignored by
+  // createDraft (which maps only known Load fields), so it never touches the Load.
+  const acc = (req.body as any).accessorial;
+  if (acc) {
+    if (acc.agreed !== true) {
+      throw new AppError('ACCESSORIAL_AGREEMENT_REQUIRED: agree to the detention and layover terms to post', 400);
+    }
+    const agreed = await AccessorialPolicyService.freezeAndAgreeAtPosting({
+      load: { loadId: load.loadId, hazmat: load.hazmat, equipmentType: load.equipmentType },
+      shipperId: shipper.shipperId,
+      actorId: req.user!.userId,
+      override: acc.override,
+    });
+    return res.status(201).json({ load, accessorial: { disclosure: agreed.disclosure, agreementId: agreed.agreement.agreementId } });
+  }
+
   res.status(201).json({ load });
 }));
 

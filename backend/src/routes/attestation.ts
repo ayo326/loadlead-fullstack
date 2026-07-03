@@ -156,6 +156,10 @@ router.post('/sign', asyncHandler(async (req: AuthRequest, res) => {
 
   let carrierOfRecord: { entityType: string; entityId: string } | null = null;
   let assignedDriverId: string | null = null;
+  // For a negotiated accept the caller binds the agreed rate (cents), converted
+  // to the load's units (dollars). Omitted → the projection uses the posted rate.
+  let rateAmount: number | null = null;
+  let rateType: string | null = null;
   if (action === 'CARRIER_ACCEPT') {
     const did = body.assignedDriverId as string;
     if (!did) throw new AppError('assignedDriverId required for CARRIER_ACCEPT', 400);
@@ -165,6 +169,13 @@ router.post('/sign', asyncHandler(async (req: AuthRequest, res) => {
     if (!cor) throw new AppError('Driver unaffiliated; cannot bind acceptance', 403);
     carrierOfRecord = { entityType: cor.entityType, entityId: cor.entityId };
     assignedDriverId = did;
+    if (typeof body.ratePerMileCents === 'number') {
+      rateAmount = body.ratePerMileCents / 100;
+      rateType = 'PER_MILE';
+    } else if (typeof body.totalCents === 'number') {
+      rateAmount = body.totalCents / 100;
+      rateType = 'FLAT_RATE';
+    }
   }
 
   const exceptions: ExceptionsRecord | undefined = body.exceptions ? {
@@ -186,6 +197,8 @@ router.post('/sign', asyncHandler(async (req: AuthRequest, res) => {
     shipperUserId,
     carrierOfRecord,
     assignedDriverId,
+    rateAmount,
+    rateType,
     photos,
     exceptions,
     actualAt:      body.actualAt,

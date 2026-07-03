@@ -1,0 +1,83 @@
+# LoadLead — Team Ownership Map
+# =====================================================================
+# Single source of truth for which of the five teams owns each unit of
+# work. Consumed by jira/sync.py, which stamps every issue with a
+# `team-<slug>` label (Jira labels can't hold spaces/colons, so the
+# label is normalised: `team:settlements` -> `team-settlements`).
+# The prose charter lives in docs/TeamOwnership.md.
+#
+# Resolution precedence per issue (first match wins), see resolve_team():
+#   1. overrides[<ext_id>]            explicit, wins over everything
+#   2. epics[<ext_id>]               if the issue IS an epic
+#   3. nearest ancestor via parent_ext_id that is an epic/override
+#   4. family_defaults[<family>]     family = ext_id prefix before ':'
+#   5. (none)                        no team label stamped
+#
+# Filter in Jira with:  labels = "team-settlements"
+
+teams:
+  settlements:
+    name: "Settlements & Financing"
+    mission: "Every cent from accrual to payout, correctly and auditably."
+    owns: "Accessorials, charge ledger + calc, take-rate, factoring, payee routing, reconciliation."
+  compliance:
+    name: "Trust & Compliance"
+    mission: "Oversight without ever mutating the record; append-only, audited, counsel-gated."
+    owns: "Compliance console, disputes/adjudication, legal holds, case files, law-enforcement, intercepts, disclosures, security/STIG."
+  identity:
+    name: "Identity & Access"
+    mission: "Who someone is, what they may do, and how they get in."
+    owns: "Auth + MFA, staff/org IAM, carrier-of-record, verification (IDV), invitations, onboarding tours."
+  marketplace:
+    name: "Marketplace & Growth"
+    mission: "The two-sided freight marketplace and its adoption loop."
+    owns: "Loads/offers/matching, tracking, notifications, dashboards, taxonomy, beta program, lane liquidity, design system."
+  platform:
+    name: "Platform Engineering"
+    mission: "The ground everything runs on and the tooling to ship safely."
+    owns: "Terraform + DynamoDB, deploy + CI/CD, integration adapters, boot guards, docs/Jira/Confluence tooling."
+
+# Epic -> owning team. Stories/tasks inherit their epic's team unless overridden.
+epics:
+  epic:carrier-refactor: identity
+  epic:test-suite:       identity     # the A1-H4 matrix tests the carrier-of-record refactor
+  epic:e2e-uat:          marketplace  # product-facing E2E / UAT
+  epic:stig-compliance:  compliance
+  epic:dashboards:       marketplace
+  epic:env-hardening:    platform
+  epic:jira-automation:  platform
+  epic:analytics-db:     platform
+  epic:admin:            platform
+
+# Default team by ext_id family (prefix before the first colon). Used only when
+# an issue has no override and no epic ancestor (e.g. an orphan item).
+family_defaults:
+  refactor:  identity
+  stig:      compliance
+  hard:      platform      # env / production hardening
+  dash:      marketplace
+  analytics: platform
+  admin:     platform
+  jira:      platform
+  uat:       marketplace
+  load-e2e:  marketplace   # product end-to-end load flows
+  ui-e2e:    marketplace   # product UI end-to-end
+  test:      identity      # legacy suite is the carrier-refactor matrix; parent-walk refines per-epic
+  epic:      marketplace
+  telem:     platform      # telematics integration default; per-item overrides below
+  sms:       platform      # SMS program default; per-item overrides below
+  negot:     marketplace   # load negotiation default
+
+# Explicit per-issue overrides (ext_id -> team). Win over everything. Add entries
+# here as new payments/compliance work lands in the manifest so it routes cleanly.
+overrides:
+  epic:negotiation: marketplace
+  negot:sweeper-worker: platform             # shared worker enabler
+  epic:sms-program: platform                 # integration epic, platform-led
+  sms:consent-store: identity                # consent of a user, onboarding-adjacent
+  sms:legal-pages: marketplace               # public surface, design system
+  sms:optin-ui: marketplace                  # onboarding UI surface
+  sms:send-chokepoint: marketplace           # broadcast/notify wiring (compliance consulted)
+  epic:telematics: platform                  # integration epic, platform-led
+  telem:geofence-stop-events: settlements  # writes money-bearing stop events
+  telem:hos-eligibility: marketplace         # offer/matching gate

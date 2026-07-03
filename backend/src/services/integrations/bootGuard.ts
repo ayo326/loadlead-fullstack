@@ -14,6 +14,7 @@ import {
   resolveMode,
 } from './modeResolver';
 import Logger from '../../utils/logger';
+import config from '../../config/environment';
 
 export class BootGuardError extends Error {
   constructor(message: string) {
@@ -91,10 +92,58 @@ export function assertNonProductionSafe(): void {
   }
 }
 
+/**
+ * Table-isolation guard, defense layer 3 (the H1 fix). Production owns the
+ * canonical `LoadLead_*` (underscore) table names; every OTHER environment must
+ * namespace its tables (`LoadLead-Staging-*`, `LoadLead-Dev-*`). If a non-prod
+ * environment resolves ANY table name to the production `LoadLead_` form it
+ * means an override was never set and this process would read and write
+ * PRODUCTION data — a silent cross-environment contamination. Fail closed.
+ *
+ * Pure so it can be unit-tested without touching global env: given the resolved
+ * table names, return the ones in production form.
+ */
+export function prodFormTableNames(names: Record<string, string | undefined>): string[] {
+  return Object.entries(names)
+    .filter(([, v]) => typeof v === 'string' && v.startsWith('LoadLead_'))
+    .map(([k, v]) => `${k}=${v}`);
+}
+
+export function assertTablesEnvIsolated(): void {
+  if (isProduction()) return;
+  // Local development talks to a local DynamoDB (DYNAMODB_ENDPOINT set); the
+  // LoadLead_ names there are harmless — it's a different database, not prod.
+  // The hazard is ONLY a non-prod env pointed at real AWS with prod-form names.
+  if (process.env.DYNAMODB_ENDPOINT) return;
+
+  const names: Record<string, string | undefined> = {};
+  // (a) Everything resolved through the central config — covers negotiations,
+  //     compliance, and payments (the H1-critical subsystems).
+  for (const [k, v] of Object.entries(config.dynamodb)) {
+    if (k.endsWith('Table') && typeof v === 'string') names[`config.${k}`] = v;
+  }
+  // (b) Plus any table override explicitly present in the environment — catches
+  //     the handful of tables read via process.env directly, not through config.
+  for (const [k, v] of Object.entries(process.env)) {
+    if (/^DYNAMODB_[A-Z_]+_TABLE$/.test(k)) names[k] = v;
+  }
+
+  const offenders = prodFormTableNames(names);
+  if (offenders.length > 0) {
+    throw new BootGuardError(
+      `Refusing to boot outside production: ${offenders.length} DynamoDB table name(s) resolved to the ` +
+        `production "LoadLead_" form, so this environment (APP_ENV=${process.env.APP_ENV ?? 'development'}) ` +
+        `would read and write PRODUCTION data. Offending: ${offenders.join(', ')}. Set the matching ` +
+        `DYNAMODB_*_TABLE override(s) for this environment (see scripts/check-table-env-parity.mjs).`,
+    );
+  }
+}
+
 /** Run every boot-time guard. Throws BootGuardError on the first violation. */
 export function runBootGuards(): void {
   assertProductionNotContaminated();
   assertNonProductionSafe();
+  assertTablesEnvIsolated();
 }
 
 /**

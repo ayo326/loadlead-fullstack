@@ -213,6 +213,56 @@ families:
         Then the artefact / approval / signed agreement is on file
         And it does not block the dependent engineering or commercial work
 
+  telem:
+    context: |
+      Terminal telematics integration, sequenced per the platform review in
+      docs/telematics-integration-review.md (staged go). Tiers map to priority:
+      Now = High, Next = Medium, Later = Low. Stores are DynamoDB per platform
+      convention (the proposal's Postgres stores were rejected in review).
+    user_story:
+      as_a: LoadLead operator
+      i_want: "{{title}}"
+      so_that: carrier telematics powers load visibility, detention accuracy, and HOS-safe matching without weakening the platform's security or deploy posture
+    gherkin: |
+      Scenario: {{title}}
+        Given the acceptance criteria in docs/telematics-integration-review.md for this item
+        When the item is implemented against the cited platform conventions
+        Then its verification steps pass and the dependent items are unblocked
+
+  sms:
+    context: |
+      Carrier SMS opt-in program, sequenced per the platform review in
+      docs/sms-program-review.md (staged go, six COAs). Tiers map to priority:
+      Now = High, Next = Medium, Later = Low. Consent store is DynamoDB per
+      COA-1A with IAM-deny immutability per COA-2B; messaging adapter lives in
+      services/integrations per COA-4A; all sends pass the consent + legal
+      suppression chokepoint per COA-5A.
+    user_story:
+      as_a: LoadLead operator
+      i_want: "{{title}}"
+      so_that: verified carriers receive TCPA-compliant SMS load alerts backed by an immutable consent record and a provider-neutral messaging layer
+    gherkin: |
+      Scenario: {{title}}
+        Given the acceptance criteria in docs/sms-program-review.md for this item
+        When the item is implemented against the cited platform conventions and COAs
+        Then its verification steps pass and the dependent items are unblocked
+
+  negot:
+    context: |
+      Load negotiation (engage/bid/counter), shipped 2026-07-02 in commit
+      8a3849a per the v2 build prompt. Residual items harden and extend the
+      shipped core: docs/quarterly-roadmap.md and the negotiation service
+      header (backend/src/services/negotiationService.ts) are the references.
+    user_story:
+      as_a: LoadLead operator
+      i_want: "{{title}}"
+      so_that: rate negotiation stays exclusive, turn-safe, idempotent, and settles at the agreed rate
+    gherkin: |
+      Scenario: {{title}}
+        Given the shipped negotiation state machine and its DoD tests
+        When the item is implemented
+        Then the negotiation invariants (exclusive lock, append-only offers, integer cents, untouched Load model) still hold
+
   # Epics inherit a thin template — their description is mostly the human-readable
   # text already in the `epics:` block. We still want the 3-section structure.
   epic:
@@ -233,6 +283,45 @@ families:
 # EPICS
 # =====================================================================
 epics:
+  - ext_id: epic:negotiation
+    title: Load Negotiation (engage/bid/counter)
+    description: |
+      First-hauler-exclusive rate negotiation on broadcast loads: engage lock,
+      posted-rate accept or per-mile bid, alternating counters inside a 20
+      minute window, rebroadcast on reject/expiry, idempotent assignment at
+      the agreed rate feeding settlement. Core SHIPPED 2026-07-02 (commit
+      8a3849a, deployed loadlead-backend-20260702210709). Remaining items are
+      residual hardening and product decisions.
+    labels: [negotiation, marketplace]
+    status: To Do
+  - ext_id: epic:sms-program
+    title: Carrier SMS Opt-In Program (staged go)
+    description: |
+      TCPA/A2P-compliant SMS load alerts per the platform review
+      docs/sms-program-review.md (commit dcdeb27, verdict staged go).
+      Two parallel tracks: ops (legal pages first, then 10DLC brand,
+      campaign, number - the calendar long pole) and code (DynamoDB
+      consent store with IAM-deny immutability, opt-in UI, messaging
+      adapter in services/integrations, SNS ingress with signature
+      verification, one send chokepoint enforcing consent AND the
+      compliance non-disclosure suppression seam). Go-live gated on
+      campaign approval, number association, sandbox exit, spend cap,
+      simulator loop, and counsel sign-off.
+    labels: [sms, tcpa, messaging]
+    status: To Do
+  - ext_id: epic:telematics
+    title: Terminal Telematics Integration (staged go)
+    description: |
+      Carrier telematics via Terminal, sequenced per the platform review
+      docs/telematics-integration-review.md (commit a022210, verdict staged go).
+      NOW: enablers (SNS subscriber, KMS envelope helper) then connection,
+      roster, on-demand HOS, webhook skeleton. NEXT: scheduled worker, tracking
+      ingestion, geofenced stop events (settlements-gated). LATER: PostGIS
+      analytics tier per docs/database-analytics/analytics-db-spec.md.
+      All transactional stores are DynamoDB; the proposed Postgres stores were
+      rejected in review as conflicting with the platform.
+    labels: [telematics, integration]
+    status: To Do
 
   - ext_id: epic:carrier-refactor
     title: Carrier-of-record Refactor
@@ -1376,3 +1465,45 @@ items:
   - { ext_id: uat:CT-R, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-R manual sign-off on @H9 receiver-web",  status_source: manifest, status: "To Do" }
   - { ext_id: uat:CT-A, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-A manual sign-off on @H10 admin-console", status_source: manifest, status: "To Do" }
   - { ext_id: uat:CT-X, parent_ext_id: test:section-H, type: Sub-task, title: "UAT-CT-X manual sign-off on @H11 cross-persona gate", status_source: manifest, status: "To Do" }
+
+  # ── EPIC: Terminal Telematics Integration (docs/telematics-integration-review.md) ──
+  # Tier NOW = High, NEXT = Medium, LATER = Low. Links encode the dependency graph.
+  - { ext_id: "telem:sns-subscriber",      parent_ext_id: "epic:telematics", type: Task,  title: "Subscribe ops email to loadlead-prod-ops-alerts SNS (alerting is theater until this)", status_source: manifest, status: "To Do", labels: [telematics, enabler, observability], priority_hint: High }
+  - { ext_id: "telem:kms-envelope",        parent_ext_id: "epic:telematics", type: Story, title: "KMS envelope-encryption helper (key + utils/crypto + EB role grant) for connection tokens", status_source: manifest, status: "To Do", labels: [telematics, enabler, security], priority_hint: High }
+  - { ext_id: "telem:connection",          parent_ext_id: "epic:telematics", type: Story, title: "Carrier telematics connection: Link flow, encrypted token store (DynamoDB), connect/disconnect routes via resolveCarrierIdForUser", status_source: manifest, status: "To Do", labels: [telematics, connection], priority_hint: High, links: ["telem:kms-envelope"] }
+  - { ext_id: "telem:connect-ui",          parent_ext_id: "epic:telematics", type: Task,  title: "ConnectTelematics React component + VITE publishable key wiring", status_source: manifest, status: "To Do", labels: [telematics, frontend], priority_hint: High, links: ["telem:connection"] }
+  - { ext_id: "telem:vehicle-roster",      parent_ext_id: "epic:telematics", type: Story, title: "Equipment roster: LoadLead_Vehicles table + idempotent Vehicle sync", status_source: manifest, status: "To Do", labels: [telematics, roster], priority_hint: High, links: ["telem:connection"] }
+  - { ext_id: "telem:hos-eligibility",     parent_ext_id: "epic:telematics", type: Story, title: "Load eligibility: on-demand HOS Available Time at offer time (decide fail-open vs fail-closed)", status_source: manifest, status: "To Do", labels: [telematics, hos, safety], priority_hint: High, links: ["telem:connection"] }
+  - { ext_id: "telem:confirm-signature",   parent_ext_id: "epic:telematics", type: Task,  title: "CONFIRM against vendor docs: webhook signature scheme (header, algorithm, replay window)", status_source: manifest, status: "To Do", labels: [telematics, confirm], priority_hint: High }
+  - { ext_id: "telem:webhook-skeleton",    parent_ext_id: "epic:telematics", type: Task,  title: "Terminal webhook endpoint, Tally pattern: raw-body HMAC, idempotent, inert until configured, no test-event bypass", status_source: manifest, status: "To Do", labels: [telematics, webhook], priority_hint: Medium, links: ["telem:confirm-signature", "telem:connection"] }
+  - { ext_id: "telem:confirm-fieldsets",   parent_ext_id: "epic:telematics", type: Task,  title: "CONFIRM against vendor docs: Driver, Trailer, Trip, Connection, Sync field sets (mapper freeze)", status_source: manifest, status: "To Do", labels: [telematics, confirm], priority_hint: Medium }
+  - { ext_id: "telem:rate-cost-budget",    parent_ext_id: "epic:telematics", type: Task,  title: "CONFIRM vendor pricing + rate limits; set polling cadence and cost budget for location + HOS", status_source: manifest, status: "To Do", labels: [telematics, confirm, cost], priority_hint: Medium }
+  - { ext_id: "telem:polling-worker",      parent_ext_id: "epic:telematics", type: Story, title: "Scheduled worker: EventBridge -> Lambda poller (also retires the rebroadcast setInterval debt in index.ts)", status_source: manifest, status: "To Do", labels: [telematics, infra, worker], priority_hint: Medium, links: ["telem:rate-cost-budget"] }
+  - { ext_id: "telem:tracking-ingestion",  parent_ext_id: "epic:telematics", type: Story, title: "Tracking ingestion: latest-location DynamoDB cache; flip fleet map from heartbeat to telematics with honest labeling", status_source: manifest, status: "To Do", labels: [telematics, tracking], priority_hint: Medium, links: ["telem:polling-worker", "telem:connection"] }
+  - { ext_id: "telem:geofence-stop-events", parent_ext_id: "epic:telematics", type: Story, title: "Geofenced stop events -> detention: settlements-approved trusted-source extension to stopEventService + dual-writer precedence policy", status_source: manifest, status: "To Do", labels: [telematics, detention, settlements-seam], priority_hint: Medium, links: ["telem:tracking-ingestion"] }
+  - { ext_id: "telem:observability",       parent_ext_id: "epic:telematics", type: Task,  title: "Connection-health observability: webhook failure + sync-lag alarms, AdminSettings integrations panel wiring", status_source: manifest, status: "To Do", labels: [telematics, observability], priority_hint: Medium, links: ["telem:sns-subscriber"] }
+  - { ext_id: "telem:postgres-decision",   parent_ext_id: "epic:telematics", type: Task,  title: "Record the store decision: proposal's Postgres stores re-targeted to DynamoDB; PostGIS remains the analytics-replica path only", status_source: manifest, status: "To Do", labels: [telematics, decision], priority_hint: Low }
+
+  # ── EPIC: Carrier SMS Opt-In Program (docs/sms-program-review.md) ──
+  # Tier NOW = High, NEXT = Medium, LATER = Low. Links encode the dependency graph.
+  - { ext_id: "sms:legal-pages",        parent_ext_id: "epic:sms-program", type: Story, title: "Public SMS Privacy Policy + SMS Terms pages (exact copy, house design system per COA-3A) + shared Footer", status_source: manifest, status: "To Do", labels: [sms, legal, frontend], priority_hint: High }
+  - { ext_id: "sms:brand-registration", parent_ext_id: "epic:sms-program", type: Task,  title: "OPS runbook Part A: register 10DLC brand (EIN-exact legal details; start immediately - calendar long pole)", status_source: manifest, status: "To Do", labels: [sms, ops, a2p], priority_hint: High, links: ["sms:legal-pages"] }
+  - { ext_id: "sms:consent-store",      parent_ext_id: "epic:sms-program", type: Story, title: "Append-only DynamoDB SmsConsentEvents + disclosure constant/sha256 + opt-in endpoint + resolver (COA-1A) + IAM-deny immutability (COA-2B)", status_source: manifest, status: "To Do", labels: [sms, consent, backend], priority_hint: High }
+  - { ext_id: "sms:optin-ui",           parent_ext_id: "epic:sms-program", type: Story, title: "CarrierSmsConsent onboarding UI: unchecked box, verbatim disclosure, OPT_IN/DECLINED both recorded, phone prefill (produces Part C screenshot)", status_source: manifest, status: "To Do", labels: [sms, frontend, onboarding], priority_hint: High, links: ["sms:consent-store"] }
+  - { ext_id: "sms:messaging-adapter",  parent_ext_id: "epic:sms-program", type: Story, title: "MessagingProvider adapter family in services/integrations: AWS End User Messaging live, Telnyx/Plivo stubs, factory on MESSAGING_PROVIDER (COA-4A)", status_source: manifest, status: "To Do", labels: [sms, integration, adapter], priority_hint: Medium }
+  - { ext_id: "sms:sns-ingress",        parent_ext_id: "epic:sms-program", type: Story, title: "SNS ingress endpoint: SubscriptionConfirmation handshake, SNS signature verification, TopicArn allowlist, idempotent STOP/HELP + delivery events; terraform for 2 topics + config set", status_source: manifest, status: "To Do", labels: [sms, sns, security], priority_hint: Medium, links: ["sms:messaging-adapter"] }
+  - { ext_id: "sms:send-chokepoint",    parent_ext_id: "epic:sms-program", type: Story, title: "Single SMS send chokepoint: consent resolver + isEntityRestricted suppression seam (COA-5A), then broadcast wiring", status_source: manifest, status: "To Do", labels: [sms, broadcast, compliance-seam], priority_hint: Medium, links: ["sms:consent-store", "sms:messaging-adapter"] }
+  - { ext_id: "sms:campaign-number",    parent_ext_id: "epic:sms-program", type: Task,  title: "OPS runbook Parts C-D: register 10DLC campaign (transactional, paste-ready content) + provision and associate number", status_source: manifest, status: "To Do", labels: [sms, ops, a2p], priority_hint: Medium, links: ["sms:brand-registration", "sms:optin-ui"] }
+  - { ext_id: "sms:ops-setup",          parent_ext_id: "epic:sms-program", type: Task,  title: "OPS runbook Parts E-I: config set + SNS event destinations, two-way SMS, spend cap, sandbox exit case, least-privilege IAM (scoped to number ARN)", status_source: manifest, status: "To Do", labels: [sms, ops, infra], priority_hint: Medium }
+  - { ext_id: "sms:tests",              parent_ext_id: "epic:sms-program", type: Task,  title: "Tests: OPT_IN/DECLINED/STOP->OPT_OUT loop, resolver latest-state, factory provider swap, legal routes public 200 (route-test harness pattern)", status_source: manifest, status: "To Do", labels: [sms, tests], priority_hint: Medium, links: ["sms:consent-store", "sms:messaging-adapter"] }
+  - { ext_id: "sms:go-live",            parent_ext_id: "epic:sms-program", type: Task,  title: "Go-live gate (runbook J-L): simulator loop green, sandbox exited, spend cap set, counsel sign-off on legal copy, then real sends", status_source: manifest, status: "To Do", labels: [sms, ops, gate], priority_hint: Low, links: ["sms:campaign-number", "sms:send-chokepoint", "sms:ops-setup"] }
+  - { ext_id: "sms:worm-mirror",        parent_ext_id: "epic:sms-program", type: Task,  title: "Mirror consent events into the S3 WORM sink pipeline (COA-2C, gold-tier immutability - when volume or counsel asks)", status_source: manifest, status: "To Do", labels: [sms, consent, worm], priority_hint: Low, links: ["sms:consent-store"] }
+  - { ext_id: "sms:alt-providers",      parent_ext_id: "epic:sms-program", type: Task,  title: "Telnyx/Plivo real implementations + voice (only if AWS End User Messaging proves limiting)", status_source: manifest, status: "To Do", labels: [sms, adapter, later], priority_hint: Low, links: ["sms:messaging-adapter"] }
+
+  # ── EPIC: Load Negotiation (core shipped 2026-07-02; residuals below) ──
+  - { ext_id: "negot:core",            parent_ext_id: "epic:negotiation", type: Story, title: "Core negotiation: lock, state machine, window, agreed-rate settlement, both UIs (SHIPPED)", status_source: manifest, status: "Done", labels: [negotiation, shipped], priority_hint: High }
+  - { ext_id: "negot:realtime",        parent_ext_id: "epic:negotiation", type: Task,  title: "Live updates: long-poll /events seam (~1s latency, stateless across instances, no websockets needed) (SHIPPED)", status_source: manifest, status: "Done", labels: [negotiation, shipped], priority_hint: Medium }
+  - { ext_id: "negot:flat-rate",       parent_ext_id: "epic:negotiation", type: Task,  title: "FLAT_RATE total-price bidding: basis-aware offers (per-mile vs flat total), unit-safe validation (SHIPPED)", status_source: manifest, status: "Done", labels: [negotiation, shipped], priority_hint: Medium }
+  - { ext_id: "negot:lock-scale",      parent_ext_id: "epic:negotiation", type: Task,  title: "Residual: loadboard lock exclusion is a read-time scan - fine at beta volume, needs a GSI or cached set at scale", status_source: manifest, status: "To Do", labels: [negotiation, residual, scale], priority_hint: Low }
+  - { ext_id: "negot:trust-signals",   parent_ext_id: "epic:negotiation", type: Task,  title: "Residual: feed negotiation behavior (expiry-by-hauler, serial lock-and-walk) into the trust-events store", status_source: manifest, status: "To Do", labels: [negotiation, residual, trust], priority_hint: Low }
+  - { ext_id: "negot:sweeper-worker",  parent_ext_id: "epic:negotiation", type: Task,  title: "Residual: negotiation sweeper rides the flagged in-process interval - migrate with the shared EventBridge/Lambda worker (see SCRUM-221)", status_source: manifest, status: "To Do", labels: [negotiation, residual, infra], priority_hint: Low, links: ["telem:polling-worker"] }

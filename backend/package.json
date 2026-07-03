@@ -13,7 +13,11 @@
     "test:ci": "vitest run --coverage --reporter=default --reporter=json --outputFile=tests/.out/vitest.json && node tests/sync-tracker.js",
     "seed:beta-metrics": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedBetaMetrics.ts",
     "teardown:beta-metrics": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/teardownBetaMetrics.ts",
-    "test:beta-metrics": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/verifyBetaMetrics.ts"
+    "test:beta-metrics": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/verifyBetaMetrics.ts",
+    "seed:detention": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedDetentionCharge.ts seed",
+    "purge:detention": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedDetentionCharge.ts purge",
+    "seed:nego-demo": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedNegotiationDemo.ts seed",
+    "purge:nego-demo": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedNegotiationDemo.ts purge"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.758.0",
@@ -23,6 +27,7 @@
     "@aws-sdk/client-sesv2": "^3.1075.0",
     "@aws-sdk/lib-dynamodb": "^3.758.0",
     "@aws-sdk/s3-request-presigner": "^3.1067.0",
+    "@types/pdfkit": "^0.17.6",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -36,6 +41,7 @@
     "latlon-geohash": "^2.0.0",
     "mailparser": "^3.9.11",
     "otplib": "^13.4.1",
+    "pdfkit": "^0.19.1",
     "qrcode": "^1.5.4",
     "resend": "^6.12.4",
     "uuid": "^9.0.1",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, Clock,
@@ -8,6 +8,8 @@ import { PageHeader, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { RouteMapCard } from "@/components/RouteMapCard";
 import { AttestationChain } from "@/components/attestation/AttestationChain";
+import { AccessorialsPanel } from "@/components/AccessorialsPanel";
+import { NegotiationPanel } from "@/components/NegotiationPanel";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -43,13 +45,15 @@ export default function ShipperLoadDetail() {
   const [tracking, setTracking] = useState<any>(null);
   const [fetching, setFetching] = useState(true);
 
-  useEffect(() => {
+  const loadDetail = useCallback(() => {
     if (!loadId) return;
     api.getShipperLoad(loadId)
       .then((r) => { setLoad(r.load); setTracking(r.tracking ?? null); })
       .catch((e: any) => toast.error(e.message ?? "Load not found"))
       .finally(() => setFetching(false));
   }, [loadId]);
+
+  useEffect(() => { loadDetail(); }, [loadDetail]);
 
   if (fetching) {
     return (
@@ -272,6 +276,10 @@ export default function ShipperLoadDetail() {
 
           {/* Read-only attestation chain — visible to the load's parties + admin. */}
           <AttestationChain loadId={load.loadId} />
+
+          {/* Detention/layover charge review (approve / adjust / dispute). */}
+          <NegotiationPanel loadId={load.loadId} party="SHIPPER" onAssigned={loadDetail} />
+          <AccessorialsPanel loadId={load.loadId} role="SHIPPER" />
         </aside>
       </div>
     </>

@@ -19,16 +19,16 @@ module "network" {
   env        = local.env
   vpc_cidr   = "10.20.0.0/16"
   azs        = ["us-east-1a", "us-east-1b"]
-  enable_nat = true # staging should behave like prod's network path (private subnet + NAT)
+  enable_nat = false # no NAT gateway — avoids the ~$32/mo hourly charge; instances sit in a public subnet behind the SG (like dev), egress via the free Internet Gateway
   tags       = local.tags
 }
 
 module "dynamodb" {
   source              = "../../modules/dynamodb_tableset"
-  env                  = local.env
-  prefix               = local.prefix
-  deletion_protection  = false # staging data is disposable; flip to true if it starts holding anything you'd miss
-  tags                 = local.tags
+  env                 = local.env
+  prefix              = local.prefix
+  deletion_protection = false # staging data is disposable; flip to true if it starts holding anything you'd miss
+  tags                = local.tags
 }
 
 resource "aws_s3_bucket" "pod_uploads" {
@@ -48,8 +48,8 @@ resource "aws_s3_bucket_cors_configuration" "pod_uploads" {
   bucket = aws_s3_bucket.pod_uploads.id
   cors_rule {
     allowed_methods = ["PUT", "GET"]
-    allowed_origins  = ["https://${var.staging_domain}"]
-    allowed_headers  = ["*"]
+    allowed_origins = ["https://${var.staging_domain}"]
+    allowed_headers = ["*"]
   }
 }
 
@@ -65,8 +65,8 @@ resource "aws_acm_certificate" "staging" {
 resource "aws_route53_record" "staging_cert_validation" {
   for_each = {
     for dvo in aws_acm_certificate.staging.domain_validation_options : dvo.domain_name => {
-      name = dvo.resource_record_name
-      type = dvo.resource_record_type
+      name   = dvo.resource_record_name
+      type   = dvo.resource_record_type
       record = dvo.resource_record_value
     }
   }
@@ -79,18 +79,18 @@ resource "aws_route53_record" "staging_cert_validation" {
 
 resource "aws_acm_certificate_validation" "staging" {
   provider                = aws.us_east_1
-  certificate_arn          = aws_acm_certificate.staging.arn
-  validation_record_fqdns  = [for r in aws_route53_record.staging_cert_validation : r.fqdn]
+  certificate_arn         = aws_acm_certificate.staging.arn
+  validation_record_fqdns = [for r in aws_route53_record.staging_cert_validation : r.fqdn]
 }
 
 module "frontend" {
   source              = "../../modules/frontend"
-  env                  = local.env
-  bucket_name          = "loadlead-staging-frontend"
-  domain_name           = var.staging_domain
-  acm_certificate_arn   = aws_acm_certificate_validation.staging.certificate_arn
-  price_class           = "PriceClass_100"
-  tags                  = local.tags
+  env                 = local.env
+  bucket_name         = "loadlead-staging-frontend"
+  domain_name         = var.staging_domain
+  acm_certificate_arn = aws_acm_certificate_validation.staging.certificate_arn
+  price_class         = "PriceClass_100"
+  tags                = local.tags
 }
 
 resource "aws_route53_record" "staging_alias" {
@@ -105,56 +105,90 @@ resource "aws_route53_record" "staging_alias" {
 }
 
 module "backend" {
-  source                 = "../../modules/backend_eb"
-  env                     = local.env
-  vpc_id                  = module.network.vpc_id
-  subnet_ids              = module.network.private_subnet_ids # behind NAT, like prod's path will be
-  elb_subnet_ids           = module.network.public_subnet_ids
-  security_group_id       = module.network.eb_instance_sg_id
-  instance_type           = "t3.small" # match prod's instance size — catches perf regressions before prod does
-  min_instances           = 1
-  max_instances           = 2
-  environment_type        = "LoadBalanced" # exercise the same ALB health-check path prod uses
-  dynamodb_table_prefix    = local.prefix
-  env_vars                 = merge(var.backend_env_vars, {
-    NODE_ENV                        = "staging"
-    FRONTEND_URL                    = "https://${var.staging_domain}"
-    DYNAMODB_USERS_TABLE            = "${local.prefix}Users"
-    DYNAMODB_DRIVERS_TABLE          = "${local.prefix}Drivers"
-    DYNAMODB_SHIPPERS_TABLE         = "${local.prefix}Shippers"
-    DYNAMODB_RECEIVERS_TABLE        = "${local.prefix}Receivers"
-    DYNAMODB_LOADS_TABLE            = "${local.prefix}Loads"
-    DYNAMODB_OFFERS_TABLE           = "${local.prefix}Offers"
-    DYNAMODB_BOL_TABLE              = "${local.prefix}BOL"
-    DYNAMODB_ORGS_TABLE             = "${local.prefix}Organizations"
-    DYNAMODB_MEMBERSHIPS_TABLE      = "${local.prefix}Memberships"
-    DYNAMODB_INVITATIONS_TABLE      = "${local.prefix}Invitations"
-    DYNAMODB_OWNER_OPERATORS_TABLE  = "${local.prefix}OwnerOperators"
-    DYNAMODB_FLEET_INVITES_TABLE    = "${local.prefix}FleetInvites"
-    DYNAMODB_VERIFICATIONS_TABLE    = "${local.prefix}Verifications"
-    DYNAMODB_FACTORING_OPTINS_TABLE = "${local.prefix}FactoringOptIns"
+  source                = "../../modules/backend_eb"
+  env                   = local.env
+  vpc_id                = module.network.vpc_id
+  subnet_ids            = module.network.public_subnet_ids # public subnet + public IP, inbound locked to the ALB SG; no NAT cost
+  elb_subnet_ids        = module.network.public_subnet_ids
+  security_group_id     = module.network.eb_instance_sg_id
+  instance_type         = "t3.small" # match prod's instance size — catches perf regressions before prod does
+  min_instances         = 1
+  max_instances         = 2
+  environment_type      = "LoadBalanced" # exercise the same ALB health-check path prod uses
+  dynamodb_table_prefix = local.prefix
+  env_vars = merge(var.backend_env_vars, {
+    NODE_ENV                         = "staging"
+    FRONTEND_URL                     = "https://${var.staging_domain}"
+    DYNAMODB_USERS_TABLE             = "${local.prefix}Users"
+    DYNAMODB_DRIVERS_TABLE           = "${local.prefix}Drivers"
+    DYNAMODB_SHIPPERS_TABLE          = "${local.prefix}Shippers"
+    DYNAMODB_RECEIVERS_TABLE         = "${local.prefix}Receivers"
+    DYNAMODB_LOADS_TABLE             = "${local.prefix}Loads"
+    DYNAMODB_OFFERS_TABLE            = "${local.prefix}Offers"
+    DYNAMODB_BOL_TABLE               = "${local.prefix}BOL"
+    DYNAMODB_ORGS_TABLE              = "${local.prefix}Organizations"
+    DYNAMODB_MEMBERSHIPS_TABLE       = "${local.prefix}Memberships"
+    DYNAMODB_INVITATIONS_TABLE       = "${local.prefix}Invitations"
+    DYNAMODB_OWNER_OPERATORS_TABLE   = "${local.prefix}OwnerOperators"
+    DYNAMODB_FLEET_INVITES_TABLE     = "${local.prefix}FleetInvites"
+    DYNAMODB_VERIFICATIONS_TABLE     = "${local.prefix}Verifications"
+    DYNAMODB_FACTORING_OPTINS_TABLE  = "${local.prefix}FactoringOptIns"
     DYNAMODB_SIGNATURES_TABLE        = "${local.prefix}Signatures"
     DYNAMODB_POD_PHOTOS_TABLE        = "${local.prefix}PodPhotos"
     DYNAMODB_BETA_ALLOWLIST_TABLE    = "${local.prefix}BetaAllowlist"
     DYNAMODB_WAITLIST_TABLE          = "${local.prefix}Waitlist"
     DYNAMODB_BETA_APPLICATIONS_TABLE = "${local.prefix}BetaApplications"
     DYNAMODB_BETA_TRUST_EVENTS_TABLE = "${local.prefix}BetaTrustEvents"
-    POD_S3_BUCKET                    = "loadlead-staging-pod-uploads"
+    # identity / infra
+    DYNAMODB_PUSH_TABLE             = "${local.prefix}PushSubscriptions"
+    DYNAMODB_RESET_TABLE            = "${local.prefix}PasswordResets"
+    DYNAMODB_SETUP_TOKENS_TABLE     = "${local.prefix}SetupTokens"
+    DYNAMODB_NOTIFICATIONS_TABLE    = "${local.prefix}Notifications"
+    DYNAMODB_MEMBERSHIP_AUDIT_TABLE = "${local.prefix}MembershipAuditLogs"
+    DYNAMODB_BOOTSTRAP_AUDIT_TABLE  = "${local.prefix}AdminBootstrapAttempts"
+    # negotiation
+    DYNAMODB_LOAD_NEGOTIATIONS_TABLE  = "${local.prefix}LoadNegotiations"
+    DYNAMODB_NEGOTIATION_OFFERS_TABLE = "${local.prefix}NegotiationOffers"
+    DYNAMODB_NEGOTIATION_LOCKS_TABLE  = "${local.prefix}NegotiationLocks"
+    # payments / financing
+    DYNAMODB_PLATFORM_FEE_POLICY_TABLE            = "${local.prefix}PlatformFeePolicy"
+    DYNAMODB_ACCESSORIAL_POLICIES_TABLE           = "${local.prefix}AccessorialPolicies"
+    DYNAMODB_ACCESSORIAL_POLICY_ACCEPTANCES_TABLE = "${local.prefix}AccessorialPolicyAcceptances"
+    DYNAMODB_SHIPPER_AGREEMENTS_TABLE             = "${local.prefix}ShipperAgreements"
+    DYNAMODB_STOP_EVENTS_TABLE                    = "${local.prefix}StopEvents"
+    DYNAMODB_ACCESSORIAL_CHARGES_TABLE            = "${local.prefix}AccessorialCharges"
+    DYNAMODB_CHARGE_STATUS_HISTORY_TABLE          = "${local.prefix}AccessorialChargeStatusHistory"
+    DYNAMODB_FACTORING_ASSIGNMENTS_TABLE          = "${local.prefix}FactoringAssignments"
+    DYNAMODB_FACTORING_PROFILES_TABLE             = "${local.prefix}CarrierFactoringProfiles"
+    DYNAMODB_FACTORING_SUBMISSIONS_TABLE          = "${local.prefix}FactoringSubmissions"
+    DYNAMODB_FACTOR_CONTACTS_TABLE                = "${local.prefix}FactorContacts"
+    DYNAMODB_FUNDING_ADVANCES_TABLE               = "${local.prefix}FundingAdvances"
+    DYNAMODB_NOTICES_OF_ASSIGNMENT_TABLE          = "${local.prefix}NoticesOfAssignment"
+    DYNAMODB_RECONCILIATION_OUTCOMES_TABLE        = "${local.prefix}ReconciliationOutcomes"
+    # compliance / oversight
+    DYNAMODB_ADMIN_AUDIT_LOG_TABLE          = "${local.prefix}AdminAuditLog"
+    DYNAMODB_COMPLIANCE_GRANTS_TABLE        = "${local.prefix}ComplianceGrants"
+    DYNAMODB_ADJUDICATIONS_TABLE            = "${local.prefix}Adjudications"
+    DYNAMODB_LEGAL_HOLDS_TABLE              = "${local.prefix}LegalHolds"
+    DYNAMODB_LAW_ENFORCEMENT_REQUESTS_TABLE = "${local.prefix}LawEnforcementRequests"
+    DYNAMODB_DISCLOSURES_TABLE              = "${local.prefix}Disclosures"
+    DYNAMODB_PAYOUT_INTERCEPTS_TABLE        = "${local.prefix}PayoutIntercepts"
+    POD_S3_BUCKET                           = "loadlead-staging-pod-uploads"
   })
   tags = local.tags
 }
 
 module "github_deploy_role" {
-  source                     = "../../modules/github_oidc_role"
-  env                         = local.env
-  github_oidc_provider_arn   = data.aws_iam_openid_connect_provider.github.arn
-  github_repo                 = var.github_repo
-  allowed_ref                 = "refs/heads/main" # merges to main deploy to staging
-  dynamodb_table_prefix       = local.prefix
-  eb_environment_name         = module.backend.environment_name
-  frontend_bucket_arn          = "arn:aws:s3:::loadlead-staging-frontend"
-  frontend_distribution_arn    = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${module.frontend.distribution_id}"
-  tags                         = local.tags
+  source                    = "../../modules/github_oidc_role"
+  env                       = local.env
+  github_oidc_provider_arn  = data.aws_iam_openid_connect_provider.github.arn
+  github_repo               = var.github_repo
+  allowed_ref               = "refs/heads/main" # merges to main deploy to staging
+  dynamodb_table_prefix     = local.prefix
+  eb_environment_name       = module.backend.environment_name
+  frontend_bucket_arn       = "arn:aws:s3:::loadlead-staging-frontend"
+  frontend_distribution_arn = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${module.frontend.distribution_id}"
+  tags                      = local.tags
 }
 
 output "frontend_url" {

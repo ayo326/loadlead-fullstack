@@ -49,6 +49,10 @@ export interface RecordSignatureInput {
   shipperUserId?: string | null;
   carrierOfRecord?: ResolvedCoR | null;
   assignedDriverId?: string | null;
+  /** Negotiated/agreed rate to bind into CARRIER_ACCEPT (dollars, matching
+   *  Load.rateAmount units). Omitted for a straight claim → posted rate. */
+  rateAmount?:    number | null;
+  rateType?:      string | null;
   photos?:        ProofPhoto[];
   exceptions?:    ExceptionsRecord;
   actualAt?:      string;
@@ -83,6 +87,8 @@ export async function recordSignature(input: RecordSignatureInput): Promise<Sign
     shipperUserId:      input.shipperUserId ?? null,
     carrierOfRecord:    input.carrierOfRecord ?? null,
     assignedDriverId:   input.assignedDriverId ?? null,
+    rateAmount:         input.rateAmount ?? null,
+    rateType:           input.rateType ?? null,
     photos:             input.photos,
     exceptions:         input.exceptions ? { code: input.exceptions.code, description: input.exceptions.description } : null,
     actualAt:           input.actualAt,
