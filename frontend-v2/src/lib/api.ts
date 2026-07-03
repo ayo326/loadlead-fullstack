@@ -598,6 +598,10 @@ export const api = {
     actualAt?: string;
     geo?: { lat: number; lng: number };
     assignedDriverId?: string;
+    // Negotiated rate to bind into a CARRIER_ACCEPT signature (cents). Send the
+    // one that matches the load basis; omit for a straight claim (posted rate).
+    ratePerMileCents?: number;
+    totalCents?: number;
   }) => request<{
     signatureId: string;
     documentHash: string;

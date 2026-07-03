@@ -52,7 +52,7 @@ export function NegotiationPanel({
   // out of ENGAGED (accept the posted rate, or place a bid the shipper can
   // accept). `signThen` holds the action to run once the signature is recorded;
   // one signature then satisfies the accept/assign gate for the rest of the flow.
-  const [signThen, setSignThen] = useState<null | { run: () => Promise<{ negotiation: NegotiationView }>; ok: string }>(null);
+  const [signThen, setSignThen] = useState<null | { run: () => Promise<{ negotiation: NegotiationView }>; ok: string; rate?: { ratePerMileCents?: number; totalCents?: number } }>(null);
   const timer = useRef<number | null>(null);
 
   const sinceRef = useRef(0);
@@ -120,10 +120,21 @@ export function NegotiationPanel({
   }
 
   // Open the CARRIER_ACCEPT signing dialog, then run the action once signed.
-  // Guards on driverId because the signature binds the assigned driver.
-  function signThenAct(run: () => Promise<{ negotiation: NegotiationView }>, ok: string) {
+  // Guards on driverId because the signature binds the assigned driver. `rate`
+  // is the amount the carrier commits to; it is bound into the signature so the
+  // attestation matches what settlement pays (accept-load omits it → posted).
+  function signThenAct(run: () => Promise<{ negotiation: NegotiationView }>, ok: string, rate?: { ratePerMileCents?: number; totalCents?: number }) {
     if (!driverId) { toast.error("No driver is resolved for this load"); return; }
-    setSignThen({ run, ok });
+    setSignThen({ run, ok, rate });
+  }
+
+  // The offer currently on the table (used when the hauler accepts a counter —
+  // that is the rate they are committing to).
+  function onTableRate(): { ratePerMileCents?: number; totalCents?: number } | undefined {
+    if (!neg) return undefined;
+    if (neg.currentOfferRatePerMileCents != null) return { ratePerMileCents: neg.currentOfferRatePerMileCents };
+    if (neg.currentOfferTotalCents != null) return { totalCents: neg.currentOfferTotalCents };
+    return undefined;
   }
 
   const flat = neg?.rateBasis === "FLAT_TOTAL";
@@ -139,11 +150,12 @@ export function NegotiationPanel({
     if (cents == null) { toast.error(flat ? "Enter a total price like 1850" : "Enter a rate per mile like 2.75"); return; }
     if (!neg) return;
     const amount = flat ? { totalCents: cents } : { ratePerMileCents: cents };
-    // A hauler's first bid needs the CARRIER_ACCEPT attestation so the shipper
-    // can accept it (the accept step is gated on that signature).
-    if (neg.status === "ENGAGED") return signThenAct(() => api.negotiation.bid(neg.negotiationId, amount, driverId), "Bid sent to the shipper");
+    // Each hauler offer (bid or counter) is signed binding THAT rate, so the
+    // shipper can accept it and the newest signature always carries the agreed
+    // rate. The shipper side never signs (they are not the carrier).
+    if (neg.status === "ENGAGED") return signThenAct(() => api.negotiation.bid(neg.negotiationId, amount, driverId), "Bid sent to the shipper", amount);
     if (party === "SHIPPER") return act(() => api.negotiation.shipperCounter(neg.negotiationId, amount), "Counter sent to the hauler");
-    return act(() => api.negotiation.counter(neg.negotiationId, amount, driverId), "Counter sent to the shipper");
+    return signThenAct(() => api.negotiation.counter(neg.negotiationId, amount, driverId), "Counter sent to the shipper", amount);
   }
 
   if (!loaded) return null;
@@ -243,7 +255,7 @@ export function NegotiationPanel({
               </Button>
             )}
             {has("ACCEPT_COUNTER") && (
-              <Button size="sm" disabled={busy} onClick={() => act(() => api.negotiation.accept(neg.negotiationId, driverId), "Counter accepted - load assigned")}>
+              <Button size="sm" disabled={busy} onClick={() => signThenAct(() => api.negotiation.accept(neg.negotiationId, driverId), "Counter accepted - load assigned", onTableRate())}>
                 Accept counter
               </Button>
             )}
@@ -284,6 +296,8 @@ export function NegotiationPanel({
           attestationVersion={ATTESTATION_VERSION}
           allowedSignatureTypes={["click"]}
           assignedDriverId={driverId}
+          ratePerMileCents={signThen.rate?.ratePerMileCents}
+          totalCents={signThen.rate?.totalCents}
           onSigned={() => { const a = signThen; setSignThen(null); if (a) act(a.run, a.ok); }}
         />
       )}

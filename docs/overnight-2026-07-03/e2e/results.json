@@ -85,12 +85,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 702,
+                      "duration": 696,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:24.856Z",
+                      "startTime": "2026-07-03T17:25:21.902Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -119,12 +119,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1516,
+                      "duration": 1521,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:25.822Z",
+                      "startTime": "2026-07-03T17:25:22.827Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -153,12 +153,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 707,
+                      "duration": 729,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:27.342Z",
+                      "startTime": "2026-07-03T17:25:24.352Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -187,12 +187,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1565,
+                      "duration": 1626,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:28.053Z",
+                      "startTime": "2026-07-03T17:25:25.086Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -221,12 +221,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2463,
+                      "duration": 1923,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:29.622Z",
+                      "startTime": "2026-07-03T17:25:26.715Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -255,12 +255,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 921,
+                      "duration": 1160,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:32.089Z",
+                      "startTime": "2026-07-03T17:25:28.642Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -270,7 +270,7 @@
               ],
               "id": "df115692e428ab3e8fb5-3b648646e4f75c701798",
               "file": "haulerFlows.spec.ts",
-              "line": 82,
+              "line": 83,
               "column": 3
             },
             {
@@ -289,12 +289,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 463,
+                      "duration": 435,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:33.014Z",
+                      "startTime": "2026-07-03T17:25:29.805Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -304,7 +304,7 @@
               ],
               "id": "df115692e428ab3e8fb5-55aeb498a075837bd155",
               "file": "haulerFlows.spec.ts",
-              "line": 99,
+              "line": 101,
               "column": 3
             },
             {
@@ -323,12 +323,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1207,
+                      "duration": 1178,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:33.483Z",
+                      "startTime": "2026-07-03T17:25:30.244Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -338,7 +338,7 @@
               ],
               "id": "df115692e428ab3e8fb5-865814890e5cbe881a97",
               "file": "haulerFlows.spec.ts",
-              "line": 107,
+              "line": 109,
               "column": 3
             },
             {
@@ -357,12 +357,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1793,
+                      "duration": 1752,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:34.694Z",
+                      "startTime": "2026-07-03T17:25:31.426Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -372,7 +372,7 @@
               ],
               "id": "df115692e428ab3e8fb5-b1945de83c44653e94cd",
               "file": "haulerFlows.spec.ts",
-              "line": 119,
+              "line": 121,
               "column": 3
             }
           ]
@@ -408,12 +408,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1083,
+                      "duration": 1292,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:36.497Z",
+                      "startTime": "2026-07-03T17:25:33.195Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -442,12 +442,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1943,
+                      "duration": 1948,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:37.584Z",
+                      "startTime": "2026-07-03T17:25:34.494Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -476,12 +476,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1185,
+                      "duration": 1154,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:39.531Z",
+                      "startTime": "2026-07-03T17:25:36.448Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -510,12 +510,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1194,
+                      "duration": 1130,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:40.721Z",
+                      "startTime": "2026-07-03T17:25:37.606Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -544,12 +544,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1077,
+                      "duration": 1115,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-07-03T17:01:41.919Z",
+                      "startTime": "2026-07-03T17:25:38.743Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -569,8 +569,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-07-03T17:01:24.594Z",
-    "duration": 18457.403,
+    "startTime": "2026-07-03T17:25:21.639Z",
+    "duration": 18276.559,
     "expected": 14,
     "skipped": 0,
     "unexpected": 0,

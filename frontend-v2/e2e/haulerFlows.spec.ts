@@ -76,6 +76,7 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible(); // bid settled
     nm.shipperCounter(260);
     await page.getByRole("button", { name: "Accept counter" }).click();
+    await signCarrierAccept(page); // sign binds the $2.60 counter rate being accepted
     await expect(page.getByText(/Assigned at \$2\.60\/mi/)).toBeVisible();
   });
 
@@ -92,6 +93,7 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await page.getByRole("button", { name: "Counter offer" }).click();
     await page.locator("#neg-rate").fill("2.70");
     await page.getByRole("button", { name: "Send" }).click();
+    await signCarrierAccept(page); // the hauler counter is signed binding $2.70
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible();
     await expect(page.getByText("$2.70/mi")).toBeVisible();
   });
