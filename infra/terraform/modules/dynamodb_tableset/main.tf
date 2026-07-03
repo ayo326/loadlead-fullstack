@@ -61,7 +61,7 @@ locals {
       gsis       = [{ name = "status-index", hash_key = "verificationStatus" }]
     }
     Loads = {
-      hash_key   = "loadId"
+      hash_key = "loadId"
       attributes = [
         { name = "loadId", type = "S" }, { name = "status", type = "S" },
         { name = "createdAt", type = "N" }, { name = "shipperId", type = "S" },
@@ -127,11 +127,11 @@ locals {
     # app layer. PITR comes from the module default. Holds Signature rows
     # bound to documentHash + proofPhotoIds for non-repudiation.
     Signatures = {
-      hash_key   = "signatureId"
+      hash_key = "signatureId"
       attributes = [
         { name = "signatureId", type = "S" },
-        { name = "loadId",      type = "S" },
-        { name = "signedAt",    type = "S" },
+        { name = "loadId", type = "S" },
+        { name = "signedAt", type = "S" },
       ]
       gsis = [
         { name = "loadId-signedAt-index", hash_key = "loadId", range_key = "signedAt" },
@@ -144,10 +144,10 @@ locals {
     # UpdateItem because PENDING→READY is the one allowed transition; the
     # condition guard pins the state machine to exactly one direction.
     PodPhotos = {
-      hash_key   = "photoId"
+      hash_key = "photoId"
       attributes = [
         { name = "photoId", type = "S" },
-        { name = "loadId",  type = "S" },
+        { name = "loadId", type = "S" },
       ]
       gsis = [
         { name = "loadId-index", hash_key = "loadId" },
@@ -161,10 +161,10 @@ locals {
     # without a full scan; the gate normalises (lowercase, strip leading '@')
     # before querying.
     BetaAllowlist = {
-      hash_key   = "allowlistId"
+      hash_key = "allowlistId"
       attributes = [
         { name = "allowlistId", type = "S" },
-        { name = "value",       type = "S" },
+        { name = "value", type = "S" },
       ]
       gsis = [
         { name = "value-index", hash_key = "value" },
@@ -175,10 +175,10 @@ locals {
     # asks to be let in). The dashboard promotes these into real invites.
     # email-index makes "is this email already on the waitlist?" cheap.
     Waitlist = {
-      hash_key   = "waitlistId"
+      hash_key = "waitlistId"
       attributes = [
         { name = "waitlistId", type = "S" },
-        { name = "email",      type = "S" },
+        { name = "email", type = "S" },
       ]
       gsis = [
         { name = "email-index", hash_key = "email" },
@@ -190,17 +190,17 @@ locals {
     # status-index drives the pipeline kanban; workEmail-index is for the
     # "did this person already apply?" check before insert.
     BetaApplications = {
-      hash_key   = "applicationId"
+      hash_key = "applicationId"
       attributes = [
         { name = "applicationId", type = "S" },
-        { name = "responseId",    type = "S" },
-        { name = "status",        type = "S" },
-        { name = "workEmail",     type = "S" },
+        { name = "responseId", type = "S" },
+        { name = "status", type = "S" },
+        { name = "workEmail", type = "S" },
       ]
       gsis = [
         { name = "responseId-index", hash_key = "responseId" },
-        { name = "status-index",     hash_key = "status" },
-        { name = "workEmail-index",  hash_key = "workEmail" },
+        { name = "status-index", hash_key = "status" },
+        { name = "workEmail-index", hash_key = "workEmail" },
       ]
     }
 
@@ -412,7 +412,7 @@ locals {
 }
 
 module "table" {
-  source = "../dynamodb_table"
+  source   = "../dynamodb_table"
   for_each = local.tables
 
   name                     = "${var.prefix}${each.key}"

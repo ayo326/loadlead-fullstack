@@ -75,3 +75,12 @@ frontend-v2/cypress/.state/
 frontend-v2/cypress/screenshots/
 frontend-v2/cypress/videos/
 infra/terraform/envs/*/.terraform/
+
+# Terraform secrets, state, and plans — NEVER commit. Keep *.example.tfvars.
+*.tfvars
+*.auto.tfvars
+!*.example.tfvars
+*.tfstate
+*.tfstate.*
+*.tfplan
+staging.plan
