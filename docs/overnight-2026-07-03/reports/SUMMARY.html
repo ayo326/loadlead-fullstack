@@ -1,0 +1,108 @@
+<!doctype html><html><head><meta charset="utf-8"><title>LoadLead Overnight Platform Batch — Summary</title>
+<style>
+ @page { size: Letter; margin: 20mm 16mm; }
+ * { box-sizing: border-box; }
+ body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        color:#1f2933; line-height:1.5; font-size:11.5pt; max-width:none; margin:0; }
+ h1 { font-size:21pt; margin:0 0 2pt; color:#111827; letter-spacing:-.01em; }
+ h2 { font-size:15pt; margin:22px 0 6px; padding-bottom:4px; border-bottom:2px solid #e4e7eb;
+       color:#1a2a3a; page-break-after:avoid; }
+ h3 { font-size:12.5pt; margin:16px 0 4px; color:#243b53; page-break-after:avoid; }
+ h4 { font-size:11.5pt; margin:12px 0 3px; color:#334e68; page-break-after:avoid; }
+ p, li { orphans:2; widows:2; }
+ code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:9.8pt;
+        background:#f4f6f8; padding:1px 4px; border-radius:3px; }
+ pre { background:#f4f6f8; border:1px solid #e4e7eb; border-radius:6px; padding:10px 12px;
+        overflow:auto; page-break-inside:avoid; }
+ pre code { background:none; padding:0; font-size:9pt; line-height:1.45; }
+ table { border-collapse:collapse; width:100%; margin:10px 0; font-size:10pt; page-break-inside:avoid; }
+ th, td { border:1px solid #cbd2d9; padding:5px 8px; text-align:left; vertical-align:top; }
+ th { background:#f0f4f8; font-weight:600; color:#243b53; }
+ tr:nth-child(even) td { background:#fafbfc; }
+ img { max-width:100%; height:auto; display:block; margin:12px auto; page-break-inside:avoid; }
+ hr { border:none; border-top:1px solid #e4e7eb; margin:18px 0; }
+ strong { color:#102a43; }
+ blockquote { border-left:3px solid #9fb3c8; margin:10px 0; padding:2px 14px; color:#486581; }
+ a { color:#2f6fb0; text-decoration:none; }
+</style></head><body><h1>Overnight Platform Batch — Summary</h1>
+<h2>2026-07-03 · Team: Platform Engineering · Branch: <code>platform/SCRUM-248-esign-at-assign</code></h2>
+<p>Three tasks were requested to run overnight, unattended, under two standing constraints:
+<strong>&quot;don&#39;t change anything, no self-destruct.&quot;</strong> I read those as: <strong>do not mutate production, its data, or
+its deployments, and do nothing irreversible.</strong> So all work landed on a <strong>branch that is not merged and
+not deployed</strong>, the E2E ran against a <strong>local hermetic harness (never prod)</strong>, and the demo load you
+seeded earlier is <strong>untouched</strong>. Everything is captured as PDFs for your review.</p>
+<hr>
+<h2>Task 1 — Move the e-sign to the accept/assign step  ✅ done (branch, not deployed)</h2>
+<p>The <code>CARRIER_ACCEPT</code> attestation that was removed from <code>/engage</code> now gates the <strong>accept/assign</strong> step —
+the same place the claim path signs before assigning a driver. <code>requireCarrierAcceptForAssignment()</code>
+requires the signature (<strong>412</strong> if absent) and a carrier signer role (<strong>409</strong> otherwise) on the three
+routes that reach <code>finishAccepted()</code>:</p>
+<ul>
+<li>hauler <strong>accept-load</strong> (take the posted rate)</li>
+<li>hauler <strong>accept</strong> (accept the shipper&#39;s counter)</li>
+<li>shipper <strong>accept</strong> (accept the hauler&#39;s bid — the carrier signed that bid earlier, so the attestation
+must already exist)</li>
+</ul>
+<p>Non-assigning transitions (bid, counter, reject) stay ungated, so the signature is required <strong>exactly
+at assignment and nowhere else</strong>. Route-layer change; the 21 service-level tests are untouched, and a
+new 6-case HTTP suite proves the gate (412 missing / 200 present / 409 non-carrier / ungated bid+reject).</p>
+<p><strong>Verification:</strong> backend <code>tsc</code> clean; <strong>27/27</strong> negotiation tests pass; the 4 unrelated pre-existing
+failures (<code>adminMfa</code>, <code>errorHandlerDoubleResponse</code>) were confirmed to fail identically <strong>without</strong> this
+change, so they are not regressions.
+<strong>Commits:</strong> <code>51b56a1</code> (gate + tests).
+<strong>One follow-up (COA):</strong> the frontend should prompt the hauler to sign <code>CARRIER_ACCEPT</code> when they bid,
+so the shipper-accept path has the attestation to check. Not built tonight (frontend + would need
+deploy); tracked for the marketplace/identity seam.</p>
+<hr>
+<h2>Task 2 — Path coverage + control flow graph  ✅ done → <code>path-coverage.pdf</code></h2>
+<p>Basis-path (McCabe) analysis of the negotiation state machine, backed by empirical v8 coverage.</p>
+<ul>
+<li><strong>Empirical:</strong> <code>negotiationService.ts</code> 66% branch / 86% line; combined with routes 55% branch.</li>
+<li><strong>Basis-path:</strong> <strong>42 / 49 independent paths covered = 86%.</strong> The new e-sign gate is at <strong>100%</strong>.</li>
+<li>Five hand-rendered <strong>control flow graphs</strong> (engage, bid, acceptOffer, finishAccepted, the e-sign
+gate) with cyclomatic complexity computed two independent ways, plus a per-function test-to-path map.</li>
+<li>The 7 uncovered basis paths are enumerated with a costed remediation (7 tests → 100%); every one is a
+defensive guard, a config-gated cap, or a concurrency-race fall-through — <strong>no correctness defect</strong>.</li>
+</ul>
+<p>Artifacts: <code>reports/path-coverage.pdf</code>, <code>cfg/*.svg</code>, <code>cfg/complexity.json</code>, <code>cfg/gen_cfg.py</code> (regenerable).</p>
+<hr>
+<h2>Task 3 — E2E test (Playwright), reports + COA  ✅ done → <code>e2e-negotiation.pdf</code></h2>
+<p><strong>14 / 14 scenarios pass, 0 flaky, 17.2s.</strong> Playwright drives the <strong>real</strong> <code>NegotiationPanel</code> on the
+<strong>real</strong> Owner-Operator and Shipper load-detail pages, with the backend mocked at the network boundary
+(hermetic — no prod, no local DB; Docker was down and prod would have consumed your demo load).</p>
+<p>Coverage = <strong>100% of UI-reachable state-machine transitions</strong>: engage, accept-load, bid, counter (both
+sides), accept bid/counter, reject (both sides), the long-poll live update, window expiry, and the
+e-sign gate (412 → allowed). E2E measures behaviour, not lines — line/branch/path coverage is Task 2.</p>
+<p><strong>Three findings surfaced by the browser run, each with a COA:</strong></p>
+<ol>
+<li><strong>Tour overlay intercepts clicks</strong> on the load-detail panels (Shepherd auto-start) — <em>UX, medium</em>.</li>
+<li><strong>Hard <code>window.location.reload()</code> on assignment</strong> — <em>UX, low</em>; refetch locally instead.</li>
+<li><strong>Panels white-screen on a malformed list response</strong> (<code>AccessorialsPanel</code>, <code>AttestationChain</code> read
+<code>.charges</code>/<code>.chain</code> unguarded) — <em>resilience, low</em>; default <code>?? []</code> at the read site.</li>
+</ol>
+<p>Artifacts: <code>reports/e2e-negotiation.pdf</code>, <code>e2e/playwright-report/index.html</code>, <code>e2e/results.json</code>.
+<strong>Commits:</strong> <code>51b56a1</code> (backend gate + unit tests), plus the E2E suite + Playwright config.</p>
+<hr>
+<h2>What I did NOT do (by design)</h2>
+<ul>
+<li><strong>No deploy.</strong> Task 1 is committed on the branch only; prod still runs the version from earlier tonight.</li>
+<li><strong>No prod data change.</strong> The demo load, accounts, and tables are exactly as you left them.</li>
+<li><strong>No merge to main.</strong> Everything is on <code>platform/SCRUM-248-esign-at-assign</code> for your review.</li>
+</ul>
+<h2>Suggested next steps (morning)</h2>
+<ol>
+<li>Review the branch; if the e-sign design is right, add the <strong>hauler-signs-at-bid</strong> frontend piece
+(Task 1 COA) before merge, since shipper-accept will 412 until the carrier has signed.</li>
+<li>Merge + deploy backend (the gate) and, when the FE sign-prompt is ready, the frontend.</li>
+<li>Optionally schedule the <strong>7-test basis-path batch</strong> (Task 2 §5) and the <strong>3 E2E findings</strong> (Task 3 §5).</li>
+</ol>
+<h2>Deliverables index</h2>
+<ul>
+<li><code>reports/path-coverage.pdf</code> — Task 2 (CFGs + basis paths + COA)</li>
+<li><code>reports/e2e-negotiation.pdf</code> — Task 3 (scenario matrix + findings + COA)</li>
+<li><code>reports/SUMMARY.pdf</code> — this document</li>
+<li><code>cfg/</code> — 5 CFG SVGs + complexity model + generator</li>
+<li><code>e2e/playwright-report/</code> — interactive HTML report; <code>e2e/results.json</code> — raw results</li>
+</ul>
+
+</body></html>

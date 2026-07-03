@@ -1,0 +1,425 @@
+<!doctype html><html><head><meta charset="utf-8"><title>LoadLead Path Coverage & CFG</title>
+<style>
+ @page { size: Letter; margin: 20mm 16mm; }
+ * { box-sizing: border-box; }
+ body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        color:#1f2933; line-height:1.5; font-size:11.5pt; max-width:none; margin:0; }
+ h1 { font-size:21pt; margin:0 0 2pt; color:#111827; letter-spacing:-.01em; }
+ h2 { font-size:15pt; margin:22px 0 6px; padding-bottom:4px; border-bottom:2px solid #e4e7eb;
+       color:#1a2a3a; page-break-after:avoid; }
+ h3 { font-size:12.5pt; margin:16px 0 4px; color:#243b53; page-break-after:avoid; }
+ h4 { font-size:11.5pt; margin:12px 0 3px; color:#334e68; page-break-after:avoid; }
+ p, li { orphans:2; widows:2; }
+ code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:9.8pt;
+        background:#f4f6f8; padding:1px 4px; border-radius:3px; }
+ pre { background:#f4f6f8; border:1px solid #e4e7eb; border-radius:6px; padding:10px 12px;
+        overflow:auto; page-break-inside:avoid; }
+ pre code { background:none; padding:0; font-size:9pt; line-height:1.45; }
+ table { border-collapse:collapse; width:100%; margin:10px 0; font-size:10pt; page-break-inside:avoid; }
+ th, td { border:1px solid #cbd2d9; padding:5px 8px; text-align:left; vertical-align:top; }
+ th { background:#f0f4f8; font-weight:600; color:#243b53; }
+ tr:nth-child(even) td { background:#fafbfc; }
+ img { max-width:100%; height:auto; display:block; margin:12px auto; page-break-inside:avoid; }
+ hr { border:none; border-top:1px solid #e4e7eb; margin:18px 0; }
+ strong { color:#102a43; }
+ blockquote { border-left:3px solid #9fb3c8; margin:10px 0; padding:2px 14px; color:#486581; }
+ a { color:#2f6fb0; text-decoration:none; }
+</style></head><body><h1>Path Coverage Analysis &amp; Control Flow Graphs</h1>
+<h2>LoadLead Negotiation State Machine (incl. the new accept/assign e-sign gate)</h2>
+<p><strong>Team:</strong> Platform Engineering  <strong>Date:</strong> 2026-07-03  <strong>Branch:</strong> <code>platform/SCRUM-248-esign-at-assign</code>
+<strong>Scope:</strong> <code>backend/src/services/negotiationService.ts</code> + the negotiation route gate in <code>backend/src/routes/negotiations.ts</code>
+<strong>Status:</strong> analysis only — no production change; the code under test is the branch build, not deployed.</p>
+<hr>
+<h2>1. What this report measures (and what it does not)</h2>
+<p>Three coverage criteria are relevant, in increasing strength:</p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Question it answers</th>
+<th>Tool</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Statement</strong></td>
+<td>Was each line executed at least once?</td>
+<td>v8 (empirical)</td>
+</tr>
+<tr>
+<td><strong>Branch</strong></td>
+<td>Was each side of every decision taken?</td>
+<td>v8 (empirical)</td>
+</tr>
+<tr>
+<td><strong>Basis path</strong></td>
+<td>Was each <em>linearly independent path</em> through the function exercised?</td>
+<td>McCabe analysis (this report)</td>
+</tr>
+</tbody></table>
+<p><strong>Path coverage</strong> is the strongest of the three. Full path coverage (every combination of branches) is infeasible for any function with a loop, so the industry-standard proxy is <strong>basis-path coverage</strong>: the set of <em>linearly independent</em> paths whose size equals the <strong>cyclomatic complexity</strong> <code>V(G)</code>. Covering the basis set guarantees every statement and every branch is covered, and that no independent decision outcome was skipped.</p>
+<p>For each target function we (a) build its <strong>control flow graph (CFG)</strong>, (b) compute <code>V(G)</code>, (c) enumerate the basis paths, and (d) map each path to the unit test that exercises it. Empirical v8 numbers back the manual analysis.</p>
+<p><code>V(G)</code> is computed two independent ways as a cross-check:</p>
+<ul>
+<li><strong>Edges/nodes:</strong> <code>V(G) = E − N + 2</code> (one connected component).</li>
+<li><strong>Decisions:</strong> <code>V(G) = (number of decision predicates) + 1</code>.</li>
+</ul>
+<p>Both agree for every function below.</p>
+<hr>
+<h2>2. Empirical coverage (v8, this branch)</h2>
+<p>Measured by running the two negotiation suites (<code>negotiation.test.ts</code> + the new <code>negotiationEsign.test.ts</code>, <strong>27 tests, all green</strong>) with the v8 coverage provider, scoped to the two files:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>% Stmts</th>
+<th>% Branch</th>
+<th>% Funcs</th>
+<th>% Lines</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>services/negotiationService.ts</code></td>
+<td>77.8</td>
+<td>66.3</td>
+<td>97.1</td>
+<td>85.9</td>
+</tr>
+<tr>
+<td><code>routes/negotiations.ts</code></td>
+<td>51.9</td>
+<td>35.0</td>
+<td>68.2</td>
+<td>57.1</td>
+</tr>
+<tr>
+<td><strong>Combined</strong></td>
+<td><strong>67.2</strong></td>
+<td><strong>54.9</strong></td>
+<td><strong>86.0</strong></td>
+<td><strong>73.9</strong></td>
+</tr>
+</tbody></table>
+<p>The route file reads lower because the suites are predominantly <strong>service-level</strong>: they call <code>NegotiationService</code> methods directly and only reach the HTTP layer for the e-sign gate. The uncovered route lines are the notification helper, the <code>viewFor</code> action-list branches, and the two long-poll GET handlers — all of which are exercised by the <strong>Task 3 end-to-end suite</strong>, not by unit tests. The two coverage efforts are complementary by design.</p>
+<hr>
+<h2>3. Complexity &amp; path-coverage summary</h2>
+<p>Basis-path coverage of the nine state-machine functions:</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th><code>V(G)</code></th>
+<th>Basis paths</th>
+<th>Paths covered</th>
+<th>Path coverage</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>engage</code></td>
+<td>6</td>
+<td>6</td>
+<td>5</td>
+<td>83%</td>
+</tr>
+<tr>
+<td><code>acceptLoad</code></td>
+<td>4</td>
+<td>4</td>
+<td>4</td>
+<td><strong>100%</strong></td>
+</tr>
+<tr>
+<td><code>bid</code></td>
+<td>5</td>
+<td>5</td>
+<td>5</td>
+<td><strong>100%</strong></td>
+</tr>
+<tr>
+<td><code>counter</code></td>
+<td>6</td>
+<td>6</td>
+<td>5</td>
+<td>83%</td>
+</tr>
+<tr>
+<td><code>acceptOffer</code></td>
+<td>9</td>
+<td>9</td>
+<td>8</td>
+<td>89%</td>
+</tr>
+<tr>
+<td><code>reject</code></td>
+<td>5</td>
+<td>5</td>
+<td>4</td>
+<td>80%</td>
+</tr>
+<tr>
+<td><code>expireIfOverdue</code></td>
+<td>4</td>
+<td>4</td>
+<td>2</td>
+<td>50%</td>
+</tr>
+<tr>
+<td><code>finishAccepted</code></td>
+<td>7</td>
+<td>7</td>
+<td>6</td>
+<td>86%</td>
+</tr>
+<tr>
+<td><code>requireCarrierAcceptForAssignment</code> <em>(new)</em></td>
+<td>3</td>
+<td>3</td>
+<td>3</td>
+<td><strong>100%</strong></td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td>—</td>
+<td><strong>49</strong></td>
+<td><strong>42</strong></td>
+<td><strong>86%</strong></td>
+</tr>
+</tbody></table>
+<p>The new e-sign gate lands at <strong>100% basis-path coverage</strong> (all three paths asserted by the new suite). Seven basis paths across the pre-existing state machine remain uncovered; §5 lists each with a course of action. None of them is a correctness defect — they are concurrency-race fall-throughs, config-gated dead branches, and &quot;should-be-impossible&quot; defensive guards.</p>
+<hr>
+<h2>4. Control flow graphs &amp; basis paths</h2>
+<h3>4.1 <code>requireCarrierAcceptForAssignment()</code> — the new e-sign gate  <code>V(G) = 3</code></h3>
+<p><img src="../cfg/cfg_requireCarrierAccept.svg" alt="CFG requireCarrierAccept"></p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Basis path</th>
+<th>Outcome</th>
+<th>Covered by</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>P1</td>
+<td>no CARRIER_ACCEPT in chain</td>
+<td><strong>412</strong> SIGNATURE_REQUIRED</td>
+<td><code>accept-load 412s when no signature exists</code></td>
+</tr>
+<tr>
+<td>P2</td>
+<td>signature present, signer role not a carrier</td>
+<td><strong>409</strong> SIGNER_INVALID</td>
+<td><code>a CARRIER_ACCEPT signed by a non-carrier role is rejected (409)</code></td>
+</tr>
+<tr>
+<td>P3</td>
+<td>signature present, carrier signer</td>
+<td><strong>pass → assign</strong></td>
+<td><code>accept-load succeeds once a carrier-signed CARRIER_ACCEPT is present</code></td>
+</tr>
+</tbody></table>
+<p><strong>Path coverage: 3/3 (100%).</strong> The suite also proves the gate is applied to all three assigning routes (hauler accept-load, hauler accept-counter, shipper accept-bid) and to <strong>none</strong> of the non-assigning ones (bid, counter, reject) — the &quot;signature required exactly at assignment&quot; invariant.</p>
+<h3>4.2 <code>acceptOffer()</code> — the accept transition  <code>V(G) = 9</code></h3>
+<p><img src="../cfg/cfg_acceptOffer.svg" alt="CFG acceptOffer"></p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Basis path</th>
+<th>Covered by</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>P1</td>
+<td><code>requireNeg</code>/<code>requireActor</code> fails → 404/403</td>
+<td>turn-enforcement + actor guards</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>already ACCEPTED with same outcome → idempotent return</td>
+<td><code>a repeated accept does not assign twice</code></td>
+</tr>
+<tr>
+<td>P3</td>
+<td>window overdue → 409 expired</td>
+<td><code>an action after the deadline expires…</code></td>
+</tr>
+<tr>
+<td>P4</td>
+<td>not this party&#39;s turn → 409</td>
+<td><code>turn enforcement: hauler cannot act on shipper turn…</code></td>
+</tr>
+<tr>
+<td>P5</td>
+<td>PER_MILE, offer present → finishAccepted</td>
+<td><code>bid then shipper accept assigns at the hauler rate</code></td>
+</tr>
+<tr>
+<td>P6</td>
+<td>PER_MILE, no offer on table → 409</td>
+<td><strong>uncovered</strong> (see §5)</td>
+</tr>
+<tr>
+<td>P7</td>
+<td>FLAT_TOTAL, offer present → finishAccepted</td>
+<td><code>a FLAT_RATE load negotiates in flat totals…</code></td>
+</tr>
+<tr>
+<td>P8</td>
+<td>FLAT_TOTAL, no offer on table → 409</td>
+<td><code>a PER_MILE load rejects a totalCents offer</code> (unit-safety guard)</td>
+</tr>
+<tr>
+<td>P9</td>
+<td>hauler accept-counter → finishAccepted (ACCEPT_COUNTER)</td>
+<td><code>bid, shipper counter, hauler accept-counter…</code></td>
+</tr>
+</tbody></table>
+<p><strong>Path coverage: 8/9 (89%).</strong></p>
+<h3>4.3 <code>finishAccepted()</code> — the single assignment chokepoint  <code>V(G) = 7</code></h3>
+<p><img src="../cfg/cfg_finishAccepted.svg" alt="CFG finishAccepted"></p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Basis path</th>
+<th>Covered by</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>P1</td>
+<td>non-integer linehaul → assert throws</td>
+<td>integer-cents invariant tests</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>conditional transition wins → assign</td>
+<td><code>assigns at the posted rate…</code> / <code>bid then shipper accept…</code></td>
+</tr>
+<tr>
+<td>P3</td>
+<td>transition throws, current already ACCEPTED → idempotent return</td>
+<td><code>a repeated accept does not assign twice</code></td>
+</tr>
+<tr>
+<td>P4</td>
+<td>transition throws, not ACCEPTED → rethrow</td>
+<td>expiry race (<code>an action after the deadline…</code>)</td>
+</tr>
+<tr>
+<td>P5</td>
+<td>load already assigned to <strong>this</strong> hauler → skip re-assign (idempotent)</td>
+<td>idempotency suite</td>
+</tr>
+<tr>
+<td>P6</td>
+<td>load unassigned → <code>assignDriver</code></td>
+<td><code>the Load model is never written… (only assignDriver on accept)</code></td>
+</tr>
+<tr>
+<td>P7</td>
+<td>load assigned to a <strong>different</strong> driver → 409 defensive guard</td>
+<td><strong>uncovered</strong> (see §5)</td>
+</tr>
+</tbody></table>
+<p><strong>Path coverage: 6/7 (86%).</strong></p>
+<h3>4.4 <code>engage()</code> — atomic lock acquisition  <code>V(G) = 6</code></h3>
+<p><img src="../cfg/cfg_engage.svg" alt="CFG engage"></p>
+<p>Covered: load-not-found (404), already-assigned (409), PER_MILE rate snapshot (<code>snapshots the posted rate in integer cents</code>), FLAT posted-linehaul (<code>a FLAT_RATE load negotiates…</code>), and the concurrent-lock race (<code>two haulers engaging the same load concurrently: one negotiation, one clear 409</code>). <strong>Uncovered:</strong> the <code>rethrow</code> of a *non-*ConditionalCheckFailed error from the lock <code>PutCommand</code> (5/6, see §5).</p>
+<h3>4.5 <code>bid()</code> — hauler&#39;s first offer  <code>V(G) = 5</code></h3>
+<p><img src="../cfg/cfg_bid.svg" alt="CFG bid"></p>
+<p>All five basis paths covered: expiry (409), wrong-status &quot;use counter&quot; (409), invalid amount (<code>a non-positive or non-integer bid is rejected</code>), the PER_MILE happy path, and the FLAT happy path. <strong>Path coverage: 5/5 (100%).</strong></p>
+<hr>
+<h2>5. Uncovered basis paths &amp; courses of action (COA)</h2>
+<p>Seven basis paths (14% of the state machine) are unexercised. Each is characterized below with a concrete COA. <strong>All are additive test work; none requires a code change.</strong></p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Function</th>
+<th>Uncovered path</th>
+<th>Why it is uncovered</th>
+<th>COA</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>U1</td>
+<td><code>engage</code></td>
+<td>non-conditional error from the lock <code>PutCommand</code> rethrown</td>
+<td>requires the SDK to throw a non-<code>ConditionalCheckFailed</code> error</td>
+<td><strong>COA-A:</strong> add a unit test that mocks <code>docClient.send</code> to reject with a generic error; assert it propagates (not swallowed as 409).</td>
+</tr>
+<tr>
+<td>U2</td>
+<td><code>counter</code></td>
+<td><code>maxRounds</code> cap reached → 409</td>
+<td><code>NEGOTIATION_POLICY.maxRounds = 0</code> disables the cap, so the branch is currently unreachable by config</td>
+<td><strong>COA-B:</strong> parametrize the test to set <code>maxRounds = 2</code> and assert the cap fires. Track as config-gated dead code until/unless round caps are enabled.</td>
+</tr>
+<tr>
+<td>U3</td>
+<td><code>acceptOffer</code></td>
+<td>PER_MILE accept with no offer on the table → 409</td>
+<td>no test accepts before any bid on a PER_MILE load</td>
+<td><strong>COA-C:</strong> add a test: engage → accept-offer (shipper) with <code>currentOffer == null</code> → expect 409 &quot;no offer&quot;.</td>
+</tr>
+<tr>
+<td>U4</td>
+<td><code>reject</code></td>
+<td>reject <em>after</em> the window already expired (lazy-expire branch)</td>
+<td>reject tests run inside the window</td>
+<td><strong>COA-D:</strong> add a test that advances the clock past <code>deadlineAt</code>, then rejects; assert the already-rebroadcast negotiation is returned.</td>
+</tr>
+<tr>
+<td>U5–U6</td>
+<td><code>expireIfOverdue</code></td>
+<td>(a) already-<code>EXPIRED</code> early return; (b) concurrent-transition <code>catch</code> fall-through</td>
+<td>both are concurrency races the single-threaded unit tests don&#39;t reproduce</td>
+<td><strong>COA-E:</strong> add tests that (a) call <code>expireIfOverdue</code> twice and assert the second is a no-op, and (b) simulate a losing conditional-write (<code>transition</code> throws <code>AppError</code>) and assert it still reports expired.</td>
+</tr>
+<tr>
+<td>U7</td>
+<td><code>finishAccepted</code></td>
+<td>load already assigned to a <em>different</em> driver → 409</td>
+<td>a &quot;should-be-impossible while holding the lock&quot; guard</td>
+<td><strong>COA-F:</strong> add a test that pre-seeds the load with a foreign <code>assignedDriverId</code> and asserts the 409, proving the guard is live.</td>
+</tr>
+</tbody></table>
+<p><strong>Aggregate COA:</strong> implementing COA-A…F adds <strong>7 tests</strong> and lifts the state machine to <strong>100% basis-path coverage</strong> (49/49). Estimated effort: ~0.5 day. Recommended priority: <strong>U3, U7 first</strong> (they assert real user-reachable safety guards), then U5–U6 (concurrency correctness), then U1/U4 (defensive), then U2 (config-gated, lowest).</p>
+<hr>
+<h2>6. Verdict</h2>
+<ul>
+<li>The <strong>new e-sign gate is fully path-covered (100%)</strong> and proven to fire exactly at the three assignment routes and nowhere else.</li>
+<li>The negotiation state machine sits at <strong>86% basis-path coverage (42/49)</strong>; the seven gaps are enumerated with a costed remediation path to 100%.</li>
+<li>No correctness defect was found by the path analysis. The uncovered paths are defensive guards, a config-gated cap, and concurrency-race fall-throughs.</li>
+</ul>
+<p><strong>Recommendation:</strong> accept the branch on its merits; schedule the 7-test COA batch (§5) as a fast-follow to reach 100% basis-path coverage before the negotiation feature exits beta.</p>
+<hr>
+<h2>Appendix A — Reproduce the empirical coverage</h2>
+<pre><code>cd backend
+../node_modules/.bin/vitest run \
+  tests/unit/payments/negotiation.test.ts tests/unit/payments/negotiationEsign.test.ts \
+  --coverage --coverage.provider=v8 \
+  --coverage.include=&#39;src/services/negotiationService.ts&#39; \
+  --coverage.include=&#39;src/routes/negotiations.ts&#39; \
+  --coverage.reporter=text
+</code></pre>
+<h2>Appendix B — CFGs are regenerable</h2>
+<p>The five SVG CFGs and <code>complexity.json</code> are emitted by the zero-dependency generator
+<code>docs/overnight-2026-07-03/cfg/gen_cfg.py</code> (<code>python3 gen_cfg.py</code>). Graphviz DOT for the
+new gate, for reviewers who prefer <code>dot</code>:</p>
+<pre><code class="language-dot">digraph requireCarrierAcceptForAssignment {
+  rankdir=TB; node [fontname=&quot;monospace&quot;];
+  entry   [shape=box, style=rounded, label=&quot;ENTRY requireCarrierAccept(loadId)&quot;];
+  reqsig  [shape=box, label=&quot;sig = requireSignature(loadId,&#39;CARRIER_ACCEPT&#39;)&quot;];
+  d1      [shape=diamond, label=&quot;CARRIER_ACCEPT in chain?&quot;];
+  e412    [shape=box, color=&quot;red&quot;, label=&quot;throw 412 SIGNATURE_REQUIRED&quot;];
+  d2      [shape=diamond, label=&quot;signerRole is CARRIER_ADMIN / OWNER_OPERATOR?&quot;];
+  e409    [shape=box, color=&quot;red&quot;, label=&quot;throw 409 SIGNER_INVALID&quot;];
+  ok      [shape=box, style=rounded, color=&quot;green&quot;, label=&quot;return (gate passes)&quot;];
+  entry -&gt; reqsig -&gt; d1;
+  d1 -&gt; e412 [label=&quot;No&quot;];  d1 -&gt; d2 [label=&quot;Yes&quot;];
+  d2 -&gt; e409 [label=&quot;No&quot;];  d2 -&gt; ok [label=&quot;Yes&quot;];
+}
+</code></pre>
+
+</body></html>

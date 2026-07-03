@@ -1,0 +1,296 @@
+<!doctype html><html><head><meta charset="utf-8"><title>LoadLead Negotiation E2E Report</title>
+<style>
+ @page { size: Letter; margin: 20mm 16mm; }
+ * { box-sizing: border-box; }
+ body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        color:#1f2933; line-height:1.5; font-size:11.5pt; max-width:none; margin:0; }
+ h1 { font-size:21pt; margin:0 0 2pt; color:#111827; letter-spacing:-.01em; }
+ h2 { font-size:15pt; margin:22px 0 6px; padding-bottom:4px; border-bottom:2px solid #e4e7eb;
+       color:#1a2a3a; page-break-after:avoid; }
+ h3 { font-size:12.5pt; margin:16px 0 4px; color:#243b53; page-break-after:avoid; }
+ h4 { font-size:11.5pt; margin:12px 0 3px; color:#334e68; page-break-after:avoid; }
+ p, li { orphans:2; widows:2; }
+ code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:9.8pt;
+        background:#f4f6f8; padding:1px 4px; border-radius:3px; }
+ pre { background:#f4f6f8; border:1px solid #e4e7eb; border-radius:6px; padding:10px 12px;
+        overflow:auto; page-break-inside:avoid; }
+ pre code { background:none; padding:0; font-size:9pt; line-height:1.45; }
+ table { border-collapse:collapse; width:100%; margin:10px 0; font-size:10pt; page-break-inside:avoid; }
+ th, td { border:1px solid #cbd2d9; padding:5px 8px; text-align:left; vertical-align:top; }
+ th { background:#f0f4f8; font-weight:600; color:#243b53; }
+ tr:nth-child(even) td { background:#fafbfc; }
+ img { max-width:100%; height:auto; display:block; margin:12px auto; page-break-inside:avoid; }
+ hr { border:none; border-top:1px solid #e4e7eb; margin:18px 0; }
+ strong { color:#102a43; }
+ blockquote { border-left:3px solid #9fb3c8; margin:10px 0; padding:2px 14px; color:#486581; }
+ a { color:#2f6fb0; text-decoration:none; }
+</style></head><body><h1>End-to-End Test Report — Load Negotiation</h1>
+<h2>Playwright, real UI bundle, backend mocked at the network boundary</h2>
+<p><strong>Team:</strong> Platform Engineering  <strong>Date:</strong> 2026-07-03  <strong>Framework:</strong> Playwright 1.57 (Chromium)
+<strong>Branch:</strong> <code>platform/SCRUM-248-esign-at-assign</code>  <strong>Result:</strong> <strong>14 / 14 scenarios pass, 0 flaky, 17.2s</strong>
+<strong>Scope:</strong> the negotiation flow across both party UIs — the Owner-Operator Load Detail page
+(<code>/owner-operator/loads/:loadId</code>, party = HAULER) and the Shipper Load Detail page
+(<code>/shipper/loads/:loadId</code>, party = SHIPPER), driving the real <code>NegotiationPanel</code>.</p>
+<hr>
+<h2>1. Approach — and why it is hermetic</h2>
+<p>The suite drives the <strong>real compiled React application</strong> (Vite dev server on <code>:3001</code>) and the <strong>real
+<code>NegotiationPanel</code> component</strong> end to end: real routing, the real auth-gated <code>RequireRole</code>, the real
+long-poll live-update loop, the real buttons and state rendering. Only the <strong>backend is mocked, at the
+network boundary</strong> (<code>page.route(&#39;**/api/**&#39;, …)</code>) by a small stateful re-implementation of the
+negotiation state machine that mirrors the server&#39;s <code>viewFor()</code> and advances on the panel&#39;s POSTs.</p>
+<p><strong>Why the backend is mocked rather than live:</strong></p>
+<ul>
+<li><strong>It must not touch production.</strong> Running against prod would mutate the demo load you will click
+through — every accept would assign it, every reject would rebroadcast it. The mock keeps prod
+pristine (the standing &quot;don&#39;t change anything&quot; constraint).</li>
+<li><strong>The local Docker daemon is down</strong>, so a full local DynamoDB + backend stack could not be brought
+up unattended tonight.</li>
+<li>A network-boundary mock is a legitimate, deterministic E2E strategy: the UI, its API calls, and its
+rendered reactions are all real; only the server&#39;s responses are scripted. All external requests
+(Google Maps, fonts, analytics) are blocked so the run is fully offline and reproducible.</li>
+</ul>
+<hr>
+<h2>2. What &quot;100% coverage&quot; means here</h2>
+<p>E2E does not measure line coverage — it measures <strong>behaviour coverage</strong>. The target is <strong>100% of the
+UI-reachable transitions of the negotiation state machine</strong>: every edge a real user can trigger from a
+button, plus the live-update channel and the e-sign gate. The matrix in §3 shows every such edge with
+the scenario that exercises it. (Statement/branch/basis-path coverage of the underlying code is
+measured separately in the <strong>Path Coverage report</strong>; the two are complementary.)</p>
+<p>The one state not driven by a button — <strong>EXPIRED</strong> — is reachable in the UI only through the long-poll
+delivering an expiry (there is no &quot;expire&quot; control); scenario <strong>H9</strong> exercises exactly that path, so
+the observable state machine is fully covered.</p>
+<hr>
+<h2>3. Transition coverage matrix</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>State transition</th>
+<th>UI trigger</th>
+<th>Party</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>∅ → <strong>ENGAGED</strong></td>
+<td>Engage to negotiate</td>
+<td>HAULER</td>
+<td>H1</td>
+</tr>
+<tr>
+<td>2</td>
+<td>ENGAGED → <strong>ACCEPTED</strong> (posted rate)</td>
+<td>Accept load</td>
+<td>HAULER</td>
+<td>H2</td>
+</tr>
+<tr>
+<td>3</td>
+<td>ENGAGED → <strong>PENDING_SHIPPER</strong></td>
+<td>Bid</td>
+<td>HAULER</td>
+<td>H3</td>
+</tr>
+<tr>
+<td>4</td>
+<td>ENGAGED → <strong>REJECTED</strong></td>
+<td>Reject</td>
+<td>HAULER</td>
+<td>H7</td>
+</tr>
+<tr>
+<td>5</td>
+<td>PENDING_SHIPPER → <strong>ACCEPTED</strong> (bid)</td>
+<td>Accept bid</td>
+<td>SHIPPER</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>6</td>
+<td>PENDING_SHIPPER → <strong>PENDING_HAULER</strong></td>
+<td>Counter</td>
+<td>SHIPPER</td>
+<td>S3</td>
+</tr>
+<tr>
+<td>7</td>
+<td>PENDING_SHIPPER → <strong>REJECTED</strong></td>
+<td>Reject bid</td>
+<td>SHIPPER</td>
+<td>S4</td>
+</tr>
+<tr>
+<td>8</td>
+<td>PENDING_HAULER → <strong>ACCEPTED</strong> (counter)</td>
+<td>Accept counter</td>
+<td>HAULER</td>
+<td>H5</td>
+</tr>
+<tr>
+<td>9</td>
+<td>PENDING_HAULER → <strong>PENDING_SHIPPER</strong></td>
+<td>Counter offer</td>
+<td>HAULER</td>
+<td>H6</td>
+</tr>
+<tr>
+<td>10</td>
+<td>active → <strong>EXPIRED</strong> (window elapsed)</td>
+<td>long-poll delivery</td>
+<td>HAULER</td>
+<td>H9</td>
+</tr>
+<tr>
+<td>11</td>
+<td><strong>live update</strong> (counterparty move via long-poll)</td>
+<td>events channel</td>
+<td>both</td>
+<td>H4, S5</td>
+</tr>
+<tr>
+<td>12</td>
+<td><strong>e-sign gate</strong>: assign 412-blocked, then allowed once signed</td>
+<td>Accept (blocked→allowed)</td>
+<td>HAULER</td>
+<td>H8</td>
+</tr>
+<tr>
+<td>13</td>
+<td><strong>read model</strong> renders correct status + actions per party</td>
+<td>initial render</td>
+<td>both</td>
+<td>H1, S1</td>
+</tr>
+</tbody></table>
+<p>Every UI-reachable transition is covered. <strong>13 of 13 matrix rows → covered (100%).</strong></p>
+<hr>
+<h2>4. Results</h2>
+<p>All 14 scenarios passed on the same run (no retries consumed):</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>What it proves</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>H1 engage</td>
+<td>hauler holds the load; sees Accept load / Bid / Reject</td>
+<td>0.4s</td>
+</tr>
+<tr>
+<td>H2 accept-load</td>
+<td>takes the posted rate → &quot;Assigned at $2.50/mi&quot;</td>
+<td>1.3s</td>
+</tr>
+<tr>
+<td>H3 bid</td>
+<td>cents-per-mile bid → pending on the shipper, offer on the table</td>
+<td>0.5s</td>
+</tr>
+<tr>
+<td>H4 live update</td>
+<td>the shipper&#39;s counter arrives via the long-poll (~1s)</td>
+<td>0.8s</td>
+</tr>
+<tr>
+<td>H5 accept-counter</td>
+<td>accepts the shipper&#39;s counter → assigned at $2.60/mi</td>
+<td>6.2s</td>
+</tr>
+<tr>
+<td>H6 hauler counter</td>
+<td>counters back → pending on the shipper again</td>
+<td>1.4s</td>
+</tr>
+<tr>
+<td>H7 reject</td>
+<td>walks away → load rebroadcasts</td>
+<td>0.5s</td>
+</tr>
+<tr>
+<td>H8 e-sign gate</td>
+<td>assign refused (412) with no signature; assigns once signed</td>
+<td>2.1s</td>
+</tr>
+<tr>
+<td>H9 expiry</td>
+<td>window elapses → terminal state arrives via long-poll</td>
+<td>~1s</td>
+</tr>
+<tr>
+<td>S1 shipper view</td>
+<td>sees the hauler&#39;s bid + Accept bid / Counter / Reject</td>
+<td>1.1s</td>
+</tr>
+<tr>
+<td>S2 accept bid</td>
+<td>assigns at the hauler&#39;s rate → &quot;Assigned at $2.75/mi&quot;</td>
+<td>2.0s</td>
+</tr>
+<tr>
+<td>S3 shipper counter</td>
+<td>counters → pending on the hauler</td>
+<td>1.2s</td>
+</tr>
+<tr>
+<td>S4 shipper reject</td>
+<td>rejects the bid → load rebroadcasts</td>
+<td>1.2s</td>
+</tr>
+<tr>
+<td>S5 live update</td>
+<td>a hauler&#39;s bid appears while the shipper watches</td>
+<td>1.1s</td>
+</tr>
+</tbody></table>
+<p>Machine-readable results: <code>docs/overnight-2026-07-03/e2e/results.json</code>.
+Full Playwright HTML report (traces on any failure): <code>docs/overnight-2026-07-03/e2e/playwright-report/index.html</code>.</p>
+<hr>
+<h2>5. Findings surfaced by the E2E (with COA)</h2>
+<p>Building a real-browser E2E flushed out three issues that unit tests could not. None blocks the
+negotiation feature; all are worth a fast-follow.</p>
+<h3>F1 — Onboarding tour overlay intercepts clicks on the load-detail panels  <em>(UX / medium)</em></h3>
+<p>The Shepherd persona tour auto-starts ~700ms after a dashboard-family route mounts. On the
+Owner-Operator and Shipper <strong>load-detail</strong> pages its modal overlay renders <strong>on top of the negotiation
+panel</strong>, intermittently intercepting clicks (it blocked the accept button mid-test until suppressed).
+A user who deep-links to a load while the tour is unseen can be blocked from acting on it.
+<strong>COA:</strong> do not auto-start the tour on deep-linked <code>.../loads/:id</code> routes (only on the dashboard root),
+or ensure the tour&#39;s overlay never covers primary action panels and dismisses on outside interaction.
+<em>(The E2E suppresses the tour via its own localStorage completion flag — the app&#39;s supported gate.)</em></p>
+<h3>F2 — Hard page reload on assignment  <em>(UX / low)</em></h3>
+<p>Both detail pages wire <code>onAssigned={() =&gt; window.location.reload()}</code>. On accept, the whole page
+reloads — scroll position is lost, every panel refetches, and there is a visible flash.
+<strong>COA:</strong> refetch just the load + negotiation state (a local <code>refresh()</code>), not a full document reload.</p>
+<h3>F3 — Panels white-screen on a malformed list response  <em>(resilience / low)</em></h3>
+<p><code>AccessorialsPanel</code> reads <code>res.charges</code> and <code>AttestationChain</code> reads <code>res.chain</code> and then render
+<code>.length</code> / <code>.map</code> on the result. When the response lacks that array (an unexpected shape or a partial
+outage), the value is <code>undefined</code> and the <strong>whole page</strong> crashes to the &quot;Something went wrong&quot; error
+boundary — the negotiation panel included, because they share the page. (Surfaced when the mock
+returned a bare object; the live backend returns the correct shape today.)
+<strong>COA:</strong> default at the read site — <code>const charges = res?.charges ?? []</code> / <code>res?.chain ?? []</code> — so an
+unexpected response degrades to an empty list instead of taking down the page.</p>
+<hr>
+<h2>6. How to run</h2>
+<pre><code>cd frontend-v2
+npm run test:e2e            # boots vite on :3001, runs all specs headless
+npm run test:e2e:report     # opens the HTML report
+</code></pre>
+<p>Chromium is installed via <code>npx playwright install chromium</code>. The suite is hermetic (no network, no prod).</p>
+<hr>
+<h2>Appendix — harness design</h2>
+<ul>
+<li><code>frontend-v2/playwright.config.ts</code> — vite <code>webServer</code> on <code>:3001</code>, retries 2 (absorbs long-poll
+timing jitter), reports to the deliverables folder.</li>
+<li><code>frontend-v2/e2e/support/negotiationMock.ts</code> — the stateful network-boundary mock: it re-implements
+<code>viewFor()</code> per party, advances the state machine on each POST, holds the events long-poll (~500ms)
+to emulate the server and avoid a tight loop, exposes a controller to simulate the counterparty
+(<code>shipperCounter</code>, <code>haulerBid</code>, <code>expire</code>) and the e-sign gate (<code>setEsignBlocked</code>), suppresses the
+persona tour, and returns benign empty shapes for incidental endpoints so the page always renders.</li>
+<li><code>frontend-v2/e2e/haulerFlows.spec.ts</code> (H1–H9) and <code>frontend-v2/e2e/shipperFlows.spec.ts</code> (S1–S5).</li>
+</ul>
+<p><strong>Not deployed. Branch artifact for review.</strong></p>
+
+</body></html>
