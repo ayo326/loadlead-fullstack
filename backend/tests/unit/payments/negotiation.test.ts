@@ -183,6 +183,50 @@ describe('defensive guards (path-coverage COAs)', () => {
       .rejects.toThrow(/No offer is on the table/i);
     expect(H.assignDriver).not.toHaveBeenCalled();
   });
+
+  it('U5: expireIfOverdue short-circuits on a terminal negotiation (idempotent)', async () => {
+    // Already EXPIRED → reports expired without touching the store.
+    const expired = { negotiationId: 'x', loadId: 'load-1', status: 'EXPIRED', deadlineAt: Date.now() + 1000 } as any;
+    expect(await NegotiationService.expireIfOverdue(expired)).toBe(true);
+    // Terminal but NOT expired (ACCEPTED) → not expired.
+    const accepted = { negotiationId: 'y', loadId: 'load-1', status: 'ACCEPTED', deadlineAt: Date.now() - 1000 } as any;
+    expect(await NegotiationService.expireIfOverdue(accepted)).toBe(false);
+  });
+
+  it('U6: a losing conditional-write during expiry still reports expired (fall-through)', async () => {
+    const now = Date.now();
+    // Stored row moved on (PENDING_SHIPPER); we hand expireIfOverdue a stale
+    // ENGAGED snapshot past its deadline, so the conditional transition loses.
+    await H.putItem(config.dynamodb.loadNegotiationsTable, {
+      negotiationId: 'neg-u6', loadId: 'load-1', shipperId: 'ship-1', haulerDriverId: 'drv-1',
+      status: 'PENDING_SHIPPER', rateBasis: 'PER_MILE', totalMiles: 400,
+      deadlineAt: now - 1_000, updatedAt: now - 1_000,
+    });
+    const stale = { negotiationId: 'neg-u6', loadId: 'load-1', status: 'ENGAGED', deadlineAt: now - 1_000 } as any;
+    expect(await NegotiationService.expireIfOverdue(stale)).toBe(true);
+  });
+
+  it('U4: rejecting after the window expired returns the rebroadcast (expired) negotiation', async () => {
+    const now = Date.now();
+    await H.putItem(config.dynamodb.loadNegotiationsTable, {
+      negotiationId: 'neg-u4', loadId: 'load-1', shipperId: 'ship-1',
+      haulerCarrierId: 'carrier-1', haulerDriverId: 'drv-1', haulerUserId: 'user-h',
+      status: 'PENDING_SHIPPER', rateBasis: 'PER_MILE',
+      postedRatePerMileCents: 250, currentOfferRatePerMileCents: 240, currentOfferParty: 'HAULER',
+      totalMiles: 400, roundCount: 1,
+      startedAt: now - 10_000, deadlineAt: now - 1_000, createdAt: now - 10_000, updatedAt: now - 10_000,
+    });
+    const result = await NegotiationService.reject('neg-u4', { party: 'HAULER', driverId: 'drv-1' });
+    expect(result.status).toBe('EXPIRED');
+    expect(H.assignDriver).not.toHaveBeenCalled();
+  });
+
+  it('U1: a non-conditional lock error is rethrown, not swallowed as a 409', async () => {
+    // The exclusive-lock PutCommand fails with a generic (non-conditional)
+    // error; engage must propagate it rather than report "no longer available".
+    H.send.mockImplementationOnce(async () => { throw new Error('dynamo exploded'); });
+    await expect(NegotiationService.engage(HAULER)).rejects.toThrow(/dynamo exploded/);
+  });
 });
 
 describe('bid -> shipper actions', () => {
