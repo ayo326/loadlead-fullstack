@@ -170,17 +170,17 @@ const DEFAULT_ITEMS = [
   {id:"sms-now", ws:"SMS program", title:"SMS NOW tier: legal pages, consent store, opt-in UI", team:"identity", q:0, off:0, dur:3, jira:"SCRUM-233", deps:"", why:"Gates A2P campaign review; carrier acquisition channel. Consent record is the TCPA defense."},
   {id:"sms-brand", ws:"SMS program", title:"10DLC brand + campaign registration (ops long pole)", team:"product", q:0, off:0, dur:8, jira:"SCRUM-239", deps:"sms-now", why:"2-6 weeks of vendor waiting. Start day 1 of the quarter; everything SMS gates on it."},
   {id:"telem-now", ws:"Telematics", title:"Telematics NOW tier: KMS enabler, connection, roster, HOS", team:"platform", q:0, off:1, dur:6, jira:"SCRUM-218", deps:"", why:"Gateway for live tracking and HOS-safe matching. Staged-go verdict in the platform review."},
-  {id:"sec-high", ws:"Security & compliance", title:"STIG burn-down slice 1: all HIGH items (of 49 open)", team:"compliance", q:0, off:2, dur:8, jira:"SCRUM-1", deps:"", why:"49 open STIG items is the largest backlog block; HIGH slice first, feeds the SOC 2 story."},
-  {id:"e2e-beta", ws:"Quality", title:"E2E/UAT pass for the founding cohort flows", team:"marketplace", q:0, off:4, dur:5, jira:"SCRUM-100", deps:"", why:"7 e2e-uat + 38 test-matrix items open; certify the five personas end to end before cohort scale-up."},
-  {id:"cohort-1", ws:"Growth", title:"Texas founding cohort: admit, run real detention-to-factoring loops", team:"marketplace", q:0, off:2, dur:10, jira:"SCRUM-129", deps:"", why:"The money loop (detention -> approve -> factor -> payout) is built and seeded; prove it with real freight."},
+  {id:"sec-high", ws:"Security & compliance", title:"STIG burn-down slice 1: all HIGH items (of 49 open)", team:"compliance", q:0, off:2, dur:8, jira:"SCRUM-8", deps:"", why:"49 open STIG items is the largest backlog block; HIGH slice first, feeds the SOC 2 story."},
+  {id:"e2e-beta", ws:"Quality", title:"E2E/UAT pass for the founding cohort flows", team:"marketplace", q:0, off:4, dur:5, jira:"SCRUM-7", deps:"", why:"7 e2e-uat + 38 test-matrix items open; certify the five personas end to end before cohort scale-up."},
+  {id:"cohort-1", ws:"Growth", title:"Texas founding cohort: admit, run real detention-to-factoring loops", team:"marketplace", q:0, off:2, dur:10, jira:"", deps:"", why:"The money loop (detention -> approve -> factor -> payout) is built and seeded; prove it with real freight."},
   {id:"mob-m0", ws:"Mobile migration", title:"M0 PWA hardening: manifest, installable, offline shell, push deep links", team:"mobile", q:0, off:6, dur:5, jira:"", deps:"", why:"sw.js exists but no manifest - the app is not even installable today. Cheapest mobile win, ships in weeks."},
   // ── Q4 2026 ──
   {id:"telem-next", ws:"Telematics", title:"Tracking tier: scheduled worker, ingestion, geofenced stop events", team:"settlements", q:1, off:0, dur:9, jira:"SCRUM-221", deps:"telem-now", why:"The money feature: hardware-attested detention. Needs the worker enabler + settlements sign-off on the stop-events seam."},
   {id:"sms-next", ws:"SMS program", title:"SMS NEXT tier: adapter, SNS ingress, chokepoint, go-live", team:"platform", q:1, off:0, dur:6, jira:"SCRUM-236", deps:"sms-brand", why:"Go-live gated on campaign approval + counsel sign-off; alerts become the carrier engagement loop."},
-  {id:"analytics-t1", ws:"Analytics", title:"Analytics Tier 1: PostGIS replica + shipper lane dashboards", team:"platform", q:1, off:2, dur:9, jira:"SCRUM-73", deps:"", why:"14 open items, spec complete (docs/database-analytics). Feeds lane-liquidity and pricing intelligence."},
+  {id:"analytics-t1", ws:"Analytics", title:"Analytics Tier 1: PostGIS replica + shipper lane dashboards", team:"platform", q:1, off:2, dur:9, jira:"SCRUM-161", deps:"", why:"14 open items, spec complete (docs/database-analytics). Feeds lane-liquidity and pricing intelligence."},
   {id:"mob-m1", ws:"Mobile migration", title:"M1 Expo driver app shell: auth, loadboard, offers, stop check-in", team:"mobile", q:1, off:1, dur:10, jira:"", deps:"mob-m0", why:"Driver-first per COA-M: the driver lives in the truck. Reuses the TS API client and React skills."},
-  {id:"ga-flip", ws:"Growth", title:"GA decision: BETA_MODE off, apex marketing surface", team:"product", q:1, off:8, dur:3, jira:"SCRUM-119", deps:"e2e-beta,sec-high", why:"Flip after the E2E pass + HIGH security slice; beta.loadleadapp.com stays as the staging surface."},
-  {id:"admin-ops", ws:"Business ops", title:"Administrative backlog: brokerage license, GTM, legal-compliance items", team:"product", q:1, off:0, dur:11, jira:"SCRUM-166", deps:"", why:"9 open admin items incl. broker authority - some gate revenue mechanics; run in parallel."},
+  {id:"ga-flip", ws:"Growth", title:"GA decision: BETA_MODE off, apex marketing surface", team:"product", q:1, off:8, dur:3, jira:"", deps:"e2e-beta,sec-high", why:"Flip after the E2E pass + HIGH security slice; beta.loadleadapp.com stays as the staging surface."},
+  {id:"admin-ops", ws:"Business ops", title:"Administrative backlog: brokerage license, GTM, legal-compliance items", team:"product", q:1, off:0, dur:11, jira:"SCRUM-162", deps:"", why:"9 open admin items incl. broker authority - some gate revenue mechanics; run in parallel."},
   // ── Q1 2027 ──
   {id:"mob-m2", ws:"Mobile migration", title:"M2 Store launch: background GPS, offline POD, App/Play review", team:"mobile", q:2, off:0, dur:10, jira:"", deps:"mob-m1", why:"Store review cycles + background-location entitlements have lead time; GPS ties into telematics fallback."},
   {id:"bet-instantpay", ws:"Competitive bets", title:"Bet 1 - Instant Pay: same-day factoring-backed payout on POD", team:"settlements", q:2, off:0, dur:8, jira:"", deps:"telem-next", why:"The factoring rails exist. Same-day pay is the #1 carrier switching trigger vs DAT/Truckstop."},
@@ -236,7 +236,7 @@ const MOBILE = [
 ];
 
 // ───────────────────────── state ─────────────────────────
-const LS_KEY = "loadlead-roadmap-v1";
+const LS_KEY = "loadlead-roadmap-v2";
 let state = load();
 function load(){
   try{
