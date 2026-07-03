@@ -32,6 +32,7 @@ export async function installNegotiationMock(
   page: Page,
   party: Party,
   loadId = "SEED-NEGO-DEMO",
+  opts: { suppressTour?: boolean } = {},
 ): Promise<NegController> {
   const s = {
     negotiationId: "neg-e2e-1",
@@ -52,14 +53,18 @@ export async function installNegotiationMock(
   // Suppress the Shepherd persona onboarding tour: its modal auto-starts ~700ms
   // after the dashboard mounts and would intercept clicks on the panel. Marking
   // every persona's tour "completed" in localStorage (the app's own gate) keeps
-  // the flows deterministic. addInitScript runs before any app script.
-  await page.addInitScript(() => {
-    for (const p of ["OWNER_OPERATOR", "SHIPPER", "CARRIER_ADMIN", "DRIVER", "RECEIVER"]) {
-      localStorage.setItem(`loadlead.tour.completed.${p}`, "1");
-      localStorage.setItem(`loadlead.tour.completed.${p}.dashboard`, "1");
-      localStorage.setItem(`loadlead.tour.completed.${p}.settings`, "1");
-    }
-  });
+  // the flows deterministic. addInitScript runs before any app script. Pass
+  // suppressTour:false to leave the tour armed (the F1 regression test relies on
+  // an un-suppressed tour to prove it no longer fires on load-detail routes).
+  if (opts.suppressTour !== false) {
+    await page.addInitScript(() => {
+      for (const p of ["OWNER_OPERATOR", "SHIPPER", "CARRIER_ADMIN", "DRIVER", "RECEIVER"]) {
+        localStorage.setItem(`loadlead.tour.completed.${p}`, "1");
+        localStorage.setItem(`loadlead.tour.completed.${p}.dashboard`, "1");
+        localStorage.setItem(`loadlead.tour.completed.${p}.settings`, "1");
+      }
+    });
+  }
 
   function view(viewer: Party = party) {
     if (!s.status) return null;
