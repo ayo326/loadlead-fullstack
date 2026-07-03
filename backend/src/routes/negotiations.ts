@@ -2,8 +2,8 @@
  * Load negotiation routes - /api/negotiations
  *
  * Hauler side (engaged carrier or owner-operator, via their driver profile):
- *   POST /loads/:loadId/engage     acquire the exclusive lock (e-sign gated,
- *                                  same CARRIER_ACCEPT chain as the claim path)
+ *   POST /loads/:loadId/engage     acquire the exclusive lock (verified carrier
+ *                                  of record only; e-sign is at accept/assign)
  *   POST /:id/accept-load          take the posted rate; assign
  *   POST /:id/bid                  first offer { ratePerMileCents }
  *   POST /:id/counter              hauler counter { ratePerMileCents }
@@ -158,11 +158,12 @@ router.post(
   validate([param('loadId').isString().isLength({ min: 1, max: 200 })]),
   asyncHandler(async (req: AuthRequest, res) => {
     const actor = await haulerActor(req);
-    // Same e-sign gate as the claim path: the CARRIER_ACCEPT signature must
-    // exist on the load's attestation chain before a hauler can hold the load.
-    const { requireSignature } = await import('../services/attestation/requireSignature');
-    await requireSignature(req.params.loadId, 'CARRIER_ACCEPT');
-
+    // No e-sign gate here: CARRIER_ACCEPT is an ASSIGNMENT attestation (its
+    // projection binds assignedDriverId) so it cannot exist on a still-broadcast
+    // load. Engagement only acquires the exclusive negotiation lock; the e-sign
+    // belongs at the accept/assign step (the same place the claim path signs),
+    // tracked as a follow-up. requireVerifiedCarrier above still gates engage on
+    // a verified carrier of record.
     const neg = await NegotiationService.engage({
       loadId: req.params.loadId,
       haulerCarrierId: actor.carrierId,

@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, MapPin, Package, Truck, FileText, DollarSign } from "
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { AccessorialsPanel } from "@/components/AccessorialsPanel";
+import { NegotiationPanel } from "@/components/NegotiationPanel";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -139,6 +140,7 @@ export default function OwnerOperatorLoadDetail() {
         )}
 
         {/* Stop check-in/out + detention/layover accessorials for the mover. */}
+        <NegotiationPanel loadId={loadId!} party="HAULER" onAssigned={() => window.location.reload()} />
         <AccessorialsPanel loadId={loadId!} role="MOVER" />
       </div>
     </div>

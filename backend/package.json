@@ -15,7 +15,9 @@
     "teardown:beta-metrics": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/teardownBetaMetrics.ts",
     "test:beta-metrics": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/verifyBetaMetrics.ts",
     "seed:detention": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedDetentionCharge.ts seed",
-    "purge:detention": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedDetentionCharge.ts purge"
+    "purge:detention": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedDetentionCharge.ts purge",
+    "seed:nego-demo": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedNegotiationDemo.ts seed",
+    "purge:nego-demo": "node -r ts-node-dev/node_modules/ts-node/register/transpile-only scripts/seedNegotiationDemo.ts purge"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.758.0",
