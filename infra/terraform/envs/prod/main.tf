@@ -281,6 +281,42 @@ module "ddb_payout_intercepts" {
   tags                = local.tags
 }
 
+# ─── Load negotiation (engage/bid/counter) ──────────────────────────────────
+# Session rows, append-only offers, and the per-load exclusivity lock. The
+# Load model is never touched; sessions reference load + parties by id.
+module "ddb_load_negotiations" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_LoadNegotiations"
+  hash_key            = "negotiationId"
+  attributes = [
+    { name = "negotiationId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+module "ddb_negotiation_offers" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_NegotiationOffers"
+  hash_key            = "negOfferId"
+  attributes = [
+    { name = "negOfferId", type = "S" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
+module "ddb_negotiation_locks" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_NegotiationLocks"
+  hash_key            = "loadId"
+  attributes = [
+    { name = "loadId", type = "S" },
+  ]
+  deletion_protection = false # ephemeral lock rows; deleted on release by design
+  tags                = local.tags
+}
+
 # ─── LoadLead_StopEvents ────────────────────────────────────────────────────
 # Append-only stop-events log (check-in/check-out evidence). Detention and
 # layover compute from these immutable events; references load + stop by id

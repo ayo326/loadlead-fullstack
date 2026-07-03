@@ -72,6 +72,12 @@ export const config = {
     disclosuresTable: process.env.DYNAMODB_DISCLOSURES_TABLE || 'LoadLead_Disclosures',
     // Append-only payout-intercept records (garnishment, levy, lien).
     payoutInterceptsTable: process.env.DYNAMODB_PAYOUT_INTERCEPTS_TABLE || 'LoadLead_PayoutIntercepts',
+    // Load negotiation (engage/bid/counter): session rows, append-only offer
+    // rows, and the per-load exclusivity lock. The Load model is never touched;
+    // everything references the load and the parties by id.
+    loadNegotiationsTable: process.env.DYNAMODB_LOAD_NEGOTIATIONS_TABLE || 'LoadLead_LoadNegotiations',
+    negotiationOffersTable: process.env.DYNAMODB_NEGOTIATION_OFFERS_TABLE || 'LoadLead_NegotiationOffers',
+    negotiationLocksTable: process.env.DYNAMODB_NEGOTIATION_LOCKS_TABLE || 'LoadLead_NegotiationLocks',
     // Append-only stop-events log (check-in/check-out). Detention/layover are
     // computed from these immutable events. References load + stop by id only.
     stopEventsTable: process.env.DYNAMODB_STOP_EVENTS_TABLE || 'LoadLead_StopEvents',

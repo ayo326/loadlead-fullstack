@@ -138,6 +138,13 @@ export class OfferService {
       if (!load) throw new AppError('Load not found', 404);
       if (load.assignedDriverId) throw new AppError('Load has already been assigned to another driver', 409);
 
+      // A load under an active negotiation belongs to the engaged hauler only.
+      const { NegotiationService } = await import('./negotiationService');
+      const lock = await NegotiationService.lockFor(loadId);
+      if (lock && lock.haulerDriverId !== driverId) {
+        throw new AppError('Load is no longer available', 409);
+      }
+
       const now = Helpers.getCurrentTimestamp();
 
       // Update by offerId (the real PK)

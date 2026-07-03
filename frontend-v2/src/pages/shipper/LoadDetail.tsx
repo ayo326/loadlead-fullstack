@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { RouteMapCard } from "@/components/RouteMapCard";
 import { AttestationChain } from "@/components/attestation/AttestationChain";
 import { AccessorialsPanel } from "@/components/AccessorialsPanel";
+import { NegotiationPanel } from "@/components/NegotiationPanel";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -275,6 +276,7 @@ export default function ShipperLoadDetail() {
           <AttestationChain loadId={load.loadId} />
 
           {/* Detention/layover charge review (approve / adjust / dispute). */}
+          <NegotiationPanel loadId={load.loadId} party="SHIPPER" onAssigned={() => window.location.reload()} />
           <AccessorialsPanel loadId={load.loadId} role="SHIPPER" />
         </aside>
       </div>

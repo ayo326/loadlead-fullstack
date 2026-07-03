@@ -56,6 +56,8 @@ import { diditWebhookHandler } from './services/verification';
 import factoringRoutes from './routes/factoring';
 import accessorialRoutes from './routes/accessorials';
 import adminComplianceRoutes from './routes/adminCompliance';
+import negotiationRoutes from './routes/negotiations';
+import { NegotiationService } from './services/negotiationService';
 import referenceRoutes from './routes/reference';
 const app: Application = express();
 
@@ -250,6 +252,10 @@ const PORT = Number(process.env.PORT) || config.port || 4000;
 setInterval(async () => {
   try {
     await BroadcastService.rebroadcastExpiredLoads();
+    // Negotiation sweeper: expire overdue negotiations, release their locks,
+    // and let the loads rebroadcast at the posted rate. Same EventBridge/
+    // Lambda debt note as above applies.
+    await NegotiationService.expireOverdue();
   } catch (e) {
     console.error('[rebroadcast worker] error', e);
   }
@@ -280,6 +286,7 @@ app.use('/api/admin/liquidity', adminLiquidityRoutes);
 app.use('/api/factoring', factoringRoutes);
 app.use('/api/accessorials', accessorialRoutes);
 app.use('/api/admin/compliance', adminComplianceRoutes);
+app.use('/api/negotiations', negotiationRoutes);
 app.use('/api/reference', referenceRoutes);
 
 // Didit webhook — PUBLIC (no JWT); signature verified inside the handler

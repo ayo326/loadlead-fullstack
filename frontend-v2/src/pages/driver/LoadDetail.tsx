@@ -10,6 +10,7 @@ import { Countdown } from "@/components/Countdown";
 import { AttestationDialog, ATTESTATION_TEXT, ATTESTATION_VERSION } from "@/components/attestation/AttestationDialog";
 import { AttestationChain } from "@/components/attestation/AttestationChain";
 import { AccessorialsPanel } from "@/components/AccessorialsPanel";
+import { NegotiationPanel } from "@/components/NegotiationPanel";
 import { AccessorialTermsSummary, AccessorialDisclosureModal } from "@/components/AccessorialTerms";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -329,6 +330,7 @@ export default function DriverLoadDetail() {
           <AttestationChain loadId={load.loadId} />
 
           {/* Stop check-in/out + detention/layover accessorials for the mover. */}
+          <NegotiationPanel loadId={load.loadId} party="HAULER" onAssigned={() => window.location.reload()} />
           <AccessorialsPanel loadId={load.loadId} role="MOVER" />
         </aside>
       </div>

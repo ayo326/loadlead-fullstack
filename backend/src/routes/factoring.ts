@@ -211,7 +211,14 @@ const FACTORING_TERMS_WINDOW_DAYS = 90;
 export async function buildPackageForInvoice(invoiceId: string, carrierId: string) {
   const load = await LoadService.getLoadById(invoiceId);
   if (!load) throw new AppError(`Load ${invoiceId} not found`, 404);
-  const settlement = await PlatformFeeService.computeLinehaulSettlement(loadLinehaulGrossCents(load));
+  // Negotiated loads settle at the agreed rate: the accepted negotiation's
+  // linehaul (round(agreed rate x miles)) replaces the posted-rate gross as
+  // the take-rate input. The Load row itself is never mutated.
+  const { NegotiationService } = await import('../services/negotiationService');
+  const negotiatedLinehaul = await NegotiationService.agreedLinehaulCentsFor(invoiceId);
+  const settlement = await PlatformFeeService.computeLinehaulSettlement(
+    negotiatedLinehaul ?? loadLinehaulGrossCents(load)
+  );
   const charges = await AccessorialChargeService.listForLoad(invoiceId);
   const activeAssignment = await FactoringAssignmentService.getActiveAssignment(carrierId, invoiceId);
   const chain = await getChain(invoiceId).catch(() => [] as any[]);

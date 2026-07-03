@@ -202,6 +202,27 @@ const TABLES = [
     BillingMode: "PAY_PER_REQUEST",
   },
   {
+    // Load negotiation sessions (engage/bid/counter state machine).
+    TableName: process.env.DYNAMODB_LOAD_NEGOTIATIONS_TABLE || "LoadLead_LoadNegotiations",
+    AttributeDefinitions: [{ AttributeName: "negotiationId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "negotiationId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Append-only negotiation offers (every bid/counter/accept/reject).
+    TableName: process.env.DYNAMODB_NEGOTIATION_OFFERS_TABLE || "LoadLead_NegotiationOffers",
+    AttributeDefinitions: [{ AttributeName: "negOfferId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "negOfferId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
+    // Per-load exclusivity lock: conditional put = one active negotiation per load.
+    TableName: process.env.DYNAMODB_NEGOTIATION_LOCKS_TABLE || "LoadLead_NegotiationLocks",
+    AttributeDefinitions: [{ AttributeName: "loadId", AttributeType: "S" }],
+    KeySchema: [{ AttributeName: "loadId", KeyType: "HASH" }],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
     // Append-only stop-events log (check-in/check-out evidence).
     TableName: process.env.DYNAMODB_STOP_EVENTS_TABLE || "LoadLead_StopEvents",
     AttributeDefinitions: [{ AttributeName: "eventId", AttributeType: "S" }],

@@ -66,6 +66,22 @@ export interface PendingStaffInvite {
   invitedBy: string; expiresAt: number; createdAt: number;
 }
 
+// ─── Load negotiation (mirror backend negotiationService) ───────────────────
+export interface NegotiationView {
+  negotiationId: string; loadId: string;
+  status: "ENGAGED" | "PENDING_SHIPPER" | "PENDING_HAULER" | "ACCEPTED" | "REJECTED" | "EXPIRED";
+  display: string; actions: string[];
+  postedRatePerMileCents: number | null;
+  currentOfferRatePerMileCents: number | null;
+  currentOfferParty: "HAULER" | "SHIPPER" | null;
+  roundCount: number; secondsRemaining: number; deadlineAt: number;
+  agreedRatePerMileCents: number | null; agreedLinehaulCents: number | null;
+}
+export interface NegotiationOfferRow {
+  negOfferId: string; negotiationId: string; party: "HAULER" | "SHIPPER";
+  action: string; ratePerMileCents?: number; createdAt: number;
+}
+
 // ─── Compliance / oversight layer (mirror backend services) ─────────────────
 // Separate axis from PlatformRole: a compliance grant is required in addition to
 // the ADMIN role. The server enforces every surface; these types drive the UI.
@@ -317,6 +333,26 @@ export const api = {
     listIntercepts: (invoiceId: string, carrierId: string) =>
       request<{ intercepts: PayoutIntercept[] }>(
         "GET", `/admin/compliance/intercepts?invoiceId=${encodeURIComponent(invoiceId)}&carrierId=${encodeURIComponent(carrierId)}`),
+  },
+
+  // Load negotiation (engage/bid/counter). Rates are integer cents per mile.
+  negotiation: {
+    engage: (loadId: string) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/loads/${loadId}/engage`),
+    forLoad: (loadId: string) =>
+      request<{ negotiation: NegotiationView | null; offers?: NegotiationOfferRow[]; underNegotiation?: boolean }>(
+        "GET", `/negotiations/loads/${loadId}`),
+    acceptLoad: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/accept-load`),
+    bid: (id: string, ratePerMileCents: number) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/bid`, { ratePerMileCents }),
+    counter: (id: string, ratePerMileCents: number) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/counter`, { ratePerMileCents }),
+    accept: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/accept`),
+    reject: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/reject`),
+    shipperCounter: (id: string, ratePerMileCents: number) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/counter`, { ratePerMileCents }),
+    shipperAccept: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/accept`),
+    shipperReject: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/reject`),
   },
 
   logout: () => request<{ message: string }>("POST", "/auth/logout"),

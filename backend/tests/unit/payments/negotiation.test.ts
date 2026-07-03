@@ -1,0 +1,288 @@
+/**
+ * Load negotiation: the full definition-of-done matrix.
+ *
+ * The docClient mock emulates DynamoDB conditional semantics for exactly the
+ * commands the service issues (attribute_not_exists on the lock put; status
+ * and turn equality on session updates; owner equality on lock delete), so
+ * the concurrency guarantees are what is actually under test:
+ *   - two haulers engaging concurrently -> one negotiation, one clear 409
+ *   - only the party whose turn it is may act
+ *   - repeated accept never assigns twice
+ *   - late actions expire the negotiation and rebroadcast
+ *   - offers are append-only; the Load model is never written
+ */
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+const H = vi.hoisted(() => {
+  const tables: Record<string, Map<string, any>> = {};
+  const tbl = (name: string) => (tables[name] ??= new Map());
+  // Table-aware key extraction: lock rows carry BOTH loadId and negotiationId
+  // (keyed by loadId) and offer rows carry negotiationId (keyed by negOfferId),
+  // so the key must come from the table, not from attribute presence.
+  const keyOf = (table: string, item: any) =>
+    table.includes('Locks') ? item.loadId
+    : table.includes('Offers') ? item.negOfferId
+    : item.negotiationId ?? item.loadId ?? item.id;
+
+  function evalCondition(expr: string, existing: any, values: Record<string, any>): boolean {
+    if (!expr) return true;
+    if (expr.includes('attribute_not_exists')) return existing === undefined;
+    // equality conditions: '#status = :expectStatus [AND #cop = :expectParty]' / 'negotiationId = :n'
+    if (existing === undefined) return false;
+    const checks: [string, string][] = [];
+    if (expr.includes(':expectStatus')) checks.push(['status', ':expectStatus']);
+    if (expr.includes(':expectParty')) checks.push(['currentOfferParty', ':expectParty']);
+    if (expr.includes(':n')) checks.push(['negotiationId', ':n']);
+    return checks.every(([attr, v]) => existing[attr] === values[v]);
+  }
+
+  const send = vi.fn(async (cmd: any) => {
+    const name = cmd.constructor.name;
+    const inp = cmd.input;
+    const t = tbl(inp.TableName);
+    if (name === 'PutCommand') {
+      const k = keyOf(inp.TableName, inp.Item);
+      if (!evalCondition(inp.ConditionExpression, t.get(k), inp.ExpressionAttributeValues ?? {})) {
+        const e: any = new Error('conditional failed'); e.name = 'ConditionalCheckFailedException'; throw e;
+      }
+      t.set(k, { ...inp.Item });
+      return {};
+    }
+    if (name === 'GetCommand') return { Item: t.get(keyOf(inp.TableName, inp.Key)) };
+    if (name === 'DeleteCommand') {
+      const k = keyOf(inp.TableName, inp.Key);
+      if (!evalCondition(inp.ConditionExpression, t.get(k), inp.ExpressionAttributeValues ?? {})) {
+        const e: any = new Error('conditional failed'); e.name = 'ConditionalCheckFailedException'; throw e;
+      }
+      t.delete(k);
+      return {};
+    }
+    if (name === 'UpdateCommand') {
+      const k = keyOf(inp.TableName, inp.Key);
+      const existing = t.get(k);
+      if (!evalCondition(inp.ConditionExpression, existing, inp.ExpressionAttributeValues ?? {})) {
+        const e: any = new Error('conditional failed'); e.name = 'ConditionalCheckFailedException'; throw e;
+      }
+      // apply SET #si = :vi pairs
+      const updated = { ...existing };
+      const names = inp.ExpressionAttributeNames ?? {};
+      const values = inp.ExpressionAttributeValues ?? {};
+      for (const m of inp.UpdateExpression.replace(/^SET /, '').split(', ')) {
+        const [n, v] = m.split(' = ');
+        updated[names[n.trim()]] = values[v.trim()];
+      }
+      t.set(k, updated);
+      return {};
+    }
+    throw new Error(`unmocked command ${name}`);
+  });
+
+  // Database wrapper reads/writes plain items through the same maps.
+  const putItem = vi.fn(async (table: string, item: any) => { tbl(table).set(keyOf(table, item), { ...item }); });
+  const getItem = vi.fn(async (table: string, key: any) => tbl(table).get(keyOf(table, key)) ?? null);
+  const scan = vi.fn(async (table: string) => [...tbl(table).values()]);
+
+  const loads = new Map<string, any>();
+  const assignDriver = vi.fn(async (loadId: string, driverId: string) => {
+    const l = loads.get(loadId); if (l) { l.assignedDriverId = driverId; l.status = 'BOOKED'; }
+  });
+  const getLoadById = vi.fn(async (loadId: string) => loads.get(loadId) ?? null);
+
+  return { tables, tbl, send, putItem, getItem, scan, loads, assignDriver, getLoadById };
+});
+
+vi.mock('../../../src/config/aws', () => ({ docClient: { send: H.send } }));
+vi.mock('../../../src/config/database', () => ({
+  Database: { putItem: H.putItem, getItem: H.getItem, scan: H.scan, updateItem: vi.fn(), deleteItem: vi.fn() },
+}));
+vi.mock('../../../src/services/loadService', () => ({
+  LoadService: { getLoadById: H.getLoadById, assignDriver: H.assignDriver },
+}));
+vi.mock('../../../src/utils/logger', () => ({ Logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }, default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+
+import config from '../../../src/config/environment';
+import { NegotiationService, linehaulCentsAt } from '../../../src/services/negotiationService';
+import { NEGOTIATION_POLICY } from '../../../src/config/negotiationPolicy';
+
+const LOAD = () => ({
+  loadId: 'load-1', shipperId: 'ship-1', rateType: 'PER_MILE', rateAmount: 2.5, totalMiles: 400,
+});
+const HAULER = { loadId: 'load-1', haulerCarrierId: 'carrier-1', haulerDriverId: 'drv-1', haulerUserId: 'user-h' };
+
+beforeEach(() => {
+  for (const k of Object.keys(H.tables)) delete H.tables[k];
+  H.loads.clear();
+  H.loads.set('load-1', LOAD());
+  vi.clearAllMocks();
+});
+
+describe('engagement and the exclusive lock', () => {
+  it('two haulers engaging the same load concurrently: one negotiation, one clear 409', async () => {
+    const [a, b] = await Promise.allSettled([
+      NegotiationService.engage(HAULER),
+      NegotiationService.engage({ ...HAULER, haulerDriverId: 'drv-2', haulerUserId: 'user-h2', haulerCarrierId: 'carrier-2' }),
+    ]);
+    const outcomes = [a, b];
+    expect(outcomes.filter((o) => o.status === 'fulfilled')).toHaveLength(1);
+    const failed = outcomes.find((o) => o.status === 'rejected') as PromiseRejectedResult;
+    expect(String(failed.reason?.message)).toContain('no longer available');
+  });
+
+  it('an active negotiation excludes the load from other haulers (lock map)', async () => {
+    await NegotiationService.engage(HAULER);
+    const locks = await NegotiationService.activeLockedLoadIds();
+    expect(locks.get('load-1')).toBe('drv-1'); // visible only to drv-1
+  });
+
+  it('snapshots the posted rate in integer cents per mile at engagement', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    expect(neg.postedRatePerMileCents).toBe(250); // $2.50/mi
+    expect(neg.postedLinehaulCents).toBe(100000); // 250 x 400
+    expect(neg.deadlineAt - neg.startedAt).toBe(NEGOTIATION_POLICY.windowMinutes * 60_000);
+  });
+});
+
+describe('accept load at the posted rate', () => {
+  it('assigns at the posted rate, terminal ACCEPTED, lock released', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    const done = await NegotiationService.acceptLoad(neg.negotiationId, 'drv-1');
+    expect(done.status).toBe('ACCEPTED');
+    expect(done.outcome).toBe('ACCEPT_LOAD');
+    expect(done.agreedRatePerMileCents).toBe(250);
+    expect(done.agreedLinehaulCents).toBe(100000);
+    expect(H.assignDriver).toHaveBeenCalledWith('load-1', 'drv-1');
+    expect((await NegotiationService.activeLockedLoadIds()).size).toBe(0);
+  });
+});
+
+describe('bid -> shipper actions', () => {
+  it('bid then shipper accept assigns at the hauler rate with linehaul round(rate x miles)', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    const done = await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
+    expect(done.status).toBe('ACCEPTED');
+    expect(done.outcome).toBe('ACCEPT_BID');
+    expect(done.agreedRatePerMileCents).toBe(300);
+    expect(done.agreedLinehaulCents).toBe(linehaulCentsAt(300, 400)); // 120000
+    expect(H.assignDriver).toHaveBeenCalledWith('load-1', 'drv-1');
+  });
+
+  it('bid, shipper counter, hauler accept-counter assigns at the shipper rate', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', 320);
+    await NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, 280);
+    const done = await NegotiationService.acceptOffer(neg.negotiationId, { party: 'HAULER', driverId: 'drv-1' });
+    expect(done.outcome).toBe('ACCEPT_COUNTER');
+    expect(done.agreedRatePerMileCents).toBe(280);
+    expect(done.agreedLinehaulCents).toBe(112000);
+  });
+
+  it('turn enforcement: the hauler cannot act on the shipper turn and the reverse', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300); // now PENDING_SHIPPER
+    await expect(NegotiationService.counter(neg.negotiationId, { party: 'HAULER', driverId: 'drv-1' }, 310))
+      .rejects.toThrow(/not your turn/);
+    await NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, 275); // now PENDING_HAULER
+    await expect(NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, 270))
+      .rejects.toThrow(/not your turn/);
+  });
+
+  it('reject rebroadcasts: lock released, load unassigned, offer row appended', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    const done = await NegotiationService.reject(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
+    expect(done.status).toBe('REJECTED');
+    expect((await NegotiationService.activeLockedLoadIds()).size).toBe(0);
+    expect(H.loads.get('load-1').assignedDriverId).toBeUndefined();
+    const offers = await NegotiationService.offersFor(neg.negotiationId);
+    expect(offers.map((o) => o.action)).toEqual(['BID', 'REJECT']);
+  });
+
+  it('the same load can be engaged again after rejection (including by the same hauler)', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await NegotiationService.reject(neg.negotiationId, { party: 'HAULER', driverId: 'drv-1' });
+    const again = await NegotiationService.engage(HAULER);
+    expect(again.negotiationId).not.toBe(neg.negotiationId);
+    expect(again.status).toBe('ENGAGED');
+  });
+});
+
+describe('window expiry', () => {
+  it('an action after the deadline expires the negotiation and rebroadcasts', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    vi.spyOn(Date, 'now').mockReturnValue(neg.deadlineAt + 60_000);
+    await expect(NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }))
+      .rejects.toThrow(/expired/);
+    const after = await NegotiationService.getById(neg.negotiationId);
+    expect(after!.status).toBe('EXPIRED');
+    expect((await NegotiationService.activeLockedLoadIds()).size).toBe(0);
+    vi.restoreAllMocks();
+  });
+
+  it('the sweeper expires overdue negotiations and releases their locks', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    vi.spyOn(Date, 'now').mockReturnValue(neg.deadlineAt + 1);
+    const n = await NegotiationService.expireOverdue();
+    expect(n).toBe(1);
+    expect((await NegotiationService.getById(neg.negotiationId))!.status).toBe('EXPIRED');
+    expect((await NegotiationService.activeLockedLoadIds()).size).toBe(0);
+    vi.restoreAllMocks();
+  });
+});
+
+describe('idempotency and validation', () => {
+  it('a repeated accept does not assign twice', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    const once = await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
+    const twice = await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
+    expect(twice.negotiationId).toBe(once.negotiationId);
+    expect(twice.agreedLinehaulCents).toBe(once.agreedLinehaulCents);
+    expect(H.assignDriver).toHaveBeenCalledTimes(1);
+  });
+
+  it('a non-positive or non-integer bid is rejected', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await expect(NegotiationService.bid(neg.negotiationId, 'drv-1', 0)).rejects.toThrow(/at least/);
+    await expect(NegotiationService.bid(neg.negotiationId, 'drv-1', 250.5 as any)).rejects.toThrow(/integer/);
+  });
+
+  it('every action is a new append-only offer row; nothing is mutated', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    await NegotiationService.counter(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' }, 280);
+    await NegotiationService.counter(neg.negotiationId, { party: 'HAULER', driverId: 'drv-1' }, 290);
+    await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
+    const offers = await NegotiationService.offersFor(neg.negotiationId);
+    expect(offers.map((o) => `${o.party}:${o.action}`)).toEqual([
+      'HAULER:BID', 'SHIPPER:COUNTER', 'HAULER:COUNTER', 'SHIPPER:ACCEPT_BID',
+    ]);
+    expect(new Set(offers.map((o) => o.negOfferId)).size).toBe(4);
+  });
+
+  it('the Load model is never written by the negotiation store (only assignDriver on accept)', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    await NegotiationService.reject(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
+    expect(H.assignDriver).not.toHaveBeenCalled();
+    expect(H.loads.get('load-1')).toEqual(LOAD()); // untouched
+  });
+
+  it('a FLAT_RATE load can be accepted at the posted rate but not bid per mile', async () => {
+    H.loads.set('load-1', { loadId: 'load-1', shipperId: 'ship-1', rateType: 'FLAT_RATE', rateAmount: 1200, totalMiles: 400 });
+    const neg = await NegotiationService.engage(HAULER);
+    await expect(NegotiationService.bid(neg.negotiationId, 'drv-1', 300)).rejects.toThrow(/flat rate/);
+    const done = await NegotiationService.acceptLoad(neg.negotiationId, 'drv-1');
+    expect(done.status).toBe('ACCEPTED');
+    expect(done.agreedLinehaulCents).toBe(120000); // the flat amount in cents
+  });
+
+  it('settlement seam: agreedLinehaulCentsFor returns the negotiated linehaul only when ACCEPTED', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    expect(await NegotiationService.agreedLinehaulCentsFor('load-1')).toBeNull();
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', 300);
+    await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
+    expect(await NegotiationService.agreedLinehaulCentsFor('load-1')).toBe(120000);
+  });
+});
