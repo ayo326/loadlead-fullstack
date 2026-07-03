@@ -17,6 +17,7 @@ import {
   api, type BetaApplicationRow, type CohortBalance, type LaneOverlap,
   type AllowlistEntry, type WaitlistRow,
 } from "@/lib/api";
+import { SubmittedIntakeDrawer } from "@/components/beta/SubmittedIntakeDrawer";
 
 const STATUSES = ["NEW", "QUALIFIED", "WAITLISTED", "ADMITTED", "INVITED", "ONBOARDED", "DISQUALIFIED"] as const;
 const STATUS_TONE: Record<string, string> = {
@@ -582,6 +583,7 @@ function StaffDim({ label, value, max, onChange }: { label: string; value: numbe
 // ─── Allowlist tab ──────────────────────────────────────────────────────────
 
 function AllowlistTab() {
+  const [drawerEmail, setDrawerEmail] = useState<string | null>(null);
   const [entries, setEntries] = useState<AllowlistEntry[]>([]);
   const [type, setType] = useState<"EMAIL" | "DOMAIN">("EMAIL");
   const [value, setValue] = useState("");
@@ -644,7 +646,13 @@ function AllowlistTab() {
             {entries.map((e) => (
               <tr key={e.allowlistId} className="border-t border-border">
                 <td className="px-3 py-2">{e.type}</td>
-                <td className="px-3 py-2 font-mono text-xs">{e.value}</td>
+                <td className="px-3 py-2 font-mono text-xs">
+                  {e.type === "EMAIL" ? (
+                    <button className="text-primary hover:underline" onClick={() => setDrawerEmail(e.value)} title="View submitted intake">
+                      {e.value}
+                    </button>
+                  ) : e.value}
+                </td>
                 <td className="px-3 py-2 text-muted-foreground text-xs">{e.reason ?? "—"}</td>
                 <td className="px-3 py-2">{e.active ? "✓" : "✗"}</td>
                 <td className="px-3 py-2 text-right">
@@ -660,6 +668,7 @@ function AllowlistTab() {
           </tbody>
         </table>
       </div>
+      <SubmittedIntakeDrawer email={drawerEmail} contextLabel="allowlist" onClose={() => setDrawerEmail(null)} />
     </div>
   );
 }
@@ -667,6 +676,7 @@ function AllowlistTab() {
 // ─── Waitlist tab ───────────────────────────────────────────────────────────
 
 function WaitlistTab() {
+  const [drawerEmail, setDrawerEmail] = useState<string | null>(null);
   const [entries, setEntries] = useState<WaitlistRow[]>([]);
   const reload = useCallback(() => { api.adminBeta.listWaitlist().then((r) => setEntries(r.entries)); }, []);
   useEffect(() => { reload(); }, [reload]);
@@ -693,7 +703,11 @@ function WaitlistTab() {
         <tbody>
           {entries.map((w) => (
             <tr key={w.waitlistId} className="border-t border-border">
-              <td className="px-3 py-2 font-mono text-xs">{w.email}</td>
+              <td className="px-3 py-2 font-mono text-xs">
+                <button className="text-primary hover:underline" onClick={() => setDrawerEmail(w.email)} title="View submitted intake">
+                  {w.email}
+                </button>
+              </td>
               <td className="px-3 py-2">{w.name ?? "—"}</td>
               <td className="px-3 py-2">{w.personaInterest ?? "—"}</td>
               <td className="px-3 py-2 text-muted-foreground text-xs">{w.source}</td>
@@ -710,6 +724,7 @@ function WaitlistTab() {
           )}
         </tbody>
       </table>
+      <SubmittedIntakeDrawer email={drawerEmail} contextLabel="waitlist" onClose={() => setDrawerEmail(null)} />
     </div>
   );
 }

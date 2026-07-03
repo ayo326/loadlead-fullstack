@@ -210,6 +210,11 @@ export const api = {
       request<{ application: BetaApplicationRow; laneOverlaps: LaneOverlap[] }>(
         "GET", `/admin/beta/applications/${id}`
       ),
+    // The submitted Tally intake for an email (allowlist/waitlist drawer).
+    getApplicationByEmail: (email: string) =>
+      request<{ application: BetaApplicationRow | null }>(
+        "GET", `/admin/beta/applications/by-email/${encodeURIComponent(email)}`
+      ),
     score: (id: string, scores: { segmentFit?: number; laneOverlap?: number; pain?: number; responsiveness?: number }) =>
       request<{ application: BetaApplicationRow }>(
         "PUT", `/admin/beta/applications/${id}/score`, scores

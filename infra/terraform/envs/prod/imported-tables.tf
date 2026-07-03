@@ -822,3 +822,30 @@ resource "aws_dynamodb_table" "ddb_waitlist" {
   deletion_protection_enabled = true
   tags = local.tags
 }
+
+# ─── Append-only protection for beta application intake ─────────────────────
+# A LoadLead_BetaApplications row is the applicant's full Tally submission (PII)
+# and the record admins review to admit or waitlist. The app only ever creates
+# and UPDATES these rows (status transitions, scoring, notes) - it never
+# deletes one. An earlier row was lost to a manual console delete before PITR
+# existed on this table; this policy makes that unrepeatable by DENYING
+# DeleteItem on the table to the EB backend's instance role. Deny always wins,
+# so even a future buggy or malicious code path cannot remove a submission.
+# UpdateItem is intentionally NOT denied - the review workflow depends on it.
+data "aws_iam_role" "eb_backend" {
+  name = "aws-elasticbeanstalk-ec2-role"
+}
+
+resource "aws_iam_role_policy" "deny_beta_application_deletes" {
+  name = "loadlead-deny-beta-application-row-deletes"
+  role = data.aws_iam_role.eb_backend.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "DenyBetaApplicationRowDeletes"
+      Effect   = "Deny"
+      Action   = ["dynamodb:DeleteItem"]
+      Resource = aws_dynamodb_table.ddb_beta_applications.arn
+    }]
+  })
+}

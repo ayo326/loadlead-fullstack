@@ -47,6 +47,19 @@ router.get('/applications', asyncHandler(async (req: AuthRequest, res) => {
   res.json({ applications: apps, count: apps.length });
 }));
 
+/**
+ * GET /api/admin/beta/applications/by-email/:email — the submitted intake for
+ * a given email. Lets the allowlist and waitlist tabs open a drawer with
+ * exactly what the applicant sent on the Tally form (those stores key by
+ * email; the full intake lives in the applications store). Mounted before the
+ * /:id route so "by-email" is not swallowed as an id. 200 with
+ * { application: null } when nothing was submitted for that email.
+ */
+router.get('/applications/by-email/:email', asyncHandler(async (req: AuthRequest, res) => {
+  const application = await BetaApplicationService.getByEmail(req.params.email);
+  res.json({ application });
+}));
+
 /** GET /api/admin/beta/applications/:id — detail + lane-overlap helper */
 router.get('/applications/:id', asyncHandler(async (req: AuthRequest, res) => {
   const app = await BetaApplicationService.get(req.params.id);

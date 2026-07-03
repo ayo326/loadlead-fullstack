@@ -325,6 +325,19 @@ export class BetaApplicationService {
     return Database.getItem<BetaApplication>(config.dynamodb.betaApplicationsTable, { applicationId });
   }
 
+  /**
+   * The application submitted by a given email, newest first. Lets the beta
+   * dashboard open a submitted-intake drawer from an allowlist or waitlist row
+   * (those stores key by email; the full Tally intake lives here).
+   */
+  static async getByEmail(email: string): Promise<BetaApplication | null> {
+    const target = email.trim().toLowerCase();
+    const all = await Database.scan<BetaApplication>(config.dynamodb.betaApplicationsTable);
+    return all
+      .filter((a) => (a.workEmail ?? '').toLowerCase() === target)
+      .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+  }
+
   static async list(filter?: { status?: string; side?: string; wave?: string }): Promise<BetaApplication[]> {
     const all = await Database.scan<BetaApplication>(config.dynamodb.betaApplicationsTable);
     return all.filter(a => {
