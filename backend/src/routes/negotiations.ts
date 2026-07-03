@@ -77,6 +77,32 @@ async function shipperActor(req: AuthRequest, neg: LoadNegotiation): Promise<{ p
   throw new AppError('Only the load shipper may act on this negotiation', 403);
 }
 
+/**
+ * E-sign gate for the assignment step. A negotiated assignment must be attested
+ * by a CARRIER_ACCEPT signature in the load's chain, exactly as the claim path
+ * (routes/driver.ts `/offers/:loadId/accept`) requires before it assigns a
+ * driver. This is the attestation that used to gate /engage: it belongs here,
+ * at accept/assign, because CARRIER_ACCEPT binds assignedDriverId and only
+ * makes sense once a driver is actually being committed to the load.
+ *
+ * requireSignature throws 412 (CARRIER_ACCEPT_SIGNATURE_REQUIRED) when the
+ * signature is absent; we additionally assert a carrier signer role, mirroring
+ * the claim-path cross-check so a signature from a non-carrier role cannot
+ * satisfy the gate. Applied to every route that reaches finishAccepted():
+ * hauler accept-load, hauler accept-counter, and shipper accept-bid (where the
+ * carrier signed earlier, when placing the bid the shipper is now accepting).
+ */
+async function requireCarrierAcceptForAssignment(loadId: string): Promise<void> {
+  const { requireSignature } = await import('../services/attestation/requireSignature');
+  const sig = await requireSignature(loadId, 'CARRIER_ACCEPT');
+  if (sig.signerRole !== 'CARRIER_ADMIN' && sig.signerRole !== 'OWNER_OPERATOR') {
+    throw new AppError(JSON.stringify({
+      error: 'CARRIER_ACCEPT signature was signed by a non-carrier role',
+      code:  'CARRIER_ACCEPT_SIGNER_INVALID',
+    }), 409);
+  }
+}
+
 function fmtRate(cents: number | null | undefined): string {
   return cents == null ? 'the posted rate' : `$${(cents / 100).toFixed(2)}/mi`;
 }
@@ -160,10 +186,10 @@ router.post(
     const actor = await haulerActor(req);
     // No e-sign gate here: CARRIER_ACCEPT is an ASSIGNMENT attestation (its
     // projection binds assignedDriverId) so it cannot exist on a still-broadcast
-    // load. Engagement only acquires the exclusive negotiation lock; the e-sign
-    // belongs at the accept/assign step (the same place the claim path signs),
-    // tracked as a follow-up. requireVerifiedCarrier above still gates engage on
-    // a verified carrier of record.
+    // load. Engagement only acquires the exclusive negotiation lock. The e-sign
+    // is enforced at the accept/assign step instead (the same place the claim
+    // path signs) via requireCarrierAcceptForAssignment() on the accept routes.
+    // requireVerifiedCarrier above still gates engage on a verified carrier.
     const neg = await NegotiationService.engage({
       loadId: req.params.loadId,
       haulerCarrierId: actor.carrierId,
@@ -178,6 +204,9 @@ router.post(
 
 router.post('/:id/accept-load', asyncHandler(async (req: AuthRequest, res) => {
   const actor = await haulerActor(req);
+  const pending = await NegotiationService.getById(req.params.id);
+  if (!pending) throw new AppError('Negotiation not found', 404);
+  await requireCarrierAcceptForAssignment(pending.loadId);
   const neg = await NegotiationService.acceptLoad(req.params.id, actor.driverId);
   await notify(neg, 'HAULER', 'Load accepted', `Your load was accepted at the posted rate (${fmtRate(neg.agreedRatePerMileCents)}).`);
   res.json({ negotiation: viewFor(neg, 'HAULER') });
@@ -199,6 +228,9 @@ router.post('/:id/counter', validate(offerValidators), asyncHandler(async (req: 
 
 router.post('/:id/accept', asyncHandler(async (req: AuthRequest, res) => {
   const actor = await haulerActor(req);
+  const pending = await NegotiationService.getById(req.params.id);
+  if (!pending) throw new AppError('Negotiation not found', 404);
+  await requireCarrierAcceptForAssignment(pending.loadId);
   const neg = await NegotiationService.acceptOffer(req.params.id, actor);
   await notify(neg, 'HAULER', 'Counter accepted - load assigned', `The hauler accepted your counter at ${fmtAgreed(neg)}.`);
   res.json({ negotiation: viewFor(neg, 'HAULER') });
@@ -226,6 +258,11 @@ router.post('/:id/shipper/accept', asyncHandler(async (req: AuthRequest, res) =>
   const existing = await NegotiationService.getById(req.params.id);
   if (!existing) throw new AppError('Negotiation not found', 404);
   const actor = await shipperActor(req, existing);
+  // The carrier isn't the actor here, but their bid becomes a binding
+  // assignment the moment the shipper accepts it — so the CARRIER_ACCEPT
+  // attestation the hauler signed for that bid must be present, or there is
+  // no assignment to make. 412s until the carrier has signed.
+  await requireCarrierAcceptForAssignment(existing.loadId);
   const neg = await NegotiationService.acceptOffer(req.params.id, actor);
   await notify(neg, 'SHIPPER', 'Bid accepted - load is yours', `The shipper accepted your offer of ${fmtAgreed(neg)}. The load is assigned to you.`);
   res.json({ negotiation: viewFor(neg, 'SHIPPER') });
