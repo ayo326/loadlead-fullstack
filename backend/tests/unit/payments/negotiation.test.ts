@@ -81,6 +81,13 @@ const H = vi.hoisted(() => {
   const putItem = vi.fn(async (table: string, item: any) => { tbl(table).set(keyOf(table, item), { ...item }); });
   const getItem = vi.fn(async (table: string, key: any) => tbl(table).get(keyOf(table, key)) ?? null);
   const scan = vi.fn(async (table: string) => [...tbl(table).values()]);
+  // Minimal GSI query over the in-memory tables: single-attribute equality
+  // (the M3 loadId / negotiationId indexes), resolved from the first name/value.
+  const query = vi.fn(async (table: string, _index: any, _cond: any, names: Record<string, string>, values: Record<string, any>) => {
+    const attr = Object.values(names)[0];
+    const val = Object.values(values)[0];
+    return [...tbl(table).values()].filter((it: any) => it[attr] === val);
+  });
 
   const loads = new Map<string, any>();
   const assignDriver = vi.fn(async (loadId: string, driverId: string) => {
@@ -88,12 +95,12 @@ const H = vi.hoisted(() => {
   });
   const getLoadById = vi.fn(async (loadId: string) => loads.get(loadId) ?? null);
 
-  return { tables, tbl, send, putItem, getItem, scan, loads, assignDriver, getLoadById };
+  return { tables, tbl, send, putItem, getItem, scan, query, loads, assignDriver, getLoadById };
 });
 
 vi.mock('../../../src/config/aws', () => ({ docClient: { send: H.send } }));
 vi.mock('../../../src/config/database', () => ({
-  Database: { putItem: H.putItem, getItem: H.getItem, scan: H.scan, updateItem: vi.fn(), deleteItem: vi.fn() },
+  Database: { putItem: H.putItem, getItem: H.getItem, scan: H.scan, query: H.query, updateItem: vi.fn(), deleteItem: vi.fn() },
 }));
 vi.mock('../../../src/services/loadService', () => ({
   LoadService: { getLoadById: H.getLoadById, assignDriver: H.assignDriver },
@@ -152,6 +159,53 @@ describe('accept load at the posted rate', () => {
     expect(done.agreedLinehaulCents).toBe(100000);
     expect(H.assignDriver).toHaveBeenCalledWith('load-1', 'drv-1');
     expect((await NegotiationService.activeLockedLoadIds()).size).toBe(0);
+  });
+});
+
+describe('M1: accept -> assign is atomic-ish (heals a failed assignment)', () => {
+  it('a retry heals an accept whose assignment failed after the terminal transition', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    // First accept: the terminal transition to ACCEPTED succeeds, then the
+    // assignDriver write fails (e.g. DynamoDB throttle).
+    H.assignDriver.mockImplementationOnce(async () => { throw new Error('ddb throttled'); });
+    await expect(NegotiationService.acceptLoad(neg.negotiationId, 'drv-1')).rejects.toThrow(/ddb throttled/);
+    // Stranded: ACCEPTED, load unassigned, lock still held (release never reached).
+    expect((await NegotiationService.getById(neg.negotiationId))!.status).toBe('ACCEPTED');
+    expect(H.loads.get('load-1').assignedDriverId).toBeUndefined();
+    expect((await NegotiationService.activeLockedLoadIds()).size).toBe(1);
+    // A retry (idempotent) reconciles it: assigns + releases the lock.
+    const healed = await NegotiationService.acceptLoad(neg.negotiationId, 'drv-1');
+    expect(healed.status).toBe('ACCEPTED');
+    expect(H.loads.get('load-1').assignedDriverId).toBe('drv-1');
+    expect((await NegotiationService.activeLockedLoadIds()).size).toBe(0);
+  });
+
+  it('the reconcile sweeper heals an accepted-but-unassigned load with no client retry', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    H.assignDriver.mockImplementationOnce(async () => { throw new Error('ddb throttled'); });
+    await expect(NegotiationService.acceptLoad(neg.negotiationId, 'drv-1')).rejects.toThrow();
+    expect(H.loads.get('load-1').assignedDriverId).toBeUndefined();
+    // No client retry — the background sweeper reconciles it.
+    expect(await NegotiationService.reconcileAcceptedAssignments()).toBe(1);
+    expect(H.loads.get('load-1').assignedDriverId).toBe('drv-1');
+    expect((await NegotiationService.activeLockedLoadIds()).size).toBe(0);
+    // Idempotent: a second sweep finds nothing to heal.
+    expect(await NegotiationService.reconcileAcceptedAssignments()).toBe(0);
+  });
+});
+
+describe('M3: negotiation reads prefer the GSI, fall back to a scan', () => {
+  it('falls back to a filtered scan when the loadId/negotiationId index is missing', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 });
+    // Simulate the GSI not existing yet in this environment (pre-backfill):
+    // latestForLoad and offersFor each issue one query, which we make fail.
+    const missingIndex = async () => { const e: any = new Error('The table does not have the specified index'); e.name = 'ValidationException'; throw e; };
+    H.query.mockImplementationOnce(missingIndex).mockImplementationOnce(missingIndex);
+    const latest = await NegotiationService.latestForLoad('load-1');
+    expect(latest?.negotiationId).toBe(neg.negotiationId); // resolved via scan fallback
+    const offers = await NegotiationService.offersFor(neg.negotiationId);
+    expect(offers.some((o) => o.action === 'BID')).toBe(true); // resolved via scan fallback
   });
 });
 

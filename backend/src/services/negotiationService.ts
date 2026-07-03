@@ -100,6 +100,15 @@ function isConditionFailure(err: any): boolean {
   return err?.name === 'ConditionalCheckFailedException' || err?.name === 'TransactionCanceledException';
 }
 
+/**
+ * A Query against a GSI that isn't created yet raises ValidationException
+ * ("The table does not have the specified index"). Callers fall back to a
+ * scan until the index is live (backfilled) in this environment.
+ */
+function isMissingIndex(err: any): boolean {
+  return err?.name === 'ValidationException' && /index/i.test(String(err?.message ?? ''));
+}
+
 /** Whole-cents linehaul for a load at a given per-mile rate. Explicit rounding. */
 export function linehaulCentsAt(ratePerMileCents: number, totalMiles: number): number {
   const cents = Math.round(ratePerMileCents * totalMiles);
@@ -216,11 +225,44 @@ export class NegotiationService {
 
   /** Latest negotiation for a load (any status), newest first. */
   static async latestForLoad(loadId: string): Promise<LoadNegotiation | null> {
-    const all = await this.scanNegs();
-    return all.filter((n) => n.loadId === loadId).sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+    const rows = await this.negsForLoad(loadId);
+    return rows.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+  }
+
+  /**
+   * Negotiations for a load. M3: the long-poll hot path calls this every ~1s,
+   * so query the loadId GSI instead of scanning the whole table; fall back to a
+   * filtered scan until the index is live in this environment.
+   */
+  private static async negsForLoad(loadId: string): Promise<LoadNegotiation[]> {
+    // Prefer the GSI; fall back to a filtered scan when the query path isn't
+    // usable — the index isn't backfilled yet (ValidationException) or the data
+    // layer doesn't expose query. The scan is always correct, just slower.
+    if (typeof Database.query === 'function') {
+      try {
+        return await Database.query<LoadNegotiation>(
+          T().neg, 'loadId-createdAt-index', '#l = :l', { '#l': 'loadId' }, { ':l': loadId },
+        );
+      } catch (err: any) {
+        if (err?.name === 'ResourceNotFoundException') return [];
+        if (!isMissingIndex(err)) throw err;
+      }
+    }
+    return (await this.scanNegs()).filter((n) => n.loadId === loadId);
   }
 
   static async offersFor(negotiationId: string): Promise<NegotiationOffer[]> {
+    if (typeof Database.query === 'function') {
+      try {
+        const rows = await Database.query<NegotiationOffer>(
+          T().offers, 'negotiationId-createdAt-index', '#n = :n', { '#n': 'negotiationId' }, { ':n': negotiationId },
+        );
+        return rows.sort((a, b) => a.createdAt - b.createdAt);
+      } catch (err: any) {
+        if (err?.name === 'ResourceNotFoundException') return [];
+        if (!isMissingIndex(err)) throw err;
+      }
+    }
     try {
       const rows = await Database.scan<NegotiationOffer>(T().offers);
       return rows.filter((o) => o.negotiationId === negotiationId).sort((a, b) => a.createdAt - b.createdAt);
@@ -237,7 +279,7 @@ export class NegotiationService {
     const neg = await this.requireNeg(negotiationId);
     this.requireHauler(neg, actorDriverId);
     // Idempotency: a repeated accept returns the same accepted negotiation.
-    if (neg.status === 'ACCEPTED' && neg.outcome === 'ACCEPT_LOAD') return neg;
+    if (neg.status === 'ACCEPTED' && neg.outcome === 'ACCEPT_LOAD') return this.ensureAssignedAndReleased(neg);
     if (await this.expireIfOverdue(neg)) throw new AppError('Negotiation window has expired; the load was rebroadcast', 409);
     if (neg.status !== 'ENGAGED') throw new AppError('Accept load is only available at engagement, before any bid', 409);
 
@@ -311,7 +353,7 @@ export class NegotiationService {
     this.requireActor(neg, actor);
     const action: NegotiationAction = actor.party === 'SHIPPER' ? 'ACCEPT_BID' : 'ACCEPT_COUNTER';
     // Idempotency: repeated accept returns the same accepted negotiation.
-    if (neg.status === 'ACCEPTED' && neg.outcome === action) return neg;
+    if (neg.status === 'ACCEPTED' && neg.outcome === action) return this.ensureAssignedAndReleased(neg);
     if (await this.expireIfOverdue(neg)) throw new AppError('Negotiation window has expired; the load was rebroadcast', 409);
     const expectStatus: NegotiationStatus = actor.party === 'SHIPPER' ? 'PENDING_SHIPPER' : 'PENDING_HAULER';
     if (neg.status !== expectStatus) throw new AppError('It is not your turn to act on this negotiation', 409);
@@ -383,6 +425,30 @@ export class NegotiationService {
     }
     if (expired > 0) Logger.info(`[negotiation sweeper] expired ${expired} overdue negotiation(s); loads rebroadcast`);
     return expired;
+  }
+
+  /**
+   * Reconcile sweeper (M1): heal any ACCEPTED negotiation whose load never got
+   * assigned to its hauler — the residue of an accept whose assignment write
+   * failed after the terminal transition, with no client retry. Idempotent; a
+   * genuine "assigned to another driver" conflict is logged, not forced.
+   */
+  static async reconcileAcceptedAssignments(): Promise<number> {
+    const all = await this.scanNegs();
+    let healed = 0;
+    for (const neg of all) {
+      if (neg.status !== 'ACCEPTED') continue;
+      const load = await LoadService.getLoadById(neg.loadId);
+      if (load?.assignedDriverId === neg.haulerDriverId) continue; // already assigned to us
+      try {
+        await this.ensureAssignedAndReleased(neg);
+        healed++;
+      } catch (err) {
+        Logger.error(`[negotiation reconcile] could not heal ${neg.negotiationId}`, err);
+      }
+    }
+    if (healed > 0) Logger.info(`[negotiation reconcile] healed ${healed} accepted-but-unassigned load(s)`);
+    return healed;
   }
 
   // ── live-update seam (long poll) ──────────────────────────────────────────
@@ -458,14 +524,28 @@ export class NegotiationService {
       });
     } catch (err) {
       const current = await this.getById(neg.negotiationId);
-      if (current?.status === 'ACCEPTED') return current; // idempotent repeat
+      if (current?.status === 'ACCEPTED') return this.ensureAssignedAndReleased(current); // idempotent repeat — reconcile assignment + lock too
       throw err;
     }
 
     await this.appendOffer(neg, party, action, agreedRatePerMileCents != null ? { ratePerMileCents: agreedRatePerMileCents } : { totalCents: agreedLinehaulCents });
 
-    // 2. Assignment through the existing path. Idempotent: if the load is
-    //    already assigned to this hauler's driver, that IS our assignment.
+    // 2. Assignment + lock release via the idempotent reconciler, so a failure
+    //    after the terminal transition is healed by any retry (or the sweeper),
+    //    never leaving the load ACCEPTED-but-unassigned.
+    return this.ensureAssignedAndReleased(neg);
+  }
+
+  /**
+   * Idempotent, reconciling tail of an accepted negotiation: ensure the load is
+   * assigned to this hauler's driver, then release our lock. Safe to call on the
+   * first accept AND on any idempotent retry — this is what heals an accept whose
+   * assignment write failed after the terminal transition (which would otherwise
+   * strand the load: ACCEPTED, unassigned, and still lock-hidden from the pool).
+   * Assignment happens BEFORE the lock release so the load is never both unlocked
+   * and unassigned (which would let a second hauler engage it).
+   */
+  private static async ensureAssignedAndReleased(neg: LoadNegotiation): Promise<LoadNegotiation> {
     const load = await LoadService.getLoadById(neg.loadId);
     if (load?.assignedDriverId && load.assignedDriverId !== neg.haulerDriverId) {
       // Should be impossible while we hold the lock; surface loudly.
