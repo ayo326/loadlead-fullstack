@@ -247,6 +247,22 @@ families:
         When the item is implemented against the cited platform conventions and COAs
         Then its verification steps pass and the dependent items are unblocked
 
+  negot:
+    context: |
+      Load negotiation (engage/bid/counter), shipped 2026-07-02 in commit
+      8a3849a per the v2 build prompt. Residual items harden and extend the
+      shipped core: docs/quarterly-roadmap.md and the negotiation service
+      header (backend/src/services/negotiationService.ts) are the references.
+    user_story:
+      as_a: LoadLead operator
+      i_want: "{{title}}"
+      so_that: rate negotiation stays exclusive, turn-safe, idempotent, and settles at the agreed rate
+    gherkin: |
+      Scenario: {{title}}
+        Given the shipped negotiation state machine and its DoD tests
+        When the item is implemented
+        Then the negotiation invariants (exclusive lock, append-only offers, integer cents, untouched Load model) still hold
+
   # Epics inherit a thin template — their description is mostly the human-readable
   # text already in the `epics:` block. We still want the 3-section structure.
   epic:
@@ -267,6 +283,17 @@ families:
 # EPICS
 # =====================================================================
 epics:
+  - ext_id: epic:negotiation
+    title: Load Negotiation (engage/bid/counter)
+    description: |
+      First-hauler-exclusive rate negotiation on broadcast loads: engage lock,
+      posted-rate accept or per-mile bid, alternating counters inside a 20
+      minute window, rebroadcast on reject/expiry, idempotent assignment at
+      the agreed rate feeding settlement. Core SHIPPED 2026-07-02 (commit
+      8a3849a, deployed loadlead-backend-20260702210709). Remaining items are
+      residual hardening and product decisions.
+    labels: [negotiation, marketplace]
+    status: To Do
   - ext_id: epic:sms-program
     title: Carrier SMS Opt-In Program (staged go)
     description: |
@@ -1472,3 +1499,11 @@ items:
   - { ext_id: "sms:go-live",            parent_ext_id: "epic:sms-program", type: Task,  title: "Go-live gate (runbook J-L): simulator loop green, sandbox exited, spend cap set, counsel sign-off on legal copy, then real sends", status_source: manifest, status: "To Do", labels: [sms, ops, gate], priority_hint: Low, links: ["sms:campaign-number", "sms:send-chokepoint", "sms:ops-setup"] }
   - { ext_id: "sms:worm-mirror",        parent_ext_id: "epic:sms-program", type: Task,  title: "Mirror consent events into the S3 WORM sink pipeline (COA-2C, gold-tier immutability - when volume or counsel asks)", status_source: manifest, status: "To Do", labels: [sms, consent, worm], priority_hint: Low, links: ["sms:consent-store"] }
   - { ext_id: "sms:alt-providers",      parent_ext_id: "epic:sms-program", type: Task,  title: "Telnyx/Plivo real implementations + voice (only if AWS End User Messaging proves limiting)", status_source: manifest, status: "To Do", labels: [sms, adapter, later], priority_hint: Low, links: ["sms:messaging-adapter"] }
+
+  # ── EPIC: Load Negotiation (core shipped 2026-07-02; residuals below) ──
+  - { ext_id: "negot:core",            parent_ext_id: "epic:negotiation", type: Story, title: "Core negotiation: lock, state machine, window, agreed-rate settlement, both UIs (SHIPPED)", status_source: manifest, status: "Done", labels: [negotiation, shipped], priority_hint: High }
+  - { ext_id: "negot:realtime",        parent_ext_id: "epic:negotiation", type: Task,  title: "Residual: live updates in the open panel (10s polling today; push exists but page refresh is poll-based)", status_source: manifest, status: "To Do", labels: [negotiation, residual], priority_hint: Medium }
+  - { ext_id: "negot:flat-rate",       parent_ext_id: "epic:negotiation", type: Task,  title: "Residual (product decision): FLAT_RATE loads are accept-only - enable total-price bidding or keep per-mile only", status_source: manifest, status: "To Do", labels: [negotiation, residual, product], priority_hint: Medium }
+  - { ext_id: "negot:lock-scale",      parent_ext_id: "epic:negotiation", type: Task,  title: "Residual: loadboard lock exclusion is a read-time scan - fine at beta volume, needs a GSI or cached set at scale", status_source: manifest, status: "To Do", labels: [negotiation, residual, scale], priority_hint: Low }
+  - { ext_id: "negot:trust-signals",   parent_ext_id: "epic:negotiation", type: Task,  title: "Residual: feed negotiation behavior (expiry-by-hauler, serial lock-and-walk) into the trust-events store", status_source: manifest, status: "To Do", labels: [negotiation, residual, trust], priority_hint: Low }
+  - { ext_id: "negot:sweeper-worker",  parent_ext_id: "epic:negotiation", type: Task,  title: "Residual: negotiation sweeper rides the flagged in-process interval - migrate with the shared EventBridge/Lambda worker (see SCRUM-221)", status_source: manifest, status: "To Do", labels: [negotiation, residual, infra], priority_hint: Low, links: ["telem:polling-worker"] }

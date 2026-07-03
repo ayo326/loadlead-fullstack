@@ -66,10 +66,13 @@ family_defaults:
   epic:      marketplace
   telem:     platform      # telematics integration default; per-item overrides below
   sms:       platform      # SMS program default; per-item overrides below
+  negot:     marketplace   # load negotiation default
 
 # Explicit per-issue overrides (ext_id -> team). Win over everything. Add entries
 # here as new payments/compliance work lands in the manifest so it routes cleanly.
 overrides:
+  epic:negotiation: marketplace
+  negot:sweeper-worker: platform             # shared worker enabler
   epic:sms-program: platform                 # integration epic, platform-led
   sms:consent-store: identity                # consent of a user, onboarding-adjacent
   sms:legal-pages: marketplace               # public surface, design system

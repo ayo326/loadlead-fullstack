@@ -204,6 +204,11 @@
     "key": "SCRUM-11",
     "priority_set_by_sync": ""
   },
+  "epic:negotiation": {
+    "description_hash": "0631ea2b914662a96b7be27e975454c9ecc4e29d5641153b754dc8164e635fff",
+    "key": "SCRUM-246",
+    "priority_set_by_sync": "Medium"
+  },
   "epic:sms-program": {
     "description_hash": "6c00e398faf078386e4a5c8a437e6951aa0f6f47abe6ec33461a24935dd2925f",
     "key": "SCRUM-232",
@@ -307,6 +312,36 @@
   "load-e2e:LOAD-E2E-008": {
     "description_hash": "03a9065a961a11552d147d21005423361e373edb6d978b40398863e185d6b364",
     "key": "SCRUM-191",
+    "priority_set_by_sync": "Low"
+  },
+  "negot:core": {
+    "description_hash": "8b7da4f89acf1283dcc5337e2f9dabba156157f22eec03a03ddf9c439ca094f1",
+    "key": "SCRUM-247",
+    "priority_set_by_sync": "High"
+  },
+  "negot:flat-rate": {
+    "description_hash": "525a5990a9f9f3931ee0f72825a72716ec0de9f9afab929a1efd628d98c13848",
+    "key": "SCRUM-249",
+    "priority_set_by_sync": "Medium"
+  },
+  "negot:lock-scale": {
+    "description_hash": "01f151a5038392cc61732c3ce5164d14b28806505ae3b7376f7ddb30073537a7",
+    "key": "SCRUM-250",
+    "priority_set_by_sync": "Low"
+  },
+  "negot:realtime": {
+    "description_hash": "f7614fc0036fe934b56720ecc65bd1fdc588ae2ce07bdf75bd3cad171e4448b7",
+    "key": "SCRUM-248",
+    "priority_set_by_sync": "Medium"
+  },
+  "negot:sweeper-worker": {
+    "description_hash": "7ba5dd7c6c688d6281be5cbb808e557cb68924c21b9d3a10e0e4dd4036f4598e",
+    "key": "SCRUM-252",
+    "priority_set_by_sync": "Low"
+  },
+  "negot:trust-signals": {
+    "description_hash": "8e48abf7cf3a8fb0a23fdcc82865f6a0a71264adfbbee2fb0ab19bd171adb204",
+    "key": "SCRUM-251",
     "priority_set_by_sync": "Low"
   },
   "refactor:capabilities": {
