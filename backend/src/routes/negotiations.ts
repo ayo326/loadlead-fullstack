@@ -42,7 +42,22 @@ import { LoadService } from '../services/loadService';
 const router = express.Router();
 router.use(authenticate);
 
-const rateValidator = body('ratePerMileCents').isInt({ min: 1 });
+// An offer is EITHER cents per mile (PER_MILE loads) or a flat total in cents
+// (FLAT_RATE loads). The service validates the field against the load's basis.
+const offerValidators = [
+  body('ratePerMileCents').optional().isInt({ min: 1 }),
+  body('totalCents').optional().isInt({ min: 1 }),
+  body().custom((b) => {
+    if (b?.ratePerMileCents == null && b?.totalCents == null) {
+      throw new Error('Send ratePerMileCents (per-mile loads) or totalCents (flat-rate loads)');
+    }
+    return true;
+  }),
+];
+const offerAmountOf = (b: any) => ({
+  ...(b.ratePerMileCents != null ? { ratePerMileCents: Number(b.ratePerMileCents) } : {}),
+  ...(b.totalCents != null ? { totalCents: Number(b.totalCents) } : {}),
+});
 
 async function haulerActor(req: AuthRequest): Promise<{ party: NegotiationParty; driverId: string; userId: string; carrierId: string }> {
   const driver = await DriverService.getProfileByUserId(req.user!.userId);
@@ -64,6 +79,16 @@ async function shipperActor(req: AuthRequest, neg: LoadNegotiation): Promise<{ p
 
 function fmtRate(cents: number | null | undefined): string {
   return cents == null ? 'the posted rate' : `$${(cents / 100).toFixed(2)}/mi`;
+}
+function fmtOffer(neg: LoadNegotiation): string {
+  if (neg.currentOfferRatePerMileCents != null) return fmtRate(neg.currentOfferRatePerMileCents);
+  if (neg.currentOfferTotalCents != null) return `$${(neg.currentOfferTotalCents / 100).toFixed(2)} total`;
+  return 'the posted rate';
+}
+function fmtAgreed(neg: LoadNegotiation): string {
+  if (neg.agreedRatePerMileCents != null) return fmtRate(neg.agreedRatePerMileCents);
+  if (neg.agreedLinehaulCents != null) return `$${(neg.agreedLinehaulCents / 100).toFixed(2)} total`;
+  return 'the posted rate';
 }
 
 /** Best-effort counterparty notification. Suppression seam applies inside send. */
@@ -110,12 +135,16 @@ function viewFor(neg: LoadNegotiation, viewer: NegotiationParty) {
     status: neg.status,
     display,
     actions,
+    rateBasis: NegotiationService.basisOf(neg),
     postedRatePerMileCents: neg.postedRatePerMileCents,
+    postedLinehaulCents: neg.postedLinehaulCents,
     currentOfferRatePerMileCents: neg.currentOfferRatePerMileCents,
+    currentOfferTotalCents: neg.currentOfferTotalCents ?? null,
     currentOfferParty: neg.currentOfferParty,
     roundCount: neg.roundCount,
     secondsRemaining,
     deadlineAt: neg.deadlineAt,
+    updatedAt: neg.updatedAt,
     agreedRatePerMileCents: neg.agreedRatePerMileCents ?? null,
     agreedLinehaulCents: neg.agreedLinehaulCents ?? null,
   };
@@ -153,24 +182,24 @@ router.post('/:id/accept-load', asyncHandler(async (req: AuthRequest, res) => {
   res.json({ negotiation: viewFor(neg, 'HAULER') });
 }));
 
-router.post('/:id/bid', validate([rateValidator]), asyncHandler(async (req: AuthRequest, res) => {
+router.post('/:id/bid', validate(offerValidators), asyncHandler(async (req: AuthRequest, res) => {
   const actor = await haulerActor(req);
-  const neg = await NegotiationService.bid(req.params.id, actor.driverId, req.body.ratePerMileCents);
-  await notify(neg, 'HAULER', 'New bid on your load', `A hauler bid ${fmtRate(neg.currentOfferRatePerMileCents)}. Accept, counter, or reject.`);
+  const neg = await NegotiationService.bid(req.params.id, actor.driverId, offerAmountOf(req.body));
+  await notify(neg, 'HAULER', 'New bid on your load', `A hauler bid ${fmtOffer(neg)}. Accept, counter, or reject.`);
   res.json({ negotiation: viewFor(neg, 'HAULER') });
 }));
 
-router.post('/:id/counter', validate([rateValidator]), asyncHandler(async (req: AuthRequest, res) => {
+router.post('/:id/counter', validate(offerValidators), asyncHandler(async (req: AuthRequest, res) => {
   const actor = await haulerActor(req);
-  const neg = await NegotiationService.counter(req.params.id, actor, req.body.ratePerMileCents);
-  await notify(neg, 'HAULER', 'Counter offer on your load', `The hauler countered at ${fmtRate(neg.currentOfferRatePerMileCents)}.`);
+  const neg = await NegotiationService.counter(req.params.id, actor, offerAmountOf(req.body));
+  await notify(neg, 'HAULER', 'Counter offer on your load', `The hauler countered at ${fmtOffer(neg)}.`);
   res.json({ negotiation: viewFor(neg, 'HAULER') });
 }));
 
 router.post('/:id/accept', asyncHandler(async (req: AuthRequest, res) => {
   const actor = await haulerActor(req);
   const neg = await NegotiationService.acceptOffer(req.params.id, actor);
-  await notify(neg, 'HAULER', 'Counter accepted - load assigned', `The hauler accepted your counter at ${fmtRate(neg.agreedRatePerMileCents)}.`);
+  await notify(neg, 'HAULER', 'Counter accepted - load assigned', `The hauler accepted your counter at ${fmtAgreed(neg)}.`);
   res.json({ negotiation: viewFor(neg, 'HAULER') });
 }));
 
@@ -183,12 +212,12 @@ router.post('/:id/reject', asyncHandler(async (req: AuthRequest, res) => {
 
 // ── shipper actions ───────────────────────────────────────────────────────
 
-router.post('/:id/shipper/counter', validate([rateValidator]), asyncHandler(async (req: AuthRequest, res) => {
+router.post('/:id/shipper/counter', validate(offerValidators), asyncHandler(async (req: AuthRequest, res) => {
   const existing = await NegotiationService.getById(req.params.id);
   if (!existing) throw new AppError('Negotiation not found', 404);
   const actor = await shipperActor(req, existing);
-  const neg = await NegotiationService.counter(req.params.id, actor, req.body.ratePerMileCents);
-  await notify(neg, 'SHIPPER', 'Counter offer from the shipper', `The shipper countered at ${fmtRate(neg.currentOfferRatePerMileCents)}. Accept, counter, or reject.`);
+  const neg = await NegotiationService.counter(req.params.id, actor, offerAmountOf(req.body));
+  await notify(neg, 'SHIPPER', 'Counter offer from the shipper', `The shipper countered at ${fmtOffer(neg)}. Accept, counter, or reject.`);
   res.json({ negotiation: viewFor(neg, 'SHIPPER') });
 }));
 
@@ -197,7 +226,7 @@ router.post('/:id/shipper/accept', asyncHandler(async (req: AuthRequest, res) =>
   if (!existing) throw new AppError('Negotiation not found', 404);
   const actor = await shipperActor(req, existing);
   const neg = await NegotiationService.acceptOffer(req.params.id, actor);
-  await notify(neg, 'SHIPPER', 'Bid accepted - load is yours', `The shipper accepted your rate of ${fmtRate(neg.agreedRatePerMileCents)}. The load is assigned to you.`);
+  await notify(neg, 'SHIPPER', 'Bid accepted - load is yours', `The shipper accepted your offer of ${fmtAgreed(neg)}. The load is assigned to you.`);
   res.json({ negotiation: viewFor(neg, 'SHIPPER') });
 }));
 
@@ -212,6 +241,36 @@ router.post('/:id/shipper/reject', asyncHandler(async (req: AuthRequest, res) =>
 
 // ── state for either party ────────────────────────────────────────────────
 
+/** Which side of the negotiation is this user on (null = not a party). */
+async function resolveViewer(userId: string, neg: LoadNegotiation): Promise<NegotiationParty | null> {
+  if (neg.haulerUserId === userId) return 'HAULER';
+  if (neg.shipperId === userId) return 'SHIPPER';
+  const profile = await ShipperService.getProfileByUserId(userId);
+  if (profile && profile.shipperId === neg.shipperId) return 'SHIPPER';
+  const driver = await DriverService.getProfileByUserId(userId);
+  if (driver && driver.driverId === neg.haulerDriverId) return 'HAULER';
+  return null;
+}
+
+/**
+ * Live updates without websockets: long poll. Holds up to ~25s (safely under
+ * the ALB's 60s idle timeout), re-reading the store every second, and returns
+ * the fresh view the moment updatedAt moves past `since`. Stateless across
+ * instances - any web instance can answer - so it needs no pub/sub layer.
+ */
+router.get(
+  '/loads/:loadId/events',
+  validate([param('loadId').isString().isLength({ min: 1, max: 200 })]),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const since = Number(req.query.since ?? 0) || 0;
+    const changed = await NegotiationService.waitForChange(req.params.loadId, since);
+    if (!changed) return res.json({ changed: false, since });
+    const viewer = await resolveViewer(req.user!.userId, changed);
+    if (!viewer) return res.json({ changed: false, since });
+    res.json({ changed: true, negotiation: viewFor(changed, viewer) });
+  })
+);
+
 router.get(
   '/loads/:loadId',
   validate([param('loadId').isString().isLength({ min: 1, max: 200 })]),
@@ -222,19 +281,7 @@ router.get(
     await NegotiationService.expireIfOverdue(neg);
     const fresh = (await NegotiationService.getById(neg.negotiationId))!;
 
-    // Which side is the viewer on?
-    const userId = req.user!.userId;
-    let viewer: NegotiationParty | null = null;
-    if (fresh.haulerUserId === userId) viewer = 'HAULER';
-    else if (fresh.shipperId === userId) viewer = 'SHIPPER';
-    else {
-      const profile = await ShipperService.getProfileByUserId(userId);
-      if (profile && profile.shipperId === fresh.shipperId) viewer = 'SHIPPER';
-      else {
-        const driver = await DriverService.getProfileByUserId(userId);
-        if (driver && driver.driverId === fresh.haulerDriverId) viewer = 'HAULER';
-      }
-    }
+    const viewer = await resolveViewer(req.user!.userId, fresh);
     if (!viewer) {
       // Not a party: reveal only that the load is under negotiation.
       const load = await LoadService.getLoadById(req.params.loadId);

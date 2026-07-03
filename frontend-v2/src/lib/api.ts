@@ -71,12 +71,16 @@ export interface NegotiationView {
   negotiationId: string; loadId: string;
   status: "ENGAGED" | "PENDING_SHIPPER" | "PENDING_HAULER" | "ACCEPTED" | "REJECTED" | "EXPIRED";
   display: string; actions: string[];
+  rateBasis: "PER_MILE" | "FLAT_TOTAL";
   postedRatePerMileCents: number | null;
+  postedLinehaulCents: number;
   currentOfferRatePerMileCents: number | null;
+  currentOfferTotalCents: number | null;
   currentOfferParty: "HAULER" | "SHIPPER" | null;
-  roundCount: number; secondsRemaining: number; deadlineAt: number;
+  roundCount: number; secondsRemaining: number; deadlineAt: number; updatedAt: number;
   agreedRatePerMileCents: number | null; agreedLinehaulCents: number | null;
 }
+export type NegotiationOfferAmount = { ratePerMileCents: number } | { totalCents: number };
 export interface NegotiationOfferRow {
   negOfferId: string; negotiationId: string; party: "HAULER" | "SHIPPER";
   action: string; ratePerMileCents?: number; createdAt: number;
@@ -343,14 +347,18 @@ export const api = {
       request<{ negotiation: NegotiationView | null; offers?: NegotiationOfferRow[]; underNegotiation?: boolean }>(
         "GET", `/negotiations/loads/${loadId}`),
     acceptLoad: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/accept-load`),
-    bid: (id: string, ratePerMileCents: number) =>
-      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/bid`, { ratePerMileCents }),
-    counter: (id: string, ratePerMileCents: number) =>
-      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/counter`, { ratePerMileCents }),
+    bid: (id: string, amount: NegotiationOfferAmount) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/bid`, amount),
+    counter: (id: string, amount: NegotiationOfferAmount) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/counter`, amount),
     accept: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/accept`),
     reject: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/reject`),
-    shipperCounter: (id: string, ratePerMileCents: number) =>
-      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/counter`, { ratePerMileCents }),
+    shipperCounter: (id: string, amount: NegotiationOfferAmount) =>
+      request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/counter`, amount),
+    // Long poll: resolves when the negotiation changes past `since` (or ~25s).
+    events: (loadId: string, since: number) =>
+      request<{ changed: boolean; negotiation?: NegotiationView }>(
+        "GET", `/negotiations/loads/${loadId}/events?since=${since}`),
     shipperAccept: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/accept`),
     shipperReject: (id: string) => request<{ negotiation: NegotiationView }>("POST", `/negotiations/${id}/shipper/reject`),
   },

@@ -44,20 +44,45 @@ export function NegotiationPanel({
   const [remaining, setRemaining] = useState(0);
   const timer = useRef<number | null>(null);
 
+  const sinceRef = useRef(0);
+
   const refresh = useCallback(async () => {
     try {
       const r = await api.negotiation.forLoad(loadId);
       setNeg(r.negotiation);
-      if (r.negotiation) setRemaining(r.negotiation.secondsRemaining);
+      if (r.negotiation) {
+        setRemaining(r.negotiation.secondsRemaining);
+        sinceRef.current = r.negotiation.updatedAt;
+      }
     } catch { /* panel is best-effort; page still works */ }
     setLoaded(true);
   }, [loadId]);
 
+  // Live updates: a long-poll wait loop. The server holds each request up to
+  // ~25s and answers the moment the counterparty acts, so changes land in
+  // about a second without websockets. A slow safety refresh stays as belt.
   useEffect(() => {
+    let stopped = false;
     refresh();
-    const p = window.setInterval(refresh, POLL_MS);
-    return () => window.clearInterval(p);
-  }, [refresh]);
+    (async () => {
+      while (!stopped) {
+        try {
+          const r = await api.negotiation.events(loadId, sinceRef.current);
+          if (stopped) break;
+          if (r.changed && r.negotiation) {
+            setNeg(r.negotiation);
+            setRemaining(r.negotiation.secondsRemaining);
+            sinceRef.current = r.negotiation.updatedAt;
+          }
+        } catch {
+          // transient network error: back off before re-arming the wait
+          await new Promise((res) => setTimeout(res, 5000));
+        }
+      }
+    })();
+    const safety = window.setInterval(refresh, POLL_MS * 3);
+    return () => { stopped = true; window.clearInterval(safety); };
+  }, [loadId, refresh]);
 
   // local 1s countdown between polls
   useEffect(() => {
@@ -83,19 +108,22 @@ export function NegotiationPanel({
     }
   }
 
-  function parsedRateCents(): number | null {
+  const flat = neg?.rateBasis === "FLAT_TOTAL";
+
+  function parsedCents(): number | null {
     const dollars = parseFloat(rateInput);
     if (!Number.isFinite(dollars) || dollars <= 0) return null;
     return Math.round(dollars * 100);
   }
 
   function submitRate() {
-    const cents = parsedRateCents();
-    if (cents == null) { toast.error("Enter a rate per mile like 2.75"); return; }
+    const cents = parsedCents();
+    if (cents == null) { toast.error(flat ? "Enter a total price like 1850" : "Enter a rate per mile like 2.75"); return; }
     if (!neg) return;
-    if (neg.status === "ENGAGED") return act(() => api.negotiation.bid(neg.negotiationId, cents), "Bid sent to the shipper");
-    if (party === "SHIPPER") return act(() => api.negotiation.shipperCounter(neg.negotiationId, cents), "Counter sent to the hauler");
-    return act(() => api.negotiation.counter(neg.negotiationId, cents), "Counter sent to the shipper");
+    const amount = flat ? { totalCents: cents } : { ratePerMileCents: cents };
+    if (neg.status === "ENGAGED") return act(() => api.negotiation.bid(neg.negotiationId, amount), "Bid sent to the shipper");
+    if (party === "SHIPPER") return act(() => api.negotiation.shipperCounter(neg.negotiationId, amount), "Counter sent to the hauler");
+    return act(() => api.negotiation.counter(neg.negotiationId, amount), "Counter sent to the shipper");
   }
 
   if (!loaded) return null;
@@ -145,12 +173,16 @@ export function NegotiationPanel({
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
         <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
           <div className="text-muted-foreground">Posted</div>
-          <div className="font-semibold tabular-nums">{rate(neg.postedRatePerMileCents)}</div>
+          <div className="font-semibold tabular-nums">
+            {flat ? `$${(neg.postedLinehaulCents / 100).toFixed(2)} total` : rate(neg.postedRatePerMileCents)}
+          </div>
         </div>
         <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
           <div className="text-muted-foreground">On the table</div>
           <div className="font-semibold tabular-nums">
-            {neg.currentOfferRatePerMileCents != null ? rate(neg.currentOfferRatePerMileCents) : "-"}
+            {neg.currentOfferRatePerMileCents != null ? rate(neg.currentOfferRatePerMileCents)
+              : neg.currentOfferTotalCents != null ? `$${(neg.currentOfferTotalCents / 100).toFixed(2)} total`
+              : "-"}
             {neg.currentOfferParty ? <span className="font-normal text-muted-foreground"> ({neg.currentOfferParty === "HAULER" ? "hauler" : "shipper"})</span> : null}
           </div>
         </div>
@@ -163,7 +195,7 @@ export function NegotiationPanel({
       {neg.status === "ACCEPTED" && (
         <p className="text-xs text-emerald-700 flex items-center gap-1">
           <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-          Assigned at {rate(neg.agreedRatePerMileCents)}{neg.agreedLinehaulCents != null ? ` - linehaul $${(neg.agreedLinehaulCents / 100).toFixed(2)}` : ""}.
+          Assigned at {neg.agreedRatePerMileCents != null ? rate(neg.agreedRatePerMileCents) : neg.agreedLinehaulCents != null ? `$${(neg.agreedLinehaulCents / 100).toFixed(2)} total` : "the posted rate"}{neg.agreedRatePerMileCents != null && neg.agreedLinehaulCents != null ? ` - linehaul $${(neg.agreedLinehaulCents / 100).toFixed(2)}` : ""}.
         </p>
       )}
       {(neg.status === "REJECTED" || neg.status === "EXPIRED") && (
@@ -212,8 +244,8 @@ export function NegotiationPanel({
           </div>
           {showRate && (
             <div className="flex items-center gap-2">
-              <label htmlFor="neg-rate" className="text-xs text-muted-foreground whitespace-nowrap">Rate per mile ($)</label>
-              <Input id="neg-rate" inputMode="decimal" placeholder="2.75" className="h-8 w-28"
+              <label htmlFor="neg-rate" className="text-xs text-muted-foreground whitespace-nowrap">{flat ? "Total price ($)" : "Rate per mile ($)"}</label>
+              <Input id="neg-rate" inputMode="decimal" placeholder={flat ? "1850" : "2.75"} className="h-8 w-28"
                 value={rateInput} onChange={(e) => setRateInput(e.target.value)} />
               <Button size="sm" disabled={busy} onClick={submitRate}>Send</Button>
             </div>

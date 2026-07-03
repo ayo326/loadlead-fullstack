@@ -41,6 +41,10 @@ import { AppError } from '../middleware/errorHandler';
 export type NegotiationStatus = 'ENGAGED' | 'PENDING_SHIPPER' | 'PENDING_HAULER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 export type NegotiationParty = 'HAULER' | 'SHIPPER';
 export type NegotiationAction = 'ACCEPT_LOAD' | 'BID' | 'COUNTER' | 'ACCEPT_BID' | 'ACCEPT_COUNTER' | 'REJECT';
+/** What an offer amount means: cents per mile, or a flat total for the load. */
+export type RateBasis = 'PER_MILE' | 'FLAT_TOTAL';
+/** One offer amount in the basis's unit. Exactly one field is set. */
+export interface OfferAmount { ratePerMileCents?: number; totalCents?: number }
 
 export const ACTIVE_STATUSES: NegotiationStatus[] = ['ENGAGED', 'PENDING_SHIPPER', 'PENDING_HAULER'];
 
@@ -57,8 +61,12 @@ export interface LoadNegotiation {
   postedLinehaulCents: number;
   totalMiles: number | null;
   status: NegotiationStatus;
-  /** The rate currently on the table (cents per mile). */
+  /** How offers on this negotiation are denominated (snapshot at engagement). */
+  rateBasis: RateBasis;
+  /** The rate currently on the table (cents per mile; PER_MILE basis). */
   currentOfferRatePerMileCents: number | null;
+  /** The flat total currently on the table (cents; FLAT_TOTAL basis). */
+  currentOfferTotalCents: number | null;
   /** Who made the offer currently on the table. */
   currentOfferParty: NegotiationParty | null;
   roundCount: number;
@@ -78,6 +86,7 @@ export interface NegotiationOffer {
   party: NegotiationParty;
   action: NegotiationAction;
   ratePerMileCents?: number;
+  totalCents?: number;
   createdAt: number;
 }
 
@@ -187,7 +196,9 @@ export class NegotiationService {
       postedLinehaulCents,
       totalMiles: load.totalMiles ?? null,
       status: 'ENGAGED',
+      rateBasis: perMile != null ? 'PER_MILE' : 'FLAT_TOTAL',
       currentOfferRatePerMileCents: null,
+      currentOfferTotalCents: null,
       currentOfferParty: null,
       roundCount: 0,
       startedAt: now,
@@ -235,27 +246,28 @@ export class NegotiationService {
     return this.finishAccepted(neg, 'ACCEPT_LOAD', 'HAULER', 'ENGAGED', agreedRate, agreedLinehaul);
   }
 
-  /** Hauler's first offer. ENGAGED -> PENDING_SHIPPER, window already running. */
-  static async bid(negotiationId: string, actorDriverId: string, ratePerMileCents: number): Promise<LoadNegotiation> {
+  /**
+   * Hauler's first offer. ENGAGED -> PENDING_SHIPPER, window already running.
+   * PER_MILE loads bid cents per mile; FLAT_RATE loads bid a flat total.
+   */
+  static async bid(negotiationId: string, actorDriverId: string, amount: OfferAmount): Promise<LoadNegotiation> {
     const neg = await this.requireNeg(negotiationId);
     this.requireHauler(neg, actorDriverId);
     if (await this.expireIfOverdue(neg)) throw new AppError('Negotiation window has expired; the load was rebroadcast', 409);
     if (neg.status !== 'ENGAGED') throw new AppError('A bid is only the first offer; use counter instead', 409);
-    if (neg.postedRatePerMileCents == null) {
-      throw new AppError('This load is posted at a flat rate; per-mile bidding is not available. You can accept the load at the posted rate.', 400);
-    }
-    this.validateRate(ratePerMileCents);
+    const offer = this.validateAmount(neg, amount);
 
     await this.transition(neg, {
       expectStatus: 'ENGAGED',
       set: {
         status: 'PENDING_SHIPPER',
-        currentOfferRatePerMileCents: ratePerMileCents,
+        currentOfferRatePerMileCents: offer.ratePerMileCents ?? null,
+        currentOfferTotalCents: offer.totalCents ?? null,
         currentOfferParty: 'HAULER',
         roundCount: 1,
       },
     });
-    await this.appendOffer(neg, 'HAULER', 'BID', ratePerMileCents);
+    await this.appendOffer(neg, 'HAULER', 'BID', offer);
     return (await this.getById(negotiationId))!;
   }
 
@@ -263,7 +275,7 @@ export class NegotiationService {
    * Counter by the party whose turn it is: shipper counters PENDING_SHIPPER,
    * hauler counters PENDING_HAULER. Flips the turn.
    */
-  static async counter(negotiationId: string, actor: { party: NegotiationParty; driverId?: string; shipperId?: string }, ratePerMileCents: number): Promise<LoadNegotiation> {
+  static async counter(negotiationId: string, actor: { party: NegotiationParty; driverId?: string; shipperId?: string }, amount: OfferAmount): Promise<LoadNegotiation> {
     const neg = await this.requireNeg(negotiationId);
     this.requireActor(neg, actor);
     if (await this.expireIfOverdue(neg)) throw new AppError('Negotiation window has expired; the load was rebroadcast', 409);
@@ -272,19 +284,20 @@ export class NegotiationService {
     if (NEGOTIATION_POLICY.maxRounds > 0 && neg.roundCount >= NEGOTIATION_POLICY.maxRounds) {
       throw new AppError('Maximum rounds reached; only accept or reject are available', 409);
     }
-    this.validateRate(ratePerMileCents);
+    const offer = this.validateAmount(neg, amount);
 
     await this.transition(neg, {
       expectStatus,
       expectParty: neg.currentOfferParty,
       set: {
         status: actor.party === 'SHIPPER' ? 'PENDING_HAULER' : 'PENDING_SHIPPER',
-        currentOfferRatePerMileCents: ratePerMileCents,
+        currentOfferRatePerMileCents: offer.ratePerMileCents ?? null,
+        currentOfferTotalCents: offer.totalCents ?? null,
         currentOfferParty: actor.party,
         roundCount: neg.roundCount + 1,
       },
     });
-    await this.appendOffer(neg, actor.party, 'COUNTER', ratePerMileCents);
+    await this.appendOffer(neg, actor.party, 'COUNTER', offer);
     return (await this.getById(negotiationId))!;
   }
 
@@ -302,12 +315,21 @@ export class NegotiationService {
     if (await this.expireIfOverdue(neg)) throw new AppError('Negotiation window has expired; the load was rebroadcast', 409);
     const expectStatus: NegotiationStatus = actor.party === 'SHIPPER' ? 'PENDING_SHIPPER' : 'PENDING_HAULER';
     if (neg.status !== expectStatus) throw new AppError('It is not your turn to act on this negotiation', 409);
-    if (neg.currentOfferRatePerMileCents == null || neg.totalMiles == null) {
-      throw new AppError('No offer is on the table', 409);
-    }
 
-    const agreedRate = neg.currentOfferRatePerMileCents;
-    const agreedLinehaul = linehaulCentsAt(agreedRate, neg.totalMiles);
+    const basis = this.basisOf(neg);
+    let agreedRate: number | null;
+    let agreedLinehaul: number;
+    if (basis === 'PER_MILE') {
+      if (neg.currentOfferRatePerMileCents == null || neg.totalMiles == null) {
+        throw new AppError('No offer is on the table', 409);
+      }
+      agreedRate = neg.currentOfferRatePerMileCents;
+      agreedLinehaul = linehaulCentsAt(agreedRate, neg.totalMiles);
+    } else {
+      if (neg.currentOfferTotalCents == null) throw new AppError('No offer is on the table', 409);
+      agreedRate = null;
+      agreedLinehaul = neg.currentOfferTotalCents;
+    }
     return this.finishAccepted(neg, action, actor.party, expectStatus, agreedRate, agreedLinehaul);
   }
 
@@ -363,6 +385,40 @@ export class NegotiationService {
     return expired;
   }
 
+  // ── live-update seam (long poll) ──────────────────────────────────────────
+
+  /**
+   * Hold until the load's negotiation changes past `sinceUpdatedAt` (or a
+   * negotiation appears/disappears), checking every `stepMs` up to `holdMs`.
+   * Stateless across instances: every check re-reads the store, so it works
+   * on a multi-instance web tier with no pub/sub. Returns the fresh row, or
+   * null when nothing changed inside the hold window.
+   */
+  static async waitForChange(
+    loadId: string,
+    sinceUpdatedAt: number,
+    opts: { holdMs?: number; stepMs?: number } = {}
+  ): Promise<LoadNegotiation | null> {
+    const holdMs = opts.holdMs ?? 25_000;
+    const stepMs = opts.stepMs ?? 1_000;
+    const startedAt = Date.now();
+    // First check is immediate so an already-stale `since` returns instantly.
+    for (;;) {
+      const neg = await this.latestForLoad(loadId);
+      if (neg) {
+        await this.expireIfOverdue(neg);
+        const fresh = (await this.getById(neg.negotiationId))!;
+        if (fresh.updatedAt > sinceUpdatedAt) return fresh;
+      } else if (sinceUpdatedAt > 0) {
+        // The caller knew a negotiation; it is gone (should not happen - rows
+        // are never deleted - but a changed answer beats a hung request).
+        return null;
+      }
+      if (Date.now() - startedAt >= holdMs) return null;
+      await new Promise((r) => setTimeout(r, stepMs));
+    }
+  }
+
   // ── settlement seam ───────────────────────────────────────────────────────
 
   /**
@@ -406,7 +462,7 @@ export class NegotiationService {
       throw err;
     }
 
-    await this.appendOffer(neg, party, action, agreedRatePerMileCents ?? undefined);
+    await this.appendOffer(neg, party, action, agreedRatePerMileCents != null ? { ratePerMileCents: agreedRatePerMileCents } : { totalCents: agreedLinehaulCents });
 
     // 2. Assignment through the existing path. Idempotent: if the load is
     //    already assigned to this hauler's driver, that IS our assignment.
@@ -422,10 +478,32 @@ export class NegotiationService {
     return (await this.getById(neg.negotiationId))!;
   }
 
-  private static validateRate(ratePerMileCents: number): void {
-    if (!Number.isInteger(ratePerMileCents) || ratePerMileCents < NEGOTIATION_POLICY.minRatePerMileCents) {
-      throw new AppError(`Rate per mile must be an integer of at least ${NEGOTIATION_POLICY.minRatePerMileCents} cents`, 400);
+  /** Legacy rows (pre-FLAT_TOTAL) carry no rateBasis; infer from the snapshot. */
+  static basisOf(neg: LoadNegotiation): RateBasis {
+    return neg.rateBasis ?? (neg.postedRatePerMileCents != null ? 'PER_MILE' : 'FLAT_TOTAL');
+  }
+
+  /** Validate the offer amount against the negotiation's basis. */
+  private static validateAmount(neg: LoadNegotiation, amount: OfferAmount): OfferAmount {
+    const basis = this.basisOf(neg);
+    if (basis === 'PER_MILE') {
+      if (amount.totalCents != null) {
+        throw new AppError('This load negotiates in cents per mile; send ratePerMileCents', 400);
+      }
+      const r = amount.ratePerMileCents;
+      if (r == null || !Number.isInteger(r) || r < NEGOTIATION_POLICY.minRatePerMileCents) {
+        throw new AppError(`Rate per mile must be an integer of at least ${NEGOTIATION_POLICY.minRatePerMileCents} cents`, 400);
+      }
+      return { ratePerMileCents: r };
     }
+    if (amount.ratePerMileCents != null) {
+      throw new AppError('This load is posted at a flat rate; send totalCents (a flat total offer)', 400);
+    }
+    const t = amount.totalCents;
+    if (t == null || !Number.isInteger(t) || t < 1) {
+      throw new AppError('Total offer must be an integer of at least 1 cent', 400);
+    }
+    return { totalCents: t };
   }
 
   private static async requireNeg(negotiationId: string): Promise<LoadNegotiation> {
@@ -490,7 +568,7 @@ export class NegotiationService {
     neg: LoadNegotiation,
     party: NegotiationParty,
     action: NegotiationAction,
-    ratePerMileCents?: number
+    amount?: OfferAmount
   ): Promise<NegotiationOffer> {
     const row: NegotiationOffer = {
       negOfferId: Helpers.generateId('negoffer'),
@@ -498,7 +576,8 @@ export class NegotiationService {
       loadId: neg.loadId,
       party,
       action,
-      ...(ratePerMileCents != null ? { ratePerMileCents } : {}),
+      ...(amount?.ratePerMileCents != null ? { ratePerMileCents: amount.ratePerMileCents } : {}),
+      ...(amount?.totalCents != null ? { totalCents: amount.totalCents } : {}),
       createdAt: Helpers.getCurrentTimestamp(),
     };
     await Database.putItem(T().offers, row);
