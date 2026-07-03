@@ -79,9 +79,12 @@ describe('REL: errorHandler double-response safety', () => {
     }
   });
 
-  it('JSON body shape in non-prod: includes stack for local debugging', () => {
-    const origEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
+  it('JSON body shape with EXPOSE_ERROR_STACK: includes stack for local debugging', () => {
+    // The handler keys stack exposure off an explicit EXPOSE_ERROR_STACK flag,
+    // NOT NODE_ENV (which EB forces to "production" in every environment). Local
+    // debugging opts in with the flag; production never sets it.
+    const orig = process.env.EXPOSE_ERROR_STACK;
+    process.env.EXPOSE_ERROR_STACK = 'true';
     try {
       const res = makeRes(false);
       const e = new AppError('local stack', 500);
@@ -89,7 +92,8 @@ describe('REL: errorHandler double-response safety', () => {
       const body = (res.json as any).mock.calls[0][0];
       expect(body.stack).toBeTruthy();
     } finally {
-      process.env.NODE_ENV = origEnv;
+      if (orig === undefined) delete process.env.EXPOSE_ERROR_STACK;
+      else process.env.EXPOSE_ERROR_STACK = orig;
     }
   });
 });

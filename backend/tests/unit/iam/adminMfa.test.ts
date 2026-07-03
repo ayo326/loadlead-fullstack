@@ -23,6 +23,13 @@ vi.mock('../../../src/middleware/auth', async () => {
   const actual: any = await vi.importActual('../../../src/middleware/auth');
   return { ...actual, authenticate: (_req: any, _res: any, next: any) => next() };
 });
+// The /login route is fronted by requireBetaGate, which does its own DB lookup
+// and fails closed (BETA_REQUIRED) when it can't verify the gate. That gate has
+// its own tests (security/betaGate.test.ts); here we stub it to a pass-through
+// so these tests actually exercise the ADMIN-MFA branch behind it.
+vi.mock('../../../src/middleware/betaGate', () => ({
+  requireBetaGate: () => (_req: any, _res: any, next: any) => next(),
+}));
 vi.mock('../../../src/utils/helpers', () => ({
   Helpers: {
     generateToken: () => 'jwt-token',
