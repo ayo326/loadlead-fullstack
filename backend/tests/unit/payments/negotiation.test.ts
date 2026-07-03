@@ -155,6 +155,38 @@ describe('accept load at the posted rate', () => {
   });
 });
 
+describe('M1: accept -> assign is atomic-ish (heals a failed assignment)', () => {
+  it('a retry heals an accept whose assignment failed after the terminal transition', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    // First accept: the terminal transition to ACCEPTED succeeds, then the
+    // assignDriver write fails (e.g. DynamoDB throttle).
+    H.assignDriver.mockImplementationOnce(async () => { throw new Error('ddb throttled'); });
+    await expect(NegotiationService.acceptLoad(neg.negotiationId, 'drv-1')).rejects.toThrow(/ddb throttled/);
+    // Stranded: ACCEPTED, load unassigned, lock still held (release never reached).
+    expect((await NegotiationService.getById(neg.negotiationId))!.status).toBe('ACCEPTED');
+    expect(H.loads.get('load-1').assignedDriverId).toBeUndefined();
+    expect((await NegotiationService.activeLockedLoadIds()).size).toBe(1);
+    // A retry (idempotent) reconciles it: assigns + releases the lock.
+    const healed = await NegotiationService.acceptLoad(neg.negotiationId, 'drv-1');
+    expect(healed.status).toBe('ACCEPTED');
+    expect(H.loads.get('load-1').assignedDriverId).toBe('drv-1');
+    expect((await NegotiationService.activeLockedLoadIds()).size).toBe(0);
+  });
+
+  it('the reconcile sweeper heals an accepted-but-unassigned load with no client retry', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    H.assignDriver.mockImplementationOnce(async () => { throw new Error('ddb throttled'); });
+    await expect(NegotiationService.acceptLoad(neg.negotiationId, 'drv-1')).rejects.toThrow();
+    expect(H.loads.get('load-1').assignedDriverId).toBeUndefined();
+    // No client retry — the background sweeper reconciles it.
+    expect(await NegotiationService.reconcileAcceptedAssignments()).toBe(1);
+    expect(H.loads.get('load-1').assignedDriverId).toBe('drv-1');
+    expect((await NegotiationService.activeLockedLoadIds()).size).toBe(0);
+    // Idempotent: a second sweep finds nothing to heal.
+    expect(await NegotiationService.reconcileAcceptedAssignments()).toBe(0);
+  });
+});
+
 describe('defensive guards (path-coverage COAs)', () => {
   it('U7: refuses to assign if the load was taken by another driver mid-negotiation', async () => {
     const neg = await NegotiationService.engage(HAULER);

@@ -256,6 +256,9 @@ setInterval(async () => {
     // and let the loads rebroadcast at the posted rate. Same EventBridge/
     // Lambda debt note as above applies.
     await NegotiationService.expireOverdue();
+    // M1 reconcile: heal any ACCEPTED negotiation whose load never got assigned
+    // (an assignment write that failed after the terminal transition, un-retried).
+    await NegotiationService.reconcileAcceptedAssignments();
   } catch (e) {
     console.error('[rebroadcast worker] error', e);
   }
