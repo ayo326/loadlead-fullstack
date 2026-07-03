@@ -32,10 +32,10 @@ resource "aws_iam_role_policy" "app_data_access" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "DynamoDBEnvScoped"
-        Effect   = "Allow"
-        Action   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem",
-                    "dynamodb:Query", "dynamodb:Scan", "dynamodb:BatchGetItem", "dynamodb:BatchWriteItem"]
+        Sid    = "DynamoDBEnvScoped"
+        Effect = "Allow"
+        Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem",
+        "dynamodb:Query", "dynamodb:Scan", "dynamodb:BatchGetItem", "dynamodb:BatchWriteItem"]
         Resource = [
           "arn:aws:dynamodb:*:*:table/${var.dynamodb_table_prefix}*",
           "arn:aws:dynamodb:*:*:table/${var.dynamodb_table_prefix}*/index/*",
@@ -64,25 +64,17 @@ resource "aws_iam_instance_profile" "eb" {
 
 locals {
   base_settings = [
-    { namespace = "aws:autoscaling:launchconfiguration", name = "InstanceType",      value = var.instance_type },
+    { namespace = "aws:autoscaling:launchconfiguration", name = "InstanceType", value = var.instance_type },
     { namespace = "aws:autoscaling:launchconfiguration", name = "IamInstanceProfile", value = aws_iam_instance_profile.eb.name },
-    { namespace = "aws:autoscaling:launchconfiguration", name = "SecurityGroups",     value = var.security_group_id },
-    { namespace = "aws:autoscaling:asg",                 name = "MinSize",            value = tostring(var.min_instances) },
-    { namespace = "aws:autoscaling:asg",                 name = "MaxSize",            value = tostring(var.max_instances) },
-    { namespace = "aws:ec2:vpc",                         name = "VPCId",              value = var.vpc_id },
-    { namespace = "aws:ec2:vpc",                         name = "Subnets",            value = join(",", var.subnet_ids) },
-    { namespace = "aws:ec2:vpc",                         name = "ELBSubnets",         value = join(",", var.elb_subnet_ids) },
-    { namespace = "aws:ec2:vpc",                         name = "AssociatePublicIpAddress", value = "true" },
-    { namespace = "aws:elasticbeanstalk:environment",    name = "EnvironmentType",    value = var.environment_type },
+    { namespace = "aws:autoscaling:launchconfiguration", name = "SecurityGroups", value = var.security_group_id },
+    { namespace = "aws:autoscaling:asg", name = "MinSize", value = tostring(var.min_instances) },
+    { namespace = "aws:autoscaling:asg", name = "MaxSize", value = tostring(var.max_instances) },
+    { namespace = "aws:ec2:vpc", name = "VPCId", value = var.vpc_id },
+    { namespace = "aws:ec2:vpc", name = "Subnets", value = join(",", var.subnet_ids) },
+    { namespace = "aws:ec2:vpc", name = "ELBSubnets", value = join(",", var.elb_subnet_ids) },
+    { namespace = "aws:ec2:vpc", name = "AssociatePublicIpAddress", value = "true" },
+    { namespace = "aws:elasticbeanstalk:environment", name = "EnvironmentType", value = var.environment_type },
     { namespace = "aws:elasticbeanstalk:healthreporting:system", name = "SystemType", value = "enhanced" },
-  ]
-
-  env_var_settings = [
-    for k, v in var.env_vars : {
-      namespace = "aws:elasticbeanstalk:application:environment"
-      name      = k
-      value     = v
-    }
   ]
 }
 
@@ -93,7 +85,8 @@ resource "aws_elastic_beanstalk_environment" "this" {
   tier                = "WebServer"
 
   dynamic "setting" {
-    for_each = local.base_settings
+    # for_each needs a map/set, not a tuple — key each setting by namespace/name.
+    for_each = { for s in local.base_settings : "${s.namespace}/${s.name}" => s }
     content {
       namespace = setting.value.namespace
       name      = setting.value.name
@@ -102,11 +95,15 @@ resource "aws_elastic_beanstalk_environment" "this" {
   }
 
   dynamic "setting" {
-    for_each = local.env_var_settings
+    # env_vars is sensitive, and for_each can't take a sensitive collection.
+    # Drive the loop with the env var NAMES (not secret; nonsensitive() strips
+    # the marking that keys() inherits), and look the secret VALUE up inside so
+    # it keeps its sensitive marking and never lands in plan output.
+    for_each = toset(nonsensitive(keys(var.env_vars)))
     content {
-      namespace = setting.value.namespace
-      name      = setting.value.name
-      value     = setting.value.value
+      namespace = "aws:elasticbeanstalk:application:environment"
+      name      = setting.value
+      value     = var.env_vars[setting.value]
     }
   }
 
