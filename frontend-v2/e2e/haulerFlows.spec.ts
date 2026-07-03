@@ -1,11 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 import { installNegotiationMock } from "./support/negotiationMock";
 
-/** One-click CARRIER_ACCEPT signing in the AttestationDialog the hauler must
- *  complete before their first bid / accept (the accept step is gated on it). */
-async function signCarrierAccept(page: Page) {
-  await page.locator("[data-cy=attestation-consent]").check();
-  await page.locator("[data-cy=attestation-submit]").click();
+/** The hauler's CARRIER_ACCEPT consent is folded inline: one checkbox, then
+ *  every bid/accept signs (binding its rate) + submits in a single click. */
+async function consent(page: Page) {
+  await page.locator("[data-cy=neg-consent]").check();
 }
 
 /**
@@ -32,8 +31,8 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await installNegotiationMock(page, "HAULER");
     await page.goto(URL);
     await page.getByRole("button", { name: /Engage to negotiate/ }).click();
+    await consent(page);
     await page.getByRole("button", { name: "Accept load" }).click();
-    await signCarrierAccept(page); // sign CARRIER_ACCEPT, then it assigns
     await expect(page.getByText(/Assigned at \$2\.50\/mi/)).toBeVisible();
   });
 
@@ -41,10 +40,10 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await installNegotiationMock(page, "HAULER");
     await page.goto(URL);
     await page.getByRole("button", { name: /Engage to negotiate/ }).click();
+    await consent(page);
     await page.getByRole("button", { name: "Bid" }).click();
     await page.locator("#neg-rate").fill("2.75");
     await page.getByRole("button", { name: "Send" }).click();
-    await signCarrierAccept(page); // sign CARRIER_ACCEPT so the shipper can accept the bid
     await expect(page.getByText(/On the table/)).toBeVisible();
     await expect(page.getByText("$2.75/mi")).toBeVisible();
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible();
@@ -54,10 +53,10 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     const nm = await installNegotiationMock(page, "HAULER");
     await page.goto(URL);
     await page.getByRole("button", { name: /Engage to negotiate/ }).click();
+    await consent(page);
     await page.getByRole("button", { name: "Bid" }).click();
     await page.locator("#neg-rate").fill("2.75");
     await page.getByRole("button", { name: "Send" }).click();
-    await signCarrierAccept(page); // bid requires the CARRIER_ACCEPT signature
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible();
     // Shipper counters at $2.60 — should arrive through the events channel.
     nm.shipperCounter(260);
@@ -69,14 +68,13 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     const nm = await installNegotiationMock(page, "HAULER");
     await page.goto(URL);
     await page.getByRole("button", { name: /Engage to negotiate/ }).click();
+    await consent(page);
     await page.getByRole("button", { name: "Bid" }).click();
     await page.locator("#neg-rate").fill("2.75");
     await page.getByRole("button", { name: "Send" }).click();
-    await signCarrierAccept(page); // bid requires the CARRIER_ACCEPT signature
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible(); // bid settled
     nm.shipperCounter(260);
-    await page.getByRole("button", { name: "Accept counter" }).click();
-    await signCarrierAccept(page); // sign binds the $2.60 counter rate being accepted
+    await page.getByRole("button", { name: "Accept counter" }).click(); // consent persists → signs $2.60
     await expect(page.getByText(/Assigned at \$2\.60\/mi/)).toBeVisible();
   });
 
@@ -84,16 +82,15 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     const nm = await installNegotiationMock(page, "HAULER");
     await page.goto(URL);
     await page.getByRole("button", { name: /Engage to negotiate/ }).click();
+    await consent(page);
     await page.getByRole("button", { name: "Bid" }).click();
     await page.locator("#neg-rate").fill("2.75");
     await page.getByRole("button", { name: "Send" }).click();
-    await signCarrierAccept(page); // bid requires the CARRIER_ACCEPT signature
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible(); // bid settled
     nm.shipperCounter(260);
     await page.getByRole("button", { name: "Counter offer" }).click();
     await page.locator("#neg-rate").fill("2.70");
-    await page.getByRole("button", { name: "Send" }).click();
-    await signCarrierAccept(page); // the hauler counter is signed binding $2.70
+    await page.getByRole("button", { name: "Send" }).click(); // signs binding $2.70
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible();
     await expect(page.getByText("$2.70/mi")).toBeVisible();
   });
@@ -118,21 +115,20 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await expect(page.getByText(/returned to the board/)).toBeVisible();
   });
 
-  test("H8 e-sign gate: assign requires signing CARRIER_ACCEPT first", async ({ page }) => {
+  test("H8 e-sign gate: assign requires the inline consent (sign) first", async ({ page }) => {
     await installNegotiationMock(page, "HAULER");
     await page.goto(URL);
     await page.getByRole("button", { name: /Engage to negotiate/ }).click();
-    await page.getByRole("button", { name: "Accept load" }).click();
 
-    // The signing dialog gates the assignment. Cancel it → nothing is assigned.
-    await expect(page.getByText("Sign carrier acceptance")).toBeVisible();
-    await page.getByRole("button", { name: "Cancel" }).click();
+    // Accepting without the consent box checked is refused; nothing assigns.
+    await page.getByRole("button", { name: "Accept load" }).click();
+    await expect(page.getByText(/Check the box/i)).toBeVisible();
     await expect(page.getByText(/Assigned at/)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Accept load" })).toBeVisible();
 
-    // Sign it → the load assigns at the posted rate.
+    // Consent + accept → the load assigns at the posted rate.
+    await consent(page);
     await page.getByRole("button", { name: "Accept load" }).click();
-    await signCarrierAccept(page);
     await expect(page.getByText(/Assigned at \$2\.50\/mi/)).toBeVisible();
   });
 });

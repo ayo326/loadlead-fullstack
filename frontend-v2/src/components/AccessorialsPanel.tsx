@@ -28,7 +28,7 @@ export function AccessorialsPanel({ loadId, role }: { loadId: string; role: "SHI
   const [adjustDollars, setAdjustDollars] = useState("");
 
   async function refresh() {
-    try { setCharges((await api.accessorials.listCharges(loadId)).charges); } catch { /* table may be empty */ }
+    try { setCharges((await api.accessorials.listCharges(loadId)).charges ?? []); } catch { /* table may be empty */ }
   }
   useEffect(() => { refresh(); }, [loadId]);
 

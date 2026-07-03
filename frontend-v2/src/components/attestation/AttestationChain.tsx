@@ -47,7 +47,7 @@ export function AttestationChain({ loadId, compact = false }: AttestationChainPr
   useEffect(() => {
     let cancelled = false;
     api.attestationChain(loadId)
-      .then((r) => { if (!cancelled) setRows(r.chain); })
+      .then((r) => { if (!cancelled) setRows(r.chain ?? []); })
       .catch((e) => { if (!cancelled) setError(e?.message ?? 'Failed to load attestation chain'); });
     return () => { cancelled = true; };
   }, [loadId]);
