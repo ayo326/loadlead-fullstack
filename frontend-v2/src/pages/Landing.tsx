@@ -3,12 +3,15 @@ import { useState, useEffect } from "react";
 import { ArrowRight, Briefcase, Building2, CheckCircle2, Clock, Gauge, MapPin, PackageCheck, Radio, ShieldCheck, ShipWheel, Truck, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
+import { StagingEnvToggle } from "@/components/StagingEnvToggle";
 
 const API = (import.meta.env.VITE_API_URL ?? "https://api.loadleadapp.com") + "/api";
 
 export default function Landing() {
   return (
     <div className="font-display-hangar min-h-screen bg-background text-foreground">
+      {/* Engineering-only staging start/pause control (renders only in the staging build) */}
+      <StagingEnvToggle />
       {/* Nav */}
       <header className="cx-nav absolute top-0 inset-x-0 z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-5">

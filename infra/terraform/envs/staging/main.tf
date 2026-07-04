@@ -6,6 +6,14 @@ locals {
     Environment = "staging"
     ManagedBy   = "Terraform"
   }
+
+  # Deterministic backend identity — decoupled from the pausable EB env so the
+  # API CloudFront origin and the deploy role keep pointing at a stable target
+  # even while the env itself is torn down (paused). EB serves this env at
+  # <cname_prefix>.<region>.elasticbeanstalk.com.
+  backend_cname_prefix = "loadlead-backend-staging"
+  backend_env_name     = "loadlead-backend-staging"
+  backend_cname        = "${local.backend_cname_prefix}.us-east-1.elasticbeanstalk.com"
 }
 
 data "aws_iam_openid_connect_provider" "github" {
@@ -15,12 +23,13 @@ data "aws_iam_openid_connect_provider" "github" {
 data "aws_caller_identity" "current" {}
 
 module "network" {
-  source     = "../../modules/network"
-  env        = local.env
-  vpc_cidr   = "10.20.0.0/16"
-  azs        = ["us-east-1a", "us-east-1b"]
-  enable_nat = false # no NAT gateway — avoids the ~$32/mo hourly charge; instances sit in a public subnet behind the SG (like dev), egress via the free Internet Gateway
-  tags       = local.tags
+  source                = "../../modules/network"
+  env                   = local.env
+  vpc_cidr              = "10.20.0.0/16"
+  azs                   = ["us-east-1a", "us-east-1b"]
+  enable_nat            = false # no NAT gateway — avoids the ~$32/mo hourly charge; instances sit in a public subnet behind the SG (like dev), egress via the free Internet Gateway
+  allow_cloudfront_http = true  # SingleInstance backend is fronted by the API CloudFront below for TLS
+  tags                  = local.tags
 }
 
 module "dynamodb" {
@@ -105,19 +114,34 @@ resource "aws_route53_record" "staging_alias" {
 }
 
 module "backend" {
-  source                = "../../modules/backend_eb"
-  env                   = local.env
+  source = "../../modules/backend_eb"
+  env    = local.env
+  # Attach to the existing EB application (created by the prod stack, lowercase);
+  # one EB application holds many environments. The module default
+  # "LoadLead-Backend" does not exist in this account.
+  application_name      = "loadlead-backend"
   vpc_id                = module.network.vpc_id
-  subnet_ids            = module.network.public_subnet_ids # public subnet + public IP, inbound locked to the ALB SG; no NAT cost
+  subnet_ids            = module.network.public_subnet_ids # public subnet + public IP, no NAT cost
   elb_subnet_ids        = module.network.public_subnet_ids
   security_group_id     = module.network.eb_instance_sg_id
-  instance_type         = "t3.small" # match prod's instance size — catches perf regressions before prod does
+  instance_type         = "t3.micro" # cheapest tier (~$7.50/mo running, $0 paused)
   min_instances         = 1
-  max_instances         = 2
-  environment_type      = "LoadBalanced" # exercise the same ALB health-check path prod uses
+  max_instances         = 1
+  environment_type      = "SingleInstance"    # no ALB — HTTPS is terminated at the API CloudFront below
+  enabled               = var.backend_enabled # pause switch: false → env torn down → $0
+  cname_prefix          = local.backend_cname_prefix
   dynamodb_table_prefix = local.prefix
   env_vars = merge(var.backend_env_vars, {
-    NODE_ENV                         = "staging"
+    NODE_ENV = "staging"
+    # APP_ENV is the deliberate environment signal the boot guard, mode resolver
+    # and self-check all key off (NOT NODE_ENV). Declare staging explicitly so it
+    # doesn't fall back to 'development'. Still != 'production', so integrations
+    # stay in their safe/stub default unless a mode var opts one live.
+    APP_ENV = "staging"
+    # Beta gate OFF in staging — it's our full-app pre-prod mirror where we
+    # validate everything before prod. Only PROD runs the private-beta wall
+    # (BETA_MODE defaults to on when unset, so prod needs no override).
+    BETA_MODE                        = "off"
     FRONTEND_URL                     = "https://${var.staging_domain}"
     DYNAMODB_USERS_TABLE             = "${local.prefix}Users"
     DYNAMODB_DRIVERS_TABLE           = "${local.prefix}Drivers"
@@ -178,6 +202,107 @@ module "backend" {
   tags = local.tags
 }
 
+############################################################################
+# API HTTPS — the cheapest-tier alternative to an ALB. A dedicated CloudFront
+# distribution terminates TLS for api-staging.loadleadapp.com and forwards to
+# the SingleInstance EB env over HTTP. The origin is the DETERMINISTIC EB
+# CNAME (local.backend_cname), not the module output, so this distribution is
+# unaffected when the backend is paused — it just returns 502 until resume.
+############################################################################
+
+# Resolve the AWS-managed CloudFront policies by name (their IDs are not stable
+# to hardcode across accounts/partitions). CachingDisabled = never cache the
+# API; AllViewerExceptHostHeader = forward all query strings/cookies/headers
+# EXCEPT Host, so the EB custom origin receives its own hostname.
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
+resource "aws_acm_certificate" "api" {
+  provider          = aws.us_east_1
+  domain_name       = var.api_staging_domain
+  validation_method = "DNS"
+  tags              = local.tags
+  lifecycle { create_before_destroy = true }
+}
+
+resource "aws_route53_record" "api_cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.api.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      type   = dvo.resource_record_type
+      record = dvo.resource_record_value
+    }
+  }
+  zone_id = var.route53_zone_id
+  name    = each.value.name
+  type    = each.value.type
+  records = [each.value.record]
+  ttl     = 60
+}
+
+resource "aws_acm_certificate_validation" "api" {
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.api.arn
+  validation_record_fqdns = [for r in aws_route53_record.api_cert_validation : r.fqdn]
+}
+
+resource "aws_cloudfront_distribution" "api" {
+  enabled = true
+  comment = "loadlead-staging-api"
+  aliases = [var.api_staging_domain]
+
+  origin {
+    domain_name = local.backend_cname
+    origin_id   = "eb-backend"
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only" # EB SingleInstance serves plain HTTP; CloudFront adds the TLS
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  default_cache_behavior {
+    target_origin_id         = "eb-backend"
+    viewer_protocol_policy   = "redirect-to-https"
+    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods           = ["GET", "HEAD"]
+    compress                 = true
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+  }
+
+  price_class = "PriceClass_100"
+
+  restrictions {
+    geo_restriction { restriction_type = "none" }
+  }
+
+  viewer_certificate {
+    acm_certificate_arn      = aws_acm_certificate_validation.api.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+
+  tags = merge(local.tags, { Name = "loadlead-staging-api" })
+}
+
+resource "aws_route53_record" "api_alias" {
+  zone_id = var.route53_zone_id
+  name    = var.api_staging_domain
+  type    = "A"
+  alias {
+    name                   = aws_cloudfront_distribution.api.domain_name
+    zone_id                = "Z2FDTNDATAQYW2" # CloudFront's fixed hosted zone ID
+    evaluate_target_health = false
+  }
+}
+
 module "github_deploy_role" {
   source                    = "../../modules/github_oidc_role"
   env                       = local.env
@@ -185,7 +310,7 @@ module "github_deploy_role" {
   github_repo               = var.github_repo
   allowed_ref               = "refs/heads/main" # merges to main deploy to staging
   dynamodb_table_prefix     = local.prefix
-  eb_environment_name       = module.backend.environment_name
+  eb_environment_name       = local.backend_env_name # deterministic — valid even while the env is paused
   frontend_bucket_arn       = "arn:aws:s3:::loadlead-staging-frontend"
   frontend_distribution_arn = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${module.frontend.distribution_id}"
   tags                      = local.tags
@@ -195,8 +320,18 @@ output "frontend_url" {
   value = "https://${var.staging_domain}"
 }
 
-output "backend_url" {
-  value = module.backend.cname
+output "api_url" {
+  value = "https://${var.api_staging_domain}"
+}
+
+output "backend_eb_cname" {
+  description = "Direct EB CNAME (HTTP origin behind the API CloudFront). Null while paused."
+  value       = module.backend.cname
+}
+
+output "backend_enabled" {
+  description = "Whether the billable EB env is currently up (true) or paused to $0 (false)."
+  value       = var.backend_enabled
 }
 
 output "github_deploy_role_arn" {

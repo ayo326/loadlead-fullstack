@@ -1,13 +1,17 @@
+# The env is count-gated (pause switch), so these read through a one_or_zero
+# list. When paused (enabled=false) they return null — callers that need a
+# stable name/CNAME across pause should use the deterministic value they pass
+# in (var.cname_prefix), not these.
 output "environment_name" {
-  value = aws_elastic_beanstalk_environment.this.name
+  value = one(aws_elastic_beanstalk_environment.this[*].name)
 }
 
 output "endpoint_url" {
-  value = aws_elastic_beanstalk_environment.this.endpoint_url
+  value = one(aws_elastic_beanstalk_environment.this[*].endpoint_url)
 }
 
 output "cname" {
-  value = aws_elastic_beanstalk_environment.this.cname
+  value = one(aws_elastic_beanstalk_environment.this[*].cname)
 }
 
 output "instance_role_arn" {

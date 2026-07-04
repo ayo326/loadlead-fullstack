@@ -1,0 +1,4 @@
+
+# tofu plan artifacts + lambda build zips
+*.plan
+.build/
