@@ -651,7 +651,9 @@ export default function CarrierDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Tabs defaultValue="overview" className="flex flex-col">
+      {/* D2: Dispatch is the dispatcher's primary job, so it is the landing tab.
+          Overview / Verification / Drivers remain one click away. */}
+      <Tabs defaultValue="dispatch" className="flex flex-col">
         {/* Header: title + subtitle + horizontal tab rail. The tabs sit
             directly above the dashboard content so the page reclaims the
             horizontal space the old vertical rail occupied. */}

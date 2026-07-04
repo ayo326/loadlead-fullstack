@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, PackagePlus, Search, TrendingUp, X } from "lucide-react";
+import { AlertCircle, ArrowRight, PackagePlus, Search, TrendingUp, X } from "lucide-react";
 import { PageHeader, StatCard, StatusPill } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,9 @@ export default function ShipperDashboard() {
   const open = loads.filter((l) => l.status === "OPEN").length;
   const booked = loads.filter((l) => l.status === "BOOKED").length;
   const inTransit = loads.filter((l) => l.status === "IN_TRANSIT").length;
+  // D9: loads that need the shipper to act now (an offer to review, or a draft
+  // to finish and post). Surfaced above the full list.
+  const needsAttention = loads.filter((l) => l.status === "OFFERED" || l.status === "DRAFT");
 
   const filteredLoads = loads.filter((l) => {
     if (statusFilter && l.status !== statusFilter) return false;
@@ -75,6 +78,36 @@ export default function ShipperDashboard() {
         <StatCard label="Booked" value={String(booked)} hint="driver assigned" trend="up" />
         <StatCard label="In transit" value={String(inTransit)} hint="on the road" trend="up" />
       </div>
+
+      {/* D9: Needs-attention block - OFFERED/DRAFT loads the shipper must act on,
+          surfaced above the full list so urgent items are not buried among
+          delivered/cancelled rows. Only shows when there is something to do. */}
+      {needsAttention.length > 0 && (
+        <div className="mb-8 rounded-md border border-amber-300/70 bg-amber-50 dark:bg-amber-950/20 overflow-hidden">
+          <div className="px-5 py-3 border-b border-amber-200/70 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <h2 className="text-sm font-semibold">Needs attention ({needsAttention.length})</h2>
+          </div>
+          <div className="divide-y divide-amber-100 dark:divide-amber-900/40">
+            {needsAttention.slice(0, 5).map((l) => (
+              <Link
+                key={l.loadId}
+                to={`/shipper/loads/${l.loadId}`}
+                className="flex items-center justify-between gap-4 px-5 py-3 hover:bg-amber-100/50 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{l.pickupCity}, {l.pickupState} to {l.deliveryCity}, {l.deliveryState}</p>
+                  <p className="text-xs text-muted-foreground">{l.referenceNumber ?? l.loadId?.slice(-8)}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <StatusPill status={l.status} />
+                  <span className="text-xs font-semibold text-amber-700">{l.status === "OFFERED" ? "Review offer" : "Finish and post"}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div data-tour="shipper-tracking" className="rounded-md border border-border bg-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center gap-3">
