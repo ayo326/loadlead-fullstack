@@ -32,9 +32,12 @@ export const config = {
     bolTable: process.env.DYNAMODB_BOL_TABLE || 'LoadLead_BOL',
     orgsTable: process.env.DYNAMODB_ORGS_TABLE || 'LoadLead_Organizations',
     membershipsTable: process.env.DYNAMODB_MEMBERSHIPS_TABLE || 'LoadLead_Memberships',
-    // Append-only membership audit log (role change / invite / removal). Default
-    // is the prod `LoadLead_` form; non-prod stacks override to their prefix.
-    membershipAuditTable: process.env.DYNAMODB_MEMBERSHIP_AUDIT_TABLE || 'LoadLead_MembershipAuditLogs',
+    // Append-only membership audit log (role change / invite / removal).
+    // NOTE: the live prod table is dash-named `LoadLead-MembershipAuditLogs`
+    // (created out-of-band; holds real data) — the default MUST match it or prod
+    // silently writes to a nonexistent table. Non-prod stacks override to their
+    // own prefix. (A future cleanup could migrate prod to the `LoadLead_` form.)
+    membershipAuditTable: process.env.DYNAMODB_MEMBERSHIP_AUDIT_TABLE || 'LoadLead-MembershipAuditLogs',
     invitationsTable: process.env.DYNAMODB_INVITATIONS_TABLE || 'LoadLead_Invitations',
     betaAllowlistTable: process.env.DYNAMODB_BETA_ALLOWLIST_TABLE || 'LoadLead_BetaAllowlist',
     waitlistTable: process.env.DYNAMODB_WAITLIST_TABLE || 'LoadLead_Waitlist',
