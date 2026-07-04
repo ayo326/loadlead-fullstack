@@ -1,10 +1,10 @@
 ---
-connie-title: Dashboards — Carrier & Owner Operator Build Spec
+connie-title: Dashboards - Carrier & Owner Operator Build Spec
 connie-publish: true
 connie-page-id: '164002'
 ---
 
-# LoadLead — Carrier & Owner Operator Dashboard Build Spec
+# LoadLead - Carrier & Owner Operator Dashboard Build Spec
 
 _Companion to LoadLead_Reference_Refactored.md. Defines the dashboards for the two carrier-parent types (Carrier org via CARRIER_ADMIN, and Owner Operator) plus a settings-parity requirement so OO settings mirror carrier settings._
 
@@ -15,7 +15,7 @@ Feasibility legend for every variable below:
 - 🟡 light data-capture add (status-transition timestamps, COI fields)
 - 🔴 needs an integration LoadLead doesn't have (ELD/HOS, reefer telemetry, fuel cards, FMCSA SMS)
 
-**No-fabrication rule (hard):** 🔴 variables are returned as `{ available: false, reason: 'integration_not_connected' }` and rendered as a "Connect <X>" placeholder. Never display zeros, mock values, or fake data for an unconnected integration — a dashboard that invents HOS hours or fuel spend is worse than one that says "not connected."
+**No-fabrication rule (hard):** 🔴 variables are returned as `{ available: false, reason: 'integration_not_connected' }` and rendered as a "Connect <X>" placeholder. Never display zeros, mock values, or fake data for an unconnected integration - a dashboard that invents HOS hours or fuel spend is worse than one that says "not connected."
 
 Both dashboards are computed **server-side** into one payload per request (no N+1 from the client).
 
@@ -69,8 +69,8 @@ Both dashboards are computed **server-side** into one payload per request (no N+
 | `csaScores` | FMCSA SMS dataset | 🔴 |
 
 ### 1.6 Role layouts
-- **Dispatcher (CARRIER_ADMIN default):** map-heavy — alerts strip on top, active/unassigned loads + assignment, tendered board, driver availability, dwell. (Sections 1.1, 1.2, 1.4)
-- **Exec view (toggle):** no map — financial tiles (gross, RPM, payee/factoring), OTP, acceptance rate, compliance posture, utilization. (Sections 1.3, 1.5)
+- **Dispatcher (CARRIER_ADMIN default):** map-heavy - alerts strip on top, active/unassigned loads + assignment, tendered board, driver availability, dwell. (Sections 1.1, 1.2, 1.4)
+- **Exec view (toggle):** no map - financial tiles (gross, RPM, payee/factoring), OTP, acceptance rate, compliance posture, utilization. (Sections 1.3, 1.5)
 
 ---
 
@@ -91,9 +91,9 @@ The same role toggle applies: a solo OO lives in the blended view; an OO with a 
 
 ---
 
-## 3. Settings parity — OO mirrors Carrier
+## 3. Settings parity - OO mirrors Carrier
 
-Define **one canonical set of carrier settings sections**. Both carrier-parent types render the same sections, each bound to its own entity. Parity is structural (a shared schema/component parameterized by parent type), not duplicated code — so a change to a section updates both and they can't drift.
+Define **one canonical set of carrier settings sections**. Both carrier-parent types render the same sections, each bound to its own entity. Parity is structural (a shared schema/component parameterized by parent type), not duplicated code - so a change to a section updates both and they can't drift.
 
 | Section | Carrier org binds to | Owner Operator binds to |
 |---|---|---|
@@ -103,12 +103,12 @@ Define **one canonical set of carrier settings sections**. Both carrier-parent t
 | Drivers / Fleet | `Memberships`: onboard (direct + invite), roster, remove | `fleetDriverIds`/`ownedByOperatorId`: invite, remove (self-driver non-removable) |
 | Factoring | `CarrierFactoringProfiles[orgId]` via `/api/factoring/*` (BYO/integrated) | `CarrierFactoringProfiles[operatorId]` via the same `/api/factoring/*` |
 | Notifications | push/email prefs | push/email prefs |
-| Members & roles | org membership roles (OWNER/DISPATCHER/ORG_DRIVER) | N/A (OO is owner; fleet = drivers) — section hidden, not stubbed |
+| Members & roles | org membership roles (OWNER/DISPATCHER/ORG_DRIVER) | N/A (OO is owner; fleet = drivers) - section hidden, not stubbed |
 | Capabilities | CARRIER (read-only; exclusivity enforced) | CARRIER (inherent; read-only) |
 
 Rules:
 - A shared `<CarrierSettings parentType={CARRIER_ORG|OWNER_OPERATOR} />` (or equivalent) renders the section list; each section's data adapter resolves to the right record by parent type.
-- System-owned fields (verification status, idvStatus, capabilities) are **read-only mirrors** with an action (re-verify, complete IDV) — never directly editable.
+- System-owned fields (verification status, idvStatus, capabilities) are **read-only mirrors** with an action (re-verify, complete IDV) - never directly editable.
 - No separate settings store: each section reads/writes the canonical record (OwnerOperator / Organization / Verification / FactoringProfile / Driver).
 - A parity test asserts both parent types expose the same section set, minus the explicitly N/A ones.
 
@@ -120,7 +120,7 @@ Rules:
 | `GET /api/org/:orgId/dashboard` | membership + `requireOrgCapability(CARRIER)` | §1 payload |
 | `GET /api/owner-operator/dashboard` | OO | §2 payload |
 | `GET/PUT /api/org/:orgId/settings` | membership (OWNER/DISPATCHER) | §3 sections (carrier) |
-| `GET/PUT /api/owner-operator/settings` | OO | §3 sections (OO) — same schema |
+| `GET/PUT /api/owner-operator/settings` | OO | §3 sections (OO) - same schema |
 
 Each dashboard endpoint computes all panels in one handler; 🔴 fields return the `{available:false}` shape.
 

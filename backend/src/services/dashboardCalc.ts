@@ -1,7 +1,7 @@
 // services/dashboardCalc.ts
 //
 // Persona-neutral domain calculations used by BOTH the carrier-org dashboard
-// and the Owner Operator dashboard. No persona logic here — these functions
+// and the Owner Operator dashboard. No persona logic here - these functions
 // take primitive load/offer/verification data and return computed numbers or
 // `{ available: false, reason }` shapes when an input is missing.
 //
@@ -32,7 +32,7 @@ export const NO_DATA: Unavailable = { available: false, reason: 'no_data' };
 // ── Active load buckets ─────────────────────────────────────────────────────
 // Spec uses bucket names {booked, dispatched, inTransit, atPickup, delivered}.
 // Our LoadStatus enum exposes BOOKED, IN_TRANSIT, DELIVERED, plus DRAFT/OPEN/
-// OFFERED/CANCELLED/EXPIRED. We surface the spec-shaped object — buckets
+// OFFERED/CANCELLED/EXPIRED. We surface the spec-shaped object - buckets
 // whose status doesn't exist in our state machine stay 0, which is honest
 // ("we don't track At-Pickup as a distinct status") rather than fabricated.
 
@@ -50,7 +50,7 @@ export function activeLoadCounts(loads: Load[]): ActiveLoadCounts {
     if (l.status === LoadStatus.BOOKED) c.booked++;
     else if (l.status === LoadStatus.IN_TRANSIT) c.inTransit++;
     else if (l.status === LoadStatus.DELIVERED) c.delivered++;
-    // dispatched + atPickup currently roll into BOOKED / IN_TRANSIT — keeping
+    // dispatched + atPickup currently roll into BOOKED / IN_TRANSIT - keeping
     // them as 0 is the no-fabrication choice (spec §0).
   }
   return c;
@@ -127,7 +127,7 @@ function loadRateTotal(l: Load): number | null {
 }
 
 export interface RpmBreakdown {
-  /** null when no load has both rate and miles — never 0 (no-fabrication). */
+  /** null when no load has both rate and miles - never 0 (no-fabrication). */
   avg: number | null;
   byLoad: { loadId: string; rpm: number }[];
 }
@@ -155,7 +155,7 @@ export interface PayeeBreakdown {
 /**
  * Aggregate "who gets paid" across delivered loads.
  * Caller passes a per-load payee resolution from `resolveInvoicePayee` so this
- * stays a pure aggregation — no DynamoDB calls inside the calc layer.
+ * stays a pure aggregation - no DynamoDB calls inside the calc layer.
  */
 export function payeeBreakdown(payees: Array<{ payee: 'FACTOR' | 'CARRIER'; amount: number }>): PayeeBreakdown {
   const out: PayeeBreakdown = { carrier: 0, factor: 0 };
@@ -173,9 +173,9 @@ export interface AcceptanceMetrics {
   accepted: number;
   declined: number;
   expired: number;
-  /** null if no offers in the period — never 0 (no-fabrication). */
+  /** null if no offers in the period - never 0 (no-fabrication). */
   acceptanceRate: number | null;
-  /** null if no offers in the period — never 0. */
+  /** null if no offers in the period - never 0. */
   rejectionRate: number | null;
 }
 
@@ -201,7 +201,7 @@ export function acceptanceMetrics(offers: Offer[]): AcceptanceMetrics {
 }
 
 // ── OTP (on-time pickup/delivery) ───────────────────────────────────────────
-// Marked 🟡 in the spec — needs status-transition timestamps we don't capture
+// Marked 🟡 in the spec - needs status-transition timestamps we don't capture
 // yet. Until those exist, return PENDING_CAPTURE rather than a fake number.
 
 export interface OtpMetrics {
@@ -215,7 +215,7 @@ export function otpMetrics(_loads: Load[]): OtpMetrics {
 
 // ── Dwell ───────────────────────────────────────────────────────────────────
 // Spec: At-Pickup→Departed / At-Delivery→Departed timestamps. Same issue as
-// OTP — we don't capture them yet. Return PENDING_CAPTURE per the rule.
+// OTP - we don't capture them yet. Return PENDING_CAPTURE per the rule.
 
 export function dwell(_loads: Load[]): { available: false; reason: 'pending_capture' } {
   return PENDING_CAPTURE as { available: false; reason: 'pending_capture' };
@@ -255,7 +255,7 @@ export function onboardingRollup(users: Array<{ idvStatus?: string }>): Onboardi
     const s = u.idvStatus ?? 'UNVERIFIED';
     if (s === 'VERIFIED') verified++;
     else if (s === 'REJECTED' || s === 'EXPIRED') blocked++;
-    else pending++; // UNVERIFIED + PENDING fold here — the spec lumps both as not-yet-cleared
+    else pending++; // UNVERIFIED + PENDING fold here - the spec lumps both as not-yet-cleared
   }
   return { verified, pending, blocked };
 }

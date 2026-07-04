@@ -158,7 +158,7 @@ router.put('/loads/:loadId/status', asyncHandler(async (req: AuthRequest, res) =
   res.json({ message: 'Load status updated successfully' });
 }));
 
-// PATCH /api/admin/drivers/:driverId/buffer — admin sets a driver's safety buffer %
+// PATCH /api/admin/drivers/:driverId/buffer - admin sets a driver's safety buffer %
 router.patch('/drivers/:driverId/buffer', asyncHandler(async (req: AuthRequest, res) => {
   const { driverId } = req.params;
   const { safetyBufferPct } = req.body;
@@ -181,7 +181,7 @@ router.patch('/drivers/:driverId/buffer', asyncHandler(async (req: AuthRequest, 
   });
 }));
 
-// GET /api/admin/drivers/:driverId/buffer — get current buffer + audit trail
+// GET /api/admin/drivers/:driverId/buffer - get current buffer + audit trail
 router.get('/drivers/:driverId/buffer', asyncHandler(async (req: AuthRequest, res) => {
   const { driverId } = req.params;
   const driver = await DriverService.getProfileById(driverId);
@@ -318,7 +318,7 @@ router.get('/fleet/drivers/:driverId', asyncHandler(async (req: AuthRequest, res
   });
 }));
 
-// GET /api/admin/debug/broadcast/:loadId — trace why drivers are or aren't matched
+// GET /api/admin/debug/broadcast/:loadId - trace why drivers are or aren't matched
 router.get('/debug/broadcast/:loadId', asyncHandler(async (req: AuthRequest, res) => {
   const { loadId } = req.params;
   const load = await LoadService.getLoadById(loadId);
@@ -506,7 +506,7 @@ router.post('/users/:userId/revoke-admin', requireStaffTier(...DESTRUCTIVE_TIER)
     const otherOwners = members.filter((x: any) =>
       x.userId !== targetUserId && x.orgRole === OrgRole.OWNER && (x.status ?? 'ACTIVE') === 'ACTIVE');
     if (otherOwners.length === 0) {
-      // Sole owner — suspend the org rather than orphan it.
+      // Sole owner - suspend the org rather than orphan it.
       await OrgService.suspendOrg(m.orgId, actorUserId, `Admin revoke: ${reason}`);
       suspendedOrgs.push(m.orgId);
     }

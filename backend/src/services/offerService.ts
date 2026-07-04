@@ -8,7 +8,7 @@ import Logger from '../utils/logger';
 import { LoadService } from './loadService';
 
 /**
- * OfferService — all DynamoDB calls use the correct key schema.
+ * OfferService - all DynamoDB calls use the correct key schema.
  *
  * LoadLead_Offers table layout
  *   PK:   offerId  (hash)
@@ -32,7 +32,7 @@ export class OfferService {
     try {
       const now = Helpers.getCurrentTimestamp();
       const offer: Offer = {
-        offerId: uuidv4(),      // PK — must be present on every PutItem
+        offerId: uuidv4(),      // PK - must be present on every PutItem
         loadId,
         driverId,
         status: OfferStatus.OFFERED,
@@ -201,7 +201,7 @@ export class OfferService {
   static async expireOffer(loadId: string, driverId: string): Promise<void> {
     try {
       const offer = await this.getOffer(loadId, driverId);
-      if (!offer) return; // already gone — no-op
+      if (!offer) return; // already gone - no-op
 
       await Database.updateItem(
         config.dynamodb.offersTable,

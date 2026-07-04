@@ -1,10 +1,10 @@
 ---
-connie-title: Architecture — Equipment & Load Type Taxonomy Build Spec
+connie-title: Architecture - Equipment & Load Type Taxonomy Build Spec
 connie-publish: true
 connie-page-id: '2260996'
 ---
 
-# LoadLead — Equipment & Load Type Taxonomy Build Spec
+# LoadLead - Equipment & Load Type Taxonomy Build Spec
 
 _Implements two reference taxonomies (equipment, load types) as canonical reference data, exposes them via a reference API, drives all selection UI through a searchable dropdown, and wires them into load creation, carrier/driver capabilities, onboarding, and matching. Seed sources: the equipment taxonomy and the freight load-types taxonomy docs (place under /docs and /data/taxonomy)._
 
@@ -16,7 +16,7 @@ _Implements two reference taxonomies (equipment, load types) as canonical refere
 
 ## 1. Equipment taxonomy
 
-### 1.1 Layer 1 — equipment class (the matching unit) + attributes
+### 1.1 Layer 1 - equipment class (the matching unit) + attributes
 Both load requirements and carrier/driver capabilities reference this one list. Attributes: `temperature_controlled`, `hazmat_capable`, `food_grade`, `liftgate`, `oversize_capable`, `team_driver_required`, `length_ft`. `opt` = configurable per unit. Distinguish **articulated** (tractor + trailer; the trailer type is the matching unit) from **straight** (box/step van; the truck is the class). Align `code` with DAT/Truckstop conventions where possible (verify against their published equipment list).
 
 | Class | Code | temp | hazmat | food_grade | oversize | type |
@@ -42,7 +42,7 @@ Both load requirements and carrier/driver capabilities reference this one list. 
 
 Seed the full class set (40 to 60) from the equipment taxonomy doc; the rows above are the canonical core.
 
-### 1.2 Layer 2 — manufacturer / model catalog (asset metadata, not a matching key)
+### 1.2 Layer 2 - manufacturer / model catalog (asset metadata, not a matching key)
 Carrier asset records reference this for profile completeness and validation; matching never reads it. Structure: `class_code -> manufacturer -> model`. Seed power units (Freightliner Cascadia, Kenworth T680, ...), trailers (Great Dane Everest, Utility 3000R, ...), box trucks (Isuzu NPR, Freightliner M2, ...), and refrigeration units (Thermo King, Carrier Transicold) from the doc (150 to 250 combos).
 
 ## 2. Load-type taxonomy (orthogonal dimensions, not one enum)
@@ -77,7 +77,7 @@ This is exactly what **broadcast eligibility** and the dashboard **equipment-mat
 - Versioned JSON under `/data/taxonomy/`: `equipment-classes.json`, `equipment-models.json`, `load-modes.json`, `service-types.json`, `commodities.json`, `accessorials.json`, `hazmat-classes.json`.
 - Read-only endpoints: `GET /api/reference/equipment-classes`, `/equipment-models?class=`, `/load-modes`, `/service-types`, `/commodities?q=`, `/accessorials`, `/hazmat-classes`. Support `q=` server-side search for the large lists (models, commodities).
 
-## 5. UI — searchable dropdowns (explicit requirement)
+## 5. UI - searchable dropdowns (explicit requirement)
 - One reusable **searchable combobox** primitive (typeahead): filter-as-you-type, grouped by category, keyboard accessible, fed from `/api/reference/*`. Persona-neutral shared atom (used by both Carrier and OO independently).
 - **Async** search for large lists (equipment models, commodities); **multi-select** for accessorials and characteristic flags; single-select for class, mode, service type.
 - No free-text entry for equipment class, model, load mode, service type, commodity, or accessorials. Free text is allowed only for genuinely freeform notes.

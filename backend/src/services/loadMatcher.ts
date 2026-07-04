@@ -10,7 +10,7 @@
 //
 // Every call site (broadcast eligibility, the dashboard equipment-match
 // guardrail, the dispatcher's manual-assign confirm) routes through here.
-// Persona-neutral by construction — no Carrier/OO branching anywhere.
+// Persona-neutral by construction - no Carrier/OO branching anywhere.
 
 import type { Driver, Load } from '../types';
 import { equipmentTypeMatches, loadingRequirementsMet } from './equipmentService';
@@ -47,7 +47,7 @@ export function checkLoadMatch(driver: Driver, load: Load): MatchResult {
   const reqCheck = loadingRequirementsMet(driver, load);
   if (!reqCheck.met && reqCheck.reason) reasons.push(reqCheck.reason);
 
-  // 3. Orthogonal characteristic mirror (spec §3) — only run when the load
+  // 3. Orthogonal characteristic mirror (spec §3) - only run when the load
   //    carries the new shape. driver.equipmentClassCode is optional today;
   //    fall back to a legacy-to-class translation in loadTaxonomy.
   if (load.equipment_required) {
@@ -56,7 +56,7 @@ export function checkLoadMatch(driver: Driver, load: Load): MatchResult {
     // via the same mapper that LoadService uses on writes.
     const wantedFamily = classCodeToTrailerType(load.equipment_required);
     if (wantedFamily && driver.trailerType !== wantedFamily) {
-      // Already caught by step 1 if acceptedEquipmentTypes was set — dedupe.
+      // Already caught by step 1 if acceptedEquipmentTypes was set - dedupe.
       const msg = `Driver class ${driver.trailerType} does not satisfy load.equipment_required=${load.equipment_required}`;
       if (!reasons.includes(msg)) reasons.push(msg);
     }
@@ -68,7 +68,7 @@ export function checkLoadMatch(driver: Driver, load: Load): MatchResult {
     const candidateCode = trailerTypeToClassCode(driver.trailerType);
     if (candidateCode) {
       const charFails = checkCharacteristicMatch(load.equipment_required, candidateCode, load.characteristics);
-      // Drop equipment_class_mismatch — step 1 already covered that.
+      // Drop equipment_class_mismatch - step 1 already covered that.
       for (const f of charFails) {
         if (f === 'equipment_class_mismatch') continue;
         const msg = mapCharacteristicFailureReason(f);
@@ -77,7 +77,7 @@ export function checkLoadMatch(driver: Driver, load: Load): MatchResult {
     }
   }
 
-  // 4. Driver endorsements / credentials (spec §3 — hazmat, TWIC, team).
+  // 4. Driver endorsements / credentials (spec §3 - hazmat, TWIC, team).
   const driverEndorsements = new Set((driver.endorsements ?? []).map(e => e.toUpperCase()));
 
   if (load.characteristics?.hazmat || load.hazmat) {

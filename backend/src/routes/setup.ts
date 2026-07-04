@@ -1,5 +1,5 @@
 /**
- * /api/setup — Platform-ADMIN bootstrap (OUT-OF-BAND ONLY)
+ * /api/setup - Platform-ADMIN bootstrap (OUT-OF-BAND ONLY)
  *
  * Per the Part B security audit (LL-AC-004 CAT-I), this endpoint is
  * intentionally LOCKED in production. The canonical bootstrap path is the
@@ -196,7 +196,7 @@ router.post('/complete', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'This setup link has expired. Request a new one.' });
   }
 
-  // Atomic admin uniqueness — write the singleton marker first with a
+  // Atomic admin uniqueness - write the singleton marker first with a
   // conditional put. If two requests race, only one passes. The losing
   // request gets ConditionalCheckFailedException → we return 409.
   const now = Date.now();

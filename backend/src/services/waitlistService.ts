@@ -1,5 +1,5 @@
 /**
- * WaitlistService — captures emails from the private-beta landing page
+ * WaitlistService - captures emails from the private-beta landing page
  * (visitors who aren't on the allowlist and don't have an invite).
  *
  * Also used as the "WAITING" tier for the BetaApplication pipeline:
@@ -8,7 +8,7 @@
  * entries in the same view.
  *
  * Promotion to INVITED creates an Invitation via OrgInvitationService and
- * adds the email to BetaAllowlist — the regular Admit flow.
+ * adds the email to BetaAllowlist - the regular Admit flow.
  */
 
 import { Database } from '../config/database';

@@ -54,7 +54,7 @@ async function requireProfile(req: AuthRequest, res: any, next: any) {
   next();
 }
 
-// POST /api/shipper/profile  — profile creation, no gate needed
+// POST /api/shipper/profile  - profile creation, no gate needed
 router.post('/profile', validate(shipperValidators.createProfile), asyncHandler(async (req: AuthRequest, res) => {
   const shipper = await ShipperService.createProfile(req.user!.userId, req.body);
   res.status(201).json({ shipper });
@@ -110,7 +110,7 @@ router.post('/loads/draft', asyncHandler(requireProfile), validate(loadValidator
   res.status(201).json({ load });
 }));
 
-// POST /api/shipper/loads/:loadId/sign — record the shipper's BOL_SUBMIT attestation.
+// POST /api/shipper/loads/:loadId/sign - record the shipper's BOL_SUBMIT attestation.
 //
 // Phase-1 gate: NO broadcast until this signature exists. Wired via
 // hasSignature() in the submit handler below; this endpoint is the only
@@ -134,7 +134,7 @@ router.post('/loads/:loadId/sign', asyncHandler(async (req: AuthRequest, res) =>
   // Resolver-based authZ: NO denormalized signer field. Fails 403 on wrong party.
   const resolution = await assertSignerIsLoadParty(load, 'BOL_SUBMIT', req.user!.userId);
 
-  // Origin photos for BOL_SUBMIT are OPTIONAL — load the READY-only set.
+  // Origin photos for BOL_SUBMIT are OPTIONAL - load the READY-only set.
   const photos = photoIds?.length
     ? (await listReadyPhotos(loadId, 'ORIGIN')).filter((p) => photoIds.includes(p.photoId))
     : [];

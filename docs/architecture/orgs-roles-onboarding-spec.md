@@ -1,5 +1,5 @@
 ---
-connie-title: 'Architecture — Organizations, Roles & Onboarding Spec'
+connie-title: 'Architecture - Organizations, Roles & Onboarding Spec'
 connie-publish: true
 connie-page-id: '393264'
 ---

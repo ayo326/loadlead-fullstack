@@ -3,7 +3,7 @@
 
 **Team:** Platform Engineering  **Date:** 2026-07-03  **Branch:** `platform/SCRUM-248-esign-at-assign`
 **Scope:** `backend/src/services/negotiationService.ts` + the negotiation route gate in `backend/src/routes/negotiations.ts`
-**Status:** analysis only — no production change; the code under test is the branch build, not deployed.
+**Status:** analysis only - no production change; the code under test is the branch build, not deployed.
 
 ---
 
@@ -39,7 +39,7 @@ Measured by running the two negotiation suites (`negotiation.test.ts` + the new 
 | `routes/negotiations.ts` | 51.9 | 35.0 | 68.2 | 57.1 |
 | **Combined** | **67.2** | **54.9** | **86.0** | **73.9** |
 
-The route file reads lower because the suites are predominantly **service-level**: they call `NegotiationService` methods directly and only reach the HTTP layer for the e-sign gate. The uncovered route lines are the notification helper, the `viewFor` action-list branches, and the two long-poll GET handlers — all of which are exercised by the **Task 3 end-to-end suite**, not by unit tests. The two coverage efforts are complementary by design.
+The route file reads lower because the suites are predominantly **service-level**: they call `NegotiationService` methods directly and only reach the HTTP layer for the e-sign gate. The uncovered route lines are the notification helper, the `viewFor` action-list branches, and the two long-poll GET handlers - all of which are exercised by the **Task 3 end-to-end suite**, not by unit tests. The two coverage efforts are complementary by design.
 
 ---
 
@@ -58,15 +58,15 @@ Basis-path coverage of the nine state-machine functions:
 | `expireIfOverdue` | 4 | 4 | 2 | 50% |
 | `finishAccepted` | 7 | 7 | 6 | 86% |
 | `requireCarrierAcceptForAssignment` *(new)* | 3 | 3 | 3 | **100%** |
-| **Total** | — | **49** | **42** | **86%** |
+| **Total** | - | **49** | **42** | **86%** |
 
-The new e-sign gate lands at **100% basis-path coverage** (all three paths asserted by the new suite). Seven basis paths across the pre-existing state machine remain uncovered; §5 lists each with a course of action. None of them is a correctness defect — they are concurrency-race fall-throughs, config-gated dead branches, and "should-be-impossible" defensive guards.
+The new e-sign gate lands at **100% basis-path coverage** (all three paths asserted by the new suite). Seven basis paths across the pre-existing state machine remain uncovered; §5 lists each with a course of action. None of them is a correctness defect - they are concurrency-race fall-throughs, config-gated dead branches, and "should-be-impossible" defensive guards.
 
 ---
 
 ## 4. Control flow graphs & basis paths
 
-### 4.1 `requireCarrierAcceptForAssignment()` — the new e-sign gate  `V(G) = 3`
+### 4.1 `requireCarrierAcceptForAssignment()` - the new e-sign gate  `V(G) = 3`
 
 ![CFG requireCarrierAccept](../cfg/cfg_requireCarrierAccept.svg)
 
@@ -76,9 +76,9 @@ The new e-sign gate lands at **100% basis-path coverage** (all three paths asser
 | P2 | signature present, signer role not a carrier | **409** SIGNER_INVALID | `a CARRIER_ACCEPT signed by a non-carrier role is rejected (409)` |
 | P3 | signature present, carrier signer | **pass → assign** | `accept-load succeeds once a carrier-signed CARRIER_ACCEPT is present` |
 
-**Path coverage: 3/3 (100%).** The suite also proves the gate is applied to all three assigning routes (hauler accept-load, hauler accept-counter, shipper accept-bid) and to **none** of the non-assigning ones (bid, counter, reject) — the "signature required exactly at assignment" invariant.
+**Path coverage: 3/3 (100%).** The suite also proves the gate is applied to all three assigning routes (hauler accept-load, hauler accept-counter, shipper accept-bid) and to **none** of the non-assigning ones (bid, counter, reject) - the "signature required exactly at assignment" invariant.
 
-### 4.2 `acceptOffer()` — the accept transition  `V(G) = 9`
+### 4.2 `acceptOffer()` - the accept transition  `V(G) = 9`
 
 ![CFG acceptOffer](../cfg/cfg_acceptOffer.svg)
 
@@ -96,7 +96,7 @@ The new e-sign gate lands at **100% basis-path coverage** (all three paths asser
 
 **Path coverage: 8/9 (89%).**
 
-### 4.3 `finishAccepted()` — the single assignment chokepoint  `V(G) = 7`
+### 4.3 `finishAccepted()` - the single assignment chokepoint  `V(G) = 7`
 
 ![CFG finishAccepted](../cfg/cfg_finishAccepted.svg)
 
@@ -112,13 +112,13 @@ The new e-sign gate lands at **100% basis-path coverage** (all three paths asser
 
 **Path coverage: 6/7 (86%).**
 
-### 4.4 `engage()` — atomic lock acquisition  `V(G) = 6`
+### 4.4 `engage()` - atomic lock acquisition  `V(G) = 6`
 
 ![CFG engage](../cfg/cfg_engage.svg)
 
 Covered: load-not-found (404), already-assigned (409), PER_MILE rate snapshot (`snapshots the posted rate in integer cents`), FLAT posted-linehaul (`a FLAT_RATE load negotiates…`), and the concurrent-lock race (`two haulers engaging the same load concurrently: one negotiation, one clear 409`). **Uncovered:** the `rethrow` of a *non-*ConditionalCheckFailed error from the lock `PutCommand` (5/6, see §5).
 
-### 4.5 `bid()` — hauler's first offer  `V(G) = 5`
+### 4.5 `bid()` - hauler's first offer  `V(G) = 5`
 
 ![CFG bid](../cfg/cfg_bid.svg)
 
@@ -136,10 +136,10 @@ Seven basis paths (14% of the state machine) are unexercised. Each is characteri
 | U2 | `counter` | `maxRounds` cap reached → 409 | `NEGOTIATION_POLICY.maxRounds = 0` disables the cap, so the branch is currently unreachable by config | **COA-B:** parametrize the test to set `maxRounds = 2` and assert the cap fires. Track as config-gated dead code until/unless round caps are enabled. |
 | U3 | `acceptOffer` | PER_MILE accept with no offer on the table → 409 | no test accepts before any bid on a PER_MILE load | **COA-C:** add a test: engage → accept-offer (shipper) with `currentOffer == null` → expect 409 "no offer". |
 | U4 | `reject` | reject *after* the window already expired (lazy-expire branch) | reject tests run inside the window | **COA-D:** add a test that advances the clock past `deadlineAt`, then rejects; assert the already-rebroadcast negotiation is returned. |
-| U5–U6 | `expireIfOverdue` | (a) already-`EXPIRED` early return; (b) concurrent-transition `catch` fall-through | both are concurrency races the single-threaded unit tests don't reproduce | **COA-E:** add tests that (a) call `expireIfOverdue` twice and assert the second is a no-op, and (b) simulate a losing conditional-write (`transition` throws `AppError`) and assert it still reports expired. |
+| U5-U6 | `expireIfOverdue` | (a) already-`EXPIRED` early return; (b) concurrent-transition `catch` fall-through | both are concurrency races the single-threaded unit tests don't reproduce | **COA-E:** add tests that (a) call `expireIfOverdue` twice and assert the second is a no-op, and (b) simulate a losing conditional-write (`transition` throws `AppError`) and assert it still reports expired. |
 | U7 | `finishAccepted` | load already assigned to a *different* driver → 409 | a "should-be-impossible while holding the lock" guard | **COA-F:** add a test that pre-seeds the load with a foreign `assignedDriverId` and asserts the 409, proving the guard is live. |
 
-**Aggregate COA:** implementing COA-A…F adds **7 tests** and lifts the state machine to **100% basis-path coverage** (49/49). Estimated effort: ~0.5 day. Recommended priority: **U3, U7 first** (they assert real user-reachable safety guards), then U5–U6 (concurrency correctness), then U1/U4 (defensive), then U2 (config-gated, lowest).
+**Aggregate COA:** implementing COA-A…F adds **7 tests** and lifts the state machine to **100% basis-path coverage** (49/49). Estimated effort: ~0.5 day. Recommended priority: **U3, U7 first** (they assert real user-reachable safety guards), then U5-U6 (concurrency correctness), then U1/U4 (defensive), then U2 (config-gated, lowest).
 
 ---
 
@@ -153,7 +153,7 @@ Seven basis paths (14% of the state machine) are unexercised. Each is characteri
 
 ---
 
-## Appendix A — Reproduce the empirical coverage
+## Appendix A - Reproduce the empirical coverage
 
 ```
 cd backend
@@ -165,7 +165,7 @@ cd backend
   --coverage.reporter=text
 ```
 
-## Appendix B — CFGs are regenerable
+## Appendix B - CFGs are regenerable
 
 The five SVG CFGs and `complexity.json` are emitted by the zero-dependency generator
 `docs/overnight-2026-07-03/cfg/gen_cfg.py` (`python3 gen_cfg.py`). Graphviz DOT for the

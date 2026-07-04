@@ -16,7 +16,7 @@ import Logger from '../utils/logger';
 const RESET_TABLE = process.env.DYNAMODB_RESET_TABLE || 'LoadLead_PasswordResets';
 
 // ─── Capability invariant ────────────────────────────────────────────────────
-// SHIPPER and CARRIER are mutually exclusive — a shipper that self-hauls would
+// SHIPPER and CARRIER are mutually exclusive - a shipper that self-hauls would
 // make self-haul fraud unrepresentable to check at runtime. RECEIVER may
 // coexist with either (e.g. a distribution center that ships and receives).
 // Centralized here and called from every org write path so it can't be
@@ -158,7 +158,7 @@ export class OrgService {
   }
 
   /**
-   * Direct driver onboarding (spec §5A) — a Carrier org's admin creates the
+   * Direct driver onboarding (spec §5A) - a Carrier org's admin creates the
    * driver profile + active membership immediately, without an invite round
    * trip. The driver still completes Didit IDV personally before their first
    * acceptance (identity cannot be proxied). If no User account exists for
@@ -230,7 +230,7 @@ export class OrgService {
       newValue: OrgRole.ORG_DRIVER,
     });
 
-    // Activation link reuses the existing self-service reset-password flow —
+    // Activation link reuses the existing self-service reset-password flow -
     // no new token mechanism needed.
     if (isNewUser) {
       const token = crypto.randomBytes(32).toString('hex');
@@ -456,7 +456,7 @@ export class OrgMembershipService {
       if (m.status !== 'ACTIVE') continue;
       const org = await OrgService.getOrgById(m.orgId);
       if (org?.capabilities?.includes(OrgCapability.CARRIER)) {
-        // System invariant — must bypass the self-removal guard in
+        // System invariant - must bypass the self-removal guard in
         // removeMember(). Pass UserRole.ADMIN so the actor-equals-target
         // check is exempted (system has admin-level authority over the
         // one-parent invariant). The literal string previously passed
@@ -539,10 +539,10 @@ export class OrgInvitationService {
   }
 
   /**
-   * Self-signup invitation — for personas that don't have an org-membership
+   * Self-signup invitation - for personas that don't have an org-membership
    * step (Shipper individual, Owner Operator solo, Receiver standalone,
    * Driver standalone). Reuses the SAME table, the SAME token format, the
-   * SAME TTL, and is consumed by the SAME acceptInvitation() — the only
+   * SAME TTL, and is consumed by the SAME acceptInvitation() - the only
    * difference is orgId is absent, which acceptInvitation() branches on.
    *
    * Used by:
@@ -551,7 +551,7 @@ export class OrgInvitationService {
    *   - any future per-persona admin invite flow that doesn't go through
    *     a carrier org
    *
-   * No membership row is created on acceptance — the new user just lands
+   * No membership row is created on acceptance - the new user just lands
    * with betaUser=true, cohort, invitedVia=INVITE stamped on their record.
    */
   static async createSelfSignupInvitation(params: {
@@ -565,7 +565,7 @@ export class OrgInvitationService {
 
     const invitation: OrgInvitation = {
       token,
-      // intentionally NO orgId / orgRole — this is the signal for the
+      // intentionally NO orgId / orgRole - this is the signal for the
       // accept-branch to skip the membership step.
       email: params.email.toLowerCase().trim(),
       userRole: params.userRole,
@@ -582,7 +582,7 @@ export class OrgInvitationService {
 
   /**
    * Platform-STAFF invitation. Reuses the exact same table / 32-byte token /
-   * TTL / revoke path as every other invite — the only difference is the
+   * TTL / revoke path as every other invite - the only difference is the
    * `platformRole` field, which the staff-accept branch reads to create a
    * role=ADMIN staffer with that tier. No orgId, no membership, no cohort.
    * Extended, not duplicated.
@@ -597,7 +597,7 @@ export class OrgInvitationService {
 
     const invitation: OrgInvitation = {
       token,
-      // NO orgId/orgRole/cohort — platformRole is the staff signal.
+      // NO orgId/orgRole/cohort - platformRole is the staff signal.
       email: params.email.toLowerCase().trim(),
       userRole: UserRole.ADMIN,           // staff accounts are role=ADMIN
       platformRole: params.platformRole,
@@ -629,7 +629,7 @@ export class OrgInvitationService {
   static async revokeInvitation(token: string, actorUserId: string): Promise<void> {
     const invite = await this.getInvitationByToken(token);
     if (!invite) throw new AppError('Invitation not found', 404);
-    if (invite.acceptedAt) throw new AppError('Invitation already accepted — cannot revoke', 409);
+    if (invite.acceptedAt) throw new AppError('Invitation already accepted - cannot revoke', 409);
     if (invite.revokedAt) throw new AppError('Invitation already revoked', 409);
 
     await Database.updateItem(config.dynamodb.invitationsTable, { token }, {
@@ -654,7 +654,7 @@ export class OrgInvitationService {
   }
 
   /** Accept an invitation: creates membership, marks invitation accepted.
-   *  Branches on invite.orgId — self-signup invites (no orgId) skip the
+   *  Branches on invite.orgId - self-signup invites (no orgId) skip the
    *  membership step and just mark the token consumed. */
   static async acceptInvitation(token: string, userId: string): Promise<OrgMembership | null> {
     const invite = await this.getInvitationByToken(token);
@@ -665,7 +665,7 @@ export class OrgInvitationService {
       throw new AppError('Invitation has expired', 410);
     }
 
-    // Self-signup branch: no orgId means there's no membership to create —
+    // Self-signup branch: no orgId means there's no membership to create -
     // just consume the token. AuthService.signup is responsible for stamping
     // betaUser/cohort/invitedVia on the new user from the invite's metadata.
     if (!invite.orgId) {
@@ -753,7 +753,7 @@ export class OrgAuditService {
       };
       await Database.putItem(MEMBERSHIP_AUDIT_TABLE, log);
     } catch (e) {
-      // Non-blocking — audit failures must not break primary operations
+      // Non-blocking - audit failures must not break primary operations
       Logger.error(`[OrgAuditService] Failed to write audit log: ${e}`);
     }
   }

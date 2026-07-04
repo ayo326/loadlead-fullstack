@@ -67,14 +67,14 @@ const offerAmountOf = (b: any) => ({
 /**
  * Resolve which driver a hauler request acts on, and authorize the acting user
  * to act on it. Backward compatible: with no `requestedDriverId` this returns
- * the caller's own driver (the original self-haul behavior — the E2E and every
+ * the caller's own driver (the original self-haul behavior - the E2E and every
  * existing client hit this path). With a `requestedDriverId` the caller must be
  * authorized to dispatch that driver, mirroring who may sign CARRIER_ACCEPT
  * (the `loads:accept` permission):
  *   (a) it is the caller's own driver profile, or
  *   (b) the caller is the owner-operator that owns the driver (fleet), or
  *   (c) the caller is an active carrier-org member with `loads:accept` over the
- *       org the driver belongs to — OWNER / MANAGER / DISPATCHER (Carrier Admin).
+ *       org the driver belongs to - OWNER / MANAGER / DISPATCHER (Carrier Admin).
  * The negotiation binds to the resolved DRIVER, so any later action on the same
  * negotiation must resolve to the same driver (the service checks driverId).
  */
@@ -95,7 +95,7 @@ async function resolveHaulerDriver(
   const cor = await resolveCarrierOfRecord(target);
   if (!cor) throw new AppError('That driver is not affiliated with a carrier', 403);
 
-  // (a) your own driver profile — always allowed.
+  // (a) your own driver profile - always allowed.
   if (target.userId === actingUserId) return { driver: target, cor };
 
   // (b) owner-operator acting on a driver in their own fleet (cor.entityId is
@@ -321,7 +321,7 @@ router.post('/:id/shipper/accept', asyncHandler(async (req: AuthRequest, res) =>
   if (!existing) throw new AppError('Negotiation not found', 404);
   const actor = await shipperActor(req, existing);
   // The carrier isn't the actor here, but their bid becomes a binding
-  // assignment the moment the shipper accepts it — so the CARRIER_ACCEPT
+  // assignment the moment the shipper accepts it - so the CARRIER_ACCEPT
   // attestation the hauler signed for that bid must be present, or there is
   // no assignment to make. 412s until the carrier has signed.
   await requireCarrierAcceptForAssignment(existing.loadId);

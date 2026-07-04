@@ -1,5 +1,5 @@
 // Public read-only reference endpoints for the equipment + load taxonomies.
-// These are the single source of truth for every dropdown in the app — the
+// These are the single source of truth for every dropdown in the app - the
 // frontend never carries hardcoded lists. Server-side q= search on the large
 // lists (models, commodities) keeps the wire small.
 

@@ -2,11 +2,11 @@
 //
 // Web Push adapter. Ships to every environment, including production.
 // Moved the actual webpush.sendNotification call out of
-// services/pushService.ts — pushService.ts keeps its public API
+// services/pushService.ts - pushService.ts keeps its public API
 // (saveSubscription, removeSubscription, send, sendMany) exactly as-is;
 // only its internal dispatch now delegates here.
 //
-// Capture mode NEVER calls webpush at all — it just records what would have
+// Capture mode NEVER calls webpush at all - it just records what would have
 // been sent into the capture store for GET /_test/outbox. No real browser
 // endpoint is ever contacted outside live mode.
 

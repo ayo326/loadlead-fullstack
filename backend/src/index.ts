@@ -10,7 +10,7 @@ import { errorHandler } from './middleware/errorHandler';
 import Logger from './utils/logger';
 import { runBootGuards, assertProductionHardened, BootGuardError } from './services/integrations/bootGuard';
 
-// ── Boot guard — runs before anything else, including building the app.
+// ── Boot guard - runs before anything else, including building the app.
 // Fail-closed: any violation here exits the process immediately. There is
 // no warn-and-continue path for production contamination or a live
 // Didit/Email/Push integration outside production. ─────────────────────────
@@ -110,7 +110,7 @@ app.use(
     noSniff:        true,                             // X-Content-Type-Options: nosniff
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 
-    // ── CSP: JSON API serves no HTML/JS — lock every directive to 'none' ──
+    // ── CSP: JSON API serves no HTML/JS - lock every directive to 'none' ──
     contentSecurityPolicy: {
       directives: {
         defaultSrc:     ["'none'"],
@@ -158,7 +158,7 @@ app.use(cors({
   },
   credentials: true,
 }));
-// Tally webhook — route-only RAW body capture, mounted BEFORE express.json
+// Tally webhook - route-only RAW body capture, mounted BEFORE express.json
 // so the HMAC verifies against the exact bytes Tally sent (never a
 // re-serialized body). This is the spec-mandated front door for beta
 // ingestion: POST /api/admin/beta/webhook, secured by signature not by a
@@ -185,10 +185,10 @@ app.get('/api', (_req, res) => {
   });
 });
 
-// Single canonical health handler — three duplicate /api/health definitions
+// Single canonical health handler - three duplicate /api/health definitions
 // previously existed in this file (dead code; only the first ever ran).
 // Consolidated here so productionHardened has exactly one place to live.
-// NO secrets, NO mode dump — a boolean only, and only when actually true.
+// NO secrets, NO mode dump - a boolean only, and only when actually true.
 app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
@@ -218,7 +218,7 @@ const authRateLimiter = rateLimit({
   // SAFETY: explicit opt-in via AUTH_RATE_LIMIT_BYPASS=1, AND a second
   // gate refusing to engage when APP_ENV=production. Default-deny: a
   // missing / scrambled env never accidentally disables rate limiting
-  // in prod — both flags must align.
+  // in prod - both flags must align.
   skip: () =>
     process.env.AUTH_RATE_LIMIT_BYPASS === '1' &&
     process.env.APP_ENV !== 'production' &&
@@ -269,22 +269,22 @@ app.use('/api/maps', mapsRouter);
 app.use('/api/org', orgRoutes);
 app.use('/api/support', require('./routes/support').default);
 app.use('/api/setup', setupRoutes);
-// /api/beta — public surface of the private-beta program. Mounted BEFORE
+// /api/beta - public surface of the private-beta program. Mounted BEFORE
 // the auth-required routes so the waitlist + status work for unauth visitors.
 app.use('/api/beta', betaRoutes);
-// /api/admin/beta — staff-only Beta Program management (exact-ADMIN gated
+// /api/admin/beta - staff-only Beta Program management (exact-ADMIN gated
 // inside the router). Separate from /api/admin so the beta concern is
 // self-contained.
-// /api/admin/beta/trust-events — beta no-show/trust-incident events (own store, not
+// /api/admin/beta/trust-events - beta no-show/trust-incident events (own store, not
 // Load). Mounted before /api/admin/beta so this more specific prefix matches first.
 app.use('/api/admin/beta/trust-events', adminBetaTrustRoutes);
 app.use('/api/admin/beta', adminBetaRoutes);
 // Public staff-invite acceptance (the invitee has no session yet; the token
 // is the gate). Mounted BEFORE the gated staff router so it's reachable.
 app.post('/api/admin/staff/accept-invite', validateBody(acceptStaffInviteValidators), acceptStaffInviteHandler);
-// /api/admin/staff — platform-staff IAM (STAFF_ADMIN only, gated in-router).
+// /api/admin/staff - platform-staff IAM (STAFF_ADMIN only, gated in-router).
 app.use('/api/admin/staff', adminStaffRoutes);
-// /api/admin/liquidity — Lane Liquidity analytics (authenticate + requireAdmin in-router).
+// /api/admin/liquidity - Lane Liquidity analytics (authenticate + requireAdmin in-router).
 app.use('/api/admin/liquidity', adminLiquidityRoutes);
 app.use('/api/factoring', factoringRoutes);
 app.use('/api/accessorials', accessorialRoutes);
@@ -292,22 +292,22 @@ app.use('/api/admin/compliance', adminComplianceRoutes);
 app.use('/api/negotiations', negotiationRoutes);
 app.use('/api/reference', referenceRoutes);
 
-// Didit webhook — PUBLIC (no JWT); signature verified inside the handler
+// Didit webhook - PUBLIC (no JWT); signature verified inside the handler
 app.post('/api/webhooks/didit', diditWebhookHandler);
 
-// Error handler — registered AFTER all routes so AppError from any router
+// Error handler - registered AFTER all routes so AppError from any router
 // (incl. /api/org which is mounted below the line where this used to live)
 // is JSON-serialized by errorHandler instead of Express's default HTML 4xx.
 app.use(errorHandler);
 
-// ── Test-only routes — guarded dynamic import is the ONLY entry point here.
+// ── Test-only routes - guarded dynamic import is the ONLY entry point here.
 // A static `import outboxRoutes from './routes/_test/outbox'` at the top of
 // this file would defeat deploy-backend.sh's physical exclusion of
 // routes/_test from the production artifact (a static import is resolved at
 // module-load time regardless of whether the code path runs, so a deleted
 // file would crash boot instead of simply never being reached). The path is
 // built from parts for the same reason services/integrations/fmcsa.ts splits
-// its stub import — see that file's comment. ───────────────────────────────
+// its stub import - see that file's comment. ───────────────────────────────
 async function mountTestOnlyRoutes(): Promise<void> {
   if (config.appEnv === 'production') return;
   const testRoutesPath = './routes/' + '_test' + '/outbox';
@@ -319,7 +319,7 @@ async function mountTestOnlyRoutes(): Promise<void> {
 async function start(): Promise<void> {
   await mountTestOnlyRoutes();
 
-  // Production self-check — independently re-verifies what the guards above
+  // Production self-check - independently re-verifies what the guards above
   // and the guarded-import pattern are supposed to already guarantee.
   // Refuses to boot rather than serve a single request if it fails.
   assertProductionHardened(app);

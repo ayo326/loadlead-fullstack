@@ -2,11 +2,11 @@
 //
 // THE single source of truth for "which mode is integration X in right now."
 // Every adapter, the boot guard, and the production self-check all call
-// resolveMode() — there is no second place in the codebase that reads
+// resolveMode() - there is no second place in the codebase that reads
 // DIDIT_ENV / FMCSA_MODE / MAPS_MODE / EMAIL_MODE / PUSH_MODE directly.
 //
 // Production lock: when APP_ENV === 'production', resolveMode() returns the
-// live value UNCONDITIONALLY for every integration — it does not even look
+// live value UNCONDITIONALLY for every integration - it does not even look
 // at the mode env var. The env var is still read separately by the boot
 // guard (assertProductionNotContaminated, below) purely to detect and refuse
 // boot on a leaked/contaminated value; resolveMode() itself never lets a
@@ -64,7 +64,7 @@ export function resolveMode(integration: IntegrationName): string {
   return trimmed ? trimmed : DEFAULT_NONPROD_MODE[integration];
 }
 
-/** Raw, unresolved env var value — used only by the boot guard's contamination check. */
+/** Raw, unresolved env var value - used only by the boot guard's contamination check. */
 export function rawModeEnvValue(integration: IntegrationName): string | undefined {
   const raw = process.env[MODE_ENV_VAR[integration]];
   return raw?.trim() || undefined;

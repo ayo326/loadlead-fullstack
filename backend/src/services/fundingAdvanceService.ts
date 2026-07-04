@@ -62,7 +62,7 @@ function advanceKey(invoiceId: string, lineKind: AdvanceLineKind, chargeId?: str
   return createHash('sha256').update(`${invoiceId}|${lineKind}|${chargeId ?? 'LINEHAUL'}`, 'utf8').digest('hex').slice(0, 32);
 }
 
-/** A conditional-put failure — a concurrent write won the idempotent insert. */
+/** A conditional-put failure - a concurrent write won the idempotent insert. */
 function isConditionFailure(err: any): boolean {
   return err?.name === 'ConditionalCheckFailedException' || err?.name === 'TransactionCanceledException';
 }
@@ -146,7 +146,7 @@ export class FundingAdvanceService {
 
   static async getForLine(invoiceId: string, lineKind: AdvanceLineKind, chargeId?: string): Promise<FundingAdvance | null> {
     // The advanceId is deterministic (advance_<key>), so this is a direct point
-    // read — no table scan needed.
+    // read - no table scan needed.
     const key = advanceKey(invoiceId, lineKind, chargeId);
     return Database.getItem<FundingAdvance>(config.dynamodb.fundingAdvancesTable, { advanceId: `advance_${key}` });
   }

@@ -236,7 +236,7 @@ export class NegotiationService {
    */
   private static async negsForLoad(loadId: string): Promise<LoadNegotiation[]> {
     // Prefer the GSI; fall back to a filtered scan when the query path isn't
-    // usable — the index isn't backfilled yet (ValidationException) or the data
+    // usable - the index isn't backfilled yet (ValidationException) or the data
     // layer doesn't expose query. The scan is always correct, just slower.
     if (typeof Database.query === 'function') {
       try {
@@ -429,7 +429,7 @@ export class NegotiationService {
 
   /**
    * Reconcile sweeper (M1): heal any ACCEPTED negotiation whose load never got
-   * assigned to its hauler — the residue of an accept whose assignment write
+   * assigned to its hauler - the residue of an accept whose assignment write
    * failed after the terminal transition, with no client retry. Idempotent; a
    * genuine "assigned to another driver" conflict is logged, not forced.
    */
@@ -524,7 +524,7 @@ export class NegotiationService {
       });
     } catch (err) {
       const current = await this.getById(neg.negotiationId);
-      if (current?.status === 'ACCEPTED') return this.ensureAssignedAndReleased(current); // idempotent repeat — reconcile assignment + lock too
+      if (current?.status === 'ACCEPTED') return this.ensureAssignedAndReleased(current); // idempotent repeat - reconcile assignment + lock too
       throw err;
     }
 
@@ -539,7 +539,7 @@ export class NegotiationService {
   /**
    * Idempotent, reconciling tail of an accepted negotiation: ensure the load is
    * assigned to this hauler's driver, then release our lock. Safe to call on the
-   * first accept AND on any idempotent retry — this is what heals an accept whose
+   * first accept AND on any idempotent retry - this is what heals an accept whose
    * assignment write failed after the terminal transition (which would otherwise
    * strand the load: ACCEPTED, unassigned, and still lock-hidden from the pool).
    * Assignment happens BEFORE the lock release so the load is never both unlocked

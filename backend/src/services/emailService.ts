@@ -1,5 +1,5 @@
 // The actual Resend call now routes through services/integrations/email.ts
-// — every public method below (welcome, loadMatched, ...) is unchanged.
+// - every public method below (welcome, loadMatched, ...) is unchanged.
 import { sendEmail, sendRawEmail } from './integrations/email';
 
 async function send(to: string, subject: string, html: string) {
@@ -9,7 +9,7 @@ async function send(to: string, subject: string, html: string) {
 // Brand-matched email shell. Email clients block custom fonts and CSS
 // filters and many ignore flexbox, so this uses a web-safe font stack, a
 // table layout, and a WHITE header carrying the real (black) LoadLead logo
-// — the brand accent shows as a gradient top bar (with a solid fallback for
+// - the brand accent shows as a gradient top bar (with a solid fallback for
 // Outlook) and the footer carries the "Where loads meet leads." brand line.
 // Brand hexes: primary #0a3f9e (217 91% 32%), accent #3b82f6 (217 91% 60%).
 function base(body: string) {
@@ -69,7 +69,7 @@ export const EmailService = {
       },
     };
     const m = roleMessages[role] ?? roleMessages.DRIVER;
-    await send(to, `Welcome to LoadLead — ${m.headline}`, base(`
+    await send(to, `Welcome to LoadLead - ${m.headline}`, base(`
       <h2 style="margin:0 0 8px;color:#1a3a5c;">${m.headline}</h2>
       <p style="color:#555;margin:0 0 24px;">${m.sub}</p>
       <a href="${m.link}"
@@ -82,7 +82,7 @@ export const EmailService = {
 
 
   async loadMatched(to: string, data: { loadId: string; origin: string; destination: string; rate: number; miles: number }) {
-    await send(to, '🚛 New Load Available — LoadLead', base(`
+    await send(to, '🚛 New Load Available - LoadLead', base(`
       <h2 style="margin:0 0 8px;color:#1a3a5c;">New load matched to you</h2>
       <p style="color:#555;margin:0 0 24px;">A new load is waiting for your acceptance.</p>
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
@@ -101,7 +101,7 @@ export const EmailService = {
   },
 
   async offerAccepted(to: string, data: { loadId: string; driverName: string; origin: string; destination: string }) {
-    await send(to, '✅ Driver Accepted Your Load — LoadLead', base(`
+    await send(to, '✅ Driver Accepted Your Load - LoadLead', base(`
       <h2 style="margin:0 0 8px;color:#1a3a5c;">Your load has been accepted</h2>
       <p style="color:#555;margin:0 0 24px;"><strong>${data.driverName}</strong> accepted your load from <strong>${data.origin}</strong> to <strong>${data.destination}</strong>.</p>
       <a href="https://loadleadapp.com/shipper/loads/${data.loadId}"
@@ -112,7 +112,7 @@ export const EmailService = {
   },
 
   async deliveryConfirmed(to: string, data: { loadId: string; origin: string; destination: string; deliveredAt: string }) {
-    await send(to, '📦 Delivery Confirmed — LoadLead', base(`
+    await send(to, '📦 Delivery Confirmed - LoadLead', base(`
       <h2 style="margin:0 0 8px;color:#1a3a5c;">Load delivered successfully</h2>
       <p style="color:#555;margin:0 0 8px;">Your shipment from <strong>${data.origin}</strong> to <strong>${data.destination}</strong> has been delivered.</p>
       <p style="color:#888;font-size:13px;margin:0 0 24px;">Delivered at: ${data.deliveredAt}</p>
@@ -143,7 +143,7 @@ export const EmailService = {
    * apply right away.
    */
   async betaFormInvite(to: string, formUrl: string) {
-    await send(to, `You're on the LoadLead beta list — here's the application`, base(`
+    await send(to, `You're on the LoadLead beta list - here's the application`, base(`
       <h2 style="margin:0 0 8px;color:#0a3f9e;font-size:22px;">Thanks for your interest in LoadLead</h2>
       <p style="color:#475569;margin:0 0 8px;line-height:1.55;">You're on the founding-beta mailing list. We're admitting shippers and carriers in small, balanced waves.</p>
       <p style="color:#475569;margin:0 0 24px;line-height:1.55;">Want to be considered for the current wave? Take ~3 minutes to tell us about your freight:</p>
@@ -151,7 +151,7 @@ export const EmailService = {
          style="display:inline-block;background:#0a3f9e;color:#fff;padding:13px 30px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
         Apply to the beta
       </a>
-      <p style="color:#94a3b8;font-size:12px;margin-top:24px;">If you'd rather just stay on the list, no action needed — we'll reach out as seats open.</p>
+      <p style="color:#94a3b8;font-size:12px;margin-top:24px;">If you'd rather just stay on the list, no action needed - we'll reach out as seats open.</p>
     `));
   },
 
@@ -161,11 +161,11 @@ export const EmailService = {
    * (beta.loadleadapp.com) where the full product lives during private beta.
    */
   async betaAdmitInvite(to: string, acceptUrl: string, cohort?: string) {
-    await send(to, `You're in — your LoadLead private beta access`, base(`
+    await send(to, `You're in - your LoadLead private beta access`, base(`
       <div style="display:inline-block;background:#e8f0fe;color:#0a3f9e;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:5px 11px;border-radius:999px;margin-bottom:14px;">Private beta · Admitted</div>
       <h2 style="margin:0 0 8px;color:#0a3f9e;font-size:22px;">You're in the LoadLead private beta 🎉</h2>
       <p style="color:#475569;margin:0 0 8px;line-height:1.55;">We reviewed your application and you've been admitted${cohort ? ` to the <strong>${cohort}</strong> cohort` : ''}. Welcome aboard.</p>
-      <p style="color:#475569;margin:0 0 24px;line-height:1.55;">Click below to set up your account and start using LoadLead. This is your private beta link — please don't share it.</p>
+      <p style="color:#475569;margin:0 0 24px;line-height:1.55;">Click below to set up your account and start using LoadLead. This is your private beta link - please don't share it.</p>
       <a href="${acceptUrl}"
          style="display:inline-block;background:#0a3f9e;color:#fff;padding:13px 30px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
         Set up my account
@@ -228,7 +228,7 @@ export const EmailService = {
   async passwordReset(to: string, resetUrl: string) {
     await send(to, '🔐 Reset Your LoadLead Password', base(`
       <h2 style="margin:0 0 8px;color:#1a3a5c;">Password reset request</h2>
-      <p style="color:#555;margin:0 0 24px;">We received a request to reset your password. Click the button below — this link expires in <strong>1 hour</strong>.</p>
+      <p style="color:#555;margin:0 0 24px;">We received a request to reset your password. Click the button below - this link expires in <strong>1 hour</strong>.</p>
       <a href="${resetUrl}"
          style="display:inline-block;background:#dc2626;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
         Reset Password

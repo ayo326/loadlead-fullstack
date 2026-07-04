@@ -1,13 +1,13 @@
 /**
- * StaffService — platform-staff IAM (the internal-team management layer).
+ * StaffService - platform-staff IAM (the internal-team management layer).
  *
  * Platform staff are Users with role=ADMIN AND a PlatformRole tier
  * (STAFF_ADMIN / STAFF_MANAGER / STAFF_SUPERVISOR / STAFF_TEAM_LEAD). This
- * enum is DELIBERATELY separate from carrier-org OrgRole — exact-match, no
+ * enum is DELIBERATELY separate from carrier-org OrgRole - exact-match, no
  * substring; the staff MANAGER is not the tenant MANAGER.
  *
  * Invites REUSE the existing OrgInvitation flow (same table/token/TTL/revoke)
- * via OrgInvitationService.createStaffInvitation — the `platformRole` field
+ * via OrgInvitationService.createStaffInvitation - the `platformRole` field
  * is the only difference. Accepting a staff invite creates/elevates a
  * role=ADMIN account with that tier; it is NOT public signup and NOT a
  * customer/cohort account.
@@ -78,7 +78,7 @@ export class StaffService {
       .sort((a, b) => a.createdAt - b.createdAt);
   }
 
-  /** Count active STAFF_ADMINs — used to prevent last-admin lockout. */
+  /** Count active STAFF_ADMINs - used to prevent last-admin lockout. */
   private static async activeAdminCount(): Promise<number> {
     const staff = await this.listStaff();
     return staff.filter(s => s.platformRole === PlatformRole.STAFF_ADMIN && s.status === UserStatus.ACTIVE).length;

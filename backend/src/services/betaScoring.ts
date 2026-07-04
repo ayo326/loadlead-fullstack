@@ -1,5 +1,5 @@
 /**
- * betaScoring — the AUTHORITATIVE scorer. Encodes the 7-dimension rubric
+ * betaScoring - the AUTHORITATIVE scorer. Encodes the 7-dimension rubric
  * from docs/beta/Recruitment_Kit.md (max 15 points).
  *
  *   Volume         0-3   AUTO   loadsPerWeek band
@@ -27,7 +27,7 @@ export type ScoreBreakdown = NonNullable<BetaApplication['scoreBreakdown']>;
  * or occasionally a number. We map to the band's lower bound so both the
  * LOW_VOLUME gate (< 5) and the Volume score can work on a number.
  *   "Under 5" / "<5" / "less than 5"  → 0
- *   "5-20" / "5–20" / "5 to 20"       → 5
+ *   "5-20" / "5-20" / "5 to 20"       → 5
  *   "20-50"                           → 20
  *   "50+" / "over 50"                 → 50
  *   42 (number)                       → 42
@@ -65,7 +65,7 @@ export function geographyScore(texasFocus: BetaApplication['texasFocus']): numbe
 /**
  * Coerce a Tally field value to plain text. Tally sends multi-select
  * answers as ARRAYS (e.g. a "How do you book?" checkbox question), so any
- * field we treat as a string must pass through here first — otherwise a
+ * field we treat as a string must pass through here first - otherwise a
  * `.trim()` on an array throws. Single values pass through; arrays join;
  * null/undefined → "".
  */
@@ -78,7 +78,7 @@ export function coerceText(v: any): string {
 
 /**
  * Tool sophistication (0-1). Per the guide §13 this is specifically
- * "already uses a load board or TMS, so they can compare" — NOT merely
+ * "already uses a load board or TMS, so they can compare" - NOT merely
  * having any booking/finding method. So "Load board" (a shipper booking
  * option and a carrier finding option) or a free-text "TMS" mention scores
  * 1; "In-house team" / "Brokers" / "3PL" / "Dispatcher" score 0.
@@ -121,7 +121,7 @@ export function preComputeObjective(
     volume: volumeFor(app),
     geography: geographyScore(app.texasFocus),
     tools: toolsScore(app.side, app.sideSpecificData),
-    // staff dimensions — preserved if already set, else 0
+    // staff dimensions - preserved if already set, else 0
     segmentFit: clamp(existing?.segmentFit ?? 0, 0, 3),
     laneOverlap: clamp(existing?.laneOverlap ?? 0, 0, 2),
     pain: clamp(existing?.pain ?? 0, 0, 2),
@@ -140,11 +140,11 @@ export function applyStaffScores(
   staff: Partial<Pick<ScoreBreakdown, 'segmentFit' | 'laneOverlap' | 'pain' | 'responsiveness'>>,
 ): { breakdown: ScoreBreakdown; total: number } {
   const merged: ScoreBreakdown = {
-    // AUTO — always recomputed from source data
+    // AUTO - always recomputed from source data
     volume: volumeFor(app),
     geography: geographyScore(app.texasFocus),
     tools: toolsScore(app.side, app.sideSpecificData),
-    // STAFF — take the incoming edit, else keep current, else 0
+    // STAFF - take the incoming edit, else keep current, else 0
     segmentFit: clamp(staff.segmentFit ?? current?.segmentFit ?? 0, 0, 3),
     laneOverlap: clamp(staff.laneOverlap ?? current?.laneOverlap ?? 0, 0, 2),
     pain: clamp(staff.pain ?? current?.pain ?? 0, 0, 2),
@@ -210,7 +210,9 @@ function lanesOf(app: Pick<BetaApplication, 'side' | 'sideSpecificData'>): strin
 function tokenizeLane(lane: string): string[] {
   return lane
     .toLowerCase()
-    .split(/[->–—,/|]+|\bto\b/)
+    // Split on common lane delimiters, including en/em dashes in user input
+    // (matched via unicode escapes so no literal dash chars live in source).
+    .split(/[->\u2013\u2014,/|]+|\bto\b/)
     .map(s => s.trim())
     .filter(Boolean);
 }

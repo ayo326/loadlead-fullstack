@@ -1,12 +1,12 @@
-// Signature service — record + chain reads.
+// Signature service - record + chain reads.
 //
-// IMMUTABILITY — defense in depth:
+// IMMUTABILITY - defense in depth:
 //   1. IAM (runtime) Deny on UpdateItem/DeleteItem/BatchWriteItem on
 //      LoadLead_Signatures (see infra/terraform/modules/iam_signatures/).
 //   2. PutItem ALWAYS carries ConditionExpression `attribute_not_exists(signatureId)`
 //      so a duplicate Put is rejected at the DDB API even with full Put rights.
 //   3. ESLint rule denies imports of UpdateCommand / DeleteCommand /
-//      BatchWriteCommand in this folder — guarded at authoring time.
+//      BatchWriteCommand in this folder - guarded at authoring time.
 //
 // Corrections are NEW rows with `correctsSignatureId`. There is no
 // "update" code path. There is no "delete" code path.
@@ -59,7 +59,7 @@ export interface RecordSignatureInput {
   geo?:           { lat: number; lng: number } | null;
 
   // Optional pointer to the signature this row corrects. Per the append-
-  // only contract there are no UPDATE rows — a correction is a NEW row
+  // only contract there are no UPDATE rows - a correction is a NEW row
   // that names the row it's superseding. The selector in requireSignature
   // (newest matching signature wins) lets the corrected row remain in
   // the chain for audit purposes while the new row takes effect.
@@ -79,7 +79,7 @@ export async function recordSignature(input: RecordSignatureInput): Promise<Sign
 
   // Build the projection input and compute the documentHash. A photo
   // that isn't finalized causes canonicalize() to throw a structured
-  // error — that's the proof of the synchronous finalize ordering.
+  // error - that's the proof of the synchronous finalize ordering.
   const projInput: ProjectionInput = {
     load:               input.load,
     bol:                input.bolId ? { bolId: input.bolId } : null,

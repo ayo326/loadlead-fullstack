@@ -1,4 +1,4 @@
-// LoadLead — Proof of Delivery (POD) gate
+// LoadLead - Proof of Delivery (POD) gate
 // assertPodComplete(loadId) is the single check factoring calls before releasing
 // an invoice. It must pass before any invoice packet or factoring opt-in proceeds.
 //

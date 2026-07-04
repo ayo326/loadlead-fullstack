@@ -1,4 +1,4 @@
-// assertSignerIsLoadParty — resolver-based signer check.
+// assertSignerIsLoadParty - resolver-based signer check.
 //
 // The authenticated user MUST resolve as the right party for THIS load
 // AT SIGNING TIME. NO denormalized signer field on Load. The mapping is
@@ -12,10 +12,10 @@
 //   BOL_SUBMIT     → 'loads:create'  (OWNER + MANAGER + DISPATCHER + SHIPPER_USER)
 //   CARRIER_ACCEPT → 'loads:accept'  (OWNER + MANAGER + DISPATCHER)
 // Source of truth: services/orgPermissions.ts. Do NOT hard-code role
-// lists here — changes to the matrix should automatically flow.
+// lists here - changes to the matrix should automatically flow.
 //
 // Reuses:
-//   - resolveCarrierOfRecord(driver) — services/carrierOfRecord.ts
+//   - resolveCarrierOfRecord(driver) - services/carrierOfRecord.ts
 //   - OrgMembership table + hasPermission(matrix)
 //   - DriverService + ShipperService + ReceiverService for entity → userId
 
@@ -235,7 +235,7 @@ export async function assertChainReadAccess(
   }
 
   // Fan out across the 5 actions; swallow per-action resolution errors
-  // (e.g. RECEIVER_CONFIRM throws when receiverId missing — that must
+  // (e.g. RECEIVER_CONFIRM throws when receiverId missing - that must
   // NOT deny a shipper their own chain read).
   const actions: AttestationAction[] =
     ['BOL_SUBMIT', 'CARRIER_ACCEPT', 'DRIVER_PICKUP', 'DRIVER_DELIVER', 'RECEIVER_CONFIRM'];

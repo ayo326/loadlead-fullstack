@@ -51,7 +51,7 @@ router.get('/:bolId', asyncHandler(async (req: AuthRequest, res) => {
 }));
 
 // ─── GET /api/bol/load/:loadId ────────────────────────────────────────────────
-// Get BOL by load ID — same party-based access check as GET /:bolId.
+// Get BOL by load ID - same party-based access check as GET /:bolId.
 router.get('/load/:loadId', asyncHandler(async (req: AuthRequest, res) => {
   const bol = await BOLService.getBOLByLoadId(req.params.loadId);
   if (!bol) return res.status(404).json({ error: 'BOL not found for this load' });
@@ -102,7 +102,7 @@ router.put('/:bolId', asyncHandler(async (req: AuthRequest, res) => {
 }));
 
 // ─── POST /api/bol/:bolId/sign ────────────────────────────────────────────────
-// Sign the BOL — role determines which signature slot is filled
+// Sign the BOL - role determines which signature slot is filled
 router.post('/:bolId/sign', asyncHandler(async (req: AuthRequest, res) => {
   const { signatureData, signedBy, location } = req.body;
   if (!signatureData || !signedBy) {

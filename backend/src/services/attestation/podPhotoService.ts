@@ -8,7 +8,7 @@
 //   4. Only READY photos can flow into a signature's projection. Attempting
 //      to sign with a PENDING photo throws CANONICALIZE_PHOTO_NOT_FINALIZED.
 //
-// This service is allowed to UpdateItem on the photos table — photos are
+// This service is allowed to UpdateItem on the photos table - photos are
 // metadata only; the BYTES in S3 are the legal evidence, and those bytes
 // are protected by the bucket policy (delete-resistant; Phase-2 Object Lock).
 
@@ -136,7 +136,7 @@ export async function finalizeUpload(
 
   // Apply Object Lock (COMPLIANCE) at finalize time. The presign+PUT
   // path can't apply bucket-default Object Lock because that would
-  // require Content-MD5/x-amz-checksum on the client's PUT — which the
+  // require Content-MD5/x-amz-checksum on the client's PUT - which the
   // browser presigned-URL contract doesn't deliver. So we apply
   // COMPLIANCE-mode retention here, after the bytes are confirmed and
   // the hash matches.

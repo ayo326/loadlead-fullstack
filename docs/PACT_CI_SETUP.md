@@ -1,12 +1,12 @@
 ---
-title: Pact CI Setup — PactFlow + GitHub Actions
+title: Pact CI Setup - PactFlow + GitHub Actions
 status: runbook
 companion_to: LoadLead_CrossPersona_Contract_UAT_BDD.md
 connie-publish: true
 connie-page-id: '2097153'
 ---
 
-# Pact CI setup — PactFlow + GH Actions wire-up
+# Pact CI setup - PactFlow + GH Actions wire-up
 
 The cross-persona contract suite from [the spec](LoadLead_CrossPersona_Contract_UAT_BDD.md)
 ran locally in earlier commits (broker on `docker-compose`, manual
@@ -41,13 +41,13 @@ workflow_dispatch on .github/workflows/deploy-backend.yml
   record-deployment of provider to "production"
 ```
 
-## One-time setup (your turn — I can't do this from here)
+## One-time setup (your turn - I can't do this from here)
 
 ### 1. Sign up for PactFlow
 
 - Go to https://pactflow.io and create a free account
 - Name your tenant `loadlead` (free tier is fine for one team /
-  ~5 contracts / 100 verifications per month — we'll fit)
+  ~5 contracts / 100 verifications per month - we'll fit)
 - Your broker URL becomes `https://loadlead.pactflow.io`
 
 ### 2. Generate an API token
@@ -102,7 +102,7 @@ npx pact-broker record-deployment --pacticipant loadlead-api \
   --broker-token="$PACTFLOW_TOKEN"
 ```
 
-(This is also automated going forward — `deploy-backend.yml` records
+(This is also automated going forward - `deploy-backend.yml` records
 the provider deployment on every successful run; `frontend-pact.yml`
 records the consumer deployments on every main push.)
 
@@ -117,14 +117,14 @@ gh workflow run verify-provider.yml \
   -f deliberate_break=oo-web
 ```
 
-Watch the run logs — you should see:
+Watch the run logs - you should see:
 - 5/6 consumers verified green (admin-console, carrier-web, driver-web,
   receiver-web, shipper-web)
-- 1/6 failed (oo-web — "$.selfDriver missing isSelf")
+- 1/6 failed (oo-web - "$.selfDriver missing isSelf")
 - Workflow exits non-zero
 
 Then immediately attempt `gh workflow run deploy-backend.yml --ref
-main` — the `can-i-deploy` step will block the deploy and the log will
+main` - the `can-i-deploy` step will block the deploy and the log will
 name `oo-web` as the broken consumer.
 
 To clear the demo state, run verify-provider.yml again with no
@@ -137,7 +137,7 @@ unset**, not fail. That's intentional:
 
 - Lets the workflow YAML files land BEFORE PactFlow exists
 - Means an outage of PactFlow doesn't block deploys (just removes the
-  gate temporarily — operator decision whether that's acceptable)
+  gate temporarily - operator decision whether that's acceptable)
 - Lets dev branches push without the gate when iterating
 
 To make the gate **mandatory** (no-secret = blocked deploy), change

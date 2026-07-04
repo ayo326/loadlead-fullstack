@@ -40,7 +40,7 @@ router.get(
     if (invitation.revokedAt) throw new AppError('Invitation has been revoked', 410);
     if (invitation.expiresAt < Date.now()) throw new AppError('Invitation has expired', 410);
 
-    // Self-signup invites (orgId absent) carry no org context — preview just
+    // Self-signup invites (orgId absent) carry no org context - preview just
     // shows the persona and email.
     const org = invitation.orgId ? await OrgService.getOrgById(invitation.orgId) : null;
     res.json({
@@ -148,7 +148,7 @@ router.patch(
 
 // ─── Carrier-org verification (FMCSA + Didit KYB, keyed on orgId) ────────────
 // Reuses the exact same submitCarrierDocs/getVerification functions the
-// Owner Operator verification routes call (services/verification.ts) — no
+// Owner Operator verification routes call (services/verification.ts) - no
 // forked logic, just a CARRIER-capability org instead of an operatorId.
 
 /**
@@ -390,7 +390,7 @@ router.patch(
   validate([
     body('safetyBufferPct')
       .isInt({ min: 5, max: 25 })
-      .withMessage('safetyBufferPct must be 5–25'),
+      .withMessage('safetyBufferPct must be 5-25'),
   ]),
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId } = req.params;
@@ -445,7 +445,7 @@ router.patch(
  * A Carrier org admin creates a driver profile + active membership directly
  * (no invite round trip). Creates the User account if one doesn't exist yet
  * and emails an activation link. The driver still completes Didit IDV
- * personally before their first acceptance — identity cannot be proxied.
+ * personally before their first acceptance - identity cannot be proxied.
  */
 router.post(
   '/:orgId/drivers',
@@ -591,11 +591,11 @@ router.get(
 
 // ─── Carrier settings aggregation (canonical sections) ─────────────────────
 // Read-only aggregation of the spec §3 canonical sections, bound to this
-// org's canonical records. Writes are NOT here — they go through each
+// org's canonical records. Writes are NOT here - they go through each
 // section's existing canonical endpoint (PATCH /:orgId, POST verification/
 // submit, POST :orgId/drivers, etc.) so we keep "no parallel store" rule.
 //
-// Independent of the OO settings endpoint — separate handler, separate code,
+// Independent of the OO settings endpoint - separate handler, separate code,
 // per the Independence Principle. The parity test asserts both expose the
 // same canonical section set (minus persona-N/As).
 router.get('/:orgId/settings', asyncHandler(async (req: AuthRequest, res) => {
@@ -694,7 +694,7 @@ router.get('/:orgId/settings', asyncHandler(async (req: AuthRequest, res) => {
 
 // ─── Carrier dashboard aggregation ──────────────────────────────────────────
 // Independent of the OO dashboard. Computed server-side in a single handler
-// per spec §0 — no N+1 from the client. Shares only the persona-neutral calc
+// per spec §0 - no N+1 from the client. Shares only the persona-neutral calc
 // service with the OO dashboard.
 //
 // 🔴 fields (HOS, reefer, fuel, CSA) return { available:false } per the
@@ -720,7 +720,7 @@ router.get(
       driverMembers.map(m => DriverService.getProfileByUserId(m.userId))
     )).filter((d): d is Driver => !!d);
 
-    // Loads assigned to these drivers + their active offers — fan-out in
+    // Loads assigned to these drivers + their active offers - fan-out in
     // parallel so the handler is still O(1) round-trips per persona.
     const [driverLoads, driverOffersList, org, authority] = await Promise.all([
       Promise.all(driverProfiles.map(d => LoadService.getLoadsByAssignedDriver(d.driverId))),
@@ -749,7 +749,7 @@ router.get(
       delivery: { city: l.deliveryCity, state: l.deliveryState, at: l.deliveryDate },
       rate: l.rateAmount,
     }));
-    const etaAtRisk = Calc.etaAtRisk(loads); // 🟡 partial — no live ETA provider wired yet
+    const etaAtRisk = Calc.etaAtRisk(loads); // 🟡 partial - no live ETA provider wired yet
 
     // ── 1.2 Fleet & compliance ───────────────────────────────────────────
     const driversPanel = driverProfiles.map(d => {
@@ -770,7 +770,7 @@ router.get(
 
     // Payee breakdown: only against delivered loads, and only those with an
     // amount we can compute. Each call to resolveInvoicePayee is sequential
-    // intentionally — DynamoDB Local doesn't like many parallel writes; the
+    // intentionally - DynamoDB Local doesn't like many parallel writes; the
     // GSI on the OptIns table is the bottleneck anyway.
     const deliveredLoads = loads.filter(l => l.status === LoadStatus.DELIVERED);
     const payees = [];
@@ -871,7 +871,7 @@ router.get(
 //
 // Server contract (this endpoint):
 //   - Authenticated user must be the same user who signed CARRIER_ACCEPT
-//     (signerUserId match) — prevents one admin signing while a different
+//     (signerUserId match) - prevents one admin signing while a different
 //     admin executes the booking.
 //   - Signer role on the chain entry must be CARRIER_ADMIN or OWNER_OPERATOR.
 //   - assignedDriverId on the sig drives OfferService.acceptOffer; no

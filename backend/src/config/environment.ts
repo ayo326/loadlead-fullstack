@@ -7,7 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 export const config = {
   port: process.env.PORT || 4000,
   nodeEnv: process.env.NODE_ENV || 'development',
-  // APP_ENV is the deliberate, explicit environment signal — distinct from
+  // APP_ENV is the deliberate, explicit environment signal - distinct from
   // NODE_ENV, which EB/npm tooling often forces to "production" for every
   // environment (dev/staging included) as a build optimization flag. Every
   // production-lockdown decision (services/integrations) keys off APP_ENV,
@@ -34,7 +34,7 @@ export const config = {
     membershipsTable: process.env.DYNAMODB_MEMBERSHIPS_TABLE || 'LoadLead_Memberships',
     // Append-only membership audit log (role change / invite / removal).
     // NOTE: the live prod table is dash-named `LoadLead-MembershipAuditLogs`
-    // (created out-of-band; holds real data) — the default MUST match it or prod
+    // (created out-of-band; holds real data) - the default MUST match it or prod
     // silently writes to a nonexistent table. Non-prod stacks override to their
     // own prefix. (A future cleanup could migrate prod to the `LoadLead_` form.)
     membershipAuditTable: process.env.DYNAMODB_MEMBERSHIP_AUDIT_TABLE || 'LoadLead-MembershipAuditLogs',
@@ -122,7 +122,7 @@ export const config = {
     // Append-only factoring submission records (export-and-send disclosure trail).
     factoringSubmissionsTable:
       process.env.DYNAMODB_FACTORING_SUBMISSIONS_TABLE || 'LoadLead_FactoringSubmissions',
-    // Attestation chain — append-only, IAM-deny-update/delete, attribute_not_exists Put.
+    // Attestation chain - append-only, IAM-deny-update/delete, attribute_not_exists Put.
     signaturesTable: process.env.DYNAMODB_SIGNATURES_TABLE || 'LoadLead_Signatures',
     // Pod photo finalize step records contentHash + stage; same DDB row as the
     // photo metadata. Same table as load attachments in the long run; isolated

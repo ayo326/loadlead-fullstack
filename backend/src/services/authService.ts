@@ -148,12 +148,12 @@ export class AuthService {
   }
 
   /**
-   * Carrier signup — a dedicated, atomic path. Creates User(CARRIER_ADMIN) +
+   * Carrier signup - a dedicated, atomic path. Creates User(CARRIER_ADMIN) +
    * Organization(capabilities=[CARRIER]) + OrgMembership(OWNER, ACTIVE) in a
    * single DynamoDB TransactWriteItems call: either all three rows exist or
    * none do. Deliberately separate from the generic signup() above, which
    * creates the org as a best-effort second step (catches and logs org
-   * creation failure as non-fatal) — that is NOT atomic and is intentionally
+   * creation failure as non-fatal) - that is NOT atomic and is intentionally
    * left alone for the four existing personas. Carrier signup needs the
    * stronger guarantee because a User with no Organization is a carrier
    * admin who can never resolve a carrier of record, and an Organization
@@ -166,7 +166,7 @@ export class AuthService {
     dba?: string;
     mcNumber?: string;
     dotNumber?: string;
-    /** See signup() — same semantics, set by routes/auth.ts when the
+    /** See signup() - same semantics, set by routes/auth.ts when the
      *  beta gate passes the request. */
     betaContext?: {
       invitedVia: 'INVITE' | 'ALLOWLIST';
@@ -186,7 +186,7 @@ export class AuthService {
     }
 
     // Capability exclusivity enforced server-side before the transaction is
-    // even built — a Carrier signup always passes exactly [CARRIER], but
+    // even built - a Carrier signup always passes exactly [CARRIER], but
     // this call is what would catch a future code path trying to sneak
     // SHIPPER in alongside it.
     assertCapabilities([OrgCapability.CARRIER]);
@@ -204,7 +204,7 @@ export class AuthService {
       passwordHash: hashedPassword,
       role: UserRole.CARRIER_ADMIN,
       status: UserStatus.PENDING_VERIFICATION,
-      // Beta cohort stamping — symmetric with signup() above. Set only
+      // Beta cohort stamping - symmetric with signup() above. Set only
       // when the route layer passes us betaContext (i.e. BETA_MODE is on
       // AND the gate accepted this request).
       betaUser: params.betaContext ? true : undefined,
@@ -264,12 +264,12 @@ export class AuthService {
         ],
       }));
     } catch (error) {
-      Logger.error('Carrier signup transaction failed — rolled back, zero rows created', error);
+      Logger.error('Carrier signup transaction failed - rolled back, zero rows created', error);
       throw new AppError('Could not create carrier account. Please try again.', 500);
     }
 
     // Consume the beta invitation token if one brought the carrier in.
-    // Idempotent — multiple consumes are safe (acceptInvitation rejects
+    // Idempotent - multiple consumes are safe (acceptInvitation rejects
     // already-accepted tokens). Self-signup branch of acceptInvitation
     // since these carrier invites have no orgId (the org is being created
     // here, in the same call).

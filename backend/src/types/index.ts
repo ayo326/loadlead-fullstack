@@ -10,7 +10,7 @@ export enum UserRole {
   OWNER_OPERATOR = 'OWNER_OPERATOR',
   /**
    * Administrator persona who runs a Carrier-capability Organization. This
-   * is NOT a carrier entity role — the carrier remains the Organization
+   * is NOT a carrier entity role - the carrier remains the Organization
    * (capabilities includes CARRIER). A CARRIER_ADMIN manages/dispatches and
    * never hauls: no Driver profile, never resolves as carrier of record,
    * and is excluded from every accept/haul route by the existing
@@ -126,7 +126,7 @@ export interface User {
   /**
    * Private-beta cohort membership. Set by the beta gate at account creation;
    * never user-settable. ADMIN accounts (CLI-bootstrapped) are not part of
-   * the cohort gate — these fields stay undefined for them.
+   * the cohort gate - these fields stay undefined for them.
    *   - betaUser=true marks the account as part of a beta cohort
    *   - cohort is the wave/group label (e.g. "wave-1")
    *   - invitedVia records HOW they got in (token vs allowlist match)
@@ -141,10 +141,10 @@ export interface User {
   updatedAt: number;
 }
 
-// ─── Beta program — gate, allowlist, waitlist, applications ─────────────────
+// ─── Beta program - gate, allowlist, waitlist, applications ─────────────────
 
 /**
- * Runtime-editable allowlist. Adding an entry takes effect immediately — no
+ * Runtime-editable allowlist. Adding an entry takes effect immediately - no
  * deploy. EMAIL entries match a single address; DOMAIN entries let everyone
  * at that domain self-sign-up (used for partner orgs). The beta gate consults
  * this BEFORE issuing a 403, so a domain entry covers everyone-at-`acme.com`
@@ -165,12 +165,12 @@ export interface BetaAllowlistEntry {
 }
 
 /**
- * Waitlist row — captured when an unauthenticated visitor lands on the
+ * Waitlist row - captured when an unauthenticated visitor lands on the
  * private-beta page and asks to be let in. This is the next-cohort pipeline:
  * staff can promote a WAITING row to INVITED (which issues a real Invitation
  * via the existing OrgInvitation flow + allowlists the email).
  *
- * The BetaApplication pipeline (Tally-fed) ALSO uses this waitlist concept —
+ * The BetaApplication pipeline (Tally-fed) ALSO uses this waitlist concept -
  * a QUALIFIED application that isn't admitted lives in WAITING state on its
  * own row, and the dashboard shows both surfaces in the same waitlist view.
  */
@@ -198,7 +198,7 @@ export interface WaitlistEntry {
  */
 export interface BetaApplication {
   applicationId: string;
-  responseId: string;             // Tally response id — dedupe key
+  responseId: string;             // Tally response id - dedupe key
   side: 'SHIPPER' | 'CARRIER' | 'BOTH';
 
   // identity
@@ -230,7 +230,7 @@ export interface BetaApplication {
     carrier?: {
       mcOrDot?: string;
       // Tally sends this as a band string ("1", "2 to 5", "6 to 20", "20+").
-      // Stored raw — toInt("2 to 5") would wrongly concatenate to 25.
+      // Stored raw - toInt("2 to 5") would wrongly concatenate to 25.
       truckCount?: number | string;
       loadsPerWeek?: number | string;
       equipment?: string[];
@@ -240,7 +240,7 @@ export interface BetaApplication {
     };
   };
 
-  // commitment answers — feed the hard-gate
+  // commitment answers - feed the hard-gate
   commitment: {
     realFreight: boolean;
     feedbackCall: boolean;
@@ -275,7 +275,7 @@ export interface BetaApplication {
   assigneeStaffId?: string;
   notes?: { authorStaffId: string; text: string; createdAt: number }[];
 
-  // references — NEVER duplicated, always pointers
+  // references - NEVER duplicated, always pointers
   linkedInvitationToken?: string;     // the invite issued when admitted
   linkedUserId?: string;              // set when the applicant signs up
   linkedWaitlistId?: string;          // if also on the landing waitlist
@@ -323,13 +323,13 @@ export enum OrgRole {
   ORG_DRIVER    = 'ORG_DRIVER',
   SHIPPER_USER  = 'SHIPPER_USER',
   RECEIVER_USER = 'RECEIVER_USER',
-  /** @deprecated read-only alias — use MANAGER on new writes */
+  /** @deprecated read-only alias - use MANAGER on new writes */
   ORG_ADMIN     = 'ORG_ADMIN',
-  /** @deprecated read-only legacy — never written, treated as MANAGER */
+  /** @deprecated read-only legacy - never written, treated as MANAGER */
   ADMIN         = 'ADMIN',
-  /** @deprecated read-only legacy — treated as ORG_DRIVER */
+  /** @deprecated read-only legacy - treated as ORG_DRIVER */
   MEMBER        = 'MEMBER',
-  /** @deprecated read-only legacy — treated as RECEIVER_USER */
+  /** @deprecated read-only legacy - treated as RECEIVER_USER */
   VIEWER        = 'VIEWER',
 }
 
@@ -397,7 +397,7 @@ export interface OrgMembership {
   orgRole: OrgRole;
   /** Mirror of UserRole so membership can be filtered by role type */
   userRole: UserRole;
-  /** ACTIVE (default) or SUSPENDED — suspension revokes access without deleting history (spec §6.4) */
+  /** ACTIVE (default) or SUSPENDED - suspension revokes access without deleting history (spec §6.4) */
   status: MembershipStatus;
   joinedAt: number;
   suspendedAt?: number;
@@ -414,7 +414,7 @@ export interface OrgInvitation {
    *   - orgId unset  → beta self-signup flow: just consumes the token,
    *                    the AuthService stamps invitedVia=INVITE on the new
    *                    user; no membership is created
-   * One table, one token format, one TTL, one acceptance call — extended,
+   * One table, one token format, one TTL, one acceptance call - extended,
    * not duplicated.
    */
   orgId?: string;
@@ -432,9 +432,9 @@ export interface OrgInvitation {
   /**
    * PLATFORM-STAFF invite signal. When set (e.g. "STAFF_MANAGER"), this is
    * a staff invite: acceptance creates/elevates a User with role=ADMIN +
-   * this platformRole — NOT a customer/cohort account, NOT public signup.
+   * this platformRole - NOT a customer/cohort account, NOT public signup.
    * Stored as the PlatformRole string value (same as User.platformRole).
-   * Same table / token format / TTL / revoke path as every other invite —
+   * Same table / token format / TTL / revoke path as every other invite -
    * extended, not duplicated. Mutually exclusive with orgId.
    */
   platformRole?: string;
@@ -540,8 +540,8 @@ export interface Driver {
   dockHeightCompatible?: boolean;
   liftgateEquipped?: boolean;
   palletJackOnboard?: boolean;
-  tempRangeMin?: number;   // °F — reefer only
-  tempRangeMax?: number;   // °F — reefer only
+  tempRangeMin?: number;   // °F - reefer only
+  tempRangeMax?: number;   // °F - reefer only
   securementGear?: string[]; // e.g. ['TARPS','STRAPS','CHAINS']
 
   // Volume capacity (interior dimensions in inches)
@@ -553,13 +553,13 @@ export interface Driver {
   /** Current onboard volume in cubic inches */
   currentVolumeCuIn?: number;
 
-  // Safety buffer (5–25%, default 10%). Stored per equipment record.
+  // Safety buffer (5-25%, default 10%). Stored per equipment record.
   safetyBufferPct?: number;
   /** Set by system when tightening buffer puts existing loads over limit */
   overBufferFlag?: boolean;
   /** userId who last set the buffer (Platform Admin or org Owner per spec §5.1) */
   bufferSetBy?: string;
-  /** Role of the user who last set the buffer ('ADMIN' | 'OWNER') — drives UI message */
+  /** Role of the user who last set the buffer ('ADMIN' | 'OWNER') - drives UI message */
   bufferSetByRole?: string;
 
   // Authority & Insurance
@@ -612,14 +612,14 @@ export enum VerificationEntityType {
 
 export interface CarrierOfRecord {
   entityType: VerificationEntityType;
-  entityId: string; // operatorId | orgId — Verifications table PK
+  entityId: string; // operatorId | orgId - Verifications table PK
   displayName?: string;
 }
 
 // ─── Owner Operator ───────────────────────────────────────────────────────────
 
 /**
- * Owner Operator — independent truck owner who may drive themselves and/or
+ * Owner Operator - independent truck owner who may drive themselves and/or
  * manage a small fleet of drivers. Not part of the org/IAM system.
  */
 export interface OwnerOperator {
@@ -763,7 +763,7 @@ export interface Load {
   tempRequiredMin?: number;
   tempRequiredMax?: number;
 
-  // Facility profiles (spec §11.2–11.3)
+  // Facility profiles (spec §11.2-11.3)
   pickupFacility?: FacilityProfile;
   deliveryFacility?: FacilityProfile;
   /** System-derived hard filters computed from facility profiles */
@@ -832,20 +832,20 @@ export interface Load {
   assignedDriverId?: string;
   assignedAt?: number;
 
-  // ─── Equipment + Load Type Taxonomy (spec §2–§3) ───────────────────────────
-  // Orthogonal type fields. All optional during migration — existing
+  // ─── Equipment + Load Type Taxonomy (spec §2-§3) ───────────────────────────
+  // Orthogonal type fields. All optional during migration - existing
   // equipmentType / loadSize / commodityDescription remain authoritative
   // until the matching engine fully prefers these. New loads created via
   // the UI populate these directly.
   /** Class code from /data/taxonomy/equipment-classes.json (e.g. "R", "F", "BOX26"). */
   equipment_required?: string;
-  /** "Manufacturer::Model" for the assigned unit. Asset metadata only — matching never reads it. */
+  /** "Manufacturer::Model" for the assigned unit. Asset metadata only - matching never reads it. */
   equipment_model?: string;
   /** FTL / LTL / Partial / Volume LTL. Mutually exclusive (how much of the truck). */
   mode?: LoadMode;
   /** Service level: Standard / Expedited / Hot Shot / Drayage / Final Mile / White Glove. */
   service_type?: ServiceType;
-  /** Combinable characteristic flags — these mirror equipment attributes exactly. */
+  /** Combinable characteristic flags - these mirror equipment attributes exactly. */
   characteristics?: LoadCharacteristics;
   /** Commodity code from /data/taxonomy/commodities.json. */
   commodity?: string;
@@ -875,7 +875,7 @@ export type LoadStatusV2 =
  * Load characteristic flags. These are combinable on a single load and mirror
  * equipment attributes one-for-one so the matcher can do
  *   load.characteristics.temperature_required → equipment.attributes.temperature_controlled
- * Setting both `hazmat: true` and `food_grade_required: true` is rare but legal —
+ * Setting both `hazmat: true` and `food_grade_required: true` is rare but legal -
  * a chemical-clean food-grade tanker can satisfy both.
  */
 export interface LoadCharacteristics {
@@ -1042,7 +1042,7 @@ export interface BillOfLading {
   // Delivery exceptions/damage notes
   deliveryExceptions?: string;
 
-  // Proof of Delivery — photos captured at delivery (S3 keys in loadlead-pod-uploads)
+  // Proof of Delivery - photos captured at delivery (S3 keys in loadlead-pod-uploads)
   podPhotos?: PodPhoto[];
 
   // Audit timeline

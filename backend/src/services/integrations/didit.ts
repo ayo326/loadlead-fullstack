@@ -1,15 +1,15 @@
 // services/integrations/didit.ts
 //
 // Didit KYC/KYB/AML adapter. Ships to every environment, including
-// production. Didit has no logic branch between modes — "sandbox" and
+// production. Didit has no logic branch between modes - "sandbox" and
 // "live" hit the exact same verification.didit.me/v3 endpoints; the only
 // difference is which Didit app's credentials (DIDIT_API_KEY, workflow IDs,
 // webhook secret) are loaded into this environment. The boot guard
 // (bootGuard.ts) is what actually prevents a sandbox environment from
-// carrying live credentials, or vice versa — this adapter just makes the
+// carrying live credentials, or vice versa - this adapter just makes the
 // resolved mode visible for logging.
 //
-// Moved verbatim from services/verification.ts — verification.ts now
+// Moved verbatim from services/verification.ts - verification.ts now
 // delegates here instead of calling fetch() directly. recomputeAndPersist,
 // deriveStatus, and the webhook handler's decision flow are untouched.
 
@@ -26,7 +26,7 @@ export async function createDiditSession(
 ): Promise<{ session_id: string; url: string } | null> {
   const apiKey = process.env.DIDIT_API_KEY;
   if (!apiKey) {
-    Logger.warn('[integrations/didit] DIDIT_API_KEY not set — skipping session creation');
+    Logger.warn('[integrations/didit] DIDIT_API_KEY not set - skipping session creation');
     return null;
   }
 
@@ -62,7 +62,7 @@ export async function createDiditSession(
 export async function checkAml(entityId: string, fullName: string): Promise<SubStatus> {
   const apiKey = process.env.DIDIT_API_KEY;
   if (!apiKey) {
-    Logger.warn('[integrations/didit] DIDIT_API_KEY not set — treating AML check as passing');
+    Logger.warn('[integrations/didit] DIDIT_API_KEY not set - treating AML check as passing');
     return 'pass';
   }
 

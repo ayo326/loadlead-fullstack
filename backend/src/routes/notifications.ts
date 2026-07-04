@@ -29,7 +29,7 @@ router.post('/inbox/read-all', asyncHandler(async (req: AuthRequest, res) => {
   res.json({ marked });
 }));
 
-// GET /api/notifications/vapid-key — frontend fetches this to register SW
+// GET /api/notifications/vapid-key - frontend fetches this to register SW
 router.get('/vapid-key', (_req, res) => {
   res.json({ publicKey: PushService.VAPID_PUBLIC_KEY });
 });

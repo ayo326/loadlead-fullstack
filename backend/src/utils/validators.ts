@@ -176,16 +176,16 @@ export const loadValidators = {
     body('pickupCity').notEmpty().withMessage('Pickup city is required'),
     body('pickupState').isLength({ min: 2, max: 2 }).withMessage('Valid pickup state is required'),
     body('pickupZip').notEmpty().withMessage('Pickup zip is required'),
-    body('pickupLat').isFloat({ min: -90, max: 90 }).withMessage('Pickup latitude is required — geocode the address before submitting'),
-    body('pickupLng').isFloat({ min: -180, max: 180 }).withMessage('Pickup longitude is required — geocode the address before submitting'),
+    body('pickupLat').isFloat({ min: -90, max: 90 }).withMessage('Pickup latitude is required - geocode the address before submitting'),
+    body('pickupLng').isFloat({ min: -180, max: 180 }).withMessage('Pickup longitude is required - geocode the address before submitting'),
     body('pickupDate').isInt({ min: 0 }).withMessage('Pickup date must be a unix timestamp (ms)'),
     // Full delivery address (required so geocoding is never skipped)
     body('deliveryAddress').notEmpty().withMessage('Delivery street address is required').customSanitizer(stripHtml),
     body('deliveryCity').notEmpty().withMessage('Delivery city is required'),
     body('deliveryState').isLength({ min: 2, max: 2 }).withMessage('Valid delivery state is required'),
     body('deliveryZip').notEmpty().withMessage('Delivery zip is required'),
-    body('deliveryLat').isFloat({ min: -90, max: 90 }).withMessage('Delivery latitude is required — geocode the address before submitting'),
-    body('deliveryLng').isFloat({ min: -180, max: 180 }).withMessage('Delivery longitude is required — geocode the address before submitting'),
+    body('deliveryLat').isFloat({ min: -90, max: 90 }).withMessage('Delivery latitude is required - geocode the address before submitting'),
+    body('deliveryLng').isFloat({ min: -180, max: 180 }).withMessage('Delivery longitude is required - geocode the address before submitting'),
     body('deliveryDate')
       .isInt({ min: 0 }).withMessage('Delivery date must be a unix timestamp (ms)')
       .custom((val, { req }) => {

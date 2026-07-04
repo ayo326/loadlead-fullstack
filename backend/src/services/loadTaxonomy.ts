@@ -2,7 +2,7 @@
 // class codes from /data/taxonomy/equipment-classes.json, and provides a
 // one-shot deriver that fills new orthogonal fields from a legacy payload.
 //
-// This file is intentionally tiny — the matching engine reads the class code
+// This file is intentionally tiny - the matching engine reads the class code
 // directly, so all this needs to do is normalize input shape.
 
 import { TrailerType, type Load, type LoadCharacteristics, type LoadMode } from '../types';
@@ -44,7 +44,7 @@ const LOAD_SIZE_TO_MODE: Record<'FULL' | 'PARTIAL' | 'LTL', LoadMode> = {
 
 /**
  * Derive orthogonal type fields from a legacy load payload. Use this when an
- * older client posts a load shape without the new fields — the result is a
+ * older client posts a load shape without the new fields - the result is a
  * patch the LoadService merges in so persisted records carry both views.
  */
 export function deriveOrthogonalFields(input: Partial<Load>): Partial<Load> {
@@ -60,7 +60,7 @@ export function deriveOrthogonalFields(input: Partial<Load>): Partial<Load> {
     out.mode = LOAD_SIZE_TO_MODE[input.loadSize];
   }
 
-  // characteristics — collect every legacy flag we can map
+  // characteristics - collect every legacy flag we can map
   const c: LoadCharacteristics = { ...(input.characteristics ?? {}) };
   let touched = false;
   if (input.hazmat !== undefined && c.hazmat === undefined) {
