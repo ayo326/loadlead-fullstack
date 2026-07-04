@@ -592,10 +592,10 @@ items:
       An engineering-only homepage button (API Gateway -> Lambda scaling the ASG 0<->1) starts/pauses it.
       BETA_MODE=off in staging so the private-beta wall is prod-only; everything validates on staging
       before the gated prod dispatch. Adds a terraform-staging-first CI gate.
-    user_story: >
-      As a platform engineer, I want a real pausable staging that costs ~$0 at rest and a one-click
-      start/pause control, so we can validate every change on a prod-parity environment before prod
-      without a standing bill.
+    user_story:
+      as_a: "platform engineer"
+      i_want: "a real pausable staging that costs ~$0 at rest, with a one-click start/pause control"
+      so_that: "we validate every change on a prod-parity environment before prod, without a standing bill"
     gherkin: |
       Given the staging EB env is paused
       When an engineer clicks "Start staging env" (with the shared secret)
