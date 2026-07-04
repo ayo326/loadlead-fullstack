@@ -578,6 +578,29 @@ items:
   - { ext_id: hard:boot-guard,      parent_ext_id: epic:env-hardening, type: Story, title: "Boot guard (assertProductionNotContaminated)",          status_source: git, git_marker: "production lockdown", labels: [infra] }
   - { ext_id: hard:integration-modes, parent_ext_id: epic:env-hardening, type: Story, title: "Integration mode resolver (live/sandbox/stub/test/capture)", status_source: git, git_marker: "integration adapters",  labels: [infra] }
   - { ext_id: hard:contamination-scan, parent_ext_id: epic:env-hardening, type: Story, title: "Deploy-time contamination scan + physical exclusion",  status_source: git, git_marker: "deploy-backend",        labels: [infra, deploy] }
+  - ext_id: hard:staging-hosting-toggle
+    parent_ext_id: epic:env-hardening
+    type: Story
+    title: "Hosted staging (cheapest tier, pausable) + Start/Pause env button; beta gate prod-only"
+    status_source: manifest
+    status: "Done"
+    labels: [infra, deploy, staging]
+    priority_hint: High
+    context: >
+      Stand up a real pre-prod at staging.loadleadapp.com / api-staging.loadleadapp.com on the
+      cheapest tier (SingleInstance t3.micro, no NAT, no ALB — HTTPS via CloudFront), resting at ~$0.
+      An engineering-only homepage button (API Gateway -> Lambda scaling the ASG 0<->1) starts/pauses it.
+      BETA_MODE=off in staging so the private-beta wall is prod-only; everything validates on staging
+      before the gated prod dispatch. Adds a terraform-staging-first CI gate.
+    user_story: >
+      As a platform engineer, I want a real pausable staging that costs ~$0 at rest and a one-click
+      start/pause control, so we can validate every change on a prod-parity environment before prod
+      without a standing bill.
+    gherkin: |
+      Given the staging EB env is paused
+      When an engineer clicks "Start staging env" (with the shared secret)
+      Then the Lambda scales the ASG to 1 and api-staging returns {"ok":true}, and the env can be paused back to 0 instances ($0)
+      And a change to infra/terraform/envs/prod/** without a matching staging change fails the terraform-staging-first CI check
 
   # ── EPIC: Jira Automation — built in this PR
   - { ext_id: jira:manifest,    parent_ext_id: epic:jira-automation, type: Story, title: "jira/work-manifest.yaml — canonical work catalogue", status_source: manifest, status: "Done", labels: [tooling, jira] }
