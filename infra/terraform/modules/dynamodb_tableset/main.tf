@@ -425,6 +425,31 @@ locals {
       attributes = [{ name = "attemptId", type = "S" }]
       gsis       = []
     }
+
+    # ── Support / helpdesk (inbound email -> ticket lifecycle) ────────────────
+    # Schemas mirror the live prod LoadLead_Support* tables exactly (simple hash
+    # keys, no GSIs). Previously created out-of-band and absent from IaC — added
+    # so every env provisions them and reads its OWN, not prod's.
+    SupportTickets = {
+      hash_key   = "ticketId"
+      attributes = [{ name = "ticketId", type = "S" }]
+      gsis       = []
+    }
+    SupportMessages = {
+      hash_key   = "messageId"
+      attributes = [{ name = "messageId", type = "S" }]
+      gsis       = []
+    }
+    SupportSettings = {
+      hash_key   = "settingsId"
+      attributes = [{ name = "settingsId", type = "S" }]
+      gsis       = []
+    }
+    SupportInbound = {
+      hash_key   = "emailId"
+      attributes = [{ name = "emailId", type = "S" }]
+      gsis       = []
+    }
   }
 }
 
