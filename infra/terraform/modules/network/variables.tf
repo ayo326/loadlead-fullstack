@@ -18,6 +18,12 @@ variable "enable_nat" {
   default     = false
 }
 
+variable "allow_cloudfront_http" {
+  description = "Open port 80 on the EB instance SG to CloudFront's origin-facing IP ranges (managed prefix list). Set true when a SingleInstance env is fronted by CloudFront for TLS instead of an ALB."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

@@ -42,9 +42,9 @@ variable "max_instances" {
 }
 
 variable "solution_stack_name" {
-  description = "Match prod's platform exactly for environment parity"
+  description = "Match prod's platform exactly for environment parity. NOTE: AWS retires old point versions — keep this pinned to whatever prod currently runs (aws elasticbeanstalk describe-environments ... SolutionStackName)."
   type        = string
-  default     = "64bit Amazon Linux 2023 v6.5.1 running Node.js 22"
+  default     = "64bit Amazon Linux 2023 v6.11.1 running Node.js 22"
 }
 
 variable "env_vars" {
@@ -62,6 +62,18 @@ variable "environment_type" {
   description = "SingleInstance (no ELB — cheapest, fine for dev/staging) or LoadBalanced (prod)"
   type        = string
   default     = "SingleInstance"
+}
+
+variable "enabled" {
+  description = "When false, the EB environment (the only billable part) is torn down — the 'pause' switch. IAM role/profile persist (free), so resume just recreates the env. Set false for the $0 resting state."
+  type        = bool
+  default     = true
+}
+
+variable "cname_prefix" {
+  description = "Deterministic CNAME prefix so the env resolves at a stable <prefix>.<region>.elasticbeanstalk.com across pause/resume. Defaults to the env name when empty."
+  type        = string
+  default     = ""
 }
 
 variable "tags" {

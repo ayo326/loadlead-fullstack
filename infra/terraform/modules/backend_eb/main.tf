@@ -79,10 +79,16 @@ locals {
 }
 
 resource "aws_elastic_beanstalk_environment" "this" {
+  # count gates ONLY the billable environment. The IAM role/profile above are
+  # free and stay put, so 'pause' (enabled=false) → $0 and 'resume' just
+  # recreates the env in ~3-4 min against the same deterministic CNAME.
+  count = var.enabled ? 1 : 0
+
   name                = "loadlead-backend-${var.env}"
   application         = var.application_name
   solution_stack_name = var.solution_stack_name
   tier                = "WebServer"
+  cname_prefix        = var.cname_prefix == "" ? null : var.cname_prefix
 
   dynamic "setting" {
     # for_each needs a map/set, not a tuple — key each setting by namespace/name.

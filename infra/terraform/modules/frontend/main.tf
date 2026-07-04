@@ -29,6 +29,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
   rule {
     id     = "expire-noncurrent"
     status = "Enabled"
+    filter {} # applies to every object; silences the provider's required-filter warning
     noncurrent_version_expiration { noncurrent_days = 14 }
   }
 }
@@ -55,11 +56,11 @@ resource "aws_cloudfront_distribution" "this" {
 
   default_cache_behavior {
     allowed_methods        = ["GET", "HEAD"]
-    cached_methods          = ["GET", "HEAD"]
-    target_origin_id        = "s3-frontend"
-    viewer_protocol_policy  = "redirect-to-https"
-    compress                = true
-    cache_policy_id         = "658327ea-f89d-4fab-a63d-7e88639e58f6" # AWS managed: CachingOptimized
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "s3-frontend"
+    viewer_protocol_policy = "redirect-to-https"
+    compress               = true
+    cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6" # AWS managed: CachingOptimized
   }
 
   # Next.js static export emits per-route index.html — a clean 404 page

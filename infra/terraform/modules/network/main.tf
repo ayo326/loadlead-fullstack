@@ -10,7 +10,7 @@ resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
-  tags = merge(var.tags, { Name = "loadlead-${var.env}-vpc", Environment = var.env })
+  tags                 = merge(var.tags, { Name = "loadlead-${var.env}-vpc", Environment = var.env })
 }
 
 resource "aws_internet_gateway" "this" {
@@ -86,9 +86,16 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
+# CloudFront's origin-facing IP ranges, as an AWS-managed prefix list. Only
+# looked up when a SingleInstance env is fronted by CloudFront for TLS.
+data "aws_ec2_managed_prefix_list" "cloudfront" {
+  count = var.allow_cloudfront_http ? 1 : 0
+  name  = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
 resource "aws_security_group" "eb_instance" {
   name        = "loadlead-${var.env}-eb-instance-sg"
-  description = "EB instance SG — HTTPS in from CloudFront/ALB only, all egress (DynamoDB/Didit/FMCSA/Resend are all internet APIs)"
+  description = "EB instance SG - HTTP in from ALB/CloudFront only, all egress (DynamoDB/Didit/FMCSA/Resend are all internet APIs)"
   vpc_id      = aws_vpc.this.id
 
   ingress {
@@ -97,6 +104,20 @@ resource "aws_security_group" "eb_instance" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = [var.vpc_cidr]
+  }
+
+  # When fronted by CloudFront (SingleInstance, no ALB), the only public path
+  # to port 80 is CloudFront's origin-facing ranges — random internet hosts
+  # still can't reach the instance directly.
+  dynamic "ingress" {
+    for_each = var.allow_cloudfront_http ? [1] : []
+    content {
+      description     = "HTTP from CloudFront origin-facing ranges"
+      from_port       = 80
+      to_port         = 80
+      protocol        = "tcp"
+      prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront[0].id]
+    }
   }
 
   egress {
