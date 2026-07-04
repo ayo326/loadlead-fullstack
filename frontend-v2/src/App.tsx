@@ -1,41 +1,46 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+// Eager: the public entry surface (first paint) + the app shell.
 import Landing from "./pages/Landing.tsx";
-import PrivateBetaLanding from "./pages/PrivateBetaLanding.tsx";
 import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
 import AppLayout from "./layouts/AppLayout.tsx";
-import DriverDashboard from "./pages/driver/DriverDashboard.tsx";
-import DriverLoadDetail from "./pages/driver/LoadDetail.tsx";
-import ShipperDashboard from "./pages/shipper/ShipperDashboard.tsx";
-import ShipperPostLoad from "./pages/shipper/PostLoad.tsx";
-import ShipperLoadDetail from "./pages/shipper/LoadDetail.tsx";
-import ReceiverDashboard from "./pages/receiver/ReceiverDashboard.tsx";
-import ReceiverLoadDetail from "./pages/receiver/LoadDetail.tsx";
-import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
-import SettingsPage from "./pages/settings/SettingsPage.tsx";
-import BillOfLadingPage from "./pages/bol/BillOfLadingPage.tsx";
-import ResetPassword from "./pages/ResetPassword.tsx";
-import AcceptInvite from "./pages/AcceptInvite.tsx";
-import SetupAdmin from "./pages/SetupAdmin.tsx";
-import OwnerOperatorDashboard from "./pages/owner-operator/OwnerOperatorDashboard.tsx";
-import OwnerOperatorSettings from "./pages/owner-operator/OwnerOperatorSettings.tsx";
-import OwnerOperatorHistory from "./pages/owner-operator/OwnerOperatorHistory.tsx";
-import OwnerOperatorLoadDetail from "./pages/owner-operator/OwnerOperatorLoadDetail.tsx";
-import OwnerOperatorAnalytics from "./pages/owner-operator/OwnerOperatorAnalytics.tsx";
-import FactoringWorkspace from "./pages/factoring/FactoringWorkspace.tsx";
-import DriverAnalytics from "./pages/driver/DriverAnalytics.tsx";
-import CarrierDashboard from "./pages/carrier/CarrierDashboard.tsx";
-import { CarrierMembers } from "./pages/carrier/CarrierMembers.tsx";
-import DriverHistory from "./pages/driver/DriverHistory.tsx";
-import DriverVerification from "./pages/driver/DriverVerification.tsx";
-import NotFound from "./pages/NotFound.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
-import TaxonomySandbox from "./pages/sandbox/TaxonomySandbox.tsx";
+// D6: every persona dashboard and secondary page is route-level code-split
+// so a signed-in shipper never downloads the driver/admin/carrier bundles.
+// react-router only mounts the matched element, so the chunk loads on demand.
+const PrivateBetaLanding = lazy(() => import("./pages/PrivateBetaLanding.tsx"));
+const DriverDashboard = lazy(() => import("./pages/driver/DriverDashboard.tsx"));
+const DriverLoadDetail = lazy(() => import("./pages/driver/LoadDetail.tsx"));
+const ShipperDashboard = lazy(() => import("./pages/shipper/ShipperDashboard.tsx"));
+const ShipperPostLoad = lazy(() => import("./pages/shipper/PostLoad.tsx"));
+const ShipperLoadDetail = lazy(() => import("./pages/shipper/LoadDetail.tsx"));
+const ReceiverDashboard = lazy(() => import("./pages/receiver/ReceiverDashboard.tsx"));
+const ReceiverLoadDetail = lazy(() => import("./pages/receiver/LoadDetail.tsx"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.tsx"));
+const SettingsPage = lazy(() => import("./pages/settings/SettingsPage.tsx"));
+const BillOfLadingPage = lazy(() => import("./pages/bol/BillOfLadingPage.tsx"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
+const AcceptInvite = lazy(() => import("./pages/AcceptInvite.tsx"));
+const SetupAdmin = lazy(() => import("./pages/SetupAdmin.tsx"));
+const OwnerOperatorDashboard = lazy(() => import("./pages/owner-operator/OwnerOperatorDashboard.tsx"));
+const OwnerOperatorSettings = lazy(() => import("./pages/owner-operator/OwnerOperatorSettings.tsx"));
+const OwnerOperatorHistory = lazy(() => import("./pages/owner-operator/OwnerOperatorHistory.tsx"));
+const OwnerOperatorLoadDetail = lazy(() => import("./pages/owner-operator/OwnerOperatorLoadDetail.tsx"));
+const OwnerOperatorAnalytics = lazy(() => import("./pages/owner-operator/OwnerOperatorAnalytics.tsx"));
+const FactoringWorkspace = lazy(() => import("./pages/factoring/FactoringWorkspace.tsx"));
+const DriverAnalytics = lazy(() => import("./pages/driver/DriverAnalytics.tsx"));
+const CarrierDashboard = lazy(() => import("./pages/carrier/CarrierDashboard.tsx"));
+const CarrierMembers = lazy(() => import("./pages/carrier/CarrierMembers.tsx").then((m) => ({ default: m.CarrierMembers })));
+const DriverHistory = lazy(() => import("./pages/driver/DriverHistory.tsx"));
+const DriverVerification = lazy(() => import("./pages/driver/DriverVerification.tsx"));
+const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const TaxonomySandbox = lazy(() => import("./pages/sandbox/TaxonomySandbox.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -71,6 +76,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <ErrorBoundary>
+          <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">Loading…</div>}>
           <Routes>
             <Route path="/" element={<Landing />} />
             {/* Private-beta surface — public, no auth. The Landing page
@@ -114,6 +120,7 @@ const App = () => (
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
           </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>

@@ -1,0 +1,362 @@
+<!doctype html><html><head><meta charset="utf-8"><title>LoadLead Platform E2E Audit</title><style>
+  @page { size: Letter; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font: 11px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:#1a2230; margin:0; }
+  .page { max-width: 860px; margin:0 auto; }
+  h1 { font-size:23px; border-bottom:3px solid #0b5cff; padding-bottom:8px; margin:0 0 4px; color:#0a2540; }
+  h2 { font-size:16px; margin:22px 0 8px; color:#0a2540; border-bottom:1px solid #dfe4ec; padding-bottom:4px; }
+  h3 { font-size:13px; margin:16px 0 6px; color:#12233b; }
+  p, li { font-size:11px; }
+  code { background:#f2f4f8; padding:1px 4px; border-radius:3px; font:10px/1.4 SFMono-Regular,Menlo,Consolas,monospace; color:#b3006b; }
+  pre { background:#0e1726; color:#d7e2f2; padding:10px 12px; border-radius:6px; overflow-x:auto; }
+  pre code { background:none; color:#d7e2f2; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:10px 0; font-size:10px; }
+  th,td { border:1px solid #d5dbe6; padding:5px 8px; text-align:left; vertical-align:top; }
+  th { background:#eef2f8; font-weight:600; }
+  tr:nth-child(even) td { background:#f8fafc; }
+  blockquote { border-left:3px solid #b9c2d0; margin:8px 0; padding:2px 12px; color:#4a5568; background:#f7f9fc; }
+  hr { border:none; border-top:1px solid #dfe4ec; margin:18px 0; }
+  strong { color:#0a2540; }
+  h2, h3, table, pre { page-break-inside: avoid; }
+</style></head><body><div class="page"><h1>LoadLead — Platform-Wide E2E &amp; Business-Logic Audit</h1>
+<p><strong>Date:</strong> 2026-07-03  <strong>Author:</strong> Platform Engineering  <strong>Scope:</strong> full stack (backend + frontend + infra + live prod)
+<strong>Branch/commit audited:</strong> <code>main @ 62176f7</code>  <strong>Prod version:</strong> <code>loadlead-backend-20260703130040</code></p>
+<hr>
+<h2>1. Executive Summary</h2>
+<p>The platform is <strong>healthy in production and sound at its core</strong>. The two-week feature wave (negotiation e‑sign, payments/financing v3, compliance oversight, IAM, beta) is live, the frontend is fully green, and the highest-stakes business logic — the negotiation state machine and the money layer — is well-engineered (conditional writes for concurrency, integer-cents throughout, the Load model never mutated).</p>
+<p>However, this audit surfaced <strong>one HIGH-severity environment-parity defect that would cause cross-environment data contamination the moment a staging box is stood up</strong>, plus a non-atomic seam in negotiation assignment and a regression in ADMIN‑MFA test coverage. None of these currently break production, but each is a genuine blind‑spot.</p>
+<table>
+<thead>
+<tr>
+<th>Severity</th>
+<th>Count</th>
+<th>Headline</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>🔴 HIGH</td>
+<td>1</td>
+<td>Non-prod IaC is stale &amp; unsafe — staging would read/write <strong>prod</strong> tables for negotiations, compliance, and parts of payments</td>
+</tr>
+<tr>
+<td>🟠 MEDIUM</td>
+<td>4</td>
+<td>Non-atomic accept→assign seam · ADMIN-MFA now untested · negotiation full-table scans · static AWS keys in EB</td>
+</tr>
+<tr>
+<td>🟡 LOW</td>
+<td>5</td>
+<td>Beta gate fails-closed all logins on DDB blip · orphan tables · stale error-handler test · no bid ceiling · config drift</td>
+</tr>
+<tr>
+<td>🟢 GREEN</td>
+<td>—</td>
+<td>Prod hardening, negotiation core, money layer, frontend E2E all verified healthy</td>
+</tr>
+</tbody></table>
+<p><strong>Verdict:</strong> Safe to keep operating prod. <strong>Do not stand up staging/dev from the current Terraform</strong> until H1 is fixed. Address M1/M2 before the next feature push.</p>
+<hr>
+<h2>2. Method &amp; Evidence</h2>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>What was run</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Backend unit/integration</td>
+<td><code>vitest run</code> — 78 files, 620 tests</td>
+<td><strong>616 pass / 4 fail</strong> (all 4 pre-existing stale tests; not regressions)</td>
+</tr>
+<tr>
+<td>Frontend build</td>
+<td><code>vite build</code></td>
+<td>✅ 1,812 modules, 1.86 s</td>
+</tr>
+<tr>
+<td>Frontend typecheck</td>
+<td><code>tsc -p tsconfig.app.json --noEmit</code></td>
+<td>✅ clean</td>
+</tr>
+<tr>
+<td>Frontend E2E</td>
+<td>Playwright — hauler/shipper/tour specs</td>
+<td>✅ <strong>15 / 15</strong> (incl. e-sign gate, 20-min window expiry, both personas)</td>
+</tr>
+<tr>
+<td>Live prod smoke</td>
+<td>read-only <code>curl</code> probes</td>
+<td>✅ hardened (details §5)</td>
+</tr>
+<tr>
+<td>Business logic</td>
+<td>manual audit: negotiation, money, beta gate</td>
+<td>3 findings (§4)</td>
+</tr>
+<tr>
+<td>Environment parity</td>
+<td>AWS EB + DynamoDB inspection vs Terraform vs <code>environment.ts</code></td>
+<td>1 HIGH + supporting (§4/§6)</td>
+</tr>
+</tbody></table>
+<p>No production data was mutated. All prod interaction was read-only (<code>GET</code>/config-describe).</p>
+<hr>
+<h2>3. Findings — severity-ranked</h2>
+<h3>🔴 H1 — Non-prod Terraform is stale and would contaminate prod data</h3>
+<p><strong>What.</strong> The last two weeks of feature tables were added to <strong>prod</strong> (tables created + a handful of EB env vars set by hand), but the <strong>shared Terraform was not kept in sync</strong>:</p>
+<ul>
+<li>The <code>dynamodb_tableset</code> module is <strong>missing all three negotiation tables</strong> — <code>LoadNegotiations</code>, <code>NegotiationOffers</code>, <code>NegotiationLocks</code>. A <code>terraform apply</code> for dev/staging would <strong>not create them at all</strong>.</li>
+<li><code>envs/staging/main.tf</code> sets <strong>20</strong> <code>DYNAMODB_*_TABLE</code> overrides (prefixed <code>LoadLead-Staging-</code>), but <code>environment.ts</code> defines <strong>39</strong> table slots. The <strong>19 unset</strong> slots — including negotiations, <code>AccessorialCharges</code>, <code>AdminAuditLog</code>, <code>ComplianceGrants</code>, <code>StopEvents</code>, <code>FactoringAssignments</code>, <code>ShipperAgreements</code>, <code>PlatformFeePolicy</code> — <strong>fall back to the hardcoded <code>LoadLead_*</code> defaults</strong>, which <strong>are the prod table names</strong>.</li>
+</ul>
+<p><strong>Evidence.</strong></p>
+<pre><code>tableset module:      ✗ MISSING LoadNegotiations / NegotiationOffers / NegotiationLocks
+staging env overrides: 20   |  environment.ts table slots: 39   |  prod EB overrides: 9
+staging main.tf:      ✗ MISSING DYNAMODB_{LOAD_NEGOTIATIONS,ACCESSORIAL_CHARGES,ADMIN_AUDIT_LOG,
+                        COMPLIANCE_GRANTS,STOP_EVENTS,FACTORING_ASSIGNMENTS,SHIPPER_AGREEMENTS,PLATFORM_FEE_POLICY}_TABLE
+prod NEGOTIATION table overrides: 0  (prod works only because default == prod name)
+</code></pre>
+<p><strong>Why it&#39;s dangerous.</strong> Prod is safe today purely because its defaults (<code>LoadLead_*</code>) equal its real table names. The instant a staging environment boots with the current config, its backend would keep negotiating, adjudicating disputes, writing the admin audit log, and computing accessorial/factoring charges <strong>against the production tables</strong> — because those subsystems never got a <code>LoadLead-Staging-</code> override. That is silent cross-environment write contamination on the money and compliance paths.</p>
+<p><strong>Secondary impact.</strong> Prod is <strong>not reproducible from IaC</strong>: the tableset module can&#39;t recreate the negotiation subsystem, so DR / a clean rebuild would be incomplete. Config for 30 of 39 tables lives implicitly in code defaults, not in the environment.</p>
+<p><strong>COA.</strong></p>
+<ol>
+<li><strong>(P0, before any staging boot)</strong> Add the 3 negotiation tables to <code>modules/dynamodb_tableset/main.tf</code> (keys: <code>LoadNegotiations</code>/loadId+GSI, <code>NegotiationOffers</code>/negOfferId, <code>NegotiationLocks</code>/loadId).</li>
+<li><strong>(P0)</strong> Add the missing ~19 <code>DYNAMODB_*_TABLE</code> overrides to <code>envs/staging/main.tf</code> and <code>envs/dev/main.tf</code> so <strong>every</strong> slot in <code>environment.ts</code> is env-prefixed. Add a CI check that fails when <code>environment.ts</code> gains a table slot with no matching override in each env stack.</li>
+<li><strong>(P1)</strong> Add a <strong>fail-closed startup assertion</strong>: under <code>APP_ENV != production</code>, refuse to boot if any resolved table name lacks the env prefix (prevents &quot;accidental prod-name fallback&quot; structurally).</li>
+<li><strong>(P1)</strong> Reconcile prod: import the ad-hoc tables into the tableset module so <code>terraform plan</code> on prod is a clean no-op and prod is reproducible.</li>
+</ol>
+<hr>
+<h3>🟠 M1 — Negotiation accept→assign is non-atomic; a failure orphans the load</h3>
+<p><strong>What.</strong> <code>NegotiationService.finishAccepted()</code> does, in order: (1) conditional transition to <code>ACCEPTED</code>, (2) append offer row, (3) <code>LoadService.assignDriver()</code>, (4) <code>releaseLock()</code>. Steps 1 and 3 touch <strong>different tables</strong> with no transaction. If <code>assignDriver()</code> throws (DynamoDB throttle/timeout), the negotiation is already <code>ACCEPTED</code>, <strong>the lock is never released</strong> (step 4 unreached), and the load is left <strong>assigned-to-nobody but hidden from the pool</strong>.</p>
+<p><strong>Evidence.</strong> <code>services/negotiationService.ts:449-478</code>. The idempotent early-returns (<code>acceptLoad:240</code>, <code>acceptOffer:314</code>) short-circuit on <code>status === &#39;ACCEPTED&#39;</code> <strong>before</strong> re-driving assignment — so a client retry returns &quot;success&quot; while the load stays orphaned. The sweeper (<code>expireOverdue</code>) only touches <code>ACTIVE</code> statuses, so it never heals an <code>ACCEPTED</code>-but-unassigned load. Manual ops intervention would be required.</p>
+<p><strong>Impact.</strong> Narrow trigger window, but the failure mode is a stuck load that looks accepted to both parties yet is unassigned and un-rebroadcastable. On the money path (agreed rate is bound to the negotiation) this also means an accepted rate with no delivering driver.</p>
+<p><strong>COA.</strong></p>
+<ol>
+<li>Make the idempotent-return paths <strong>reconcile side effects</strong>: before returning an already-<code>ACCEPTED</code> negotiation, verify <code>load.assignedDriverId === haulerDriverId</code>; if not, re-run <code>assignDriver</code> + <code>releaseLock</code> (idempotent).</li>
+<li>Or wrap assignment in <code>TransactWriteItems</code> spanning the neg terminal write + the load assignment + lock delete (DynamoDB transactions support multiple tables).</li>
+<li>Move <code>releaseLock</code> into a <code>finally</code> so the lock never survives a mid-accept throw.</li>
+<li>Extend the sweeper to detect <code>ACCEPTED</code> negotiations whose load is unassigned and heal them.</li>
+</ol>
+<hr>
+<h3>🟠 M2 — ADMIN &quot;MFA mandatory&quot; control is live in prod but no longer tested</h3>
+<p><strong>What.</strong> Three <code>adminMfa</code> tests fail — not because MFA broke, but because the <strong>beta-gate middleware now sits in front of <code>/login</code></strong> (<code>routes/auth.ts:115</code>) and, in the test harness, its own <code>Database.query</code> (the email→role lookup) is un-mocked and <strong>fails closed to <code>BETA_REQUIRED</code> (403)</strong> before the handler&#39;s MFA branch runs. The suite therefore no longer proves the &quot;reject ADMIN login without 2FA / issue ticket with 2FA&quot; control.</p>
+<p><strong>Evidence.</strong></p>
+<pre><code>adminMfa: expected &#39;MFA_REQUIRED&#39; → received &#39;BETA_REQUIRED&#39;   (tests never reach the MFA branch)
+routes/auth.ts:115  requireBetaGate({mode:&#39;login&#39;})  ← runs before the MFA check at :128
+middleware/betaGate.ts:133-137  catch → fail-closed → rejectAsBeta
+</code></pre>
+<p><strong>Impact.</strong> Prod behavior is fine (a real ADMIN row exists, so the gate exempts it — <code>betaGate.ts:124</code> — and MFA is enforced). The problem is <strong>coverage regression</strong>: a future change that silently disables ADMIN MFA would ship green. Four red tests in CI also erodes the &quot;all green&quot; signal.</p>
+<p><strong>COA.</strong> In the adminMfa (and errorHandler) tests, either stub the beta-gate <code>Database.query</code> to return the ADMIN user, or set <code>BETA_MODE=off</code> for that suite, so the MFA branch is actually exercised. Then re-assert the 3 MFA behaviors. Target: <strong>620/620 green.</strong></p>
+<hr>
+<h3>🟠 M3 — Negotiation reads are full-table scans; long-poll multiplies them</h3>
+<p><strong>What.</strong> <code>latestForLoad</code>, <code>offersFor</code>, and <code>activeLockedLoadIds</code> use <code>Database.scan</code> (whole-table), filtering by <code>loadId</code> in memory. The long-poll <code>waitForChange</code> calls <code>latestForLoad</code> <strong>every ~1 s for up to 25 s per client</strong> — i.e. up to 25 full scans of the negotiations table per watcher per poll cycle.</p>
+<p><strong>Evidence.</strong> <code>services/negotiationService.ts:114-122, 218-231, 407-419</code>. The negotiation tables are absent from the tableset module, so they carry <strong>no GSI</strong> to query by <code>loadId</code>.</p>
+<p><strong>Impact.</strong> Fine at beta volume; O(table) per action and per poll tick. With concurrent live negotiations and multiple watchers this is a cost and latency cliff (DynamoDB scan RCU scales with table size, not result size).</p>
+<p><strong>COA.</strong> Add a <code>loadId-index</code> GSI to <code>LoadNegotiations</code>/<code>NegotiationOffers</code> and a direct <code>GetItem</code> on <code>NegotiationLocks(loadId)</code>; replace the scans with queries. (Fold into the H1 tableset work.)</p>
+<hr>
+<h3>🟠 M4 — Static AWS credentials in the Elastic Beanstalk environment</h3>
+<p><strong>What.</strong> <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> are set as EB application env vars rather than relying on the EC2 <strong>instance profile</strong>.</p>
+<p><strong>Impact.</strong> Long-lived static keys carry rotation burden and a broader exposure surface (anyone with EB config read sees they exist; a leaked instance dump exposes usable keys). Instance-profile role credentials are short-lived and auto-rotated.</p>
+<p><strong>COA.</strong> Grant the EB EC2 instance profile the needed DynamoDB/S3/SES permissions, remove the two env vars, and let the SDK use the instance role. Rotate the existing keys after cutover.</p>
+<hr>
+<h3>🟡 LOW findings</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Finding</th>
+<th>Evidence</th>
+<th>COA</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>L1</td>
+<td>Beta gate <strong>fails closed for <em>all</em> logins</strong> (incl. ADMIN) on any users-table error, showing the neutral &quot;private beta&quot; message. A DDB blip locks everyone out of web login; the bootstrap CLI is the only escape.</td>
+<td><code>betaGate.ts:133-137</code></td>
+<td>Let genuine infra errors surface as 503 (retryable) rather than masquerading as <code>BETA_REQUIRED</code>; keep fail-closed only for &quot;not allowlisted&quot;.</td>
+</tr>
+<tr>
+<td>L2</td>
+<td><strong>Orphan / duplicate tables</strong>: <code>LoadLead</code>, <code>loadlead</code>, <code>LoadLead_AdminAudit</code> (vs the used <code>_AdminAuditLog</code>), <code>LoadLead-MembershipAuditLogs</code> (dash form).</td>
+<td><code>dynamodb list-tables</code> (56 total)</td>
+<td>Confirm unused, snapshot, delete. Removes cost + wrong-table risk.</td>
+</tr>
+<tr>
+<td>L3</td>
+<td><code>errorHandlerDoubleResponse</code> test asserts stack-in-body keyed on <code>NODE_ENV</code>, but the handler keys off <code>APP_ENV</code> (the deliberate split). Stale test.</td>
+<td>vitest fail <code>[1/4]</code>; <code>environment.ts:10-15</code></td>
+<td>Update the test to toggle <code>APP_ENV</code>.</td>
+</tr>
+<tr>
+<td>L4</td>
+<td>No <strong>upper bound</strong> on negotiation bid/counter rate (<code>validateAmount</code> floors at 1 cent, no ceiling).</td>
+<td><code>negotiationService.ts:487-507</code></td>
+<td>Add a sane per-mile / total ceiling to reject fat-finger outliers.</td>
+</tr>
+<tr>
+<td>L5</td>
+<td><strong>Config-centralization drift</strong>: <code>FactoringOptIns</code> / <code>CarrierFactoringProfiles</code> are read via direct <code>process.env</code> while 39 other tables go through the central <code>config</code> object.</td>
+<td>prod EB has <code>DYNAMODB_FACTORING_*</code> keys absent from <code>environment.ts</code></td>
+<td>Route all table names through <code>config.dynamodb.*</code> for one source of truth.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>4. What&#39;s healthy (verified GREEN)</h2>
+<ul>
+<li><strong>Prod hardening.</strong> <code>/api/health</code> → <code>productionHardened:true</code>; test routes (<code>/api/_test/*</code>) return <strong>404</strong> (pruned from the bundle, verified at runtime); Helmet headers present (<strong>CSP, HSTS preload, X-Frame DENY, nosniff</strong>); CORS locked to the three real domains; <code>JWT_SECRET</code> set (not the <code>dev-secret</code> fallback); <code>ALLOW_ADMIN_BOOTSTRAP=false</code>; <code>NODE_ENV=production</code>; <code>APP_ENV=production</code>.</li>
+<li><strong>Negotiation core.</strong> One-active-negotiation-per-load via conditional <code>attribute_not_exists</code> lock; turn-taking + terminal transitions all use conditional writes (no double-apply); accepts are idempotent; <strong>unlimited rounds within a hard 20-minute window</strong> (lazy <code>expireIfOverdue</code> + swept <code>expireOverdue</code>), rebroadcast at the original posted rate; the <strong>Load row is never mutated</strong>; agreed rate is bound to the negotiation for settlement.</li>
+<li><strong>Money layer.</strong> Integer cents everywhere; deterministic half-up rounding; <code>Number.isSafeInteger</code> guards; a single sanctioned dollars→cents boundary for the legacy Load model. (<code>utils/money.ts</code>)</li>
+<li><strong>Frontend.</strong> Build + typecheck clean; <strong>15/15</strong> Playwright E2E including the e-sign consent gate (H8), the 20-minute window expiry via long-poll (H9), and full shipper/hauler negotiation flows.</li>
+<li><strong>Backend suite.</strong> 616/620 green; the 4 failures are the known stale-test set (§M2, §L3), confirmed <strong>not</strong> regressions.</li>
+</ul>
+<hr>
+<h2>5. Live production smoke (read-only)</h2>
+<pre><code>GET  /api/health                         200  {ok:true, productionHardened:true}
+GET  /api/_test/outbox                    404  (test routes not in prod bundle)  ✅
+GET  /api/_test/reset                     404                                     ✅
+GET  /api/negotiations/x                  401  (auth gate)                        ✅
+POST /api/negotiations/x/accept-load      401  (auth gate)                        ✅
+GET  /api/admin/compliance/me             401                                     ✅
+GET  /api/owner-operator/dashboard        401                                     ✅
+Headers: CSP · HSTS(preload) · X-Frame-Options:DENY · X-Content-Type-Options:nosniff  ✅
+Frontend https://loadleadapp.com/         200  (serving new bundle)               ✅
+Flags:  ALLOW_ADMIN_BOOTSTRAP=false · BETA_MODE=true · CORS=3 locked domains       ✅
+</code></pre>
+<blockquote>
+<p>Note: <code>GET /api/loads</code> returns 404 (no unauth collection route) — expected, not a defect.</p>
+</blockquote>
+<hr>
+<h2>6. Environment parity matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>dev</th>
+<th>staging</th>
+<th>prod</th>
+<th>Discrepancy</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>EB environment running</td>
+<td>❌ none</td>
+<td>❌ none</td>
+<td>✅ <code>loadlead-backend-prod</code></td>
+<td>Only prod exists → <strong>no pre-prod test bed; parity is aspirational</strong></td>
+</tr>
+<tr>
+<td>Terraform stack defined</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Negotiation tables in IaC</td>
+<td>❌</td>
+<td>❌</td>
+<td>⚠️ ad-hoc</td>
+<td>Missing from <code>dynamodb_tableset</code> (H1)</td>
+</tr>
+<tr>
+<td>Table env-prefix coverage</td>
+<td>partial</td>
+<td><strong>20/39</strong></td>
+<td>9/39 (defaults)</td>
+<td>staging half-overridden → <strong>prod-name fallback (H1)</strong></td>
+</tr>
+<tr>
+<td>Table isolation guarantee</td>
+<td>❌</td>
+<td>❌</td>
+<td>n/a</td>
+<td>staging would hit prod tables for negotiations/compliance/payments</td>
+</tr>
+<tr>
+<td>Frontend env file</td>
+<td>none</td>
+<td>none</td>
+<td><code>.env.production</code></td>
+<td>No <code>.env.development</code>; local relies on Vite defaults</td>
+</tr>
+</tbody></table>
+<p><strong>Bottom line:</strong> there is currently only one real environment (prod). The IaC that would create the others is stale and, if applied as-is, unsafe. &quot;Parity&quot; cannot be claimed until H1 is closed and a staging box is actually stood up and smoke-tested.</p>
+<hr>
+<h2>7. Courses of Action — prioritized</h2>
+<table>
+<thead>
+<tr>
+<th>Pri</th>
+<th>Action</th>
+<th>Finding</th>
+<th>Effort</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>P0</strong></td>
+<td>Add negotiation tables to the tableset module + complete the staging/dev env-var override maps (all 39 slots)</td>
+<td>H1</td>
+<td>~½ day</td>
+</tr>
+<tr>
+<td><strong>P0</strong></td>
+<td>Add a non-prod boot assertion: refuse to start if any table name lacks the env prefix</td>
+<td>H1</td>
+<td>~2 h</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Make accept→assign idempotent+reconciling (or transactional); lock-release in <code>finally</code>; sweeper heals ACCEPTED-unassigned</td>
+<td>M1</td>
+<td>~½ day</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Fix adminMfa + errorHandler tests to bypass/stub the beta gate → 620/620 green</td>
+<td>M2, L3</td>
+<td>~2 h</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Move to EB instance-profile creds; remove static keys; rotate</td>
+<td>M4</td>
+<td>~2 h</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>Add <code>loadId</code> GSI + convert negotiation scans to queries</td>
+<td>M3</td>
+<td>~½ day</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>CI guard: <code>environment.ts</code> table slot ↔ every env stack override must match</td>
+<td>H1</td>
+<td>~2 h</td>
+</tr>
+<tr>
+<td><strong>P3</strong></td>
+<td>Beta-gate: surface infra errors as 503, not <code>BETA_REQUIRED</code></td>
+<td>L1</td>
+<td>~1 h</td>
+</tr>
+<tr>
+<td><strong>P3</strong></td>
+<td>Delete orphan tables (after snapshot); add bid ceiling; centralize factoring table config</td>
+<td>L2,L4,L5</td>
+<td>~2 h</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>8. Recommendations (strategic)</h2>
+<ol>
+<li><strong>Stand up a real staging environment</strong> immediately after H1 — the platform has run two weeks of money/compliance features with <strong>no pre-prod test bed</strong>. Every deploy is currently prod-first. A hermetic staging with its own prefixed tables is the single highest-leverage reliability investment.</li>
+<li><strong>Treat IaC drift as a release gate.</strong> The root cause of H1 is that prod got hand-applied tables/env vars while the Terraform lagged. Make &quot;tables + env overrides present in every env stack&quot; a required CI check so this can&#39;t recur silently.</li>
+<li><strong>Add cross-table transactional integrity to the assignment chokepoint.</strong> M1 is the template for any place a terminal state in one table drives a write in another (assignment, settlement, factoring advance). Audit those seams next.</li>
+<li><strong>Guard the security-control coverage.</strong> M2 shows a security test can rot into a false-green. Add a smoke test that asserts ADMIN login without MFA is refused, run against a real (staging) environment, not just mocked units.</li>
+<li><strong>Next audit pass:</strong> deep-dive the <strong>payments ledger + settlement take-rate</strong> and the <strong>compliance intercept/suppression seams</strong> — this pass sampled them (their unit suites are green) but did not trace them end-to-end the way negotiation was traced.</li>
+</ol>
+<hr>
+<p><em>Appendix — commands and raw outputs are reproducible from the audit session; all prod interaction was read-only.</em></p>
+</div></body></html>

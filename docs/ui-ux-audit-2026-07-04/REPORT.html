@@ -1,0 +1,491 @@
+<!doctype html><html><head><meta charset="utf-8"><style>@page{margin:16mm 14mm}body{font:12.5px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:820px;margin:0 auto;padding:8px}h1{font-size:21px;border-bottom:3px solid #1f6feb;padding-bottom:6px;margin-top:30px}h1:first-child{margin-top:0}h2{font-size:16px;border-bottom:1px solid #d0d7de;padding-bottom:4px;margin-top:22px}h3{font-size:13.5px;margin-top:16px}table{border-collapse:collapse;width:100%;margin:10px 0;font-size:10.5px}th,td{border:1px solid #d0d7de;padding:5px 7px;text-align:left;vertical-align:top}th{background:#f6f8fa}code{background:#f0f3f6;padding:1px 4px;border-radius:4px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px}pre{background:#0d1117;color:#e6edf3;padding:11px 13px;border-radius:8px;overflow-x:auto;font-size:10px;line-height:1.35}pre code{background:none;color:inherit;padding:0}strong{color:#0b1220}hr{border:none;border-top:2px solid #d0d7de;margin:18px 0}</style></head><body>
+<h1>LoadLead — UI/UX &amp; Defect Audit Report</h1>
+<p><strong>Date:</strong> 2026-07-04 · <strong>Discipline:</strong> UX Research · UI Design · QA Automation · <strong>Type:</strong> Non-destructive audit (read-only). No code, layout, or live-environment changes were made. <strong>Approval required before any implementation.</strong></p>
+<p><strong>Surface audited:</strong> <code>frontend-v2</code> (React + Vite SPA) — all five personas: Shipper, Driver, Owner-Operator, Carrier (dispatcher/admin), Platform Admin, plus Receiver. Routes mapped from <code>src/App.tsx</code>; hierarchy and defects traced to component source (<code>file:line</code> cited throughout).</p>
+<hr>
+<h2>1. Executive Summary</h2>
+<p>The platform is <strong>feature-complete and internally consistent</strong> — a shared design system (<code>components/ui</code>, <code>PageHeader</code>, <code>atoms.tsx</code>), consistent auth-gated routing (<code>RequireRole</code>), loading states across 88 call sites, an <code>ErrorBoundary</code>, and alt text on all 10 images. The <strong>Driver dashboard is the model to copy</strong>: it surfaces the single time-critical thing (live offers + a live <code>Countdown</code> to accept/decline) above the fold.</p>
+<p>The core issue is <strong>hierarchy and flow, not missing features</strong>. Several dashboards present information as a <strong>flat list or a set of equal-weight tabs</strong>, so the user&#39;s most urgent action is not &quot;above the fold.&quot; The three highest-impact patterns:</p>
+<ol>
+<li><strong>The Carrier loadboard (&quot;Dispatch&quot;) is hidden behind a tab</strong> — a dispatcher&#39;s primary job is one click removed from their landing screen.</li>
+<li><strong>The Shipper dashboard leads with a <em>hardcoded, fake</em> analytics chart</strong> and a flat load list — no &quot;needs-attention&quot; grouping, and a fabricated &quot;Match velocity&quot; graph that misrepresents data.</li>
+<li><strong>Settings is a 1,849-line, 7-tab monolith</strong> where a <strong>critical onboarding gate (Verification) is split across two separate tabs</strong>, buried two levels deep.</li>
+</ol>
+<h3>Critical blockers discovered</h3>
+<ul>
+<li><strong>None that block usage.</strong> No broken routes (all <code>App.tsx</code> paths resolve to a component; <code>*</code> → <code>NotFound</code>). No missing auth guards. This is a <strong>polish + information-architecture</strong> engagement, not a firefight.</li>
+<li><strong>One data-integrity defect (High):</strong> the Shipper &quot;Match velocity (7 days)&quot; chart renders <strong>static fabricated values</strong> (<code>ShipperDashboard.tsx:147</code>), presenting fake data as a real business metric.</li>
+</ul>
+<p><strong>Tally:</strong> 1 High, 5 Medium, 6 Low defects · 4 high-click / cognitive-load flags · full P1/P2/P3 re-org proposed for 3 dashboards + the loadboard. <strong>Nothing is removed</strong> — every re-org below relocates or regroups existing elements only.</p>
+<hr>
+<h2>2. UI Defect Log (Bug Tracking)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Severity</th>
+<th>Component / Page</th>
+<th>Defect</th>
+<th>Suggested Fix (non-destructive)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>D1</td>
+<td><strong>High</strong></td>
+<td>Shipper Dashboard (<code>pages/shipper/ShipperDashboard.tsx:144–152</code>)</td>
+<td>&quot;Match velocity (7 days)&quot; chart renders <strong>hardcoded</strong> bar heights <code>[40,55,38,70,62,88,75]</code> with static day labels — fabricated data shown as a real metric.</td>
+<td>Wire to a real match-rate endpoint, <strong>or</strong> relabel &quot;Sample&quot; / gate behind real data. Do not ship fake analytics. Keep the widget; feed it truth.</td>
+</tr>
+<tr>
+<td>D2</td>
+<td><strong>Med</strong></td>
+<td>Carrier Dashboard (<code>pages/carrier/CarrierDashboard.tsx:682–696</code>)</td>
+<td>The loadboard is the <strong>&quot;Dispatch&quot; tab</strong>, 4th of 4 tabs — the dispatcher&#39;s core task is not the default view.</td>
+<td>Make <code>dispatch</code> the <strong>default tab</strong> for dispatcher role, or promote an &quot;Active loads&quot; strip above the tab bar (see §4).</td>
+</tr>
+<tr>
+<td>D3</td>
+<td><strong>Med</strong></td>
+<td>Settings (<code>pages/settings/SettingsPage.tsx:537–538, 822–823</code>)</td>
+<td><strong>Verification is split across two tabs</strong> (&quot;ID Verification&quot; + &quot;Business Verification&quot;) inside a 7-tab page — a required onboarding gate is fragmented and buried.</td>
+<td>Group into one <strong>&quot;Verification&quot;</strong> tab with two sub-sections; surface a completion badge on the tab. No fields removed.</td>
+</tr>
+<tr>
+<td>D4</td>
+<td><strong>Med</strong></td>
+<td>Shipper &quot;Post a load&quot; CTA (<code>ShipperDashboard.tsx:60</code>)</td>
+<td>CTA is <code>disabled={!profileComplete}</code> with <strong>no inline reason</strong> — a new shipper sees a dead button and no next step.</td>
+<td>Keep disabled, add a tooltip/inline hint (&quot;Complete your profile to post&quot;) linking to the exact settings tab.</td>
+</tr>
+<tr>
+<td>D5</td>
+<td><strong>Med</strong></td>
+<td>Data tables — horizontal scroll (<code>ShipperDashboard</code>, <code>CarrierMembers</code>, <code>admin/OrgManagementPanel</code>, <code>admin/ComplianceConsole</code>, <code>admin/StaffManagement</code>, <code>admin/BetaProgramDashboard</code>, <code>carrier/CarrierDashboard</code>)</td>
+<td>Wide tables use <code>overflow-x-auto</code> + fixed <code>min-w-[…]</code>, so on ≤1080p / tablet the table scrolls horizontally and key columns fall off-screen (the classic &quot;grid breaks on 1080p&quot; class).</td>
+<td>Priority columns pinned; secondary columns collapse into a row-expander or stack on <code>&lt;lg</code>. Responsive column strategy, not raw horizontal scroll.</td>
+</tr>
+<tr>
+<td>D6</td>
+<td><strong>Med</strong></td>
+<td>Whole app — initial load (<code>dist/assets/index-*.js</code> ≈ <strong>963 KB / 265 KB gzip</strong>, single chunk)</td>
+<td>No code-splitting: every persona downloads all five dashboards&#39; code on first paint → slow &quot;slow-loading component&quot; symptom, worst on drivers&#39; mobile/poor connections.</td>
+<td>Route-level <code>React.lazy()</code> + <code>manualChunks</code> for vendor (maps, charts). Ties to the &quot;unresponsive/slow&quot; scan item.</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><strong>Low</strong></td>
+<td>Settings (<code>pages/settings/SettingsPage.tsx</code>, <strong>1,849 LOC / 7 tabs</strong>)</td>
+<td>Single monolithic page mixing profile, equipment, authority, 2× verification, organisation, security → high scroll + tab-hunt cognitive load.</td>
+<td>Split into logical groups (Identity, Business, Security, Org) — regroup, don&#39;t delete.</td>
+</tr>
+<tr>
+<td>D8</td>
+<td><strong>Low</strong></td>
+<td>Owner-Operator Dashboard (<code>OwnerOperatorDashboard.tsx:191, 199</code>)</td>
+<td>Fleet <strong>management</strong> actions deep-link to <code>settings?tab=fleet</code>; the dashboard shows fleet read-only, so &quot;manage&quot; = leave dashboard → settings → tab.</td>
+<td>Inline the common fleet action (add/assign driver) on the dashboard card; keep the full manager in settings.</td>
+</tr>
+<tr>
+<td>D9</td>
+<td><strong>Low</strong></td>
+<td>Shipper Dashboard</td>
+<td>No above-the-fold KPI/summary row and <strong>no urgent grouping</strong> — OPEN/OFFERED loads needing attention are visually equal to DELIVERED/CANCELLED in one flat list.</td>
+<td>Add a StatCard summary row + &quot;Needs attention&quot; section (see §4). Uses existing <code>StatCard</code>.</td>
+</tr>
+<tr>
+<td>D10</td>
+<td><strong>Low</strong></td>
+<td>Global</td>
+<td>The only two <code>TODO/placeholder</code> markers in <code>pages</code>+<code>components</code> are benign, but confirm no persona sees literal placeholder copy in prod.</td>
+<td>Grep-gate in CI; verify none render to users.</td>
+</tr>
+<tr>
+<td>D11</td>
+<td><strong>Low</strong></td>
+<td>Icon-only controls</td>
+<td>Several <code>&lt;Button variant=&quot;ghost&quot; size=&quot;sm&quot;&gt;</code> are icon-only (e.g. row actions) — verify each has an <code>aria-label</code> / title for screen readers and 44px tap target on mobile.</td>
+<td>Add <code>aria-label</code> + ensure min tap size.</td>
+</tr>
+<tr>
+<td>D12</td>
+<td><strong>Low</strong></td>
+<td>Broken-link coverage</td>
+<td>Static scan shows all <code>&lt;Link to&gt;</code>/route targets resolve; <strong>runtime</strong> dead-link/console-error coverage is not yet automated.</td>
+<td>Add a Playwright crawl asserting 0 console errors + no 404 on nav across personas (QA automation deliverable).</td>
+</tr>
+</tbody></table>
+<p><strong>Scan method:</strong> route map from <code>App.tsx</code>; per-page render-hierarchy extraction; defect greps for <code>overflow-x</code>, fixed <code>min-w</code>, <code>TODO</code>, alt/aria, tab/accordion density; bundle size from <code>vite build</code>. All findings are code-verified, not speculative.</p>
+<hr>
+<h2>3. Click-Path &amp; Friction Analysis</h2>
+<h3>High-click zones (&gt;3 clicks / task, or core task not on landing)</h3>
+<table>
+<thead>
+<tr>
+<th>Task (persona)</th>
+<th>Current path</th>
+<th>Clicks</th>
+<th>Friction</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Dispatch a load to a driver</strong> (Carrier)</td>
+<td>Login → land on <strong>Overview</strong> tab → click <strong>Dispatch</strong> tab → locate load → open &quot;pick a driver&quot; select (<code>CarrierDashboard.tsx:551</code>) → choose → confirm</td>
+<td>5+</td>
+<td>The dispatcher&#39;s #1 job is behind a tab that isn&#39;t the default.</td>
+</tr>
+<tr>
+<td><strong>Complete verification</strong> (Carrier/OO onboarding gate)</td>
+<td>Login → Settings (nav) → <strong>ID Verification</strong> tab → (later) <strong>Business Verification</strong> tab</td>
+<td>3–4, <strong>split</strong></td>
+<td>A single gated goal is fragmented across two tabs of seven (D3).</td>
+</tr>
+<tr>
+<td><strong>Post first load</strong> (new Shipper)</td>
+<td>Dashboard → &quot;Post a load&quot; <strong>disabled</strong> (D4) → hunt Settings → complete profile → back → Post a load → long form (<code>PostLoad.tsx</code>, 811 LOC)</td>
+<td>6+</td>
+<td>Dead CTA with no signposting; the unblock path is undiscoverable.</td>
+</tr>
+<tr>
+<td><strong>Manage fleet / assign driver</strong> (OO)</td>
+<td>Dashboard → &quot;Manage&quot;/&quot;Add driver&quot; → <strong>navigates away</strong> to <code>settings?tab=fleet</code> → act → back to dashboard</td>
+<td>3–4 + context switch</td>
+<td>Read on one screen, act on another (D8).</td>
+</tr>
+</tbody></table>
+<h3>Cognitive-load flags (too much unstructured data / buried info)</h3>
+<ul>
+<li><strong>Settings (1,849 LOC, 7 tabs)</strong> — the densest surface; verification, identity, equipment, org, and security all compete at the same level (D7).</li>
+<li><strong>Carrier Dashboard (701 LOC, 4 tabs)</strong> and <strong>Compliance Console (768)</strong>, <strong>Beta Program (730)</strong> — dense tables with <code>min-w</code> horizontal scroll (D5) and no &quot;needs-attention&quot; summary.</li>
+<li><strong>Shipper Dashboard</strong> — a <strong>flat, undifferentiated load list</strong> (all 7 statuses equal) topped by a <strong>fake chart</strong> (D1/D9): the eye is drawn to fabricated analytics instead of loads needing action.</li>
+</ul>
+<h3>What&#39;s already right (keep as the pattern)</h3>
+<ul>
+<li><strong>Driver Dashboard</strong> (<code>DriverDashboard.tsx:142–246</code>): title &quot;Live load offers&quot; → offers list → per-offer <strong><code>Countdown</code></strong> → Accept/Decline. The single time-critical action is first, unmissable, and time-boxed. <strong>This is the P1 model</strong> the other dashboards should imitate.</li>
+</ul>
+<hr>
+<h2>4. Proposed Information Hierarchy (Dashboards &amp; Loadboards)</h2>
+<p><strong>Principle:</strong> <em>surface the time-sensitive and the actionable; demote the historical and the analytical.</em> Every element below already exists — this is re-ordering and grouping only (Safety Constraint §honored).</p>
+<h3>4.1 Shipper Dashboard</h3>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Content (all existing)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>P1 — first 2 seconds</strong></td>
+<td>Summary StatCard row (Open · Offered/awaiting · In-transit · Needs-action counts) <strong>+</strong> a <strong>&quot;Needs attention&quot;</strong> block: loads in <code>OFFERED</code>/<code>DRAFT</code> (action required). Primary <strong>Post a load</strong> CTA with the D4 hint.</td>
+</tr>
+<tr>
+<td><strong>P2 — 1 click</strong></td>
+<td>The full &quot;All loads&quot; list with its existing search + status filter (unchanged), default-sorted newest/active first.</td>
+</tr>
+<tr>
+<td><strong>P3 — scroll / sub-tab</strong></td>
+<td>&quot;Match velocity&quot; chart — <strong>only once wired to real data (D1)</strong> — plus completed/cancelled history.</td>
+</tr>
+</tbody></table>
+<pre><code>┌──────────────────────────────────────────────┐
+│ Your loads                    [ Post a load ▸]│  P1
+│ ┌─Open 4─┐┌─Awaiting 2─┐┌─In-transit 1─┐┌─⚠3─┐│
+│ NEEDS ATTENTION  (OFFERED / DRAFT)            │
+│  • Load #1042  OFFERED  → Review offer         │
+├──────────────────────────────────────────────┤
+│ All loads   [search][status ▾]                │  P2
+│  … list …                                      │
+├──────────────────────────────────────────────┤
+│ ▸ Match velocity (real data)  ▸ History        │  P3
+└──────────────────────────────────────────────┘
+</code></pre>
+<h3>4.2 Carrier Dashboard (dispatcher)</h3>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Content (all existing)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>P1</strong></td>
+<td>An <strong>&quot;Active loads / Dispatch&quot;</strong> strip <strong>above</strong> the tab bar (or <code>dispatch</code> as the default tab): open loads + the &quot;pick a driver&quot; assign control (<code>:551</code>). Urgent = unassigned/expiring first.</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>The existing tabs — <strong>Overview</strong>, <strong>Drivers (onboard)</strong>, <strong>Verification</strong> — remain one click away, order by frequency of use.</td>
+</tr>
+<tr>
+<td><strong>P3</strong></td>
+<td>Fleet analytics / historical dispatch logs lower or under Overview.</td>
+</tr>
+</tbody></table>
+<pre><code>┌──────────────────────────────────────────────┐
+│ Dispatch   [Overview][Drivers][Verification]  │
+│ ACTIVE LOADS (assign now)                     │  P1 (was tab #4)
+│  • Load #88  OPEN   [pick a driver ▾][Assign] │
+│  • Load #90  OFFERED  ⏱ 04:12                  │
+├──────────────────────────────────────────────┤
+│ tab content (Overview KPIs, etc.)             │  P2/P3
+└──────────────────────────────────────────────┘
+</code></pre>
+<h3>4.3 Owner-Operator Dashboard</h3>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Content (all existing)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>P1</strong></td>
+<td>&quot;Active Load Offers&quot; StatCard + <strong>Available Loads</strong> list with accept action (already near top — keep, add a countdown like Driver).</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td><strong>Your Fleet</strong> card with an <strong>inline</strong> add/assign-driver action (D8), plus the link to full fleet settings.</td>
+</tr>
+<tr>
+<td><strong>P3</strong></td>
+<td>Analytics + factoring entry points (already routed) below.</td>
+</tr>
+</tbody></table>
+<h3>4.4 Loadboard (shared list pattern — Shipper &quot;All loads&quot;, Carrier &quot;Dispatch&quot;, OO &quot;Available&quot;)</h3>
+<ul>
+<li><strong>Sort/priority:</strong> time-sensitive first — <code>OFFERED</code>/expiring (with a live <code>Countdown</code>), then <code>OPEN</code>, then in-transit; terminal states (<code>DELIVERED</code>/<code>CANCELLED</code>) collapse to a &quot;History&quot; section (P3).</li>
+<li><strong>Row density:</strong> show the 4–5 decision columns (lane, rate, equipment, status, action); push the rest into a row-expander so the grid stops horizontally scrolling on ≤1080p (fixes D5 without hiding data).</li>
+<li><strong>Empty/urgent states:</strong> a clear &quot;No loads need action&quot; vs. a highlighted &quot;3 loads awaiting your response.&quot;</li>
+</ul>
+<h3>4.5 Settings (all personas)</h3>
+<p>Regroup the 7 tabs (no field removed): <strong>Profile · Equipment</strong> → <em>Operations</em>; <strong>ID + Business Verification</strong> → one <em><strong>Verification</strong></em> tab with a completion badge (fixes D3); <strong>Authority &amp; Insurance · Organisation</strong> → <em>Business</em>; <strong>Security</strong> stays. Deep-links (<code>?tab=…</code>) preserved.</p>
+<hr>
+<h2>5. Recommendations &amp; Sequencing (post-approval)</h2>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Item</th>
+<th>Findings closed</th>
+<th>Effort</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Fix the fake Shipper chart (wire real data or relabel)</td>
+<td>D1</td>
+<td>S</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Promote Carrier Dispatch + Shipper &quot;Needs attention&quot; above the fold</td>
+<td>D2, D9</td>
+<td>M</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Merge Verification into one tab + add the disabled-CTA hint</td>
+<td>D3, D4</td>
+<td>S</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Responsive table strategy (kill horizontal scroll)</td>
+<td>D5, D11</td>
+<td>M</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Route-level code-splitting</td>
+<td>D6</td>
+<td>M</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Playwright cross-persona nav + 0-console-error crawl (QA automation)</td>
+<td>D12, D10</td>
+<td>M</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Settings regroup + OO inline fleet action</td>
+<td>D7, D8</td>
+<td>M</td>
+</tr>
+</tbody></table>
+<p><strong>All changes are additive/organizational.</strong> No feature, filter, button, or data point is deleted — the audit&#39;s mandate is visibility and flow.</p>
+<hr>
+<p><em>Prepared for review. No implementation, layout change, or live-environment action will be taken until this report is explicitly approved.</em></p>
+<hr>
+<hr>
+<h1>Round 2 — Rendered-UI Audit (screenshot evidence)</h1>
+<p><strong>Method:</strong> Round 1 was code-derived. Round 2 reviews <strong>live rendered screenshots</strong> (Owner-Operator dashboard ×2, Shipper dashboard, Post-a-load, Load History) and traces each visual issue back to source. Rendered evidence surfaced a <strong>structural composition bug</strong> and a set of <strong>visual-finish</strong> issues that static analysis could not.</p>
+<h2>R2.0 Headline (the three stakeholder callouts — all confirmed)</h2>
+<ol>
+<li><strong>&quot;Settings appears twice&quot; — CONFIRMED (High).</strong> On the OO dashboard, <em>Settings</em> is in the left sidebar (Account group) <strong>and</strong> repeated as a button in the page header (<code>OwnerOperatorDashboard.tsx:79–80</code>). Two controls, same destination, ~6 cm apart.</li>
+<li><strong>&quot;Live map + load are below the fold&quot; — CONFIRMED (High).</strong> The OO&#39;s only actionable content — the <strong>Available Loads</strong> row (<code>Dallas → Houston, 1 offered</code>) and the <strong>Route preview</strong> map — render at the very <strong>bottom</strong> of the page, beneath My haul, verification, an all-zero &quot;Alerts&quot; wall, Fleet &amp; compliance, and a &quot;Tendered loadboard&quot;. A driver-operator must scroll past ~6 mostly-empty sections to reach the load they can actually accept.</li>
+<li><strong>&quot;White cards look unfinished / like paper on the background&quot; — CONFIRMED (Med).</strong> White surfaces sit on a saturated blue→violet page gradient with inconsistent elevation and large empty gradient voids (Load History, Shipper dashboard tail). The result reads as unfinished &quot;paper floating on a backdrop.&quot;</li>
+</ol>
+<h2>R2.1 Root cause of #1 and #2 — a stacked-dashboard composition bug</h2>
+<p><code>pages/owner-operator/OwnerOperatorDashboard.tsx</code> renders the <strong>entire</strong> blended dashboard <strong>twice over</strong>:</p>
+<ul>
+<li><code>:90</code> → <code>&lt;OwnerOperatorDashboardView /&gt;</code> — a complete dashboard (My haul → verification → Alerts → Fleet &amp; compliance → <strong>Tendered loadboard</strong> → Financial → SLA).</li>
+<li><code>:94–104</code> → a <strong>second</strong> set of <code>StatCard</code>s (Active Load Offers / Fleet Drivers / MC Number).</li>
+<li><code>:118</code> → a <strong>second</strong> loadboard (&quot;<strong>Available Loads</strong>&quot;).</li>
+<li><code>:246</code> → the <strong>Route preview</strong> map.</li>
+<li>then &quot;Your Fleet&quot;.</li>
+</ul>
+<p>So the page is <em>[full dashboard]</em> + <em>[another metrics+loadboard+map shell]</em>. This one bug produces <strong>three</strong> of the visible problems: the map/loads land last (callout #2), there are <strong>two conflicting loadboards</strong> (the View&#39;s &quot;Tendered loadboard&quot; shows <em>&quot;No outstanding offers&quot;</em> while the shell&#39;s &quot;Available Loads&quot; shows <em>&quot;1 offered&quot;</em> — directly contradictory), and metrics are duplicated. <strong>Fix is consolidation, not deletion:</strong> render one dashboard; lift the Route map + Available Loads into the top (P1) of the View; collapse the two loadboards into one source of truth.</p>
+<h2>R2.2 Round-2 Defect Log</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Severity</th>
+<th>Page / Component</th>
+<th>Rendered defect (evidence)</th>
+<th>Suggested fix (non-destructive)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>V1</td>
+<td><strong>High</strong></td>
+<td>OO Dashboard (<code>OwnerOperatorDashboard.tsx:79–80</code>)</td>
+<td><strong>Settings rendered twice</strong> — sidebar + header button, same target.</td>
+<td>Remove the header duplicate (keep the sidebar canonical), or repurpose the header slot for a real action (e.g. &quot;Go online&quot;).</td>
+</tr>
+<tr>
+<td>V2</td>
+<td><strong>High</strong></td>
+<td>OO Dashboard (<code>:90</code> vs <code>:94–246</code>)</td>
+<td><strong>Map + Available Loads below the fold</strong>; page stacks two dashboards → the only actionable load &amp; the route map are dead-last.</td>
+<td>Lift Route map + Available Loads to <strong>P1</strong>; render a single dashboard (R2.1).</td>
+</tr>
+<tr>
+<td>V3</td>
+<td><strong>High</strong></td>
+<td>OO Dashboard</td>
+<td><strong>Two contradictory loadboards</strong> — &quot;Tendered loadboard: No outstanding offers&quot; vs &quot;Available Loads: 1 offered&quot; on the same screen.</td>
+<td>One loadboard, one truth; dedupe the shell vs View.</td>
+</tr>
+<tr>
+<td>V4</td>
+<td><strong>Med</strong></td>
+<td>Global theme</td>
+<td><strong>&quot;Paper on background&quot;</strong> — white cards on a blue/violet gradient, inconsistent shadows/borders, large empty gradient voids.</td>
+<td>Commit to one surface system: either a calm neutral page bg with clearly-elevated cards (border + soft shadow), or tint the cards to sit <em>in</em> the gradient. Constrain max-content width so cards don&#39;t float in a void.</td>
+</tr>
+<tr>
+<td>V5</td>
+<td><strong>Med</strong></td>
+<td>OO Dashboard — &quot;Alerts&quot; section</td>
+<td>Section titled <strong>&quot;Alerts&quot;</strong> but every tile reads <strong>0 / &quot;Connect ELD&quot; / &quot;Connect reefer telemetry&quot; / &quot;Pending data&quot;</strong> — a wall of empty above real content, and &quot;Alerts&quot; is a misnomer when there are none.</td>
+<td>Collapse empty/again-later tiles into a compact &quot;Fleet health&quot; strip; only expand when non-zero; move below the loadboard. Rename to reflect state.</td>
+</tr>
+<tr>
+<td>V6</td>
+<td><strong>Med</strong></td>
+<td>Post a load (<code>RouteMapCard.tsx</code> map embed)</td>
+<td>With no address entered, the <strong>Route preview shows the entire world map</strong> (zoomed all the way out) — reads as broken.</td>
+<td>Show a neutral placeholder (&quot;Enter pickup &amp; delivery to preview route&quot;) until both ends resolve; don&#39;t render a world view.</td>
+</tr>
+<tr>
+<td>V7</td>
+<td><strong>Med</strong></td>
+<td>Shipper Dashboard (<code>ShipperDashboard.tsx:144–152</code>)</td>
+<td>The &quot;Match velocity (7 days)&quot; chart renders <strong>empty</strong> (no bars, just M–S axis) yet still states <strong>&quot;Average match: 52s&quot;</strong> — reinforces R1-D1: fabricated + visually broken.</td>
+<td>Same as D1 — wire real data or hide until data exists; never show a stat with an empty chart.</td>
+</tr>
+<tr>
+<td>V8</td>
+<td><strong>Low</strong></td>
+<td>Top nav / tour layer</td>
+<td><strong>Clipped text bleeding over the top edge</strong> — fragments &quot;…out this field&quot;, &quot;leads.&quot; overlap the viewport top/logo (tour tooltip or logo tagline overflow).</td>
+<td>Constrain tour tooltip within viewport; fix logo tagline wrap/clip at the top bar.</td>
+</tr>
+<tr>
+<td>V9</td>
+<td><strong>Low</strong></td>
+<td>Load History + Shipper tail</td>
+<td><strong>Large empty gradient voids</strong> — a single small card floats in a tall purple expanse (short content, full-height gradient).</td>
+<td>Center/constrain content, add an illustrative empty state, or cap page height so the void doesn&#39;t dominate.</td>
+</tr>
+</tbody></table>
+<h2>R2.3 Revised Owner-Operator hierarchy (addresses callouts #1 &amp; #2)</h2>
+<pre><code>┌───────────────────────────────────────────────────────────┐
+│ Welcome back, Demo Owner Operator LLC     [Go online ▸]    │  header: NO 2nd Settings (V1)
+│ [Dispatcher | Exec]                              ↻ Refresh │
+├───────────────────────────────────────────────────────────┤
+│ ⓘ My haul: no active load                                 │  P1
+│ AVAILABLE LOADS (1)         │  ROUTE PREVIEW  Dallas→Houston│  P1  ← lifted from bottom (V2)
+│  • Dallas→Houston 34,000lb  │  [ map ]                      │
+│    $—   [View] [Route]      │                              │
+├───────────────────────────────────────────────────────────┤
+│ My verification ✓ ✓ (both gates)                          │  P2
+│ Your fleet (1 self · 0 fleet)   [+ inline add driver]      │  P2
+├───────────────────────────────────────────────────────────┤
+│ ▸ Fleet health (ELD/reefer/HOS)  ▸ Financial  ▸ SLA        │  P3 (was the &quot;Alerts&quot; zero-wall, V5)
+└───────────────────────────────────────────────────────────┘
+</code></pre>
+<p>One loadboard (V3). Map + loads above the fold (V2). Settings only in the sidebar (V1). Empty telemetry demoted (V5). <strong>No feature removed</strong> — every element is retained, only relocated/merged.</p>
+<h2>R2.4 Visual-finish direction (callout #3)</h2>
+<p>The gradient-with-floating-white-paper look is the single biggest &quot;unfinished&quot; signal. Recommended, low-risk direction (design-token level, applied globally):</p>
+<ul>
+<li><strong>Surface contrast:</strong> give every card a consistent <code>1px</code> hairline border <strong>and</strong> a single soft shadow token, so white reads as a deliberate raised surface, not a cut-out.</li>
+<li><strong>Background:</strong> reduce gradient saturation (or confine it to the header band) so the body is a calm neutral; the current full-page violet is what makes white cards look pasted-on.</li>
+<li><strong>Density / voids:</strong> cap main content width (~1200px) and add real empty-states so short pages (Load History) don&#39;t leave a tall colored void.</li>
+<li><strong>Consistency:</strong> audit <code>bg-card</code> vs <code>bg-white</code> usage so all cards share one treatment.</li>
+</ul>
+<h2>R2.5 Updated sequencing (Round 1 + Round 2)</h2>
+<table>
+<thead>
+<tr>
+<th>Pri</th>
+<th>Item</th>
+<th>Closes</th>
+<th>Effort</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>OO dashboard: de-stack the double render; lift map+loads to P1; one loadboard; drop 2nd Settings</td>
+<td>V1,V2,V3, R1-D8</td>
+<td>M</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Visual-finish pass: card border/shadow token, calmer bg, max-width, empty states</td>
+<td>V4,V9, callout #3</td>
+<td>M</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Kill fabricated/empty analytics (Shipper chart) + empty-map placeholder</td>
+<td>V7,V6, R1-D1</td>
+<td>S</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Demote empty telemetry &quot;Alerts&quot; wall; rename to state</td>
+<td>V5</td>
+<td>S</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Carrier Dispatch above the fold + Shipper &quot;needs attention&quot; (R1)</td>
+<td>R1-D2,D9</td>
+<td>M</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Settings verification merge + disabled-CTA hint (R1)</td>
+<td>R1-D3,D4</td>
+<td>S</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Responsive tables, code-splitting, tour-clip fix, Playwright crawl (R1)</td>
+<td>R1-D5,D6,V8,D12</td>
+<td>M</td>
+</tr>
+</tbody></table>
+<p><em>Round 2 remains non-destructive and advisory. No code, layout, or live-environment change will be made until this report is explicitly approved.</em></p>
+</body></html>

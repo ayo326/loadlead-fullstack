@@ -34,3 +34,8 @@ jobs:
       - run: npm ci
       - name: ESLint (react/jsx-no-undef + react-hooks)
         run: npx eslint src/ --max-warnings 999
+      # D10: fail the build if TODO/FIXME/HACK markers or filler copy reach
+      # shipped page/component source. Static half of the D12 rendered-surface
+      # guarantee (the runtime half is e2e/placeholderCrawl.spec.ts).
+      - name: Placeholder / unfinished-copy gate
+        run: bash scripts/check-placeholders.sh

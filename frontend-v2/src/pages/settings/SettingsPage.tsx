@@ -19,6 +19,15 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 // Persona-neutral taxonomy atoms — same primitives PostLoad + OwnerOperatorSettings use.
 import { Combobox, AsyncCombobox } from "@/components/ui/combobox";
+
+// Deep-link support: open the tab named in ?tab=. Legacy ?tab=id and ?tab=biz
+// map to the merged "verification" tab (D3). Read once at mount for defaultValue.
+function tabFromUrl(fallback: string): string {
+  const t = new URLSearchParams(window.location.search).get("tab");
+  if (!t) return fallback;
+  if (t === "id" || t === "biz") return "verification";
+  return t;
+}
 import { useEquipmentClasses, taxonomyApi, toEquipmentItems } from "@/services/taxonomy";
 import { useMemo as useMemoTaxonomy } from "react";
 
@@ -525,7 +534,7 @@ function DriverSettings({ userId }: { userId: string }) {
   );
 
   return (
-    <Tabs defaultValue="profile" orientation="vertical" className="flex gap-6">
+    <Tabs defaultValue={tabFromUrl("profile")} orientation="vertical" className="flex gap-6">
       <div className="flex flex-col w-48 shrink-0 gap-3">
         <div className="rounded-xl bg-secondary p-3">
           <HeadshotUploader />
@@ -534,8 +543,15 @@ function DriverSettings({ userId }: { userId: string }) {
           <TabsTrigger data-tour="settings-tab-profile" value="profile" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Profile</TabsTrigger>
           <TabsTrigger data-tour="settings-tab-equipment" value="equipment" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Equipment</TabsTrigger>
           <TabsTrigger value="authority" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Authority & Insurance</TabsTrigger>
-          <TabsTrigger data-tour="settings-tab-id" value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
-          <TabsTrigger data-tour="settings-tab-biz" value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
+          {/* D3: ID + Business verification merged into ONE Verification tab
+              (two sub-sections). Legacy ?tab=id / ?tab=biz map here. The badge
+              reflects identity-verification completion. */}
+          <TabsTrigger data-tour="settings-tab-id" value="verification" className="w-full justify-between rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+            <span>Verification</span>
+            {localStorage.getItem(`ll_id_verif_${userId}`) === "APPROVED"
+              ? <CheckSquare className="h-3.5 w-3.5 text-green-600" />
+              : <span className="text-[10px] font-semibold text-amber-600">2 steps</span>}
+          </TabsTrigger>
           <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
           <TabsTrigger data-tour="settings-tab-security" value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
         </TabsList>
@@ -711,17 +727,21 @@ function DriverSettings({ userId }: { userId: string }) {
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="id">
-          <IDVerification userId={userId} />
-        </TabsContent>
-
-        <TabsContent value="biz">
-          <BusinessVerification
-            userId={userId}
-            role="DRIVER"
-            mcNumber={profile.mcNumber}
-            dotNumber={profile.dotNumber}
-          />
+        {/* D3: one Verification tab, two sub-sections (nothing removed). */}
+        <TabsContent value="verification" className="space-y-8">
+          <div>
+            <h3 className="text-sm font-semibold mb-3">Identity verification</h3>
+            <IDVerification userId={userId} />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold mb-3">Business verification</h3>
+            <BusinessVerification
+              userId={userId}
+              role="DRIVER"
+              mcNumber={profile.mcNumber}
+              dotNumber={profile.dotNumber}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="organisation">
@@ -814,13 +834,18 @@ function ShipperSettings({ userId }: { userId: string }) {
   const opsFields = ["freightTypes", "avgMonthlyVolume", "preferredEquipment", "defaultBroadcastRadius", "defaultMinMcMaturity"];
 
   return (
-    <Tabs defaultValue="company" orientation="vertical" className="flex gap-6">
+    <Tabs defaultValue={tabFromUrl("company")} orientation="vertical" className="flex gap-6">
       <TabsList data-tour="settings-tabs" className="flex flex-col h-auto w-48 shrink-0 rounded-xl bg-secondary p-1 gap-1">
         <TabsTrigger data-tour="settings-tab-company" value="company" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Company</TabsTrigger>
         <TabsTrigger value="operations" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Operations</TabsTrigger>
         <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
-        <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
-        <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
+        {/* D3: ID + Business verification merged into one Verification tab. */}
+        <TabsTrigger value="verification" className="w-full justify-between rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+          <span>Verification</span>
+          {localStorage.getItem(`ll_id_verif_${userId}`) === "APPROVED"
+            ? <CheckSquare className="h-3.5 w-3.5 text-green-600" />
+            : <span className="text-[10px] font-semibold text-amber-600">2 steps</span>}
+        </TabsTrigger>
         <TabsTrigger value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
       </TabsList>
 
@@ -885,7 +910,7 @@ function ShipperSettings({ userId }: { userId: string }) {
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="id">
+        <TabsContent value="verification">
           <IDVerification userId={userId} />
         </TabsContent>
 
@@ -893,7 +918,7 @@ function ShipperSettings({ userId }: { userId: string }) {
           <OrgTabErrorBoundary><OrgTab callerUserRole="SHIPPER" /></OrgTabErrorBoundary>
         </TabsContent>
 
-        <TabsContent value="biz">
+        <TabsContent value="verification">
           <BusinessVerification userId={userId} role="SHIPPER" />
         </TabsContent>
         <TabsContent value="security">
@@ -972,12 +997,17 @@ function ReceiverSettings({ userId }: { userId: string }) {
   );
 
   return (
-    <Tabs defaultValue="facility" orientation="vertical" className="flex gap-6">
+    <Tabs defaultValue={tabFromUrl("facility")} orientation="vertical" className="flex gap-6">
       <TabsList className="flex flex-col h-auto w-48 shrink-0 rounded-xl bg-secondary p-1 gap-1">
         <TabsTrigger value="facility" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Facility</TabsTrigger>
         <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
-        <TabsTrigger value="id" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">ID Verification</TabsTrigger>
-        <TabsTrigger value="biz" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business Verification</TabsTrigger>
+        {/* D3: ID + Business verification merged into one Verification tab. */}
+        <TabsTrigger value="verification" className="w-full justify-between rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+          <span>Verification</span>
+          {localStorage.getItem(`ll_id_verif_${userId}`) === "APPROVED"
+            ? <CheckSquare className="h-3.5 w-3.5 text-green-600" />
+            : <span className="text-[10px] font-semibold text-amber-600">2 steps</span>}
+        </TabsTrigger>
         <TabsTrigger value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
       </TabsList>
 
@@ -1011,7 +1041,7 @@ function ReceiverSettings({ userId }: { userId: string }) {
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="id">
+        <TabsContent value="verification">
           <IDVerification userId={userId} />
         </TabsContent>
 
@@ -1019,7 +1049,7 @@ function ReceiverSettings({ userId }: { userId: string }) {
           <OrgTabErrorBoundary><OrgTab callerUserRole="RECEIVER" /></OrgTabErrorBoundary>
         </TabsContent>
 
-        <TabsContent value="biz">
+        <TabsContent value="verification">
           <BusinessVerification userId={userId} role="RECEIVER" />
         </TabsContent>
         <TabsContent value="security">
@@ -1215,7 +1245,7 @@ function AdminSettings({ email }: { email: string }) {
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground bg-secondary rounded-lg px-3 py-2">
                 Notification delivery requires <code className="font-mono text-[10px]">RESEND_API_KEY</code> to be set in the backend environment.
-                Preferences are saved locally in this session — backend persistence coming soon.
+                Preferences are saved in this browser for now; server-side persistence is tracked separately.
               </p>
             </div>
           </SectionCard>

@@ -18,7 +18,7 @@
 import React, { useEffect, useState } from "react";
 import {
   AlertTriangle, Truck, Map, DollarSign, TrendingUp, Users, Shield,
-  Activity, BarChart3, RefreshCw, UserCheck, Navigation,
+  Activity, BarChart3, RefreshCw, UserCheck, Navigation, CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -30,7 +30,7 @@ import {
 
 type View = "dispatcher" | "exec";
 
-export function OwnerOperatorDashboardView() {
+export function OwnerOperatorDashboardView({ hideLoadboard = false }: { hideLoadboard?: boolean } = {}) {
   const [data, setData] = useState<any>(null);
   const [view, setView] = useState<View>("dispatcher");
   const [loading, setLoading] = useState(true);
@@ -85,7 +85,7 @@ export function OwnerOperatorDashboardView() {
       {/* OO-specific: Verification (both gates surfaced at top level) */}
       <VerificationPanel verification={data.verification} />
 
-      {view === "dispatcher" ? <DispatcherView data={data} /> : <ExecView data={data} />}
+      {view === "dispatcher" ? <DispatcherView data={data} hideLoadboard={hideLoadboard} /> : <ExecView data={data} />}
     </div>
   );
 }
@@ -139,43 +139,87 @@ function VerificationPanel({ verification }: { verification: any }) {
 }
 
 // ── Dispatcher view ────────────────────────────────────────────────────────
-function DispatcherView({ data }: { data: any }) {
+function DispatcherView({ data, hideLoadboard = false }: { data: any; hideLoadboard?: boolean }) {
   const a = data.alerts;
   const f = data.fleet;
   const lb = data.loadboard;
 
   return (
     <div className="space-y-5">
-      <Section title="Alerts" icon={AlertTriangle}>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-          <StatTile label="Booked"     value={a.activeLoads.booked} icon={Truck} />
-          <StatTile label="Dispatched" value={a.activeLoads.dispatched} icon={Truck} />
-          <StatTile label="In Transit" value={a.activeLoads.inTransit} icon={Activity} />
-          <StatTile label="At Pickup"  value={a.activeLoads.atPickup} icon={Map} />
-          <StatTile label="Delivered"  value={a.activeLoads.delivered} icon={Truck} tone="good" />
-        </div>
-        <div className="grid md:grid-cols-2 gap-3">
-          <Subsection title={`Unassigned (${a.unassigned.length})`}>
-            {a.unassigned.length === 0
-              ? <Empty text="All loads have a driver." />
-              : a.unassigned.slice(0, 5).map((l: any) => <LoadRow key={l.loadId} data={l} />)}
-          </Subsection>
-          <Subsection title={`ETA at risk (${a.etaAtRisk.length})`}>
-            {a.etaAtRisk.length === 0
-              ? <Empty text="No loads running late." />
-              : a.etaAtRisk.slice(0, 5).map((r: any) => (
-                  <div key={r.loadId} className="px-3 py-2 border-b border-border last:border-0">
-                    <p className="text-sm">{r.loadId.slice(-8)}</p>
-                    <p className="text-xs text-red-600">{r.minutesLate} min late</p>
+      {/* V5: the all-zero "Alerts" wall is collapsed. Only non-zero active-load
+          tiles show; when nothing is active and nothing is at risk, a single
+          compact "all clear" line replaces the grid of zeros. The section title
+          reflects state (Alerts N vs Fleet status). Telemetry connect prompts
+          are demoted to one compact line. Nothing removed - it all expands the
+          moment there is real activity. */}
+      {(() => {
+        const al = a.activeLoads;
+        const activeTiles = [
+          { label: "Booked",     value: al.booked,     icon: Truck,    tone: undefined as any },
+          { label: "Dispatched", value: al.dispatched, icon: Truck,    tone: undefined as any },
+          { label: "In Transit", value: al.inTransit,  icon: Activity, tone: undefined as any },
+          { label: "At Pickup",  value: al.atPickup,   icon: Map,      tone: undefined as any },
+          { label: "Delivered",  value: al.delivered,  icon: Truck,    tone: "good" as any },
+        ].filter((t) => Number(t.value) > 0);
+        const alertCount = a.unassigned.length + a.etaAtRisk.length;
+        const quiet = activeTiles.length === 0 && alertCount === 0;
+        const telemetryToConnect = [
+          isUnavailable(a.hosWarnings) ? "ELD (HOS)" : null,
+          isUnavailable(a.reeferDeviations) ? "reefer telemetry" : null,
+        ].filter(Boolean);
+
+        return (
+          <Section title={alertCount > 0 ? `Alerts (${alertCount})` : "Fleet status"} icon={alertCount > 0 ? AlertTriangle : CheckCircle2}>
+            {quiet ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                All clear - no active loads or alerts right now.
+              </div>
+            ) : (
+              <>
+                {activeTiles.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                    {activeTiles.map((t) => (
+                      <StatTile key={t.label} label={t.label} value={t.value} icon={t.icon} tone={t.tone} />
+                    ))}
                   </div>
-                ))}
-          </Subsection>
-        </div>
-        <div className="grid grid-cols-2 gap-3 mt-3">
-          <StatTile label="HOS warnings"     value={isUnavailable(a.hosWarnings) ? <ConnectPlaceholder what="ELD" reason={a.hosWarnings.reason} /> : a.hosWarnings} />
-          <StatTile label="Reefer deviations" value={isUnavailable(a.reeferDeviations) ? <ConnectPlaceholder what="reefer telemetry" reason={a.reeferDeviations.reason} /> : a.reeferDeviations} />
-        </div>
-      </Section>
+                )}
+                {alertCount > 0 && (
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <Subsection title={`Unassigned (${a.unassigned.length})`}>
+                      {a.unassigned.length === 0
+                        ? <Empty text="All loads have a driver." />
+                        : a.unassigned.slice(0, 5).map((l: any) => <LoadRow key={l.loadId} data={l} />)}
+                    </Subsection>
+                    <Subsection title={`ETA at risk (${a.etaAtRisk.length})`}>
+                      {a.etaAtRisk.length === 0
+                        ? <Empty text="No loads running late." />
+                        : a.etaAtRisk.slice(0, 5).map((r: any) => (
+                            <div key={r.loadId} className="px-3 py-2 border-b border-border last:border-0">
+                              <p className="text-sm">{r.loadId.slice(-8)}</p>
+                              <p className="text-xs text-red-600">{r.minutesLate} min late</p>
+                            </div>
+                          ))}
+                    </Subsection>
+                  </div>
+                )}
+              </>
+            )}
+            {/* Non-zero telemetry values show as tiles; unavailable ones collapse
+                into one compact connect prompt (was two "Connect ELD" tiles). */}
+            {telemetryToConnect.length > 0 ? (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Connect {telemetryToConnect.join(" and ")} to enable HOS and reefer-deviation alerts.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <StatTile label="HOS warnings"      value={a.hosWarnings} />
+                <StatTile label="Reefer deviations" value={a.reeferDeviations} />
+              </div>
+            )}
+          </Section>
+        );
+      })()}
 
       <Section title="Fleet & compliance" icon={Users}>
         <div className="grid md:grid-cols-3 gap-3 mb-4">
@@ -208,19 +252,24 @@ function DispatcherView({ data }: { data: any }) {
         </div>
       </Section>
 
-      <Section title="Tendered loadboard (self + fleet)" icon={Map}>
-        <div className="rounded-xl border border-border bg-card">
-          {lb.tendered.length === 0
-            ? <Empty text="No outstanding offers." />
-            : lb.tendered.slice(0, 10).map((t: any) => (
-                <LoadRow key={t.loadId + t.driverId} data={t} right={
-                  <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded ${t.acceptAs === "self" ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
-                    {t.acceptAs === "self" ? "Accept as self" : "Accept as fleet"}
-                  </span>
-                } />
-              ))}
-        </div>
-        <div className="grid grid-cols-2 gap-3 mt-3">
+      {/* V3: when the page renders the single "Available Loads" board above,
+          suppress this duplicate tendered list (one loadboard, one truth). The
+          Dwell/Deadhead metrics are retained either way (nothing deleted). */}
+      <Section title={hideLoadboard ? "Loadboard metrics" : "Tendered loadboard (self + fleet)"} icon={Map}>
+        {!hideLoadboard && (
+          <div className="rounded-xl border border-border bg-card">
+            {lb.tendered.length === 0
+              ? <Empty text="No outstanding offers." />
+              : lb.tendered.slice(0, 10).map((t: any) => (
+                  <LoadRow key={t.loadId + t.driverId} data={t} right={
+                    <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded ${t.acceptAs === "self" ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
+                      {t.acceptAs === "self" ? "Accept as self" : "Accept as fleet"}
+                    </span>
+                  } />
+                ))}
+          </div>
+        )}
+        <div className={`grid grid-cols-2 gap-3 ${hideLoadboard ? "" : "mt-3"}`}>
           <StatTile label="Dwell"    value={isUnavailable(lb.dwell)    ? <ConnectPlaceholder what="timestamps" reason={lb.dwell.reason} /> : lb.dwell} />
           <StatTile label="Deadhead" value={isUnavailable(lb.deadhead) ? <ConnectPlaceholder what="last-drop data" reason={lb.deadhead.reason} /> : lb.deadhead} />
         </div>

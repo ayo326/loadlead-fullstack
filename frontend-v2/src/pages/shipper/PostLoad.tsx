@@ -619,11 +619,15 @@ export default function PostLoad() {
               same RouteMapCard the shipper LoadDetail uses). Clicking the
               🔍 icon opens the existing fullscreen modal for zoom. */}
           <Section title="Route preview">
+            {/* V6: only pass a composed address when it is actually complete
+                (street + city + state), and no current-city fallback here, so the
+                preview shows the neutral placeholder until BOTH ends resolve
+                instead of a zoomed-out world map. */}
             <RouteMapCard
-              pickupAddress={pickup ? `${pickup.street}, ${pickup.city}, ${pickup.state} ${pickup.zip}` : null}
-              deliveryAddress={delivery ? `${delivery.street}, ${delivery.city}, ${delivery.state} ${delivery.zip}` : null}
-              currentCity={pickup?.city ?? null}
-              currentState={pickup?.state ?? null}
+              pickupAddress={pickup?.street && pickup?.city && pickup?.state ? `${pickup.street}, ${pickup.city}, ${pickup.state} ${pickup.zip ?? ""}`.trim() : null}
+              deliveryAddress={delivery?.street && delivery?.city && delivery?.state ? `${delivery.street}, ${delivery.city}, ${delivery.state} ${delivery.zip ?? ""}`.trim() : null}
+              currentCity={null}
+              currentState={null}
               mapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
             />
           </Section>

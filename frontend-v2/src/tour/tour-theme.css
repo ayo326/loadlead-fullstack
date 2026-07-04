@@ -10,7 +10,10 @@
   border-radius: 0.5rem;
   box-shadow: 0 12px 24px -8px rgba(15, 23, 42, 0.10),
               0 4px 8px -4px rgba(15, 23, 42, 0.06);
-  max-width: 22rem;
+  /* V8: clamp to the viewport so the popover never runs off a narrow screen
+     (a fixed 22rem overflows a 375px phone once the arrow is added). Floating
+     UI keeps it positioned; this keeps its box inside the visible width. */
+  max-width: min(22rem, calc(100vw - 2rem));
 }
 
 .loadlead-tour-step .shepherd-header {

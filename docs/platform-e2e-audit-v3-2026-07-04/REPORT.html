@@ -1,0 +1,223 @@
+<!doctype html><html><head><meta charset="utf-8"><style>@page{margin:18mm 16mm}body{font:13px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:800px;margin:0 auto;padding:8px}h1{font-size:23px;border-bottom:3px solid #1f6feb;padding-bottom:6px}h2{font-size:18px;border-bottom:1px solid #d0d7de;padding-bottom:4px;margin-top:26px}h3{font-size:14.5px;margin-top:20px}table{border-collapse:collapse;width:100%;margin:12px 0;font-size:12px}th,td{border:1px solid #d0d7de;padding:6px 9px;text-align:left;vertical-align:top}th{background:#f6f8fa}code{background:#f0f3f6;padding:1px 5px;border-radius:4px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}pre{background:#0d1117;color:#e6edf3;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:11px}pre code{background:none;color:inherit;padding:0}</style></head><body>
+<h1>LoadLead — Platform-Wide E2E Audit (v3)</h1>
+<p><strong>Date:</strong> 2026-07-04  <strong>Auditor:</strong> Platform Engineering  <strong>Scope:</strong> Full stack — backend business logic, frontend, and cross-environment parity (dev / staging / prod). Ref commit <code>c434c1c</code> (main).</p>
+<hr>
+<h2>1. Executive summary</h2>
+<p>The platform&#39;s <strong>core business logic is healthy and well-tested</strong>: 630/630 backend tests pass, frontend typechecks and builds clean, and the money-ledger, negotiation, and factoring seams hardened in the v1/v2 audits are intact with matching Global Secondary Indexes across prod and staging.</p>
+<p>The material risk this round is <strong>environment-parity drift</strong>, not logic. A <strong>Support/helpdesk feature that shipped straight to prod bypassed the environment-isolation system</strong> entirely — its tables use prod-form default names in every environment, so a running staging (or dev) reads and writes <strong>production</strong> support data. Separately, <strong>production silently records no membership audit logs</strong> because that table was added to the module and staging/dev but never provisioned or configured in prod.</p>
+<p><strong>Verdict:</strong> Prod is functionally healthy and the transactional cores are sound. <strong>1 HIGH</strong> (cross-environment contamination), <strong>1 MEDIUM</strong> (prod audit-log gap), and <strong>5 LOW</strong> findings. None block prod today; the HIGH is latent and only fires when staging runs (currently paused → $0).</p>
+<table>
+<thead>
+<tr>
+<th>Severity</th>
+<th>Count</th>
+<th>Headline</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>HIGH</td>
+<td>1</td>
+<td>Support tables resolve to <strong>prod</strong> in every env; boot-guard &amp; parity-check blind to them</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>1</td>
+<td>Prod membership audit log silently dropped (missing table + dash-form default)</td>
+</tr>
+<tr>
+<td>LOW</td>
+<td>5</td>
+<td>Dev unprovisioned · orphan prod table · parity-gate coverage gap · 963 KB FE bundle · beta-gate not runtime-observable</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>2. What was verified green</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Backend unit/integration suite</td>
+<td><strong>78 files, 630 tests — all pass</strong> (the 4 known-stale fails from v1 are resolved)</td>
+</tr>
+<tr>
+<td>Frontend typecheck (<code>tsc -b</code>)</td>
+<td>clean</td>
+</tr>
+<tr>
+<td>Frontend production build (<code>vite build</code>)</td>
+<td>clean</td>
+</tr>
+<tr>
+<td>Table env-var parity (the 50 <code>config.dynamodb</code> slots)</td>
+<td>staging 50/50, dev 50/50 overridden</td>
+</tr>
+<tr>
+<td>Money-ledger atomic idempotency (audit V2-H1)</td>
+<td>intact — <code>attribute_not_exists</code> conditional writes present in reconciliation + funding</td>
+</tr>
+<tr>
+<td>Money-table GSI queries (audit V2-M1)</td>
+<td>intact — <code>invoiceId-index</code> used with scan fallback</td>
+</tr>
+<tr>
+<td>Negotiation assign-release + agreed-rate binding</td>
+<td>intact (<code>ensureAssignedAndReleased</code>, <code>agreedRate</code>)</td>
+</tr>
+<tr>
+<td><strong>GSI parity prod ↔ staging</strong></td>
+<td><strong>perfect</strong> — <code>invoiceId-index</code> (Reconciliation, Funding), <code>loadId-createdAt-index</code> (LoadNegotiations), <code>negotiationId-createdAt-index</code> (NegotiationOffers) present in <strong>both</strong></td>
+</tr>
+<tr>
+<td>Prod live smoke</td>
+<td><code>/api/health</code> 200 · protected routes 401 · public support webhook 400 (correctly unauth) · frontend apex + beta 200</td>
+</tr>
+<tr>
+<td>Beta <strong>config</strong> parity</td>
+<td>prod <code>BETA_MODE=true</code>, staging <code>off</code>; <code>APP_ENV</code>/<code>NODE_ENV</code> correct per env</td>
+</tr>
+</tbody></table>
+<p>Live table census: <strong>prod 54 · staging 50 · dev 0</strong>.</p>
+<hr>
+<h2>3. Findings</h2>
+<h3>H1 — HIGH — Support feature reads/writes PROD tables from every environment</h3>
+<p><strong>What.</strong> The Support/helpdesk service (<code>src/services/supportTicket.ts</code>, <code>src/routes/support.ts</code>) resolves its four tables from <strong>non-standard env vars with prod-form defaults</strong>:</p>
+<pre><code>process.env.SUPPORT_TICKETS_TABLE  || &#39;LoadLead_SupportTickets&#39;
+process.env.SUPPORT_MESSAGES_TABLE || &#39;LoadLead_SupportMessages&#39;
+process.env.SUPPORT_INBOUND_TABLE  || &#39;LoadLead_SupportInbound&#39;
+process.env.SUPPORT_SETTINGS_TABLE || &#39;LoadLead_SupportSettings&#39;
+</code></pre>
+<p>These <code>SUPPORT_*_TABLE</code> vars are <strong>not</strong> in <code>config/environment.ts</code>, <strong>not</strong> set in any env stack (<code>envs/staging</code>, <code>envs/dev</code> set zero of them), <strong>not</strong> in the Terraform <code>dynamodb_tableset</code> module, and <strong>not</strong> covered by <code>scripts/check-table-env-parity.mjs</code>. Consequently <strong>every environment falls through to the <code>LoadLead_*</code> production defaults.</strong></p>
+<p><strong>Why it&#39;s dangerous.</strong> This is the exact cross-environment-contamination class the boot guard was built to stop after the v1 H1 finding — re-introduced by a feature that never went through the env-isolation system:</p>
+<ul>
+<li>The boot guard <code>assertTablesEnvIsolated()</code> inspects only <code>config.dynamodb</code> plus env vars explicitly present; Support is in neither, so it <strong>cannot see the contamination</strong> and staging boots clean.</li>
+<li><code>POST /api/support/inbound</code> is a <strong>public</strong> webhook mounted <em>before</em> <code>authenticate</code>. A staging deploy processing an inbound email (or any Support admin action) writes tickets/messages into <strong>prod&#39;s</strong> <code>LoadLead_SupportTickets</code>.</li>
+</ul>
+<p><strong>Failure scenario.</strong> Start staging → an inbound support email (or a test webhook POST) hits <code>staging api /api/support/inbound</code> → a ticket is created in <strong>production</strong> <code>LoadLead_SupportTickets</code>, polluting prod support data and potentially triggering prod-side notifications.</p>
+<p><strong>Mitigation today.</strong> Staging is paused ($0), so the path is not live right now. Risk activates the moment staging runs.</p>
+<p><strong>COA.</strong></p>
+<ol>
+<li>Move Support table resolution into <code>config/environment.ts</code> (<code>config.dynamodb.supportTickets</code>, …) keyed on <code>DYNAMODB_SUPPORT_*_TABLE</code>; delete the inline prod-form defaults from <code>supportTicket.ts</code>.</li>
+<li>Add the 4 Support tables to <code>modules/dynamodb_tableset</code> and to the staging/dev override maps; apply (staging tables ~$0 on-demand).</li>
+<li>Extend <code>check-table-env-parity.mjs</code> and <code>assertTablesEnvIsolated()</code> to cover the Support tables (see L3 for the systemic fix).</li>
+<li>Until (1)–(3) land, do not run staging with Support reachable, or set <code>SUPPORT_*_TABLE</code> to the staging table names in the staging stack.</li>
+</ol>
+<hr>
+<h3>M1 — MEDIUM — Production records <strong>no</strong> membership audit logs</h3>
+<p><strong>What.</strong> <code>OrgAuditService</code> (<code>src/services/orgService.ts</code>) resolves its table as:</p>
+<pre><code>const MEMBERSHIP_AUDIT_TABLE = process.env.DYNAMODB_MEMBERSHIP_AUDIT_TABLE
+  || &#39;LoadLead-MembershipAuditLogs&#39;;   // dash form
+</code></pre>
+<ul>
+<li>Prod sets <strong>no</strong> <code>DYNAMODB_MEMBERSHIP_AUDIT_TABLE</code> and has <strong>no</strong> <code>MembershipAuditLogs</code> table (live census: prod lacks it; staging has <code>LoadLead-Staging-MembershipAuditLogs</code>).</li>
+<li>So in prod the name falls to <code>LoadLead-MembershipAuditLogs</code> (<strong>dash</strong>, not the <code>LoadLead_</code> prod form) — a table that does not exist.</li>
+<li>The write is best-effort: <code>try { await Database.putItem(...) } catch (e) { Logger.error(...) }</code>. The membership operation succeeds; the <strong>audit write fails and is swallowed</strong>.</li>
+</ul>
+<p><strong>Impact.</strong> Production keeps <strong>zero</strong> membership audit trail (role changes, invites, removals). Staging works; prod is the odd one out — the IAM membership-audit table was added to the module + staging/dev but never provisioned or configured in prod. Compliance/audit-trail gap; also a latent instance of the dash-default bug family (cf. the <code>LoadLead-Drivers</code> default fixed in v1).</p>
+<p><strong>COA.</strong></p>
+<ol>
+<li>Provision <code>LoadLead_MembershipAuditLogs</code> in prod (add to the prod stack, apply) and set prod <code>DYNAMODB_MEMBERSHIP_AUDIT_TABLE=LoadLead_MembershipAuditLogs</code>.</li>
+<li>Fix <code>orgService.ts</code> to resolve via <code>config.dynamodb.membershipAuditTable</code> (underscore prod form) instead of its own dash-form inline default.</li>
+<li>Backfill is impossible (writes were dropped) — accept the gap start date; consider a metric/alarm so a silently-failing audit write is visible, not swallowed.</li>
+</ol>
+<hr>
+<h3>L1 — LOW — Dev environment is unprovisioned</h3>
+<p>Dev&#39;s Terraform stack and all 50 table overrides exist, but live dev has <strong>0 DynamoDB tables</strong> — the stack was never applied. &quot;Parity&quot; for dev is config-only; the environment is non-functional. <strong>COA:</strong> either apply dev (tables-only, on-demand ~$0) so it&#39;s real, or retire the dev env from IaC/CI so it stops producing false parity signals.</p>
+<h3>L2 — LOW — Orphan <code>LoadLead_AdminAudit</code> table in prod</h3>
+<p>Code uses <code>LoadLead_AdminAuditLog</code>; prod additionally carries a legacy <code>LoadLead_AdminAudit</code> (no &quot;Log&quot;), present in prod only and referenced nowhere in <code>src</code>. <strong>COA:</strong> confirm empty/unused, then delete (or import into IaC if intentional). Part of the 54-vs-50 count gap.</p>
+<h3>L3 — LOW — Parity gate gives false confidence (coverage gap)</h3>
+<p><code>check-table-env-parity.mjs</code> validates only the 50 <code>config.dynamodb</code> slots and reported &quot;parity passed&quot; while the 4 Support tables (and any future out-of-band table) went unchecked. The gate that is supposed to prevent env drift <strong>cannot detect the H1 class</strong>. <strong>COA:</strong> make the check enumerate every <code>*_TABLE</code> env read in <code>src/</code> (AST or grep) rather than trusting <code>config.dynamodb</code>, or add a lint rule forbidding table-name resolution anywhere except <code>config/environment.ts</code>. This is the systemic fix that would have caught H1.</p>
+<h3>L4 — LOW — Frontend ships a single 963 KB JS bundle (no code-splitting)</h3>
+<p><code>vite build</code> emits one <code>index-*.js</code> of <strong>963 KB (265 KB gzip)</strong> with a chunk-size warning. Slow first paint, especially on mobile / poor connections — relevant given the driver persona. <strong>COA:</strong> route-level <code>React.lazy()</code> + dynamic <code>import()</code>, and <code>build.rollupOptions.output.manualChunks</code> to split vendor (maps, charts) from app code.</p>
+<h3>L5 — LOW / informational — Beta gate is not runtime-observable</h3>
+<p>A nonexistent-user login returns identical <code>401 Invalid credentials</code> on <strong>both</strong> beta-on prod and beta-off staging, so there is no cheap runtime probe to confirm the gate is actually enforcing per environment (config parity is correct and the gate is unit-tested, but &quot;is it live?&quot; can&#39;t be checked from outside). <strong>COA:</strong> echo <code>betaMode</code> in <code>/api/health</code> (or a small <code>/api/beta/status</code>) so ops can verify live gate state per env — and so future audits have a real discriminator.</p>
+<hr>
+<h2>4. Course of action — prioritized</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Action</th>
+<th>Sev</th>
+<th>Effort</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Route Support tables through <code>config.dynamodb</code> + provision staging/dev tables + boot-guard/parity coverage</td>
+<td>HIGH</td>
+<td>M</td>
+<td>Platform + owning team</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Provision + wire prod <code>MembershipAuditLogs</code>; fix dash-form default; alarm on swallowed audit writes</td>
+<td>MED</td>
+<td>S</td>
+<td>Identity + Platform</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Make <code>check-table-env-parity.mjs</code> enumerate all <code>*_TABLE</code> reads (systemic fix for H1 class)</td>
+<td>LOW→systemic</td>
+<td>S</td>
+<td>Platform</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Decide dev: provision (~$0) or retire from IaC</td>
+<td>LOW</td>
+<td>S</td>
+<td>Platform</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Delete orphan <code>LoadLead_AdminAudit</code> after confirming unused</td>
+<td>LOW</td>
+<td>S</td>
+<td>Platform</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Frontend code-splitting (route lazy + vendor chunks)</td>
+<td>LOW</td>
+<td>M</td>
+<td>Marketplace</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Add <code>betaMode</code> to <code>/api/health</code></td>
+<td>LOW</td>
+<td>S</td>
+<td>Platform</td>
+</tr>
+</tbody></table>
+<p><strong>Sequencing:</strong> #1 and #3 together (the fix and the guard that prevents recurrence). #2 is quick and closes a compliance gap. #4–#7 are hygiene.</p>
+<hr>
+<h2>5. Recommendations (systemic)</h2>
+<ol>
+<li><strong>One source of truth for table names.</strong> Nothing should resolve a DynamoDB table name outside <code>config/environment.ts</code>. The H1 and M1 findings both stem from services inventing their own <code>process.env.X || &#39;LoadLead...&#39;</code> defaults. Enforce with a lint rule; it converts a whole bug family into a compile-time error.</li>
+<li><strong>Parity gate should discover, not trust.</strong> The env-parity check should derive the table set from the code, not from a hand-maintained list that a new feature can side-step.</li>
+<li><strong>Prod is not automatically ahead of staging.</strong> M1 shows a table that reached staging but not prod. Add a live &quot;does every env have every table the code needs&quot; probe (extends L3/L5) to the deploy pipeline, per environment.</li>
+<li><strong>Feature intake checklist.</strong> Any new persisted store must: (a) land in <code>config.dynamodb</code>, (b) be added to the module + all env maps, (c) pass the parity check. The Support feature skipped all three.</li>
+</ol>
+<hr>
+<h2>6. Method &amp; evidence</h2>
+<ul>
+<li>Backend: <code>npm test</code> → 78 files / 630 tests pass.</li>
+<li>Frontend: <code>tsc -b --noEmit</code> + <code>vite build</code> → clean.</li>
+<li>Parity: <code>scripts/check-table-env-parity.mjs</code> (50/50); live <code>aws dynamodb list-tables</code> census per prefix; <code>aws elasticbeanstalk describe-configuration-settings</code> for BETA_MODE/APP_ENV/NODE_ENV; <code>describe-table</code> GSI comparison prod↔staging.</li>
+<li>Contamination trace: <code>grep</code> of all <code>process.env.*_TABLE || &#39;LoadLead...&#39;</code> defaults across <code>src/</code>, cross-referenced against <code>config/environment.ts</code> and the env stacks; confirmed only the 4 Support tables escape the system, and only <code>LoadLead-MembershipAuditLogs</code> uses a dash-form default.</li>
+<li>Live smoke: prod <code>/api/health</code>, unauth guards, public support webhook, apex + beta frontends.</li>
+</ul>
+<hr>
+<h2>7. Correction (post-report, 2026-07-04)</h2>
+<p><strong>M1 was partly a census artifact and is downgraded.</strong> The live-table census in §2/§3 grepped only <code>LoadLead_</code> (underscore) tables and <strong>missed the dash-named <code>LoadLead-MembershipAuditLogs</code></strong>, which is <strong>ACTIVE in prod with real data (18 records)</strong>. So the claim &quot;production records <strong>no</strong> membership audit logs&quot; is <strong>incorrect</strong> — prod audit logging works, via the dash-named table. Prod actually has <strong>55</strong> tables (54 <code>LoadLead_</code> + 1 <code>LoadLead-MembershipAuditLogs</code>), not 54.</p>
+<p>What remains true: the value bypassed <code>config.dynamodb</code> (fixed in PR #28), and the name is <strong>inconsistent</strong> with the <code>LoadLead_</code> convention (a cosmetic wart, not a functional bug). Revised severity: <strong>LOW (naming inconsistency)</strong>, not MEDIUM.</p>
+<p>Note: the M1 fix as first merged (PR #28) defaulted to the underscore form and was a <strong>latent regression</strong> (would have broken prod on deploy). Corrected in <strong>PR #29</strong> — the default is now the real <code>LoadLead-MembershipAuditLogs</code>; the config-routing/coverage from #28 is retained; no prod table provisioning is needed. <strong>H1 (Support) is unaffected and stands as reported.</strong></p>
+<p><strong>Process lesson:</strong> a live-table census must match <strong>both</strong> separators (<code>LoadLead_</code> and <code>LoadLead-</code>). The systemic recommendation (§5) stands and would also cover this: table names should be discovered from code/config, not from ad-hoc <code>list-tables</code> greps.</p>
+</body></html>

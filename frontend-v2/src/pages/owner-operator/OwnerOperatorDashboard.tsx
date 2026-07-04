@@ -72,22 +72,17 @@ export default function OwnerOperatorDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <PushSubscriptionPrompt />
+      {/* V1: Settings lives once, in the sidebar (canonical). The former header
+          Settings duplicate is removed. */}
       <PageHeader
         title={`Welcome back, ${profile.legalName ?? user?.email}`}
         subtitle="Owner Operator Dashboard"
-        actions={
-          <Button variant="outline" size="sm" onClick={() => navigate("/owner-operator/settings")}>
-            Settings
-          </Button>
-        }
       />
 
       <div className="max-w-6xl mx-auto p-6 space-y-6">
-        {/* Aggregated dashboard (§2 blended) — sits at the top so the
-            high-level health is the first thing seen. The legacy load-list
-            + fleet sections below are retained for back-compat and detailed
-            inline actions; the new view shows the same data condensed. */}
-        <OwnerOperatorDashboardView />
+        {/* P1 (above the fold): the actionable loadboard + route map + key
+            stats come first. The blended secondary view (my haul, verification,
+            fleet health, financial, SLA) renders BELOW. V2. */}
 
         {/* Stats */}
         <div data-tour="oo-verification" className="grid grid-cols-1 sm:grid-cols-3 gap-4" id="oo-stats">
@@ -188,9 +183,16 @@ export default function OwnerOperatorDashboard() {
             <div data-tour="oo-fleet" className="rounded-xl border bg-card">
               <div className="flex items-center justify-between px-5 py-4 border-b">
                 <h2 className="font-semibold">Your Fleet</h2>
-                <Button size="sm" variant="outline" onClick={() => navigate("/owner-operator/settings?tab=fleet")}>
-                  Manage Fleet
-                </Button>
+                {/* D8: add/assign action surfaced inline on the card (both empty
+                    and populated states); the full manager stays in Settings. */}
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={() => navigate("/owner-operator/settings?tab=fleet")}>
+                    <Users className="h-4 w-4" /> Add driver
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => navigate("/owner-operator/settings?tab=fleet")}>
+                    Manage Fleet
+                  </Button>
+                </div>
               </div>
               {fleet.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
@@ -258,6 +260,11 @@ export default function OwnerOperatorDashboard() {
             </div>
           </aside>
         </div>
+
+        {/* P2/P3: blended secondary view (my haul, verification, fleet health,
+            financial, SLA). Its own tendered-loadboard is suppressed so the
+            "Available Loads" board above is the single source of truth. V3. */}
+        <OwnerOperatorDashboardView hideLoadboard />
       </div>
     </div>
   );
