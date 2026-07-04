@@ -67,6 +67,11 @@ function isConditionFailure(err: any): boolean {
   return err?.name === 'ConditionalCheckFailedException' || err?.name === 'TransactionCanceledException';
 }
 
+/** A query against a GSI that isn't created yet (fall back to a scan until live). */
+function isMissingIndex(err: any): boolean {
+  return err?.name === 'ValidationException' && /index/i.test(String(err?.message ?? ''));
+}
+
 export class FundingAdvanceService {
   /**
    * Issue an advance against a factorable line. Throws if an accessorial line is
@@ -123,12 +128,27 @@ export class FundingAdvanceService {
   }
 
   static async listForInvoice(invoiceId: string): Promise<FundingAdvance[]> {
-    return (await this.scanAll()).filter((a) => a.invoiceId === invoiceId).sort((a, b) => a.issuedAt - b.issuedAt);
+    // V2-M1: query the invoiceId GSI; fall back to a filtered scan until it's live.
+    let rows: FundingAdvance[] | undefined;
+    if (typeof Database.query === 'function') {
+      try {
+        rows = await Database.query<FundingAdvance>(
+          config.dynamodb.fundingAdvancesTable, 'invoiceId-index', '#i = :i', { '#i': 'invoiceId' }, { ':i': invoiceId }
+        );
+      } catch (err: any) {
+        if (err?.name === 'ResourceNotFoundException') return [];
+        if (!isMissingIndex(err)) throw err;
+      }
+    }
+    if (!rows) rows = (await this.scanAll()).filter((a) => a.invoiceId === invoiceId);
+    return rows.sort((a, b) => a.issuedAt - b.issuedAt);
   }
 
   static async getForLine(invoiceId: string, lineKind: AdvanceLineKind, chargeId?: string): Promise<FundingAdvance | null> {
+    // The advanceId is deterministic (advance_<key>), so this is a direct point
+    // read — no table scan needed.
     const key = advanceKey(invoiceId, lineKind, chargeId);
-    return (await this.scanAll()).find((a) => a.idempotencyKey === key) ?? null;
+    return Database.getItem<FundingAdvance>(config.dynamodb.fundingAdvancesTable, { advanceId: `advance_${key}` });
   }
 
   private static async scanAll(): Promise<FundingAdvance[]> {

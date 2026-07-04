@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-const { tables, putItem, getItem, scan, updateItem, deleteItem } = vi.hoisted(() => {
+const { tables, putItem, getItem, scan, query, updateItem, deleteItem } = vi.hoisted(() => {
   const tables: Record<string, any[]> = {};
   const pk = (it: any) => it?.outcomeId ?? it?.advanceId; // the money tables' partition keys
   return {
@@ -30,14 +30,19 @@ const { tables, putItem, getItem, scan, updateItem, deleteItem } = vi.hoisted(()
       return (tables[table] ?? []).find((x) => x[kf] === kv) ?? null;
     }),
     scan: vi.fn(async (table: string) => [...(tables[table] ?? [])]),
+    // V2-M1 GSI query: single-attribute equality (invoiceId-index) over the store.
+    query: vi.fn(async (table: string, _index: any, _cond: any, names: Record<string, string>, values: Record<string, any>) => {
+      const attr = Object.values(names)[0]; const val = Object.values(values)[0];
+      return (tables[table] ?? []).filter((x: any) => x[attr] === val);
+    }),
     updateItem: vi.fn(async () => ({})),
     deleteItem: vi.fn(async () => ({})),
   };
 });
 
 vi.mock('../../../src/config/database', () => ({
-  Database: { putItem, getItem, scan, updateItem, deleteItem },
-  default: { putItem, getItem, scan, updateItem, deleteItem },
+  Database: { putItem, getItem, scan, query, updateItem, deleteItem },
+  default: { putItem, getItem, scan, query, updateItem, deleteItem },
 }));
 vi.mock('../../../src/utils/logger', () => ({ Logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() } }));
 
@@ -212,5 +217,24 @@ describe('V2-H1: idempotent money writes are concurrency-safe (conditional put)'
     ]);
     expect(a.advanceId).toBe(b.advanceId);
     expect(tables[ADV] ?? []).toHaveLength(1);
+  });
+});
+
+describe('V2-M1: money reads query the invoiceId GSI, fall back to a scan', () => {
+  it('outcomesForInvoice / listForInvoice fall back to a filtered scan when the GSI is missing', async () => {
+    await FundingAdvanceService.issueAdvance({
+      invoiceId: 'inv-m1', carrierId: 'carrier-1', lineKind: 'LINEHAUL',
+      amountCents: 1000, payeeType: 'CARRIER', destination: 'acct://x',
+      providerName: 'manual', recourseType: 'RECOURSE', scope: 'FULL_INVOICE',
+    });
+    await ReconciliationService.recordOutcome({
+      invoiceId: 'inv-m1', carrierId: 'carrier-1', type: 'PAYMENT_ROUTED',
+      amountCents: 1000, idempotencyKey: 'm1-key',
+    });
+    // Force the GSI to look absent for both reads — they must fall back to a scan.
+    const missingIndex = async () => { const e: any = new Error('does not have the specified index'); e.name = 'ValidationException'; throw e; };
+    query.mockImplementationOnce(missingIndex).mockImplementationOnce(missingIndex);
+    expect(await FundingAdvanceService.listForInvoice('inv-m1')).toHaveLength(1);
+    expect(await ReconciliationService.outcomesForInvoice('inv-m1')).toHaveLength(1);
   });
 });
