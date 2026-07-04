@@ -113,7 +113,7 @@ function AppSidebar({ onLogout }: { onLogout: () => void }) {
                         "relative rounded-sm h-9 px-3 gap-3 cursor-pointer",
                         "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent",
                         "transition-colors duration-fast ease-soft",
-                        // Active state — left stripe (2px) + accent bg + white text + dot
+                        // Active state - left stripe (2px) + accent bg + white text + dot
                         "data-[active=true]:bg-sidebar-accent",
                         "data-[active=true]:text-sidebar-foreground",
                         "data-[active=true]:before:content-['']",
@@ -211,9 +211,9 @@ function AppSidebar({ onLogout }: { onLogout: () => void }) {
               </div>
               <ChevronRight className="h-4 w-4 text-sidebar-foreground/40" aria-hidden />
             </div>
-            {/* Replay tour — same nav-item language as other rail items. */}
+            {/* Replay tour - same nav-item language as other rail items. */}
             <TourReplayButton />
-            {/* Primary motto — its quiet home */}
+            {/* Primary motto - its quiet home */}
             <p className="px-1 text-overline font-mono text-sidebar-foreground/40">
               Connect. Load. Drop.
             </p>
@@ -244,7 +244,7 @@ export default function AppLayout() {
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "?";
   const headshotUrl = user?.headshotUrl;
 
-  // Customer glass language (variant 2 "deeper tinted glass") — now applied
+  // Customer glass language (variant 2 "deeper tinted glass") - now applied
   // across all customer personas via the shared customer-glass tokens. The
   // frosted light content canvas keeps every routed surface AA regardless of
   // persona. (Rolled out from Owner Operator after review.)
@@ -284,7 +284,7 @@ export default function AppLayout() {
             </div>
           </header>
           <main className="flex-1 px-6 py-6 lg:px-8 lg:py-8 overflow-x-hidden">
-            {/* Tour controller — mounts once; auto-starts the right persona's
+            {/* Tour controller - mounts once; auto-starts the right persona's
                 tour on first dashboard visit, persists completion locally. */}
             <TourMount />
             <Outlet />

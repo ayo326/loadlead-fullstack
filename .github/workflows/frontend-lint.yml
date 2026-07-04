@@ -39,3 +39,6 @@ jobs:
       # guarantee (the runtime half is e2e/placeholderCrawl.spec.ts).
       - name: Placeholder / unfinished-copy gate
         run: bash scripts/check-placeholders.sh
+      # Style: no em/en dashes anywhere in code, comments, or copy.
+      - name: Em/en-dash gate
+        run: node scripts/check-dashes.mjs

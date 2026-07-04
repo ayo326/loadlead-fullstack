@@ -17,7 +17,7 @@ function Row({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between py-2.5 border-b border-border last:border-0 gap-4">
       <span className="text-sm text-muted-foreground shrink-0">{label}</span>
-      <span className="text-sm font-medium text-right">{value ?? "—"}</span>
+      <span className="text-sm font-medium text-right">{value ?? "-"}</span>
     </div>
   );
 }
@@ -156,7 +156,7 @@ export default function ShipperLoadDetail() {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Live tracking card — only when IN_TRANSIT with location */}
+          {/* Live tracking card - only when IN_TRANSIT with location */}
           {load.status === "IN_TRANSIT" && tracking?.driverLocation && (
             <Section title="Live driver location" icon={Navigation}>
               <RouteMapCard
@@ -170,15 +170,15 @@ export default function ShipperLoadDetail() {
               <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
                 <div className="rounded-lg bg-secondary p-2.5">
                   <div className="text-muted-foreground">Current city</div>
-                  <div className="font-semibold mt-0.5">{tracking.driverLocation.city ?? "—"}, {tracking.driverLocation.state ?? ""}</div>
+                  <div className="font-semibold mt-0.5">{tracking.driverLocation.city ?? "-"}, {tracking.driverLocation.state ?? ""}</div>
                 </div>
                 <div className="rounded-lg bg-secondary p-2.5">
                   <div className="text-muted-foreground">Miles remaining</div>
-                  <div className="font-semibold mt-0.5">{tracking.etaToDelivery?.miles ?? "—"} mi</div>
+                  <div className="font-semibold mt-0.5">{tracking.etaToDelivery?.miles ?? "-"} mi</div>
                 </div>
                 <div className="rounded-lg bg-secondary p-2.5">
                   <div className="text-muted-foreground">ETA</div>
-                  <div className="font-semibold mt-0.5">{tracking.etaToDelivery?.durationText ?? "—"}</div>
+                  <div className="font-semibold mt-0.5">{tracking.etaToDelivery?.durationText ?? "-"}</div>
                 </div>
               </div>
             </Section>
@@ -274,7 +274,7 @@ export default function ShipperLoadDetail() {
             <Row label="Status" value={<StatusPill status={load.status} />} />
           </Section>
 
-          {/* Read-only attestation chain — visible to the load's parties + admin. */}
+          {/* Read-only attestation chain - visible to the load's parties + admin. */}
           <AttestationChain loadId={load.loadId} />
 
           {/* Detention/layover charge review (approve / adjust / dispute). */}

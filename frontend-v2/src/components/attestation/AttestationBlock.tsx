@@ -1,4 +1,4 @@
-// AttestationBlock — neutral, persona-agnostic primitive.
+// AttestationBlock - neutral, persona-agnostic primitive.
 //
 // One component covers all five handoffs (shipper BOL submit, carrier/OO
 // accept, driver pickup, driver delivery, receiver receipt). The caller
@@ -39,7 +39,7 @@ interface AttestationBlockProps {
    * so the projection version stays in lockstep with the server's text. */
   attestationText: string;
   /** Caller-passed version used for display + audit. The server records
-   * its own canonical version on the row — this is just the displayed
+   * its own canonical version on the row - this is just the displayed
    * value the human sees. */
   attestationVersion: string;
 
@@ -52,10 +52,10 @@ interface AttestationBlockProps {
   /** Show the exceptions block (RECEIVER_CONFIRM, optionally DRIVER_DELIVER). */
   allowExceptions?: boolean;
 
-  /** For CARRIER_ACCEPT only — the driverId being assigned. Server uses
+  /** For CARRIER_ACCEPT only - the driverId being assigned. Server uses
    * this for resolveCarrierOfRecord() and embeds it in the documentHash. */
   assignedDriverId?: string;
-  /** For CARRIER_ACCEPT only — the negotiated rate to bind (cents). Send the
+  /** For CARRIER_ACCEPT only - the negotiated rate to bind (cents). Send the
    * one matching the load basis; omit to bind the load's posted rate. */
   ratePerMileCents?: number;
   totalCents?: number;
@@ -214,7 +214,7 @@ export function AttestationBlock(props: AttestationBlockProps) {
               value={excCode}
               onChange={(e) => setExcCode(e.target.value as any)}
             >
-              <option value="">— none —</option>
+              <option value="">- none -</option>
               {EXCEPTION_CODES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <Textarea

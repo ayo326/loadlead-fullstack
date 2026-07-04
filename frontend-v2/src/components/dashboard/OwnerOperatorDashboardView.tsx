@@ -1,15 +1,15 @@
 /**
  * Owner Operator dashboard view (operator-scoped, blended).
  *
- * INDEPENDENT of the Carrier dashboard — separate component, separate code.
+ * INDEPENDENT of the Carrier dashboard - separate component, separate code.
  * The two share only persona-NEUTRAL atoms from ./atoms (StatTile,
  * ConnectPlaceholder, VerificationBadge, LoadRow, ProgressBar). If you find
  * yourself adding a parent-type prop, split the component instead.
  *
  * Blended layout per spec §2:
- *  - "My haul" panel (OO-specific — they're driver AND dispatcher)
+ *  - "My haul" panel (OO-specific - they're driver AND dispatcher)
  *  - Verification (authority + identity, both gates)
- *  - Same categories as carrier: alerts, fleet, financial, loadboard, SLA —
+ *  - Same categories as carrier: alerts, fleet, financial, loadboard, SLA -
  *    OWNED here, not imported from CarrierDashboardView.
  *
  * Same dispatcher/exec toggle as carrier: a solo OO lives in dispatcher; an
@@ -105,7 +105,7 @@ function MyHaulPanel({ myHaul }: { myHaul: any }) {
             <StatTile label="Route" value={
               <span className="text-sm font-semibold">{myHaul.pickup.city}, {myHaul.pickup.state} → {myHaul.delivery.city}, {myHaul.delivery.state}</span>
             } />
-            <StatTile label="Pay" value={`$${myHaul.rate?.toLocaleString() ?? "—"}`} icon={DollarSign} tone="good" />
+            <StatTile label="Pay" value={`$${myHaul.rate?.toLocaleString() ?? "-"}`} icon={DollarSign} tone="good" />
           </div>
         )}
     </Section>
@@ -282,8 +282,8 @@ function DispatcherView({ data, hideLoadboard = false }: { data: any; hideLoadbo
 function ExecView({ data }: { data: any }) {
   const fin = data.financial;
   const sla = data.sla;
-  const fmt = (n?: number | null) => n == null ? "—" : `$${Math.round(n).toLocaleString()}`;
-  const pct = (n?: number | null) => n == null ? "—" : `${Math.round(n * 100)}%`;
+  const fmt = (n?: number | null) => n == null ? "-" : `$${Math.round(n).toLocaleString()}`;
+  const pct = (n?: number | null) => n == null ? "-" : `${Math.round(n * 100)}%`;
 
   return (
     <div className="space-y-5">
@@ -291,7 +291,7 @@ function ExecView({ data }: { data: any }) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <StatTile label="Gross / week"  value={fmt(fin.grossRevenue.week)}  icon={DollarSign} tone="good" />
           <StatTile label="Gross / month" value={fmt(fin.grossRevenue.month)} icon={DollarSign} tone="good" />
-          <StatTile label="Avg $/mi"      value={fin.rpm.avg == null ? "—" : `$${fin.rpm.avg.toFixed(2)}`} icon={TrendingUp} />
+          <StatTile label="Avg $/mi"      value={fin.rpm.avg == null ? "-" : `$${fin.rpm.avg.toFixed(2)}`} icon={TrendingUp} />
           <StatTile label="Loads w/ RPM"  value={fin.rpm.byLoad.length} icon={BarChart3} />
         </div>
         <div className="grid grid-cols-2 gap-3 mb-3">
@@ -325,7 +325,7 @@ function ExecView({ data }: { data: any }) {
         <div className="grid grid-cols-2 gap-3 mt-3">
           <StatTile
             label="Authority"
-            value={sla.compliancePosture.authorityActive === null ? "—" : (sla.compliancePosture.authorityActive ? "Active" : "Inactive")}
+            value={sla.compliancePosture.authorityActive === null ? "-" : (sla.compliancePosture.authorityActive ? "Active" : "Inactive")}
             tone={sla.compliancePosture.authorityActive ? "good" : (sla.compliancePosture.authorityActive === false ? "bad" : "default")}
           />
           <StatTile

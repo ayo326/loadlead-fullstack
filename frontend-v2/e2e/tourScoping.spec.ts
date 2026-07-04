@@ -22,7 +22,7 @@ test.describe("Onboarding tour scoping", () => {
     await page.waitForTimeout(1200);
 
     // No Shepherd tour surface appeared, and the panel is still clickable
-    // (no overlay intercepting) — engaging works.
+    // (no overlay intercepting) - engaging works.
     await expect(page.locator(".shepherd-element")).toHaveCount(0);
     await page.getByRole("button", { name: /Engage to negotiate/ }).click();
     await expect(page.getByText("Engaged - accept load or bid")).toBeVisible();

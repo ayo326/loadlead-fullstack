@@ -2,7 +2,7 @@
  * Persona-NEUTRAL dashboard atoms.
  *
  * These are used by BOTH the carrier and OO dashboards. They do not branch on
- * parent type — if a future variant requires "if Carrier else OO" logic, the
+ * parent type - if a future variant requires "if Carrier else OO" logic, the
  * caller passes different props, not a new branch in here. (Spec §0:
  * Independence principle.)
  */
@@ -18,12 +18,12 @@ export function isUnavailable(x: any): x is Unavailable {
   return x && typeof x === "object" && x.available === false && typeof x.reason === "string";
 }
 
-// ── StatTile: numeric metric or "—" / placeholder when Unavailable ─────────
+// ── StatTile: numeric metric or "-" / placeholder when Unavailable ─────────
 export function StatTile({
   label, value, hint, icon: Icon, tone = "default",
 }: {
   label: string;
-  value: React.ReactNode;          // string/number — or pass <ConnectPlaceholder> for Unavailable
+  value: React.ReactNode;          // string/number - or pass <ConnectPlaceholder> for Unavailable
   hint?: string;
   icon?: React.ElementType;
   tone?: "default" | "good" | "warn" | "bad";

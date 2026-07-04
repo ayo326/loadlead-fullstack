@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* LoadLead design tokens. Source of truth: design-system/MASTER.md.
- * Palette LOCKED from the original codebase — no new brand colors.
+ * Palette LOCKED from the original codebase - no new brand colors.
  * Every other surface (typography, radii, elevation, motion) was rebuilt
  * for a freight operations console.
  *
@@ -13,7 +13,7 @@
 
 @layer base {
   :root {
-    /* ── Palette (LOCKED — do not change without updating MASTER.md) ── */
+    /* ── Palette (LOCKED - do not change without updating MASTER.md) ── */
     --background: 210 40% 98%;
     --foreground: 215 55% 12%;
 
@@ -54,7 +54,7 @@
      * fallback for any remaining inline references during the refresh. */
     --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04);
 
-    --radius: 0.5rem; /* 8px — card default. See MASTER §4. */
+    --radius: 0.5rem; /* 8px - card default. See MASTER §4. */
 
     /* ── The rail (deep navy slab, restyled in MASTER §8) ── */
     --sidebar-background: 215 60% 10%;
@@ -141,7 +141,7 @@
     font-family: "Manrope", "Inter", ui-sans-serif, system-ui, sans-serif;
   }
 
-  /* Status dot — colored marker for status pills. Pulse pairs with
+  /* Status dot - colored marker for status pills. Pulse pairs with
    * .animate-status-pulse and is auto-disabled under reduced motion. */
   .status-dot {
     @apply inline-block h-1.5 w-1.5 rounded-full bg-current align-middle;

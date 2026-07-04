@@ -1,15 +1,15 @@
 /**
- * DriverVerification — onboarding page for the DRIVER role.
+ * DriverVerification - onboarding page for the DRIVER role.
  *
  * A driver clears two gates before accepting loads:
- *   1. AFFILIATION  — must belong to a CARRIER org (or be an OO self-driver).
+ *   1. AFFILIATION  - must belong to a CARRIER org (or be an OO self-driver).
  *                     Cannot self-serve; a carrier admin must invite them.
- *   2. IDENTITY     — personal IDV via Didit, keyed by userId.
+ *   2. IDENTITY     - personal IDV via Didit, keyed by userId.
  *
  * Different from OO verification because:
  *   - There's no carrier-authority gate for the driver themselves; the
  *     carrier (org or OO) owns that record.
- *   - Affiliation is a passive wait state — the driver can only watch for
+ *   - Affiliation is a passive wait state - the driver can only watch for
  *     the invite to land, not act on it.
  */
 
@@ -105,13 +105,13 @@ export default function DriverVerification() {
           {bothCleared ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : <AlertCircle className="h-5 w-5 text-amber-600" />}
           <div className="text-sm">
             {bothCleared
-              ? <span className="font-medium text-green-700 dark:text-green-400">Both gates cleared — you'll start seeing matched loads.</span>
+              ? <span className="font-medium text-green-700 dark:text-green-400">Both gates cleared - you'll start seeing matched loads.</span>
               : <><span className="font-medium">Two gates must clear to receive loads.</span> <span className="text-muted-foreground ml-1">Affiliation + personal identity.</span></>
             }
           </div>
         </div>
 
-        {/* Gate 1 — Affiliation */}
+        {/* Gate 1 - Affiliation */}
         <Card icon={Building2} title="Gate 1 · Carrier affiliation">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs text-muted-foreground">
@@ -138,7 +138,7 @@ export default function DriverVerification() {
           )}
         </Card>
 
-        {/* Gate 2 — Identity */}
+        {/* Gate 2 - Identity */}
         <Card icon={UserCheck} title="Gate 2 · Personal identity (IDV)">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs text-muted-foreground">Required for any driver who hauls a load. One-time; never inherited from a carrier.</p>
@@ -159,7 +159,7 @@ export default function DriverVerification() {
           )}
           {idvStatus === "PENDING" && !identity?.diditIdvUrl && (
             <p className="text-xs text-muted-foreground">
-              IDV submitted — awaiting Didit session URL. Refresh in a moment.
+              IDV submitted - awaiting Didit session URL. Refresh in a moment.
             </p>
           )}
           {idvStatus === "REJECTED" && (

@@ -1,7 +1,7 @@
 // Sandbox page to demonstrate every dropdown variant feeding from
 // /api/reference/*. Mounted at /sandbox/taxonomy in dev only.
 //
-// This page is persona-neutral by construction — it uses the shared
+// This page is persona-neutral by construction - it uses the shared
 // <Combobox>/<MultiCombobox>/<AsyncCombobox> atoms directly without any
 // Carrier/OO branching.
 
@@ -50,7 +50,7 @@ export default function TaxonomySandbox() {
         <h1 className="text-2xl font-semibold">Taxonomy dropdown sandbox</h1>
         <p className="text-sm text-muted-foreground">
           Every selector is fed from <code className="rounded bg-muted px-1 py-0.5">/api/reference/*</code>.
-          No persona branching — Carrier, OO, Shipper, Driver, and Admin all bind the
+          No persona branching - Carrier, OO, Shipper, Driver, and Admin all bind the
           same atoms.
         </p>
       </div>
@@ -59,7 +59,7 @@ export default function TaxonomySandbox() {
         <CardHeader>
           <CardTitle>Single-select (grouped)</CardTitle>
           <CardDescription>
-            Equipment class — 40 codes grouped by category (van, reefer, flatbed, tanker, …).
+            Equipment class - 40 codes grouped by category (van, reefer, flatbed, tanker, …).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -97,7 +97,7 @@ export default function TaxonomySandbox() {
       <Card>
         <CardHeader>
           <CardTitle>Multi-select (chips)</CardTitle>
-          <CardDescription>Accessorials — grouped by category, multi-selectable with chip removal.</CardDescription>
+          <CardDescription>Accessorials - grouped by category, multi-selectable with chip removal.</CardDescription>
         </CardHeader>
         <CardContent>
           <Label className="mb-1.5 block">Accessorials</Label>
@@ -117,7 +117,7 @@ export default function TaxonomySandbox() {
         <CardHeader>
           <CardTitle>Async single-select (debounced server search)</CardTitle>
           <CardDescription>
-            Commodity — 104 items, server hits <code>/api/reference/commodities?q=…</code>.
+            Commodity - 104 items, server hits <code>/api/reference/commodities?q=…</code>.
             Try typing "frozen", "fuel", or "steel".
           </CardDescription>
         </CardHeader>
@@ -140,7 +140,7 @@ export default function TaxonomySandbox() {
               }}
             />
             {commodity && (
-              <p className="mt-2 text-xs text-muted-foreground">selected: <code>{commodity.value}</code> — {commodity.label}</p>
+              <p className="mt-2 text-xs text-muted-foreground">selected: <code>{commodity.value}</code> - {commodity.label}</p>
             )}
           </div>
 

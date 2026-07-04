@@ -1,9 +1,9 @@
 /**
- * OwnerOperatorVerification — two-gate verification panel.
+ * OwnerOperatorVerification - two-gate verification panel.
  *
  * Owner Operators clear two gates before they (or their fleet) can haul:
- *   1. CARRIER AUTHORITY — FMCSA active + KYB pass (company-level)
- *   2. DRIVER IDENTITY   — personal IDV via Didit (user-level)
+ *   1. CARRIER AUTHORITY - FMCSA active + KYB pass (company-level)
+ *   2. DRIVER IDENTITY   - personal IDV via Didit (user-level)
  *
  * Both must be VERIFIED. An OO who's only completed KYB still can't accept a
  * load until they also pass IDV (they're acting as their own self-driver and
@@ -106,7 +106,7 @@ export function OwnerOperatorVerification() {
         {bothCleared ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : <AlertCircle className="h-5 w-5 text-amber-600" />}
         <div className="text-sm">
           {bothCleared ? (
-            <span className="font-medium text-green-700 dark:text-green-400">All gates cleared — you can accept loads.</span>
+            <span className="font-medium text-green-700 dark:text-green-400">All gates cleared - you can accept loads.</span>
           ) : (
             <>
               <span className="font-medium">Two gates must be VERIFIED to accept loads.</span>
@@ -116,7 +116,7 @@ export function OwnerOperatorVerification() {
         </div>
       </div>
 
-      {/* Gate 1 — Carrier authority */}
+      {/* Gate 1 - Carrier authority */}
       <Card icon={Shield} title="Gate 1 · Carrier authority (FMCSA + KYB)">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs text-muted-foreground">Validates your MC/DOT number and Know-Your-Business compliance.</p>
@@ -143,7 +143,7 @@ export function OwnerOperatorVerification() {
         )}
       </Card>
 
-      {/* Gate 2 — Personal identity */}
+      {/* Gate 2 - Personal identity */}
       <Card icon={UserCheck} title="Gate 2 · Personal identity (IDV)">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs text-muted-foreground">Required because you're hauling personally. Done once, never inherited from the company.</p>

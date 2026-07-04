@@ -17,7 +17,7 @@ import { SecuritySettings } from "@/components/SecuritySettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-// Persona-neutral taxonomy atoms — same primitives PostLoad + OwnerOperatorSettings use.
+// Persona-neutral taxonomy atoms - same primitives PostLoad + OwnerOperatorSettings use.
 import { Combobox, AsyncCombobox } from "@/components/ui/combobox";
 
 // Deep-link support: open the tab named in ?tab=. Legacy ?tab=id and ?tab=biz
@@ -25,6 +25,22 @@ import { Combobox, AsyncCombobox } from "@/components/ui/combobox";
 function tabFromUrl(fallback: string): string {
   const t = new URLSearchParams(window.location.search).get("tab");
   if (!t) return fallback;
+  if (t === "id" || t === "biz") return "verification";
+  return t;
+}
+
+// D7: Driver settings regroup. The four legacy tabs collapse into two:
+//   Profile + Equipment            -> Operations
+//   Authority & Insurance + Org    -> Business
+// Old deep links (?tab=profile|equipment|authority|organisation|id|biz) keep
+// working by mapping to the new group. Scoped to DriverSettings only so the
+// shared tabFromUrl (Shipper/Receiver, which still have their own tabs) is
+// unaffected.
+function driverTabFromUrl(fallback: string): string {
+  const t = new URLSearchParams(window.location.search).get("tab");
+  if (!t) return fallback;
+  if (t === "profile" || t === "equipment") return "operations";
+  if (t === "authority" || t === "organisation") return "business";
   if (t === "id" || t === "biz") return "verification";
   return t;
 }
@@ -310,7 +326,7 @@ function BusinessVerification({
           <Clock className="h-10 w-10 text-blue-500" />
           <div>
             <p className="font-semibold">Business verification pending</p>
-            <p className="text-sm text-muted-foreground mt-1">Usually 1–2 business days.</p>
+            <p className="text-sm text-muted-foreground mt-1">Usually 1-2 business days.</p>
           </div>
         </div>
       </SectionCard>
@@ -534,15 +550,18 @@ function DriverSettings({ userId }: { userId: string }) {
   );
 
   return (
-    <Tabs defaultValue={tabFromUrl("profile")} orientation="vertical" className="flex gap-6">
+    <Tabs defaultValue={driverTabFromUrl("operations")} orientation="vertical" className="flex gap-6">
       <div className="flex flex-col w-48 shrink-0 gap-3">
         <div className="rounded-xl bg-secondary p-3">
           <HeadshotUploader />
         </div>
         <TabsList data-tour="settings-tabs" className="flex flex-col h-auto w-full rounded-xl bg-secondary p-1 gap-1">
-          <TabsTrigger data-tour="settings-tab-profile" value="profile" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Profile</TabsTrigger>
-          <TabsTrigger data-tour="settings-tab-equipment" value="equipment" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Equipment</TabsTrigger>
-          <TabsTrigger value="authority" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Authority & Insurance</TabsTrigger>
+          {/* D7: Profile + Equipment collapse into Operations; Authority &
+              Insurance + Organisation collapse into Business. Each merged tab
+              keeps every field under a sub-header (nothing removed). Legacy
+              ?tab= links still resolve via driverTabFromUrl. */}
+          <TabsTrigger data-tour="settings-tab-operations" value="operations" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Operations</TabsTrigger>
+          <TabsTrigger data-tour="settings-tab-business" value="business" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business</TabsTrigger>
           {/* D3: ID + Business verification merged into ONE Verification tab
               (two sub-sections). Legacy ?tab=id / ?tab=biz map here. The badge
               reflects identity-verification completion. */}
@@ -552,13 +571,14 @@ function DriverSettings({ userId }: { userId: string }) {
               ? <CheckSquare className="h-3.5 w-3.5 text-green-600" />
               : <span className="text-[10px] font-semibold text-amber-600">2 steps</span>}
           </TabsTrigger>
-          <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
           <TabsTrigger data-tour="settings-tab-security" value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
         </TabsList>
       </div>
 
       <div className="flex-1 min-w-0">
-        <TabsContent value="profile">
+        {/* D7: Operations = Profile + Equipment (two sub-sections). */}
+        <TabsContent value="operations" className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Profile</h3>
           <SectionCard>
             <p className="text-xs text-muted-foreground">Fields marked <span className="text-destructive font-semibold">*</span> are required.</p>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -588,7 +608,8 @@ function DriverSettings({ userId }: { userId: string }) {
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="equipment">
+        <TabsContent value="operations" className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Equipment</h3>
           <SectionCard>
             <p className="text-xs text-muted-foreground">Fields marked <span className="text-destructive font-semibold">*</span> are required.</p>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -597,7 +618,7 @@ function DriverSettings({ userId }: { userId: string }) {
               {inp("maxCapacityLbs", "Max Weight Capacity (lbs)", "number", "", true)}
             </div>
             <TaxonomyEquipmentPicker profile={profile} set={set} />
-            <div className="hidden">{/* anchor — original closing div lives below */}
+            <div className="hidden">{/* anchor - original closing div lives below */}
             </div>
 
             {/* Interior dimensions for volume matching */}
@@ -688,11 +709,11 @@ function DriverSettings({ userId }: { userId: string }) {
               <p className="text-sm">
                 Your effective safety buffer is{" "}
                 <span className="font-semibold text-foreground">{profile.safetyBufferPct ?? 10}%</span>
-                {" "}— {(profile as any).bufferSetByRole === "OWNER" ? "set by your owner" : "set by your admin"}. This keeps your bookable weight at{" "}
+                {" "}- {(profile as any).bufferSetByRole === "OWNER" ? "set by your owner" : "set by your admin"}. This keeps your bookable weight at{" "}
                 <span className="font-semibold text-foreground">
                   {profile.maxCapacityLbs
                     ? `${(Number(profile.maxCapacityLbs) * (1 - (Number(profile.safetyBufferPct ?? 10) / 100))).toLocaleString()} lbs`
-                    : "—"}
+                    : "-"}
                 </span>
                 {" "}below your rated capacity.
               </p>
@@ -706,7 +727,9 @@ function DriverSettings({ userId }: { userId: string }) {
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="authority">
+        {/* D7: Business = Authority & Insurance + Organisation (two sub-sections). */}
+        <TabsContent value="business" className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Authority &amp; Insurance</h3>
           <SectionCard>
             <p className="text-xs text-muted-foreground">Fields marked <span className="text-destructive font-semibold">*</span> are required. Insurance fields are optional.</p>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -744,7 +767,8 @@ function DriverSettings({ userId }: { userId: string }) {
           </div>
         </TabsContent>
 
-        <TabsContent value="organisation">
+        <TabsContent value="business" className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Organisation</h3>
           <OrgTabErrorBoundary><OrgTab callerUserRole="DRIVER" /></OrgTabErrorBoundary>
         </TabsContent>
         <TabsContent value="security">
@@ -1033,7 +1057,7 @@ function ReceiverSettings({ userId }: { userId: string }) {
               <Label htmlFor="appointmentRequired">Appointment Required</Label>
             </div>
             <Field label="Receiving Hours" id="receivingHours" required>
-              <Input id="receivingHours" required placeholder="e.g. Mon–Fri 7AM–5PM" value={profile.receivingHours ?? ""} onChange={(e) => set("receivingHours", e.target.value)} />
+              <Input id="receivingHours" required placeholder="e.g. Mon-Fri 7AM-5PM" value={profile.receivingHours ?? ""} onChange={(e) => set("receivingHours", e.target.value)} />
             </Field>
             <Button disabled={saving} onClick={save}>
               {isNew ? "Create profile" : "Save changes"}
@@ -1062,7 +1086,7 @@ function ReceiverSettings({ userId }: { userId: string }) {
 
 // ─── Carrier Admin Settings ─────────────────────────────────────────────────
 // CARRIER_ADMIN profile fields live on the Carrier dashboard's Verification
-// tab (legal name, MC/DOT, etc.). The Settings page only needs Security here —
+// tab (legal name, MC/DOT, etc.). The Settings page only needs Security here -
 // the dispatch console is where company info actually belongs.
 
 function CarrierAdminSettings() {
@@ -1107,7 +1131,7 @@ function AdminSettings({ email }: { email: string }) {
 
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
-    : "—";
+    : "-";
 
   const saveProfile = async () => {
     setSavingProfile(true);
@@ -1254,7 +1278,7 @@ function AdminSettings({ email }: { email: string }) {
         {/* ── Platform ── */}
         <TabsContent value="platform">
           <SectionCard>
-            <h3 className="text-sm font-semibold mb-1">Broadcast matching — server constants</h3>
+            <h3 className="text-sm font-semibold mb-1">Broadcast matching - server constants</h3>
             <p className="text-xs text-muted-foreground mb-5">
               These values are enforced server-side in <code className="font-mono text-[10px]">broadcastService.ts</code>.
               Change them in the backend config and redeploy. Per-driver buffer overrides are set from the Operations console.
@@ -1262,7 +1286,7 @@ function AdminSettings({ email }: { email: string }) {
             <div className="rounded-lg border border-border divide-y divide-border text-sm">
               {[
                 { label: "Minimum cargo insurance", value: "$100,000", hint: "cargoInsuranceAmount threshold in broadcastService" },
-                { label: "MC maturity floor", value: "0 days", hint: "Global minimum — individual loads can require more" },
+                { label: "MC maturity floor", value: "0 days", hint: "Global minimum - individual loads can require more" },
                 { label: "Default broadcast radius", value: "250 miles", hint: "Applied when shipper omits broadcastRadiusMiles" },
                 { label: "Default safety buffer", value: "10%", hint: "Applied to new driver profiles (safetyBufferPct default)" },
                 { label: "Offer TTL", value: "24 hours", hint: "Unaccepted offers expire and trigger rebroadcast" },
@@ -1322,12 +1346,12 @@ class OrgTabErrorBoundary extends React.Component<
 }
 
 const ALL_CAPABILITIES = [
-  { key: "CARRIER",  label: "Carrier",  desc: "Move freight — trucks & drivers" },
+  { key: "CARRIER",  label: "Carrier",  desc: "Move freight - trucks & drivers" },
   { key: "SHIPPER",  label: "Shipper",  desc: "Post loads and find drivers" },
   { key: "RECEIVER", label: "Receiver", desc: "Accept deliveries at facility" },
 ];
 
-// Spec §3.2 roles — MEMBER/VIEWER are deprecated and excluded from invite dropdown
+// Spec §3.2 roles - MEMBER/VIEWER are deprecated and excluded from invite dropdown
 const ORG_ROLES = ["OWNER", "ORG_ADMIN", "DISPATCHER", "ORG_DRIVER", "SHIPPER_USER", "RECEIVER_USER"];
 const ORG_ROLE_LABELS: Record<string, string> = {
   OWNER:         "Owner",
@@ -1444,7 +1468,7 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
       await api.sendInvitation(selectedOrg.orgId, {
         email: inviteEmail, orgRole: inviteOrgRole, userRole: inviteUserRole,
       });
-      toast.success(`Invitation sent to ${inviteEmail} — expires in 7 days`);
+      toast.success(`Invitation sent to ${inviteEmail} - expires in 7 days`);
       setInviteEmail("");
       await refreshMembers(selectedOrg.orgId);
     } catch (e: any) { toast.error(e.message); }
@@ -1471,7 +1495,7 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
       } else {
         await api.suspendMember(selectedOrg.orgId, membershipId);
         setMembers(m => m.map(x => x.membershipId === membershipId ? { ...x, status: "SUSPENDED" } : x));
-        toast.success("Member suspended — access revoked without deleting history");
+        toast.success("Member suspended - access revoked without deleting history");
       }
     } catch (e: any) { toast.error(e.message); }
   }
@@ -1541,7 +1565,7 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
           {selectedOrg.suspended && (
             <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
               <span className="font-semibold">⛔ Organisation suspended</span>
-              {selectedOrg.suspensionReason && <span className="text-muted-foreground">— {selectedOrg.suspensionReason}</span>}
+              {selectedOrg.suspensionReason && <span className="text-muted-foreground">- {selectedOrg.suspensionReason}</span>}
             </div>
           )}
 
@@ -1603,19 +1627,19 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
               </div>
               {editing && (
                 <p className="text-[11px] text-muted-foreground mt-2">
-                  SHIPPER and CARRIER are mutually exclusive — a shipper-org cannot also be a carrier-org. RECEIVER can pair with either.
+                  SHIPPER and CARRIER are mutually exclusive - a shipper-org cannot also be a carrier-org. RECEIVER can pair with either.
                 </p>
               )}
             </div>
           </SectionCard>
 
-          {/* Owner self-buffer (spec §5.1 — only for OWNER who is also a DRIVER) */}
+          {/* Owner self-buffer (spec §5.1 - only for OWNER who is also a DRIVER) */}
           {amOwner && callerUserRole === "DRIVER" && (
             <SectionCard>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-sm">Safety Buffer (Owner override)</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">As org Owner, you can set your own buffer within the platform range (5–25%).</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">As org Owner, you can set your own buffer within the platform range (5-25%).</p>
                 </div>
                 <span className="text-2xl font-bold text-primary">{bufferPct}%</span>
               </div>

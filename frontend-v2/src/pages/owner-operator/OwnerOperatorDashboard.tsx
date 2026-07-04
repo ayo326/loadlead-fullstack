@@ -98,7 +98,7 @@ export default function OwnerOperatorDashboard() {
           />
           <StatCard
             label="MC Number"
-            value={profile.mcNumber ?? "—"}
+            value={profile.mcNumber ?? "-"}
             icon={<Truck className="h-5 w-5 text-primary" />}
           />
         </div>
@@ -133,7 +133,7 @@ export default function OwnerOperatorDashboard() {
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
                           <span className="text-sm font-semibold text-green-600">
-                            ${offer.rate?.toLocaleString() ?? "—"}
+                            ${offer.rate?.toLocaleString() ?? "-"}
                           </span>
                           <Button size="sm" variant="outline" asChild>
                             <Link to={`/owner-operator/loads/${load.loadId}`}>View</Link>

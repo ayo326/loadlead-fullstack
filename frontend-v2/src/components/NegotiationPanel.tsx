@@ -118,7 +118,7 @@ export function NegotiationPanel({
     }
   }
 
-  // Record the CARRIER_ACCEPT signature (binding `rate` — the amount the carrier
+  // Record the CARRIER_ACCEPT signature (binding `rate` - the amount the carrier
   // commits to, so the attestation matches what settlement pays), then run the
   // action, in one click. Guards on driverId (the signature binds the driver)
   // and on the inline consent checkbox. accept-load omits rate → posted rate.
@@ -134,7 +134,7 @@ export function NegotiationPanel({
     }, ok);
   }
 
-  // The offer currently on the table (used when the hauler accepts a counter —
+  // The offer currently on the table (used when the hauler accepts a counter -
   // that is the rate they are committing to).
   function onTableRate(): { ratePerMileCents?: number; totalCents?: number } | undefined {
     if (!neg) return undefined;

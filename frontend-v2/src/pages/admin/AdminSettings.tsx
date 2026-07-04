@@ -1,10 +1,10 @@
 /**
- * Admin Settings — internal-staff settings area (was absent).
+ * Admin Settings - internal-staff settings area (was absent).
  * Two sections:
- *   Staff & Team  — platform-staff IAM (STAFF_ADMIN only; server is the gate)
- *   Integrations  — read-only "connected / not connected" states for the
+ *   Staff & Team  - platform-staff IAM (STAFF_ADMIN only; server is the gate)
+ *   Integrations  - read-only "connected / not connected" states for the
  *                   env-driven integrations, with the env var names. Honest:
- *                   no fabricated "connected" — reflects the server's actual
+ *                   no fabricated "connected" - reflects the server's actual
  *                   config. Read-only here; wiring happens via env + deploy.
  */
 
@@ -20,7 +20,7 @@ export default function AdminSettings() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("staff");
 
-  // STAFF_ADMIN (or legacy ADMIN with no tier — back-compat = admin) may manage staff.
+  // STAFF_ADMIN (or legacy ADMIN with no tier - back-compat = admin) may manage staff.
   const isStaffAdmin = !user?.platformRole || user.platformRole === "STAFF_ADMIN";
 
   return (
@@ -51,7 +51,7 @@ export default function AdminSettings() {
         ) : (
           <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
             Staff &amp; Team management requires the <span className="font-medium text-foreground">Admin</span> tier.
-            Your tier ({user?.platformRole?.replace("STAFF_", "").toLowerCase() ?? "—"}) can view the console but not manage staff.
+            Your tier ({user?.platformRole?.replace("STAFF_", "").toLowerCase() ?? "-"}) can view the console but not manage staff.
           </div>
         )
       )}
@@ -118,7 +118,7 @@ function IntegrationStates() {
       out.push({
         label: "Private-beta gate",
         connected: !!betaMode,
-        detail: betaMode ? "ON — signup gated" : "OFF — public signup open",
+        detail: betaMode ? "ON - signup gated" : "OFF - public signup open",
         envVars: ["BETA_MODE", "BETA_CURRENT_COHORT"],
       });
 
@@ -132,7 +132,7 @@ function IntegrationStates() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Read-only. These reflect the server's actual env configuration — connecting an integration is done via
+        Read-only. These reflect the server's actual env configuration - connecting an integration is done via
         environment variables + deploy, not from this screen. Nothing here is fabricated.
       </p>
       <div className="rounded-lg border border-border overflow-hidden">
@@ -154,7 +154,7 @@ function IntegrationStates() {
                     {r.connected ? "Connected" : "Not connected"}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-muted-foreground text-xs">{r.detail ?? "—"}</td>
+                <td className="px-3 py-2 text-muted-foreground text-xs">{r.detail ?? "-"}</td>
                 <td className="px-3 py-2 text-muted-foreground text-xs font-mono">{r.envVars.join(", ")}</td>
               </tr>
             ))}

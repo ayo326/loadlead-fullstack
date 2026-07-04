@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-// Persona-neutral taxonomy atoms — same primitives the Carrier settings screen uses.
+// Persona-neutral taxonomy atoms - same primitives the Carrier settings screen uses.
 import { Combobox, AsyncCombobox } from "@/components/ui/combobox";
 import { useEquipmentClasses, taxonomyApi, toEquipmentItems } from "@/services/taxonomy";
 import { useMemo } from "react";

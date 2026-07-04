@@ -1,5 +1,5 @@
 /**
- * PodUploadButton — inline POD submission for the history list.
+ * PodUploadButton - inline POD submission for the history list.
  *
  * Available for loads in BOOKED / IN_TRANSIT only. Uses the existing
  * presigned URL flow: request a URL, PUT the file directly to S3, then POST

@@ -1,5 +1,5 @@
 /**
- * AnalyticsView — derives carrier performance metrics from the history list.
+ * AnalyticsView - derives carrier performance metrics from the history list.
  *
  * All metrics are computed client-side from the same data the History page uses,
  * so there's no new backend endpoint to maintain. If the dataset grows past a
@@ -87,7 +87,7 @@ export function AnalyticsView({ items }: AnalyticsViewProps) {
     };
   }, [items, range]);
 
-  // Earnings by month (for the table) — top 6 most recent months
+  // Earnings by month (for the table) - top 6 most recent months
   const byMonth = useMemo(() => {
     const buckets = new Map<string, { miles: number; earnings: number; loads: number }>();
     for (const { load, offer } of items) {

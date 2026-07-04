@@ -146,7 +146,7 @@ export interface AdminAuditEntry {
   targetRefs?: string[]; reason?: string; authorityRef?: string; at: number;
 }
 
-// Auth uses httpOnly cookies — the browser sends ll_token automatically.
+// Auth uses httpOnly cookies - the browser sends ll_token automatically.
 // `credentials: 'include'` is required for cross-origin cookie delivery.
 // We no longer read from / write to localStorage for auth tokens.
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -166,7 +166,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   // Auth
   // inviteToken is forwarded to the backend's requireBetaGate when the
-  // app is under BETA_MODE — the gate uses it (or the allowlist) to
+  // app is under BETA_MODE - the gate uses it (or the allowlist) to
   // decide whether to admit the signup. When BETA_MODE is off the gate
   // ignores it and the field is harmless.
   signup: (email: string, password: string, role: string, orgParams?: Record<string, any>,
@@ -176,7 +176,7 @@ export const api = {
       "POST", "/auth/signup", { email, password, role, orgParams, inviteToken, ...profile }
     ),
 
-  // Dedicated atomic carrier signup — separate endpoint from the generic
+  // Dedicated atomic carrier signup - separate endpoint from the generic
   // signup() above (see backend AuthService.signupCarrierAdmin). Does not
   // share a code path with the four existing personas.
   signupCarrier: (params: { email: string; password: string; legalName: string; dba?: string; mcNumber?: string; dotNumber?: string; inviteToken?: string }) =>
@@ -265,13 +265,13 @@ export const api = {
     listInvites: () => request<{ invites: PendingStaffInvite[] }>("GET", "/admin/staff/invites"),
     revokeInvite: (token: string) =>
       request<{ ok: boolean }>("DELETE", `/admin/staff/invites/${token}`),
-    // PUBLIC — the invitee has no session yet; the token is the gate.
+    // PUBLIC - the invitee has no session yet; the token is the gate.
     acceptInvite: (params: { token: string; password?: string; fullName?: string }) =>
       request<{ ok: boolean; userId: string; platformRole: PlatformRole }>(
         "POST", "/admin/staff/accept-invite", params),
   },
 
-  // Compliance / oversight console — all under /api/admin/compliance.
+  // Compliance / oversight console - all under /api/admin/compliance.
   // Each call is gated server-side by the specific compliance role (grants are
   // STAFF_ADMIN). `me` grants nothing; it only tells the UI which tabs to show.
   adminCompliance: {
@@ -703,7 +703,7 @@ export const api = {
     request<{ logs: any[] }>("GET", `/org/${orgId}/audit`),
 
   // ── Carrier-org (direct driver setup + company verification) ─────────────────
-  /** POST /api/org/:orgId/drivers — direct driver onboarding (CARRIER orgs only) */
+  /** POST /api/org/:orgId/drivers - direct driver onboarding (CARRIER orgs only) */
   createOrgDriver: (orgId: string, data: { email: string; legalName: string; phone?: string }) =>
     request<{ driver: any; membership: any }>("POST", `/org/${orgId}/drivers`, data),
 
@@ -723,7 +723,7 @@ export const api = {
     request<{ loads: any[] }>("GET", "/owner-operator/loadboard"),
   getOwnerOperatorOffer: (loadId: string) =>
     request<{ offer: any; load: any; driverId?: string }>("GET", `/owner-operator/offers/${loadId}`),
-  // Dashboard + settings — independent per persona, same canonical shape
+  // Dashboard + settings - independent per persona, same canonical shape
   getCarrierDashboard: (orgId: string) =>
     request<any>("GET", `/org/${orgId}/dashboard`),
   getOoDashboard: () =>
@@ -732,7 +732,7 @@ export const api = {
     request<any>("GET", `/org/${orgId}/settings`),
   getOoSettings: () =>
     request<any>("GET", `/owner-operator/settings`),
-  // Verification — both gates: company authority (FMCSA/KYB) and personal IDV
+  // Verification - both gates: company authority (FMCSA/KYB) and personal IDV
   getOoVerification: () => request<{ verification: any }>("GET", "/owner-operator/verification"),
   submitOoVerification: () => request<{ verification: any }>("POST", "/owner-operator/verification/submit"),
   getOoIdv: () => request<{ verification: any }>("GET", "/owner-operator/verification/idv"),

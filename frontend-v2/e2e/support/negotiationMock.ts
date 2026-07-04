@@ -128,13 +128,13 @@ export async function installNegotiationMock(
       return json(route, { load: loadRow(loadId), offers: [], receiver: null });
     }
     // AccessorialsPanel is mounted next to the negotiation panel and reads
-    // `.charges` unconditionally in render — give it an empty list so the page
+    // `.charges` unconditionally in render - give it an empty list so the page
     // renders (the panel itself is not under test here).
     if (method === "GET" && /\/accessorials\/loads\/.*\/charges/.test(path)) {
       hit("accessorials");
       return json(route, { charges: [], count: 0 });
     }
-    // The shipper page renders an AttestationChain that reads `.chain` — an empty
+    // The shipper page renders an AttestationChain that reads `.chain` - an empty
     // chain keeps the page rendering (signatures aren't under test here).
     if (method === "GET" && /\/attestation\/chain\//.test(path)) {
       hit("attestationChain");

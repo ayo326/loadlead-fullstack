@@ -47,7 +47,7 @@ export default function Landing() {
               Freight that moves <span className="cx-hi">the second</span> you post it.
             </h1>
             <p className="mt-6 text-lg text-primary-foreground/75 max-w-xl">
-              LoadLead broadcasts every load to drivers who actually qualify — by radius, capacity, equipment, and MC maturity. Match in seconds, not hours.
+              LoadLead broadcasts every load to drivers who actually qualify - by radius, capacity, equipment, and MC maturity. Match in seconds, not hours.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 h-12 px-6">
@@ -137,7 +137,7 @@ export default function Landing() {
         <div className="max-w-2xl">
           <div className="text-xs uppercase tracking-widest text-primary font-semibold">How it works</div>
           <h2 className="mt-3 text-4xl font-bold tracking-tight">Post once. Broadcast to the right trucks only.</h2>
-          <p className="mt-4 text-muted-foreground">Eligibility is enforced server-side — radius, capacity math, MC maturity, insurance, endorsements. Drivers see offers they can actually run.</p>
+          <p className="mt-4 text-muted-foreground">Eligibility is enforced server-side - radius, capacity math, MC maturity, insurance, endorsements. Drivers see offers they can actually run.</p>
         </div>
         <div className="mt-12 grid md:grid-cols-3 gap-6">
           {[

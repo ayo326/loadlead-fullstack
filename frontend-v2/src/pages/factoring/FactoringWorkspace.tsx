@@ -1,7 +1,7 @@
 /**
- * Factoring workspace — shared by BOTH carrier personas:
+ * Factoring workspace - shared by BOTH carrier personas:
  *   /owner-operator/factoring  (OWNER_OPERATOR)
- *   /carrier/factoring         (CARRIER_ADMIN — fleet-carrier org managers)
+ *   /carrier/factoring         (CARRIER_ADMIN - fleet-carrier org managers)
  *
  * The backend resolves who the caller acts for (routes/factoring.ts
  * resolveCarrierIdForUser: OO profile first, else ACTIVE OWNER/MANAGER
@@ -83,10 +83,10 @@ export default function FactoringWorkspace() {
     } catch (e: any) { /* no contact yet */ }
   }
   async function loadAssignments() {
-    try { setAssignments((await api.factoring.listAssignments()).assignments); } catch { /* ignore */ }
+    try { setAssignments((await api.factoring.listAssignments()).assignments ?? []); } catch { /* ignore */ }
   }
   async function loadSubmissions() {
-    try { setSubmissions((await api.factoring.listSubmissions()).submissions); } catch { /* ignore */ }
+    try { setSubmissions((await api.factoring.listSubmissions()).submissions ?? []); } catch { /* ignore */ }
   }
 
   useEffect(() => { loadContact(); loadAssignments(); loadSubmissions(); }, []);

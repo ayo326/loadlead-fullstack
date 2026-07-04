@@ -11,7 +11,7 @@ import { installNegotiationMock } from "./support/negotiationMock";
 const LOAD = "SEED-NEGO-DEMO";
 const URL = `/shipper/loads/${LOAD}`;
 
-test.describe("Negotiation — SHIPPER", () => {
+test.describe("Negotiation - SHIPPER", () => {
   test("S1 sees the hauler's bid with accept / counter / reject", async ({ page }) => {
     const nm = await installNegotiationMock(page, "SHIPPER");
     nm.haulerBid(275); // a hauler has already bid $2.75/mi
@@ -56,7 +56,7 @@ test.describe("Negotiation — SHIPPER", () => {
     await page.goto(URL);
     // No offer yet → the shipper sees no negotiation panel content.
     await expect(page.getByRole("button", { name: "Accept bid" })).toHaveCount(0);
-    // The hauler bids — it should arrive through the events channel.
+    // The hauler bids - it should arrive through the events channel.
     nm.haulerBid(280);
     await expect(page.getByRole("button", { name: "Accept bid" })).toBeVisible();
     await expect(page.getByText("$2.80/mi")).toBeVisible();

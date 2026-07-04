@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return r.user;
   };
 
-  // Dedicated atomic carrier signup — separate from signup() above, does not
+  // Dedicated atomic carrier signup - separate from signup() above, does not
   // share a code path with the four existing personas.
   const signupCarrier = async (params: { email: string; password: string; legalName: string; dba?: string; mcNumber?: string; dotNumber?: string }) => {
     const r = await api.signupCarrier(params);

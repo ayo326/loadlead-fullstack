@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 // Dispatch input. See design-system/MASTER.md §9.
 //   - 36px height (matches buttons + table rows)
 //   - sharp radius (4px / rounded-sm)
-//   - focus: 1px primary border + 3px outer ring at 18% — no shadow glow
+//   - focus: 1px primary border + 3px outer ring at 18% - no shadow glow
 //   - placeholder uses muted-foreground; never primary tint
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   ({ className, type, ...props }, ref) => {

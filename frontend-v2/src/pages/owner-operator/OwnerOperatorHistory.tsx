@@ -28,7 +28,7 @@ export default function OwnerOperatorHistory() {
     <div className="min-h-screen bg-background">
       <PageHeader
         title="Load History"
-        subtitle="Loads accepted by your fleet — booked, in transit, and delivered"
+        subtitle="Loads accepted by your fleet - booked, in transit, and delivered"
       />
       <div className="max-w-4xl mx-auto p-6">
         <LoadHistoryList

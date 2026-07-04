@@ -56,7 +56,7 @@ export default function ResetPassword() {
         </div>
 
         <div className="bg-white/10 backdrop-blur rounded-lg p-8 border border-white/10">
-          {/* Forgot password — request form */}
+          {/* Forgot password - request form */}
           {mode === "forgot" && !sent && (
             <>
               <h1 className="text-white text-xl font-bold mb-1">Forgot password?</h1>

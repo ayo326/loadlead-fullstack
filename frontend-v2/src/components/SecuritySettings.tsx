@@ -1,5 +1,5 @@
 /**
- * SecuritySettings — drop into any Settings page Tabs panel.
+ * SecuritySettings - drop into any Settings page Tabs panel.
  *
  * Three cards:
  *   1. Change password (current + new + confirm)

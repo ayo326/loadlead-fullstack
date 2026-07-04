@@ -1,5 +1,5 @@
 /**
- * LoadHistoryList — shared filter + pagination view for driver and OO history.
+ * LoadHistoryList - shared filter + pagination view for driver and OO history.
  *
  * Filters: status (BOOKED / IN_TRANSIT / DELIVERED / CANCELLED / All) and
  * date range (7d / 30d / 90d / All). Filtering is client-side because the
@@ -34,15 +34,15 @@ const DATE_LABEL: Record<DateFilter, string> = {
 };
 
 function fmt(n: number | undefined) {
-  return n != null ? n.toLocaleString() : "—";
+  return n != null ? n.toLocaleString() : "-";
 }
 
 interface LoadHistoryListProps {
   items: Array<{ load: any; offer?: any }>;
   emptyText?: string;
-  /** Where the "View" button links to — given the load object */
+  /** Where the "View" button links to - given the load object */
   loadDetailHref: (load: any) => string;
-  /** Show inline POD upload button on each row (driver-only — OO can't sign PODs for fleet drivers) */
+  /** Show inline POD upload button on each row (driver-only - OO can't sign PODs for fleet drivers) */
   showPodUpload?: boolean;
 }
 
@@ -121,7 +121,7 @@ export function LoadHistoryList({ items, emptyText = "No load history yet.", loa
       ) : (
         <div className="rounded-xl border bg-card divide-y">
           {paged.map(({ load, offer }: any) => {
-            const cfg = STATUS_CONFIG[load?.status] ?? { label: load?.status ?? "—", className: "bg-secondary text-muted-foreground" };
+            const cfg = STATUS_CONFIG[load?.status] ?? { label: load?.status ?? "-", className: "bg-secondary text-muted-foreground" };
             const acceptedDate = offer?.acceptedAt
               ? new Date(offer.acceptedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
               : null;
