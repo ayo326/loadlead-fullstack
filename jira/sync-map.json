@@ -249,6 +249,11 @@
     "key": "SCRUM-53",
     "priority_set_by_sync": ""
   },
+  "hard:staging-hosting-toggle": {
+    "description_hash": "75de181fe5d8e7535f54372d3ab209f4c91abee679b6d763e5ac45b1fb07f11a",
+    "key": "SCRUM-253",
+    "priority_set_by_sync": "High"
+  },
   "jira:ci-check": {
     "description_hash": "fa93d0076371e55f68a0a71ff2bcbf6cd73909af58ab973c91930b8cc1e43c80",
     "key": "SCRUM-59",
