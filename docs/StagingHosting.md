@@ -75,6 +75,15 @@ Everything ships to **staging before prod**:
 - **Prod is a separate, gated step**: the `deploy-prod` job runs only on manual `workflow_dispatch` and is bound to the `production` GitHub Environment (required reviewers). It never fires automatically.
 - So the path is: change → `main` → **staging** (validate here) → manually dispatch → **prod**.
 
+For **Terraform** (which is applied per-env, not by the app pipeline), a CI gate
+enforces the same rule: the `terraform-staging-first` workflow fails a PR that
+changes the prod stack (`infra/terraform/envs/prod/**`) without a matching change
+to the staging stack (`infra/terraform/envs/staging/**`) — so prod infra never
+diverges without going through staging first. Genuinely prod-only changes opt out
+with `[terraform-prod-only]` in the PR body (or the `terraform-prod-only` label).
+Shared-module changes get a non-blocking reminder to apply to staging before the
+prod dispatch.
+
 ## Beta gate: prod-only
 
 The private-beta wall (`BETA_MODE`) is **on in prod** (the flag defaults to on when

@@ -1,0 +1,29 @@
+name: terraform-staging-first
+
+# Enforces the staging-before-prod rule for Terraform on pull requests:
+# a change to the prod stack must be mirrored into the staging stack (validated
+# on staging first), unless explicitly flagged prod-only. See
+# scripts/check-terraform-staging-first.mjs and docs/StagingHosting.md.
+
+on:
+  pull_request:
+    paths:
+      - 'infra/terraform/**'
+
+jobs:
+  staging-first:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need base history to diff origin/<base>...HEAD
+
+      - name: Ensure base ref is available
+        run: git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Check staging-before-prod
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: node scripts/check-terraform-staging-first.mjs
