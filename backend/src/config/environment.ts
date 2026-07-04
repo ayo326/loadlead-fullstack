@@ -32,6 +32,9 @@ export const config = {
     bolTable: process.env.DYNAMODB_BOL_TABLE || 'LoadLead_BOL',
     orgsTable: process.env.DYNAMODB_ORGS_TABLE || 'LoadLead_Organizations',
     membershipsTable: process.env.DYNAMODB_MEMBERSHIPS_TABLE || 'LoadLead_Memberships',
+    // Append-only membership audit log (role change / invite / removal). Default
+    // is the prod `LoadLead_` form; non-prod stacks override to their prefix.
+    membershipAuditTable: process.env.DYNAMODB_MEMBERSHIP_AUDIT_TABLE || 'LoadLead_MembershipAuditLogs',
     invitationsTable: process.env.DYNAMODB_INVITATIONS_TABLE || 'LoadLead_Invitations',
     betaAllowlistTable: process.env.DYNAMODB_BETA_ALLOWLIST_TABLE || 'LoadLead_BetaAllowlist',
     waitlistTable: process.env.DYNAMODB_WAITLIST_TABLE || 'LoadLead_Waitlist',
@@ -39,6 +42,14 @@ export const config = {
     // Beta-admin trust/operational events (no-show, trust incident). Intentionally
     // separate from the Load model; records reference a load and carrier by id only.
     betaTrustEventsTable: process.env.DYNAMODB_BETA_TRUST_EVENTS_TABLE || 'LoadLead_BetaTrustEvents',
+    // ── Support / helpdesk ──────────────────────────────────────────────────
+    // Routed through config (not inline in supportTicket.ts) so the boot guard
+    // and check-table-env-parity cover them like every other table. Default is
+    // the prod `LoadLead_` form; non-prod stacks MUST override to their prefix.
+    supportTicketsTable: process.env.DYNAMODB_SUPPORT_TICKETS_TABLE || 'LoadLead_SupportTickets',
+    supportMessagesTable: process.env.DYNAMODB_SUPPORT_MESSAGES_TABLE || 'LoadLead_SupportMessages',
+    supportSettingsTable: process.env.DYNAMODB_SUPPORT_SETTINGS_TABLE || 'LoadLead_SupportSettings',
+    supportInboundTable: process.env.DYNAMODB_SUPPORT_INBOUND_TABLE || 'LoadLead_SupportInbound',
     // Append-only platform fee policy changes (linehaul take rate + beta waiver).
     // Current policy = newest row; never updated or deleted. Each change carries
     // an actor and timestamp. Falls back to the seeded default when empty/missing.

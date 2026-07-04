@@ -14,16 +14,18 @@ import { v4 as uuid } from 'uuid';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { Database } from '../config/database';
 import { docClient } from '../config/aws';
+import config from '../config/environment';
 import type {
   SupportTicket, SupportMessage, SupportSettings, TicketStatus, TicketPriority,
 } from '../types/support';
 
-// Allow tests to override via env. Defaults sit alongside the existing
-// LoadLead_* tables so creation lives in the same ops process.
-const TICKETS_TABLE  = process.env.SUPPORT_TICKETS_TABLE  || 'LoadLead_SupportTickets';
-const MESSAGES_TABLE = process.env.SUPPORT_MESSAGES_TABLE || 'LoadLead_SupportMessages';
-const SETTINGS_TABLE = process.env.SUPPORT_SETTINGS_TABLE || 'LoadLead_SupportSettings';
-const INBOUND_TABLE  = process.env.SUPPORT_INBOUND_TABLE  || 'LoadLead_SupportInbound';
+// Table names come from config.dynamodb (keyed on DYNAMODB_SUPPORT_*_TABLE) so
+// the boot guard and check-table-env-parity cover them like every other table:
+// non-prod stacks override to their prefix; prod uses the LoadLead_ default.
+const TICKETS_TABLE  = config.dynamodb.supportTicketsTable;
+const MESSAGES_TABLE = config.dynamodb.supportMessagesTable;
+const SETTINGS_TABLE = config.dynamodb.supportSettingsTable;
+const INBOUND_TABLE  = config.dynamodb.supportInboundTable;
 const DEFAULT_SLA_MINUTES = 24 * 60;
 
 export class SupportTicketService {

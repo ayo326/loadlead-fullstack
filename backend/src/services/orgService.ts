@@ -724,8 +724,10 @@ export class OrgInvitationService {
 
 // ─── OrgAuditService ─────────────────────────────────────────────────────────
 
-const MEMBERSHIP_AUDIT_TABLE = process.env.DYNAMODB_MEMBERSHIP_AUDIT_TABLE
-  || 'LoadLead-MembershipAuditLogs';
+// Via config (underscore prod form) so the boot guard + parity check cover it.
+// The old inline 'LoadLead-MembershipAuditLogs' (dash) default resolved to a
+// table that doesn't exist in prod, silently dropping every audit write.
+const MEMBERSHIP_AUDIT_TABLE = config.dynamodb.membershipAuditTable;
 
 export class OrgAuditService {
   static async log(params: {

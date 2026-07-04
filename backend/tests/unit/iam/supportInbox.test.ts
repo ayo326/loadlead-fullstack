@@ -81,7 +81,17 @@ const docClientMock = vi.hoisted(() => ({
 vi.mock('../../../src/config/aws', () => ({ docClient: docClientMock }));
 
 vi.mock('../../../src/config/environment', () => ({
-  default: { dynamodb: { usersTable: 'LoadLead_Users' } },
+  default: {
+    dynamodb: {
+      usersTable: 'LoadLead_Users',
+      // supportTicket.ts now resolves its tables from config (not inline env),
+      // so the mocked config must provide them.
+      supportTicketsTable: 'LoadLead_SupportTickets',
+      supportMessagesTable: 'LoadLead_SupportMessages',
+      supportSettingsTable: 'LoadLead_SupportSettings',
+      supportInboundTable: 'LoadLead_SupportInbound',
+    },
+  },
 }));
 
 // Bypass auth for the staff endpoints so we can hit them directly.

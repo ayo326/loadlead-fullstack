@@ -181,7 +181,12 @@ module "backend" {
     DYNAMODB_LAW_ENFORCEMENT_REQUESTS_TABLE = "${local.prefix}LawEnforcementRequests"
     DYNAMODB_DISCLOSURES_TABLE              = "${local.prefix}Disclosures"
     DYNAMODB_PAYOUT_INTERCEPTS_TABLE        = "${local.prefix}PayoutIntercepts"
-    POD_S3_BUCKET                           = "loadlead-dev-pod-uploads"
+    # support / helpdesk
+    DYNAMODB_SUPPORT_TICKETS_TABLE  = "${local.prefix}SupportTickets"
+    DYNAMODB_SUPPORT_MESSAGES_TABLE = "${local.prefix}SupportMessages"
+    DYNAMODB_SUPPORT_SETTINGS_TABLE = "${local.prefix}SupportSettings"
+    DYNAMODB_SUPPORT_INBOUND_TABLE  = "${local.prefix}SupportInbound"
+    POD_S3_BUCKET                   = "loadlead-dev-pod-uploads"
   })
   tags = local.tags
 }
