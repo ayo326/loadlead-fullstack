@@ -37,6 +37,49 @@ function userFor(role: CrawlRole) {
   };
 }
 
+// Full Owner-Operator dashboard payload. Mirrors the nested shape that
+// OwnerOperatorDashboardView (My haul, Verification, Dispatcher + Exec views)
+// consumes, so the de-stacked dashboard renders end to end. Telemetry fields
+// are plain values (not the "unavailable" sentinel), so they show as metrics.
+const OO_DASHBOARD = {
+  myHaul: null,
+  verification: {
+    authority: { verificationCurrent: true, daysToExpiry: 120 },
+    identity: { status: "APPROVED", daysToExpiry: 300 },
+  },
+  alerts: {
+    activeLoads: { booked: 1, dispatched: 0, inTransit: 2, atPickup: 0, delivered: 5 },
+    unassigned: [],
+    etaAtRisk: [],
+    hosWarnings: 0,
+    reeferDeviations: 0,
+    daysToExpiry: 120,
+    verificationCurrent: true,
+  },
+  fleet: {
+    drivers: [{ driverId: "d1", name: "Self Driver", isSelf: true, idvStatus: "APPROVED", availability: "free" }],
+    onboarding: { verified: 1, blocked: 0 },
+    insurance: "Active",
+    hosRemaining: "8h 30m",
+    equipmentHealth: "OK",
+  },
+  loadboard: { tendered: [], dwell: "1.2h", deadhead: "42 mi" },
+  financial: {
+    grossRevenue: { week: 4200, month: 18500 },
+    rpm: { avg: 2.45, byLoad: [] },
+    payeeBreakdown: { carrier: 16000, factor: 2500 },
+    factoringPipeline: { submitted: 3, approved: 2, funded: 1 },
+    fuelSpend: 1200,
+    tolls: 180,
+  },
+  sla: {
+    otp: { pickupPct: 0.96, deliveryPct: 0.94 },
+    acceptance: { acceptanceRate: 0.88, rejectionRate: 0.12 },
+    compliancePosture: { authorityActive: true },
+    csaScores: "Good",
+  },
+};
+
 // Endpoint-specific stubs (matched by suffix of the path after /api).
 // Keep minimal; only what a dashboard needs to render without throwing.
 function stubFor(path: string, role: CrawlRole): unknown {
@@ -48,6 +91,14 @@ function stubFor(path: string, role: CrawlRole): unknown {
   if (path.endsWith("/driver/profile")) return { driver: null };
   if (path.endsWith("/shipper/profile")) return { shipper: null };
   if (path.endsWith("/receiver/profile")) return { receiver: null };
+
+  // Owner-Operator: a populated profile + full dashboard payload so the crawl
+  // and visual QA exercise the real de-stacked dashboard (V1-V3) instead of the
+  // onboarding gate. Shape mirrors what OwnerOperatorDashboardView consumes.
+  if (path.endsWith("/owner-operator/profile")) {
+    return { ownerOperator: { ownerOperatorId: "oo-1", legalName: "Test Hauling LLC", currentCity: "Chicago", currentState: "IL" } };
+  }
+  if (path.endsWith("/owner-operator/dashboard")) return OO_DASHBOARD;
 
   // Common list shapes seen across dashboards. Returning all of these keys is
   // harmless: a consumer reads whichever one it expects and ignores the rest.
