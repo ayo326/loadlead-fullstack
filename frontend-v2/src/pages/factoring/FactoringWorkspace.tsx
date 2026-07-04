@@ -83,10 +83,10 @@ export default function FactoringWorkspace() {
     } catch (e: any) { /* no contact yet */ }
   }
   async function loadAssignments() {
-    try { setAssignments((await api.factoring.listAssignments()).assignments); } catch { /* ignore */ }
+    try { setAssignments((await api.factoring.listAssignments()).assignments ?? []); } catch { /* ignore */ }
   }
   async function loadSubmissions() {
-    try { setSubmissions((await api.factoring.listSubmissions()).submissions); } catch { /* ignore */ }
+    try { setSubmissions((await api.factoring.listSubmissions()).submissions ?? []); } catch { /* ignore */ }
   }
 
   useEffect(() => { loadContact(); loadAssignments(); loadSubmissions(); }, []);
