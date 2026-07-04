@@ -1,1 +1,6 @@
 tests/.out/
+
+# Generated build artifacts - regenerated on every build/test, never committed.
+*.tsbuildinfo
+test-results/
+playwright-report/
