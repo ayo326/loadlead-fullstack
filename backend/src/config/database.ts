@@ -17,14 +17,24 @@ export class Database {
     }
   }
   
-  static async putItem<T>(tableName: string, item: T): Promise<void> {
+  static async putItem<T>(
+    tableName: string,
+    item: T,
+    opts?: { conditionExpression?: string }
+  ): Promise<void> {
     try {
       await docClient.send(new PutCommand({
         TableName: tableName,
         Item: item as Record<string, any>,
+        ...(opts?.conditionExpression ? { ConditionExpression: opts.conditionExpression } : {}),
       }));
-    } catch (error) {
-      console.error('DynamoDB putItem error:', error);
+    } catch (error: any) {
+      // A conditional-put miss (attribute_not_exists on an idempotent insert that
+      // lost a race) is expected control flow — the caller handles it. Don't log
+      // it as an error; do rethrow so the caller can read back the winning row.
+      if (error?.name !== 'ConditionalCheckFailedException') {
+        console.error('DynamoDB putItem error:', error);
+      }
       throw error;
     }
   }

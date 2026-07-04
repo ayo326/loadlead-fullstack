@@ -63,6 +63,11 @@ function key(...parts: (string | undefined)[]): string {
   return createHash('sha256').update(parts.map((p) => p ?? '-').join('|'), 'utf8').digest('hex').slice(0, 32);
 }
 
+/** A conditional-put failure — a concurrent write won the idempotent insert. */
+function isConditionFailure(err: any): boolean {
+  return err?.name === 'ConditionalCheckFailedException' || err?.name === 'TransactionCanceledException';
+}
+
 export class ReconciliationService {
   static async outcomesForInvoice(invoiceId: string): Promise<ReconciliationOutcome[]> {
     return (await this.scanAll()).filter((o) => o.invoiceId === invoiceId).sort((a, b) => a.recordedAt - b.recordedAt);
@@ -254,21 +259,39 @@ export class ReconciliationService {
     });
   }
 
-  /** Append a reconciliation outcome. Idempotent when an idempotencyKey is given. */
+  /**
+   * Append a reconciliation outcome. Idempotent AND concurrency-safe when an
+   * idempotencyKey is given: the outcomeId is derived deterministically from the
+   * key and written with `attribute_not_exists`, so two overlapping calls can
+   * never both insert (a scan-then-put would). The loser reads back the winner.
+   */
   static async recordOutcome(
     input: Omit<ReconciliationOutcome, 'outcomeId' | 'recordedAt'>
   ): Promise<ReconciliationOutcome> {
-    if (input.idempotencyKey) {
-      const existing = (await this.scanAll()).find((o) => o.idempotencyKey === input.idempotencyKey);
-      if (existing) return existing;
-    }
     const outcome: ReconciliationOutcome = {
-      outcomeId: Helpers.generateId('recon'),
+      outcomeId: input.idempotencyKey ? `recon_${input.idempotencyKey}` : Helpers.generateId('recon'),
       recordedAt: Helpers.getCurrentTimestamp(),
       ...input,
     };
-    await Database.putItem(config.dynamodb.reconciliationOutcomesTable, outcome);
-    return outcome;
+    if (!input.idempotencyKey) {
+      await Database.putItem(config.dynamodb.reconciliationOutcomesTable, outcome);
+      return outcome;
+    }
+    try {
+      await Database.putItem(config.dynamodb.reconciliationOutcomesTable, outcome, {
+        conditionExpression: 'attribute_not_exists(outcomeId)',
+      });
+      return outcome;
+    } catch (err) {
+      if (isConditionFailure(err)) {
+        const existing = await Database.getItem<ReconciliationOutcome>(
+          config.dynamodb.reconciliationOutcomesTable,
+          { outcomeId: outcome.outcomeId }
+        );
+        if (existing) return existing; // a concurrent write won; return its row
+      }
+      throw err;
+    }
   }
 
   private static async scanAll(): Promise<ReconciliationOutcome[]> {

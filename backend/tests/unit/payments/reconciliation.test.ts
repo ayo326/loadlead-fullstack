@@ -11,12 +11,24 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const { tables, putItem, getItem, scan, updateItem, deleteItem } = vi.hoisted(() => {
   const tables: Record<string, any[]> = {};
+  const pk = (it: any) => it?.outcomeId ?? it?.advanceId; // the money tables' partition keys
   return {
     tables,
-    putItem: vi.fn(async (table: string, item: any) => {
-      (tables[table] ??= []).push(item);
+    // Honour the conditional idempotent put: a duplicate attribute_not_exists
+    // insert throws (as DynamoDB would), so the service reads back the winner.
+    putItem: vi.fn(async (table: string, item: any, opts?: any) => {
+      const arr = (tables[table] ??= []);
+      if (/attribute_not_exists/.test(opts?.conditionExpression ?? '') && arr.some((x) => pk(x) === pk(item))) {
+        const e: any = new Error('conditional check failed');
+        e.name = 'ConditionalCheckFailedException';
+        throw e;
+      }
+      arr.push(item);
     }),
-    getItem: vi.fn(async () => null),
+    getItem: vi.fn(async (table: string, keyObj: any) => {
+      const [kf, kv] = Object.entries(keyObj)[0] as [string, any];
+      return (tables[table] ?? []).find((x) => x[kf] === kv) ?? null;
+    }),
     scan: vi.fn(async (table: string) => [...(tables[table] ?? [])]),
     updateItem: vi.fn(async () => ({})),
     deleteItem: vi.fn(async () => ({})),
@@ -171,5 +183,34 @@ describe('recourse and no-clawback', () => {
     // only recorded effect.
     const outs = await ReconciliationService.outcomesForInvoice('inv-1');
     expect(outs.filter((o) => o.type === 'RECOURSE_BUYBACK')).toHaveLength(0);
+  });
+});
+
+describe('V2-H1: idempotent money writes are concurrency-safe (conditional put)', () => {
+  it('two concurrent recordOutcome calls with the same idempotencyKey write exactly ONE ledger row', async () => {
+    const args = {
+      invoiceId: 'inv-dup', carrierId: 'carrier-1',
+      type: 'PAYMENT_ROUTED' as const, amountCents: 1000, idempotencyKey: 'dupkey-1',
+    };
+    const [a, b] = await Promise.all([
+      ReconciliationService.recordOutcome(args),
+      ReconciliationService.recordOutcome(args),
+    ]);
+    expect(a.outcomeId).toBe(b.outcomeId);        // both return the single winning row
+    expect(tables[RECON] ?? []).toHaveLength(1);   // scan-then-put would have written 2
+  });
+
+  it('two concurrent issueAdvance calls for the same line write exactly ONE advance (never double-fund)', async () => {
+    const input = {
+      invoiceId: 'inv-dup2', carrierId: 'carrier-1', lineKind: 'LINEHAUL' as const,
+      amountCents: 50000, payeeType: 'CARRIER' as const, destination: 'acct://x',
+      providerName: 'manual', recourseType: 'RECOURSE' as const, scope: 'FULL_INVOICE' as const,
+    };
+    const [a, b] = await Promise.all([
+      FundingAdvanceService.issueAdvance(input),
+      FundingAdvanceService.issueAdvance(input),
+    ]);
+    expect(a.advanceId).toBe(b.advanceId);
+    expect(tables[ADV] ?? []).toHaveLength(1);
   });
 });
