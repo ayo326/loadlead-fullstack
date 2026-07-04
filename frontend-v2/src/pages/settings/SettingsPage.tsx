@@ -1245,7 +1245,7 @@ function AdminSettings({ email }: { email: string }) {
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground bg-secondary rounded-lg px-3 py-2">
                 Notification delivery requires <code className="font-mono text-[10px]">RESEND_API_KEY</code> to be set in the backend environment.
-                Preferences are saved locally in this session — backend persistence coming soon.
+                Preferences are saved in this browser for now; server-side persistence is tracked separately.
               </p>
             </div>
           </SectionCard>
