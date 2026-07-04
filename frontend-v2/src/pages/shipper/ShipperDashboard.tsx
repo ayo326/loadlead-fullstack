@@ -66,8 +66,17 @@ export default function ShipperDashboard() {
         title="Your loads"
         subtitle="Post a load and we'll broadcast it to qualified drivers in your radius the moment you submit."
         actions={
-          <Button asChild className="h-10" disabled={!profileComplete}>
-            <Link data-tour="shipper-post-cta" to="/shipper/post"><PackagePlus className="h-4 w-4" /> Post a load</Link>
+          /* D4: when the profile is incomplete the CTA is disabled; the title
+             hint tells the shipper what unblocks it and links to Settings. */
+          <Button
+            asChild
+            className="h-10"
+            disabled={!profileComplete}
+            title={!profileComplete ? "Complete your profile in Settings to post a load" : undefined}
+          >
+            <Link data-tour="shipper-post-cta" to={profileComplete ? "/shipper/post" : "/settings?tab=profile"}>
+              <PackagePlus className="h-4 w-4" /> Post a load
+            </Link>
           </Button>
         }
       />
