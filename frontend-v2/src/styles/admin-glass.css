@@ -1,5 +1,5 @@
 /*
- * Admin console — "white glass" theme (chosen: Composition B glassy frosted
+ * Admin console - "white glass" theme (chosen: Composition B glassy frosted
  * blue + variant C bolder edge accents). Imported ONLY by admin-main.tsx and
  * every rule is scoped under `.admin-glass`, so it cannot bleed into the
  * customer bundle. Shared glass TOKENS live in :root (the customer glass
@@ -7,7 +7,7 @@
  *
  * Productive glass: translucent CHROME + CONTAINERS, SOLID high-contrast
  * backplates under dense data (tables, inputs). The page gradient is light,
- * so even nested translucent surfaces composite to a near-white fill — dark
+ * so even nested translucent surfaces composite to a near-white fill - dark
  * body text (#0f172a) and muted text (#475569) hold WCAG AA throughout.
  */
 
@@ -48,7 +48,7 @@
   -webkit-backdrop-filter: blur(22px) saturate(185%);
   border-right: 1px solid rgba(255, 255, 255, 0.7) !important;
 }
-/* active nav — variant C confident gradient */
+/* active nav - variant C confident gradient */
 .admin-glass nav[aria-label="Operations console navigation"] a[aria-current="page"] {
   background: linear-gradient(135deg, #0a3f9e, #1e54c0) !important;
   color: #fff !important;
@@ -105,7 +105,7 @@
 .admin-glass .edge-attn  { border-left: 5px solid var(--edge-attn)  !important; }
 .admin-glass .edge-brand { border-left: 5px solid var(--edge-brand) !important; }
 
-/* ── Variant C: metric tiles — thick colored edge + faint matching wash ── */
+/* ── Variant C: metric tiles - thick colored edge + faint matching wash ── */
 .admin-glass .gtile { border-left: 5px solid var(--edge-info) !important; position: relative; overflow: hidden; }
 .admin-glass .gtile-orgs  { border-left-color: var(--edge-orgs)  !important; background: linear-gradient(90deg, rgba(99,102,241,.13), rgba(255,255,255,.55) 38%) !important; }
 .admin-glass .gtile-info  { border-left-color: var(--edge-info)  !important; background: linear-gradient(90deg, rgba(59,130,246,.13), rgba(255,255,255,.55) 38%) !important; }

@@ -50,7 +50,7 @@ function BufferManager({ driverId, current }: { driverId: string; current: numbe
 
   const save = async () => {
     const n = Number(pct);
-    if (n < 5 || n > 25) { toast.error("Buffer must be 5–25%."); return; }
+    if (n < 5 || n > 25) { toast.error("Buffer must be 5-25%."); return; }
     setSaving(true);
     try {
       const r = await api.adminSetDriverBuffer(driverId, n);
@@ -63,7 +63,7 @@ function BufferManager({ driverId, current }: { driverId: string; current: numbe
 
   return (
     <div className="flex items-center gap-2">
-      <Input type="number" min={5} max={25} placeholder="5–25"
+      <Input type="number" min={5} max={25} placeholder="5-25"
         value={pct} onChange={e => setPct(e.target.value)}
         className="w-20 h-8 text-xs" />
       <Button size="sm" variant="outline" disabled={saving || !pct} onClick={save} className="h-8 text-xs">
@@ -89,7 +89,7 @@ function DriverRow({ driver, onAction }: { driver: Driver; onAction: () => void 
   const bufPct = driver.safetyBufferPct ?? 10;
   const maxOp = (driver.maxCapacityLbs ?? 0) * (1 - bufPct / 100);
   const used = maxOp > 0 ? Math.min(100, Math.round(((driver.currentLoadLbs ?? 0) / maxOp) * 100)) : 0;
-  const location = [driver.currentCity, driver.currentState].filter(Boolean).join(", ") || "—";
+  const location = [driver.currentCity, driver.currentState].filter(Boolean).join(", ") || "-";
   const hasLocation = (driver.currentLat ?? 0) !== 0;
   const hasInsurance = (driver.cargoInsuranceAmount ?? 0) > 0;
   const isPending = driver.status === "PENDING_VERIFICATION";
@@ -135,14 +135,14 @@ function DriverRow({ driver, onAction }: { driver: Driver; onAction: () => void 
                   <span className="text-[10px] font-bold text-destructive bg-destructive/10 rounded px-1">OVER BUFFER</span>
                 )}
               </div>
-              <div className="text-xs text-muted-foreground">{driver.mcNumber ?? "—"}</div>
+              <div className="text-xs text-muted-foreground">{driver.mcNumber ?? "-"}</div>
             </div>
           </div>
         </td>
 
         {/* Equipment */}
         <td className="px-5 py-4 text-sm text-muted-foreground whitespace-nowrap">
-          {driver.trailerType?.replace(/_/g, " ") ?? "—"}
+          {driver.trailerType?.replace(/_/g, " ") ?? "-"}
         </td>
 
         {/* Capacity bar */}
@@ -201,13 +201,13 @@ function DriverRow({ driver, onAction }: { driver: Driver; onAction: () => void 
           <td colSpan={7} className="px-6 py-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <Detail label="Driver ID" value={driver.driverId} mono />
-              <Detail label="DOT #" value={driver.dotNumber ?? "—"} />
-              <Detail label="Cargo insurance" value={hasInsurance ? `$${(driver.cargoInsuranceAmount!).toLocaleString()}` : "⚠ $0 — will be excluded from broadcasts"} warn={!hasInsurance} />
+              <Detail label="DOT #" value={driver.dotNumber ?? "-"} />
+              <Detail label="Cargo insurance" value={hasInsurance ? `$${(driver.cargoInsuranceAmount!).toLocaleString()}` : "⚠ $0 - will be excluded from broadcasts"} warn={!hasInsurance} />
               <Detail label="Liability insurance" value={(driver.liabilityInsuranceAmount ?? 0) > 0 ? `$${driver.liabilityInsuranceAmount!.toLocaleString()}` : "⚠ $0"} warn={(driver.liabilityInsuranceAmount ?? 0) === 0} />
-              <Detail label="Location set" value={hasLocation ? `${driver.currentLat?.toFixed(4)}, ${driver.currentLng?.toFixed(4)}` : "⚠ No location — geo filter will exclude"} warn={!hasLocation} />
+              <Detail label="Location set" value={hasLocation ? `${driver.currentLat?.toFixed(4)}, ${driver.currentLng?.toFixed(4)}` : "⚠ No location - geo filter will exclude"} warn={!hasLocation} />
               <Detail label="Trailer" value={driver.trailerType ?? "⚠ Not set"} warn={!driver.trailerType} />
-              <Detail label="Max capacity" value={driver.maxCapacityLbs ? `${driver.maxCapacityLbs.toLocaleString()} lbs` : "—"} />
-              <Detail label="Member since" value={driver.createdAt ? new Date(driver.createdAt).toLocaleDateString() : "—"} />
+              <Detail label="Max capacity" value={driver.maxCapacityLbs ? `${driver.maxCapacityLbs.toLocaleString()} lbs` : "-"} />
+              <Detail label="Member since" value={driver.createdAt ? new Date(driver.createdAt).toLocaleDateString() : "-"} />
             </div>
           </td>
         </tr>
@@ -298,7 +298,7 @@ export default function AdminDashboard() {
       {/* Reorganized from one long scroll into separated sections. Each tab
           is a focused workspace; the highest-stakes (Organisations / IAM
           overrides) leads. Redundant KPI cards + the legacy Driver roster
-          were removed — FleetFeed's status pills already show those counts. */}
+          were removed - FleetFeed's status pills already show those counts. */}
       <OpsConsoleTabs />
     </>
   );
@@ -358,7 +358,7 @@ function ComplianceBar({ label, drivers, check }: { label: string; drivers: Driv
     <div className="mb-3 last:mb-0">
       <div className="flex justify-between text-xs mb-1">
         <span className="text-muted-foreground">{label}</span>
-        <span className="text-muted-foreground">—</span>
+        <span className="text-muted-foreground">-</span>
       </div>
       <div className="h-1.5 rounded-full bg-secondary" />
     </div>

@@ -748,7 +748,7 @@ export function TourMount() {
     if (!persona) return;
     const path = location.pathname;
     // Auto-start ONLY on the persona's dashboard root, never on deep sub-routes
-    // (e.g. /owner-operator/loads/:id) — the tour's modal overlay would
+    // (e.g. /owner-operator/loads/:id) - the tour's modal overlay would
     // otherwise intercept clicks on those pages' panels.
     const home = dashboardPaths[persona];
     const onDashboard = path === home || path === home + "/";

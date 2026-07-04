@@ -92,7 +92,7 @@ export default function AdminLogin() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {/* Top bar — official logo + environment badge */}
+      {/* Top bar - official logo + environment badge */}
       <header
         className="px-4 py-3 border-b border-border flex items-center justify-between gap-3"
         role="banner"

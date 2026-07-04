@@ -22,12 +22,12 @@ const badgeVariants = cva(
         // Surface variants
         neutral:     "bg-secondary text-secondary-foreground",
         outline:     "border border-border bg-card text-foreground",
-        // Status variants — keep the band tonal (background tint + readable text)
+        // Status variants - keep the band tonal (background tint + readable text)
         info:        "bg-primary/10 text-primary",
         success:     "bg-success/10 text-success",
         warning:     "bg-warning/15 text-[hsl(var(--warning))]",
         destructive: "bg-destructive/10 text-destructive",
-        // Solid (use sparingly — primary CTA-adjacent counts)
+        // Solid (use sparingly - primary CTA-adjacent counts)
         solid:       "bg-primary text-primary-foreground",
         // Aliases kept for back-compat with the old API (default/secondary)
         default:     "bg-primary text-primary-foreground",

@@ -2,7 +2,7 @@
  * Public staff-invite acceptance page. The invitee arrives via
  * /accept-staff-invite?token=… (no session). They set a password (for a new
  * account) and submit; the server creates/elevates a role=ADMIN staffer with
- * the invited tier. On success they're sent to /login. NOT public signup —
+ * the invited tier. On success they're sent to /login. NOT public signup -
  * the token is the only way in, and it issues a staff account specifically.
  */
 

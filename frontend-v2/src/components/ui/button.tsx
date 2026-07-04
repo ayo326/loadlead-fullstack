@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 //   - sharp radius (4px / rounded-sm)
 //   - 36px default height, matching form fields + table rows
 //   - cursor-pointer when interactive; opacity-60 when disabled (no cursor)
-//   - focus ring uses the app-wide hsl(ring/0.18) — no shadow, no glow
+//   - focus ring uses the app-wide hsl(ring/0.18) - no shadow, no glow
 //   - tap targets >= 44x44 honored via icon size variant
 const buttonVariants = cva(
   [
@@ -38,9 +38,9 @@ const buttonVariants = cva(
       },
       size: {
         sm:     "h-7 px-3 text-[0.8125rem]",   // 28px
-        default:"h-9 px-4",                    // 36px — Dispatch default
-        lg:     "h-11 px-6 text-body-md",      // 44px — primary CTA / hero
-        icon:   "h-9 w-9",                     // 36x36 — meets tap target with padding
+        default:"h-9 px-4",                    // 36px - Dispatch default
+        lg:     "h-11 px-6 text-body-md",      // 44px - primary CTA / hero
+        icon:   "h-9 w-9",                     // 36x36 - meets tap target with padding
       },
     },
     defaultVariants: {

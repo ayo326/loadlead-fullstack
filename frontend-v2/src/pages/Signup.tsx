@@ -37,13 +37,13 @@ const roles = [
   },
   {
     key: "CARRIER", label: "Carrier", icon: Building2, to: "/carrier",
-    description: "Trucking company — onboard drivers and dispatch loads. Unlike an Owner Operator, you run the company and don't have to drive yourself.",
+    description: "Trucking company - onboard drivers and dispatch loads. Unlike an Owner Operator, you run the company and don't have to drive yourself.",
     color: "bg-indigo-600",
   },
 ] as const;
 
 const CAPABILITIES = [
-  { key: "CARRIER",  label: "Carrier",  description: "Move freight — trucks, drivers, equipment" },
+  { key: "CARRIER",  label: "Carrier",  description: "Move freight - trucks, drivers, equipment" },
   { key: "SHIPPER",  label: "Shipper",  description: "Post loads and find available drivers" },
   { key: "RECEIVER", label: "Receiver", description: "Accept and manage deliveries at your facility" },
 ];
@@ -107,7 +107,7 @@ export default function Signup() {
   const [orgCity, setOrgCity]       = useState("");
   const [orgState, setOrgState]     = useState("");
 
-  // Step 1 (CARRIER only): company details — separate state from the
+  // Step 1 (CARRIER only): company details - separate state from the
   // SHIPPER/RECEIVER org fields above so the two flows can never cross-pollute.
   const [carrierLegalName, setCarrierLegalName] = useState("");
   const [carrierDba, setCarrierDba]              = useState("");
@@ -151,7 +151,7 @@ export default function Signup() {
   }, []);
 
   // Private-beta wall: while BETA_MODE is on, public account creation is
-  // closed — visitors go to the waitlist, not the signup wizard. Invited
+  // closed - visitors go to the waitlist, not the signup wizard. Invited
   // users (?invite=1) and the beta subdomain bypass it. Fail-open if the
   // status check is unreachable.
   const [betaWall, setBetaWall] = useState(false);
@@ -190,11 +190,11 @@ export default function Signup() {
   }
 
   // needsOrg covers ONLY the two existing personas with the generic
-  // capabilities-picker org step (SHIPPER, RECEIVER) — unchanged from before.
+  // capabilities-picker org step (SHIPPER, RECEIVER) - unchanged from before.
   const needsOrg            = role.key === "SHIPPER" || role.key === "RECEIVER";
   const isCarrier            = role.key === "CARRIER";
   // Carrier gets its own dedicated company-details step at the same
-  // position (step 1) — goesThroughOrgStep is what step routing keys off,
+  // position (step 1) - goesThroughOrgStep is what step routing keys off,
   // so it's additive: for the four existing personas it's identical to
   // needsOrg, behavior is unchanged.
   const goesThroughOrgStep  = needsOrg || isCarrier;
@@ -273,7 +273,7 @@ export default function Signup() {
     setLoading(true);
     try {
       if (isCarrier) {
-        // Dedicated atomic carrier signup — separate call, separate backend
+        // Dedicated atomic carrier signup - separate call, separate backend
         // endpoint, never touches the generic signup() path below.
         await signupCarrier({
           email, password,
@@ -486,7 +486,7 @@ export default function Signup() {
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Create your account</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Step {visualStep + 1} of {steps.length} — {steps[visualStep]}
+              Step {visualStep + 1} of {steps.length} - {steps[visualStep]}
             </p>
           </div>
 
@@ -672,8 +672,8 @@ export default function Signup() {
               <div className="flex items-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3">
                 <Building2 className="h-4 w-4 text-indigo-600 shrink-0" />
                 <p className="text-sm text-indigo-700 font-medium">
-                  You'll be the Owner/admin of your carrier company. You can onboard drivers — directly or by
-                  invite — once your account is set up.
+                  You'll be the Owner/admin of your carrier company. You can onboard drivers - directly or by
+                  invite - once your account is set up.
                 </p>
               </div>
 

@@ -6,7 +6,7 @@
 //   <AsyncCombobox>     debounced server-side q= search
 //
 // All three share keyboard handling (cmdk), filter-as-you-type, and the
-// grouped item shape. No persona branching anywhere — this atom is used by
+// grouped item shape. No persona branching anywhere - this atom is used by
 // Carrier, OO, Shipper, Driver, and Admin screens equally.
 
 import * as React from "react";
@@ -233,7 +233,7 @@ export interface AsyncComboboxProps {
   emptyText?:   string;
   className?:   string;
   disabled?:    boolean;
-  /** ms — default 200. */
+  /** ms - default 200. */
   debounceMs?:  number;
 }
 

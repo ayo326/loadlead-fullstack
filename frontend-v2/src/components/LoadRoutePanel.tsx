@@ -5,8 +5,8 @@
  * driver dashboard.
  *
  * Tabs
- *  • Pickup  — driver's current position → pickup address
- *  • Dropoff — pickup address → delivery address  (toggle to: current → delivery)
+ *  • Pickup  - driver's current position → pickup address
+ *  • Dropoff - pickup address → delivery address  (toggle to: current → delivery)
  *
  * Controls
  *  🔍 magnifying glass (top-right) → fullscreen dialog
@@ -91,7 +91,7 @@ export function LoadRoutePanel({
       if (!driverOrigin) return null;
       return mkUrl(driverOrigin, deliveryAddress);
     }
-    // "From pickup" — the haul leg
+    // "From pickup" - the haul leg
     if (!pickupAddress) return null;
     return mkUrl(pickupAddress, deliveryAddress);
   }
@@ -153,7 +153,7 @@ export function LoadRoutePanel({
           className="relative rounded-xl overflow-hidden border border-border/50"
           style={{ aspectRatio: "16 / 9" }}
         >
-          {/* Loading skeleton — neutral, no brand gradient */}
+          {/* Loading skeleton - neutral, no brand gradient */}
           {!miniLoaded && (
             <div className="absolute inset-0 bg-secondary flex items-center justify-center z-10">
               <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" aria-hidden />
@@ -171,7 +171,7 @@ export function LoadRoutePanel({
             onLoad={() => setMiniLoaded(true)}
           />
 
-          {/* Expand magnifying glass — top-right */}
+          {/* Expand magnifying glass - top-right */}
           <button
             onClick={() => {
               setExpanded(true);

@@ -29,7 +29,7 @@ const SLA_COLOURS: Record<string, string> = {
 };
 
 function fmtAge(ms: number | null | undefined): string {
-  if (!ms) return "—";
+  if (!ms) return "-";
   const diff = Date.now() - ms;
   if (diff < 60_000)     return "just now";
   if (diff < 3_600_000)  return `${Math.floor(diff / 60_000)}m`;
@@ -81,8 +81,8 @@ export function SupportInbox() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-5 py-3 border-b border-border bg-secondary/20">
           <MonitorPill label="Open"       value={monitor.openCount} />
           <MonitorPill label="Breaching"  value={monitor.breachingCount} tone={monitor.breachingCount ? "destructive" : "muted"} />
-          <MonitorPill label="% within SLA" value={monitor.percentWithinSla == null ? "—" : `${monitor.percentWithinSla}%`} />
-          <MonitorPill label="Avg resolution" value={monitor.avgResolutionMinutes == null ? "—" : `${monitor.avgResolutionMinutes}m`} />
+          <MonitorPill label="% within SLA" value={monitor.percentWithinSla == null ? "-" : `${monitor.percentWithinSla}%`} />
+          <MonitorPill label="Avg resolution" value={monitor.avgResolutionMinutes == null ? "-" : `${monitor.avgResolutionMinutes}m`} />
         </div>
       )}
 
@@ -170,7 +170,7 @@ function MonitorPill({ label, value, tone = "muted" }: { label: string; value: a
   return (
     <div className="rounded-md bg-card border border-border px-3 py-2">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className={`text-base font-semibold ${tone === "destructive" ? "text-destructive" : ""}`}>{String(value ?? "—")}</div>
+      <div className={`text-base font-semibold ${tone === "destructive" ? "text-destructive" : ""}`}>{String(value ?? "-")}</div>
     </div>
   );
 }

@@ -31,7 +31,7 @@ export function PageHeader({
 }
 
 // KPI tile. Calmer than the old big-number variant; built for dashboards
-// that show 4–6 of these side by side. See MASTER §9.
+// that show 4-6 of these side by side. See MASTER §9.
 export function StatCard({
   label,
   value,
@@ -45,7 +45,7 @@ export function StatCard({
   hint?: string;
   trend?: "up" | "down" | "flat";
   icon?: React.ReactNode;
-  /** Optional colored left-edge marker. Admin glass theme only — maps to the
+  /** Optional colored left-edge marker. Admin glass theme only - maps to the
    *  .gtile-* classes in admin-glass.css; the customer surface never passes
    *  it, so this is a no-op there. */
   accent?: "orgs" | "info" | "live" | "attn" | "brand";
@@ -64,7 +64,7 @@ export function StatCard({
   );
 }
 
-// Status pill — load lifecycle. Maps every known status to a tonal variant
+// Status pill - load lifecycle. Maps every known status to a tonal variant
 // using the new Badge atom. Dispatch uses sharp 4px radius (not pill round).
 const STATUS_TO_VARIANT: Record<
   string,

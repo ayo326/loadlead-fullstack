@@ -34,7 +34,7 @@ function Field({ label, value, className = "" }: { label: string; value?: string
     <div className={`${className}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
       <p className="text-sm font-medium text-foreground border-b border-dashed border-border pb-1 min-h-[22px]">
-        {value ?? <span className="text-muted-foreground/50 italic">—</span>}
+        {value ?? <span className="text-muted-foreground/50 italic">-</span>}
       </p>
     </div>
   );
@@ -220,7 +220,7 @@ export default function BillOfLadingPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-black tracking-tight uppercase">Bill of Lading</h1>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mt-0.5">ORIGINAL — NOT NEGOTIABLE</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mt-0.5">ORIGINAL - NOT NEGOTIABLE</p>
           </div>
           <div className="text-right space-y-1">
             <Badge className={`${STATUS_COLORS[bol.status]} text-xs px-3 py-1`}>
@@ -259,7 +259,7 @@ export default function BillOfLadingPage() {
         {/* ORIGIN */}
         <div className="border rounded-xl overflow-hidden">
           <div className="bg-primary text-primary-foreground px-4 py-2 font-bold text-sm uppercase tracking-wider">
-            ORIGIN — FROM (Consignor)
+            ORIGIN - FROM (Consignor)
           </div>
           <div className="p-4 space-y-3">
             <Field label="Company / Name" value={bol.consignor?.name} />
@@ -291,7 +291,7 @@ export default function BillOfLadingPage() {
         {/* DESTINATION */}
         <div className="border rounded-xl overflow-hidden">
           <div className="bg-slate-700 text-white px-4 py-2 font-bold text-sm uppercase tracking-wider">
-            DESTINATION — TO (Consignee)
+            DESTINATION - TO (Consignee)
           </div>
           <div className="p-4 space-y-3">
             <Field label="Company / Name" value={bol.consignee?.name} />
@@ -339,14 +339,14 @@ export default function BillOfLadingPage() {
           </span>
           <div className="flex-1" />
           <div className="flex gap-6 text-xs">
-            <span><strong>C.O.D. Amt:</strong> {bol.codAmount ? `$${bol.codAmount}` : "—"}</span>
-            <span><strong>C.O.D. Fee:</strong> {bol.codFee ? `$${bol.codFee}` : "—"}</span>
-            <span className="font-bold"><strong>Total Charges:</strong> {bol.totalCharges ? `$${bol.totalCharges.toLocaleString()}` : "—"}</span>
+            <span><strong>C.O.D. Amt:</strong> {bol.codAmount ? `$${bol.codAmount}` : "-"}</span>
+            <span><strong>C.O.D. Fee:</strong> {bol.codFee ? `$${bol.codFee}` : "-"}</span>
+            <span className="font-bold"><strong>Total Charges:</strong> {bol.totalCharges ? `$${bol.totalCharges.toLocaleString()}` : "-"}</span>
           </div>
         </div>
         {bol.remitCODTo?.address && (
           <div className="px-4 py-2 text-xs border-b">
-            <strong>Remit C.O.D. to:</strong> {bol.remitCODTo.name}, {bol.remitCODTo.address}, {bol.remitCODTo.city}, {bol.remitCODTo.state} {bol.remitCODTo.zip} — {bol.remitCODTo.phone}
+            <strong>Remit C.O.D. to:</strong> {bol.remitCODTo.name}, {bol.remitCODTo.address}, {bol.remitCODTo.city}, {bol.remitCODTo.state} {bol.remitCODTo.zip} - {bol.remitCODTo.phone}
           </div>
         )}
       </div>
@@ -381,8 +381,8 @@ export default function BillOfLadingPage() {
                     {c.nmfcCode && <p className="text-xs text-muted-foreground">NMFC: {c.nmfcCode}</p>}
                   </td>
                   <td className="px-3 py-2 text-right font-medium">{c.weight?.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-center text-muted-foreground">{c.freightClass || "—"}</td>
-                  <td className="px-3 py-2 text-right text-muted-foreground">{c.volume || "—"}</td>
+                  <td className="px-3 py-2 text-center text-muted-foreground">{c.freightClass || "-"}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">{c.volume || "-"}</td>
                 </tr>
               ))}
               <tr className="border-t bg-muted/30 font-bold">

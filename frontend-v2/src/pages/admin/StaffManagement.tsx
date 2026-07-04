@@ -1,10 +1,10 @@
 /**
- * Staff / Team — platform-staff IAM. STAFF_ADMIN only (the server 403s lower
+ * Staff / Team - platform-staff IAM. STAFF_ADMIN only (the server 403s lower
  * tiers; the Settings page also hides this for non-STAFF_ADMIN). Invite by
  * email + role, list staff with role/status, change role, deactivate/
  * reactivate, view + revoke pending invites.
  *
- * Platform-staff roles are a SEPARATE enum from carrier-org roles — the
+ * Platform-staff roles are a SEPARATE enum from carrier-org roles - the
  * staff "Manager" is not the tenant "Manager".
  */
 
@@ -90,7 +90,7 @@ export default function StaffManagement() {
         <h3 className="text-sm font-semibold text-foreground mb-1">Invite a staff member</h3>
         <p className="text-xs text-muted-foreground mb-3">
           Sends a one-time, expiring invite (reuses the platform Invitation flow). Accepting it creates an internal
-          staff account with the chosen role — never a customer account.
+          staff account with the chosen role - never a customer account.
         </p>
         <form onSubmit={invite} className="flex flex-wrap items-end gap-2">
           <div className="flex-1 min-w-[220px]">

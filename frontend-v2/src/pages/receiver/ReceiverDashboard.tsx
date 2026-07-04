@@ -6,14 +6,14 @@ import { AccountHold } from "@/components/AccountHold";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
-// ReceiverDashboard — backed by the real /api/receiver/incoming endpoint.
+// ReceiverDashboard - backed by the real /api/receiver/incoming endpoint.
 //
 // Stat cards are derived from the in-transit list returned by that endpoint
-// (no mocked totals). When data isn't available yet, cards show "—" rather
+// (no mocked totals). When data isn't available yet, cards show "-" rather
 // than fabricated numbers, per the no-fabrication audit rule. The 30-day
 // delivered count + exceptions count don't have a real source yet (no
-// receiver-side delivered/exceptions endpoint exists) — both honestly say
-// "—" instead of a confident-looking lie.
+// receiver-side delivered/exceptions endpoint exists) - both honestly say
+// "-" instead of a confident-looking lie.
 
 type Load = {
   loadId: string;
@@ -27,7 +27,7 @@ type Load = {
 };
 
 function place(city?: string, state?: string) {
-  return [city, state].filter(Boolean).join(", ") || "—";
+  return [city, state].filter(Boolean).join(", ") || "-";
 }
 
 export default function ReceiverDashboard() {
@@ -53,12 +53,12 @@ export default function ReceiverDashboard() {
       .finally(() => setLoadsLoading(false));
   }, []);
 
-  const facilityName = profile?.facilityName ?? "—";
+  const facilityName = profile?.facilityName ?? "-";
 
   // Derived stats from real loads (the only honest source we have today).
   // "Arriving today" = scheduled within next 24h. The backend doesn't tag
   // arrival vs departure time yet, so we approximate by counting in-transit
-  // loads — under-counts is honest, over-counts would be a fabrication.
+  // loads - under-counts is honest, over-counts would be a fabrication.
   const inTransit = loads.filter(l => l.status === "IN_TRANSIT").length;
   const arrivingToday = inTransit; // best honest signal available
 
@@ -73,9 +73,9 @@ export default function ReceiverDashboard() {
 
       <div data-tour="receiver-facility" className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard label="Arriving today"   value={loadsLoading ? "…" : String(arrivingToday)} hint={inTransit > 0 ? `${inTransit} in transit` : "No inbound activity"} />
-        <StatCard label="In transit"        value={loadsLoading ? "…" : String(inTransit)}      hint={inTransit > 0 ? "Live tracking active" : "—"} />
-        <StatCard label="Delivered (30d)"   value="—"                                            hint="Backend metric pending" />
-        <StatCard label="Exceptions"        value="—"                                            hint="Backend metric pending" />
+        <StatCard label="In transit"        value={loadsLoading ? "…" : String(inTransit)}      hint={inTransit > 0 ? "Live tracking active" : "-"} />
+        <StatCard label="Delivered (30d)"   value="-"                                            hint="Backend metric pending" />
+        <StatCard label="Exceptions"        value="-"                                            hint="Backend metric pending" />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -131,11 +131,11 @@ export default function ReceiverDashboard() {
                   <div key={l.loadId} className="flex items-center justify-between text-sm">
                     <div>
                       <div className="font-mono text-xs text-muted-foreground">
-                        {l.estimatedDeliveryTime ? new Date(l.estimatedDeliveryTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}
+                        {l.estimatedDeliveryTime ? new Date(l.estimatedDeliveryTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "-"}
                       </div>
                       <div className="font-mono text-xs font-medium">{l.loadId.slice(0, 12)}…</div>
                     </div>
-                    <span className="text-xs text-primary font-medium">{l.status ?? "—"}</span>
+                    <span className="text-xs text-primary font-medium">{l.status ?? "-"}</span>
                   </div>
                 ))}
               </div>

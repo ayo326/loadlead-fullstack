@@ -191,10 +191,10 @@ export default function PostLoad() {
   const totalPayout =
     form.ratePerMile && form.totalMiles
       ? `$${(Number(form.ratePerMile) * Number(form.totalMiles)).toFixed(2)}`
-      : "—";
+      : "-";
 
   // Auto-estimate Total miles once both addresses are geocoded. Uses haversine
-  // great-circle distance + a 1.2x road-meander factor — within ~5% of
+  // great-circle distance + a 1.2x road-meander factor - within ~5% of
   // Google Distance Matrix for most US lanes, and avoids an extra round-trip
   // before the load is submitted. The backend's RoutingService still overwrites
   // this with the real driving distance during enrichment, so this is purely a
@@ -342,7 +342,7 @@ export default function PostLoad() {
 
       // Phase-1 attestation gate: open the BOL_SUBMIT attestation block.
       // The server rejects submitLoad with 412 BOL_SUBMIT_SIGNATURE_REQUIRED
-      // until the signature lands in the chain — so we capture it BEFORE
+      // until the signature lands in the chain - so we capture it BEFORE
       // calling submitLoad. Cancelling leaves the load in DRAFT, safe.
       setPendingDraft({ loadId: draft.load.loadId, refNo });
     } catch (err: any) {
@@ -483,7 +483,7 @@ export default function PostLoad() {
 
             <Field label="Commodity handling notes (optional)" className="mt-4">
               <Textarea
-                placeholder="Anything genuinely freeform — handling instructions, stacking notes, etc."
+                placeholder="Anything genuinely freeform - handling instructions, stacking notes, etc."
                 value={form.commodityNotes}
                 onChange={(e) => set("commodityNotes", e.target.value)}
                 rows={2}
@@ -527,7 +527,7 @@ export default function PostLoad() {
 
             {/* Dimensions */}
             <div className="mt-4 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Load Dimensions (inches) — optional</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Load Dimensions (inches) - optional</p>
               <div className="grid grid-cols-3 gap-3">
                 <Field label="Length (in)">
                   <Input type="number" placeholder="96" value={form.dimLengthIn} onChange={(e) => set("dimLengthIn", e.target.value)} />
@@ -614,7 +614,7 @@ export default function PostLoad() {
 
         {/* ── Sidebar ─────────────────────────────────────────────────────── */}
         <aside className="space-y-6">
-          {/* Route preview — same frame as other sidebar Sections. Shows a
+          {/* Route preview - same frame as other sidebar Sections. Shows a
               directions embed once both addresses are typed (re-uses the
               same RouteMapCard the shipper LoadDetail uses). Clicking the
               🔍 icon opens the existing fullscreen modal for zoom. */}
@@ -681,7 +681,7 @@ export default function PostLoad() {
         </aside>
       </form>
 
-      {/* BOL_SUBMIT attestation — captured BEFORE submit. Server gate
+      {/* BOL_SUBMIT attestation - captured BEFORE submit. Server gate
           rejects submitLoad without this signature; we only call it
           after the AttestationDialog reports success. */}
       <AttestationDialog
@@ -757,7 +757,7 @@ function AddressBlock({
               onChange={(e) => setField("state", e.target.value)}
               required
             >
-              <option value="">—</option>
+              <option value="">-</option>
               {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </Field>

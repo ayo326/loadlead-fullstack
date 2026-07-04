@@ -56,7 +56,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardFooter.displayName = "CardFooter";
 
-// Section eyebrow — sits inside CardHeader. Dispatch uses JetBrains Mono.
+// Section eyebrow - sits inside CardHeader. Dispatch uses JetBrains Mono.
 const CardEyebrow = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div

@@ -37,7 +37,7 @@ function Row({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between py-2.5 border-b border-border last:border-0 gap-4">
       <span className="text-sm text-muted-foreground shrink-0">{label}</span>
-      <span className="text-sm font-medium text-right">{value ?? "—"}</span>
+      <span className="text-sm font-medium text-right">{value ?? "-"}</span>
     </div>
   );
 }
@@ -75,7 +75,7 @@ export default function DriverLoadDetail() {
       .finally(() => setLoading(false));
   }, [loadId]);
 
-  // Tail-action handlers — after the attestation lands the transition endpoint fires.
+  // Tail-action handlers - after the attestation lands the transition endpoint fires.
   const onAttestationSigned = async (action: 'CARRIER_ACCEPT' | 'DRIVER_PICKUP' | 'DRIVER_DELIVER') => {
     if (!loadId) return;
     try {

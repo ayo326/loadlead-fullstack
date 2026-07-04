@@ -6,10 +6,10 @@
  *
  * Styled to match the main landing hero: navy (bg-primary) surface, the
  * LoadLead logo lockup top-left, the "Private beta" status pill with a
- * pulsing accent dot, brand display type, and an accent CTA — so the gate
+ * pulsing accent dot, brand display type, and an accent CTA - so the gate
  * feels like the product, not a generic holding page.
  *
- * This page deliberately does NOT mention how to bypass the beta — the only
+ * This page deliberately does NOT mention how to bypass the beta - the only
  * paths in are (1) an invite token a staff member sent or (2) the email/
  * domain being on the allowlist. Both are enforced server-side.
  */
@@ -92,7 +92,7 @@ export default function PrivateBetaLanding({ signInHref = "/login" }: { signInHr
               LoadLead is invite-only right now.
             </h1>
             <p className="text-lg text-primary-foreground/75 max-w-xl">
-              We are onboarding a small cohort of shippers and carriers — mostly Texas-focused —
+              We are onboarding a small cohort of shippers and carriers - mostly Texas-focused -
               to make sure the matching, the documentation chain, and the payments work for real
               freight. Drop your email and we will reach out when the next wave opens.
             </p>
@@ -103,7 +103,7 @@ export default function PrivateBetaLanding({ signInHref = "/login" }: { signInHr
               <h2 className="text-lg font-semibold text-foreground mb-1">You are on the list.</h2>
               <p className="text-sm text-muted-foreground">
                 We will email <span className="font-mono text-foreground">{email}</span> when your spot
-                opens — check your inbox now for the beta application form. If you have an invite
+                opens - check your inbox now for the beta application form. If you have an invite
                 already, you can{" "}
                 {external ? (
                   <a href={signInHref} className="text-primary font-medium underline">sign in here</a>
@@ -151,7 +151,7 @@ export default function PrivateBetaLanding({ signInHref = "/login" }: { signInHr
                   onChange={(e) => setPersonaInterest(e.target.value)}
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="">— Select one —</option>
+                  <option value="">- Select one -</option>
                   {PERSONA_OPTIONS.map((p) => (
                     <option key={p.value} value={p.value}>{p.label}</option>
                   ))}

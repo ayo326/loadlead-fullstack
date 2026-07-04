@@ -62,7 +62,7 @@ export default function ShipperDashboard() {
     <>
       <AccountHold profileComplete={profileComplete} verificationStatus={profileComplete ? "APPROVED" : "NONE"} />
       <PageHeader
-        eyebrow={`Shipper · ${profile?.companyName ?? user?.email ?? "—"}`}
+        eyebrow={`Shipper · ${profile?.companyName ?? user?.email ?? "-"}`}
         title="Your loads"
         subtitle="Post a load and we'll broadcast it to qualified drivers in your radius the moment you submit."
         actions={
@@ -180,7 +180,7 @@ export default function ShipperDashboard() {
                     <td className="px-5 py-4 hidden lg:table-cell">
                       {l.assignedDriverId
                         ? <span className="font-medium text-success">Assigned</span>
-                        : <span className="text-muted-foreground italic">— broadcasting —</span>}
+                        : <span className="text-muted-foreground italic">- broadcasting -</span>}
                     </td>
                     <td className="px-5 py-4 text-right font-semibold">${Number(total).toLocaleString()}</td>
                     <td className="px-5 py-4"><StatusPill status={l.status} /></td>
@@ -193,7 +193,7 @@ export default function ShipperDashboard() {
                 );
               })}
               {!loading && filteredLoads.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-10 text-center text-muted-foreground text-sm">No loads yet — post your first one.</td></tr>
+                <tr><td colSpan={7} className="px-5 py-10 text-center text-muted-foreground text-sm">No loads yet - post your first one.</td></tr>
               )}
             </tbody>
           </table>

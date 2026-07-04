@@ -1,9 +1,9 @@
 /*
- * Customer-facing glass language — chosen direction: variant 2
+ * Customer-facing glass language - chosen direction: variant 2
  * "deeper tinted glass" (rich brand-navy backdrop, dark-glass app bar, light
  * frosted content surfaces floating on navy, SOLID data backplates).
  *
- * This file is the SHARED TOKEN layer the customer surfaces consume — there is
+ * This file is the SHARED TOKEN layer the customer surfaces consume - there is
  * NO shared parameterised container. Each persona layout/page opts in via the
  * `.cx-glass` root class (route-scoped in AppLayout, and on the login). The
  * admin console has its own admin-glass.css and never imports this; the two
@@ -102,9 +102,9 @@
   -webkit-backdrop-filter: blur(16px) saturate(160%);
 }
 
-/* ── Public landing (marketing) — composition C "hybrid" ───────────────── */
+/* ── Public landing (marketing) - composition C "hybrid" ───────────────── */
 /* The same Customer 2 token vocabulary, expressed boldly for the hero. NOT
- * wrapped in .cx-glass — the landing has its own dark→light→dark rhythm.
+ * wrapped in .cx-glass - the landing has its own dark→light→dark rhythm.
  * Cards are SOLID frosted-white (no backdrop-blur) so the public page stays
  * fast on mobile; only the nav frosts the hero behind it. */
 .cx-hero {
@@ -129,5 +129,5 @@
     linear-gradient(135deg, var(--cx-navy-1), var(--cx-navy-2) 60%, var(--cx-navy-3)) !important;
 }
 /* Hero accent that stays AA on navy (the brand #3b82f6 is too low-contrast on
- * the navy gradient — lighten to a sky tone for on-navy text/icons only). */
+ * the navy gradient - lighten to a sky tone for on-navy text/icons only). */
 .cx-hi { color: #7cb0ff !important; }

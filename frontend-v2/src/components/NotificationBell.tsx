@@ -1,5 +1,5 @@
 /**
- * NotificationBell — header bell that opens an inbox popover.
+ * NotificationBell - header bell that opens an inbox popover.
  *
  * Polls /api/notifications/inbox/unread-count every 60s for the badge.
  * On open, fetches the most recent 50 notifications. Clicking a notification
@@ -45,7 +45,7 @@ export function NotificationBell() {
       try {
         const { count } = await api.getUnreadCount();
         if (!cancelled) setUnread(count);
-      } catch { /* silently ignore — bell stays at last known count */ }
+      } catch { /* silently ignore - bell stays at last known count */ }
     }
     tick();
     const id = setInterval(tick, 60_000);

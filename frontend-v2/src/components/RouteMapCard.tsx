@@ -29,7 +29,7 @@ interface RouteMapCardProps {
   currentLat?: number | null;
   /** Current driver lng (used for current-position embed) */
   currentLng?: number | null;
-  /** Google Maps API key — passed from parent so it's read at render time */
+  /** Google Maps API key - passed from parent so it's read at render time */
   mapsApiKey?: string | null;
 }
 
@@ -73,7 +73,7 @@ export function RouteMapCard({
       );
     }
 
-    // Use place mode for current position — works for both lat/lng and city/state
+    // Use place mode for current position - works for both lat/lng and city/state
     if (currentLat && currentLng) {
       return (
         "https://www.google.com/maps/embed/v1/place" +
@@ -151,7 +151,7 @@ export function RouteMapCard({
           onLoad={() => setMiniLoaded(true)}
         />
 
-        {/* Expand — top-right magnifying glass */}
+        {/* Expand - top-right magnifying glass */}
         <button
           onClick={() => { setExpanded(true); setFullLoaded(false); }}
           className="absolute top-2 right-2 z-20 h-8 w-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/80 transition-colors shadow-lg"
@@ -199,7 +199,7 @@ export function RouteMapCard({
                   </span>
                 </div>
               ) : (
-                <span className="text-sm font-semibold">Current position — {currentCity}{currentState ? `, ${currentState}` : ""}</span>
+                <span className="text-sm font-semibold">Current position - {currentCity}{currentState ? `, ${currentState}` : ""}</span>
               )}
             </div>
             <a

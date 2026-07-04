@@ -1,5 +1,5 @@
 // Floating "Start / Pause staging env" control, top-right of the staging
-// homepage. Calls the standalone toggle Lambda (Function URL) — which lives
+// homepage. Calls the standalone toggle Lambda (Function URL) - which lives
 // OUTSIDE the backend EB env so it works even while the backend is paused.
 //
 // Renders only when VITE_STAGING_TOGGLE_URL is baked into the build (the staging
@@ -13,12 +13,12 @@ const SECRET_KEY = "ll_staging_toggle_secret";
 type EnvState = "running" | "paused" | "transitioning" | "absent" | "unknown" | "locked";
 
 const META: Record<EnvState, { dot: string; label: string }> = {
-  running: { dot: "#22c55e", label: "Staging env — running" },
-  paused: { dot: "#9ca3af", label: "Staging env — paused ($0)" },
-  transitioning: { dot: "#f59e0b", label: "Staging env — working…" },
-  absent: { dot: "#ef4444", label: "Staging env — not provisioned" },
-  unknown: { dot: "#ef4444", label: "Staging env — unreachable" },
-  locked: { dot: "#6366f1", label: "Staging env — enter key" },
+  running: { dot: "#22c55e", label: "Staging env - running" },
+  paused: { dot: "#9ca3af", label: "Staging env - paused ($0)" },
+  transitioning: { dot: "#f59e0b", label: "Staging env - working…" },
+  absent: { dot: "#ef4444", label: "Staging env - not provisioned" },
+  unknown: { dot: "#ef4444", label: "Staging env - unreachable" },
+  locked: { dot: "#6366f1", label: "Staging env - enter key" },
 };
 
 export function StagingEnvToggle() {
@@ -85,7 +85,7 @@ export function StagingEnvToggle() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) { setMsg(body.message || `Error ${res.status}`); return; }
       setState("transitioning");
-      setMsg(action === "start" ? "Starting… ~2–3 min" : "Pausing… ~1–2 min");
+      setMsg(action === "start" ? "Starting… ~2-3 min" : "Pausing… ~1-2 min");
     } catch {
       setMsg("Request failed");
     } finally {
@@ -111,7 +111,7 @@ export function StagingEnvToggle() {
         padding: "8px 10px", fontSize: 12, fontFamily: "ui-sans-serif, system-ui",
         boxShadow: "0 4px 16px rgba(0,0,0,0.3)", backdropFilter: "blur(6px)",
       }}
-      title="Engineering control — staging only"
+      title="Engineering control - staging only"
     >
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <span style={{

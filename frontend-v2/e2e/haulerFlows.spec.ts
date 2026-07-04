@@ -15,7 +15,7 @@ async function consent(page: Page) {
 const LOAD = "SEED-NEGO-DEMO";
 const URL = `/owner-operator/loads/${LOAD}`;
 
-test.describe("Negotiation — HAULER (owner-operator)", () => {
+test.describe("Negotiation - HAULER (owner-operator)", () => {
   test("H1 engage: hauler holds the load and sees accept/bid/reject", async ({ page }) => {
     await installNegotiationMock(page, "HAULER");
     await page.goto(URL);
@@ -58,7 +58,7 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await page.locator("#neg-rate").fill("2.75");
     await page.getByRole("button", { name: "Send" }).click();
     await expect(page.getByText(/Waiting on the shipper/)).toBeVisible();
-    // Shipper counters at $2.60 — should arrive through the events channel.
+    // Shipper counters at $2.60 - should arrive through the events channel.
     nm.shipperCounter(260);
     await expect(page.getByRole("button", { name: "Accept counter" })).toBeVisible();
     await expect(page.getByText("$2.60/mi")).toBeVisible();
@@ -108,7 +108,7 @@ test.describe("Negotiation — HAULER (owner-operator)", () => {
     await page.goto(URL);
     await page.getByRole("button", { name: /Engage to negotiate/ }).click();
     await expect(page.getByText("Engaged - accept load or bid")).toBeVisible();
-    // The 20-minute window elapses — the sweeper expires it; the panel learns
+    // The 20-minute window elapses - the sweeper expires it; the panel learns
     // through the events channel and shows the terminal state.
     nm.expire();
     await expect(page.getByText(/window expired/)).toBeVisible();

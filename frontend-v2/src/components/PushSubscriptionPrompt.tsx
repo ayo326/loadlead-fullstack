@@ -1,5 +1,5 @@
 /**
- * PushSubscriptionPrompt — in-app UI for enabling browser push notifications.
+ * PushSubscriptionPrompt - in-app UI for enabling browser push notifications.
  *
  * Lifecycle:
  *   1. Mount → check browser support + current Notification.permission + existing subscription
@@ -8,7 +8,7 @@
  *   4. Click "Disable" → unsubscribe locally + DELETE on backend
  *
  * Rendered as a dismissible banner on the driver/OO dashboard. Persists
- * dismissal in localStorage so it doesn't reappear on every page load — until
+ * dismissal in localStorage so it doesn't reappear on every page load - until
  * the user explicitly re-enables it from Settings (Feature 8).
  */
 
@@ -127,7 +127,7 @@ export function PushSubscriptionPrompt({ compact = false }: { compact?: boolean 
         <div>
           <p className="text-sm font-medium">Push notifications</p>
           <p className="text-xs text-muted-foreground">
-            {state === "enabled" ? "On — you'll get notified when a new load is offered." :
+            {state === "enabled" ? "On - you'll get notified when a new load is offered." :
              state === "denied"  ? "Blocked by your browser. Update the site permission to re-enable." :
              "Get notified instantly when a new load is offered or accepted."}
           </p>

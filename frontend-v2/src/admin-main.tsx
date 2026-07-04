@@ -60,7 +60,7 @@ const AdminApp = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<AdminLogin />} />
-            {/* Public staff-invite acceptance — no session yet; token-gated. */}
+            {/* Public staff-invite acceptance - no session yet; token-gated. */}
             <Route path="/accept-staff-invite" element={<AcceptStaffInvite />} />
             <Route element={<RequireAuth><AdminAppLayout /></RequireAuth>}>
               <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />

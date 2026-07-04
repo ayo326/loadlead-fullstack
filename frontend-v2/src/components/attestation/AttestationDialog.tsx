@@ -1,4 +1,4 @@
-// AttestationDialog — thin wrapper that renders an <AttestationBlock />
+// AttestationDialog - thin wrapper that renders an <AttestationBlock />
 // inside a shadcn Dialog and exposes a small imperative API via props.
 //
 // Used by every persona's transition action: Driver accept / pickup /
@@ -71,9 +71,9 @@ export function AttestationDialog(p: Props) {
 // stamp in the same PR.
 export const ATTESTATION_TEXT: Record<AttestationAction, string> = {
   BOL_SUBMIT:
-    "I, the authorized representative of the shipper, certify that the bill of lading details — " +
+    "I, the authorized representative of the shipper, certify that the bill of lading details - " +
     "commodity, weight, origin, destination, equipment requirements, and any hazardous-materials " +
-    "declarations — are accurate, complete, and submitted in good faith. I consent to sign this " +
+    "declarations - are accurate, complete, and submitted in good faith. I consent to sign this " +
     "tender electronically and to be bound by my electronic signature, which carries the same legal " +
     "effect as a handwritten signature under ESIGN (15 U.S.C. ch. 96) and UETA.",
   CARRIER_ACCEPT:

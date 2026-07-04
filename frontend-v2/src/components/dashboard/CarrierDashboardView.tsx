@@ -1,7 +1,7 @@
 /**
  * Carrier dashboard view (CARRIER_ADMIN, org-scoped).
  *
- * INDEPENDENT of the Owner Operator dashboard — separate component, separate
+ * INDEPENDENT of the Owner Operator dashboard - separate component, separate
  * code. The two share only persona-NEUTRAL atoms from ./atoms (StatTile,
  * ConnectPlaceholder, etc.). If you find yourself adding a parent-type prop
  * here, split the component instead.
@@ -174,8 +174,8 @@ function DispatcherView({ data }: { data: any }) {
 function ExecView({ data }: { data: any }) {
   const fin = data.financial;
   const sla = data.sla;
-  const fmt = (n?: number | null) => n == null ? "—" : `$${Math.round(n).toLocaleString()}`;
-  const pct = (n?: number | null) => n == null ? "—" : `${Math.round(n * 100)}%`;
+  const fmt = (n?: number | null) => n == null ? "-" : `$${Math.round(n).toLocaleString()}`;
+  const pct = (n?: number | null) => n == null ? "-" : `${Math.round(n * 100)}%`;
 
   return (
     <div className="space-y-5">
@@ -184,7 +184,7 @@ function ExecView({ data }: { data: any }) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <StatTile label="Gross / week"  value={fmt(fin.grossRevenue.week)}  icon={DollarSign} tone="good" />
           <StatTile label="Gross / month" value={fmt(fin.grossRevenue.month)} icon={DollarSign} tone="good" />
-          <StatTile label="Avg $/mi"      value={fin.rpm.avg == null ? "—" : `$${fin.rpm.avg.toFixed(2)}`} icon={TrendingUp} />
+          <StatTile label="Avg $/mi"      value={fin.rpm.avg == null ? "-" : `$${fin.rpm.avg.toFixed(2)}`} icon={TrendingUp} />
           <StatTile label="Loads w/ RPM"  value={fin.rpm.byLoad.length} icon={BarChart3} />
         </div>
         <div className="grid grid-cols-2 gap-3 mb-3">
@@ -219,7 +219,7 @@ function ExecView({ data }: { data: any }) {
         <div className="grid grid-cols-2 gap-3 mt-3">
           <StatTile
             label="Authority"
-            value={sla.compliancePosture.authorityActive === null ? "—" : (sla.compliancePosture.authorityActive ? "Active" : "Inactive")}
+            value={sla.compliancePosture.authorityActive === null ? "-" : (sla.compliancePosture.authorityActive ? "Active" : "Inactive")}
             tone={sla.compliancePosture.authorityActive ? "good" : (sla.compliancePosture.authorityActive === false ? "bad" : "default")}
           />
           <StatTile

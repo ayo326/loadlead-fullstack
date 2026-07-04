@@ -79,12 +79,12 @@ const App = () => (
           <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">Loading…</div>}>
           <Routes>
             <Route path="/" element={<Landing />} />
-            {/* Private-beta surface — public, no auth. The Landing page
+            {/* Private-beta surface - public, no auth. The Landing page
                 can fetch /api/beta/status and link visitors here when
                 betaMode=true; gated signups still hit /signup with an
                 invite token. */}
             <Route path="/private-beta" element={<PrivateBetaLanding />} />
-            {/* Dev-only — taxonomy dropdown sandbox. No auth wrapper. */}
+            {/* Dev-only - taxonomy dropdown sandbox. No auth wrapper. */}
             <Route path="/sandbox/taxonomy" element={<TaxonomySandbox />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
@@ -115,7 +115,7 @@ const App = () => (
               <Route path="/carrier" element={<RequireRole role="CARRIER_ADMIN"><CarrierDashboard /></RequireRole>} />
               <Route path="/carrier/members" element={<RequireRole role="CARRIER_ADMIN"><CarrierMembers /></RequireRole>} />
               <Route path="/settings"    element={<SettingsPage />} />
-              {/* Bill of Lading — all roles, accessed via their load detail */}
+              {/* Bill of Lading - all roles, accessed via their load detail */}
               <Route path="/bol/:loadId" element={<BillOfLadingPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

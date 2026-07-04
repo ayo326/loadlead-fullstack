@@ -30,7 +30,7 @@ function JoinBetaWaitlist() {
       setState("done");
       setEmail("");
     } catch (err: any) {
-      setMsg(err?.message ?? "Something went wrong — please try again.");
+      setMsg(err?.message ?? "Something went wrong - please try again.");
       setState("error");
     }
   }
@@ -76,7 +76,7 @@ const roles = [
     roleTag:  "OWNER OPERATOR ACCOUNT",
     badge:    "94.2% average fleet utilization this week",
     headline: "Maximize your fleet's earning potential.",
-    sub:      "Dispatch drivers, assign high-margin loads, and keep every truck moving — all from one command center.",
+    sub:      "Dispatch drivers, assign high-margin loads, and keep every truck moving - all from one command center.",
   },
   {
     key:      "DRIVER",
@@ -87,7 +87,7 @@ const roles = [
     roleTag:  "DRIVER ACCOUNT",
     badge:    "47s average time to first match",
     headline: "Find your next load and hit the road.",
-    sub:      "See available freight near you, accept offers instantly, and get moving — all from one dashboard.",
+    sub:      "See available freight near you, accept offers instantly, and get moving - all from one dashboard.",
   },
   {
     key:      "SHIPPER",
@@ -109,7 +109,7 @@ const roles = [
     roleTag:  "RECEIVER ACCOUNT",
     badge:    "Real-time inbound visibility",
     headline: "Know exactly when your freight arrives.",
-    sub:      "Track inbound shipments, get live ETAs, and coordinate dock scheduling — before the truck pulls up.",
+    sub:      "Track inbound shipments, get live ETAs, and coordinate dock scheduling - before the truck pulls up.",
   },
   {
     key:      "CARRIER_ADMIN",
@@ -154,7 +154,7 @@ export default function Login() {
   const [twoFactorCode, setTwoFactorCode] = useState("");
 
   // Private-beta state. On the apex (loadleadapp.com) while BETA_MODE is on,
-  // the login page shows ONLY the private-beta message — no sign-in form. The
+  // the login page shows ONLY the private-beta message - no sign-in form. The
   // beta subdomain (beta.loadleadapp.com) always shows the real login. Gated
   // on the live betaMode flag so flipping BETA_MODE=false reverts with no
   // redeploy. Fail-open to the normal login if /beta/status is unreachable.
@@ -260,10 +260,10 @@ export default function Login() {
           })}
         </div>
 
-        {/* Main panel — photo background with blue overlay */}
+        {/* Main panel - photo background with blue overlay */}
         <div className="relative flex flex-1 flex-col overflow-hidden">
 
-          {/* Background photo — royalty-free from Unsplash (truck drivers, freight industry) */}
+          {/* Background photo - royalty-free from Unsplash (truck drivers, freight industry) */}
           <img
             src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=1200&q=80"
             alt=""
@@ -272,7 +272,7 @@ export default function Login() {
             draggable={false}
           />
 
-          {/* Brand blue overlay — preserves color identity, keeps text readable */}
+          {/* Brand blue overlay - preserves color identity, keeps text readable */}
           <div
             className="absolute inset-0"
             style={{ background: "hsl(217 91% 22% / 0.82)" }}
@@ -293,7 +293,7 @@ export default function Login() {
             style={{ background: "linear-gradient(to top, hsl(217 91% 16% / 0.6), transparent)" }}
           />
 
-          {/* ── Messaging — vertically centered, left-aligned ── */}
+          {/* ── Messaging - vertically centered, left-aligned ── */}
           <div className="relative z-10 flex flex-1 flex-col justify-center px-12">
             <div className="space-y-5 max-w-sm">
               <p className="text-[11px] font-semibold tracking-[0.2em] text-white/60 uppercase">
@@ -503,7 +503,7 @@ export default function Login() {
           </form>
           )}
 
-          {/* Join the beta — anyone can drop their email to get the
+          {/* Join the beta - anyone can drop their email to get the
               application form. Only while BETA_MODE is on. */}
           {betaMode && <JoinBetaWaitlist />}
 

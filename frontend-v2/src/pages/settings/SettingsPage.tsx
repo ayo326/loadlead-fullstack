@@ -17,7 +17,7 @@ import { SecuritySettings } from "@/components/SecuritySettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-// Persona-neutral taxonomy atoms — same primitives PostLoad + OwnerOperatorSettings use.
+// Persona-neutral taxonomy atoms - same primitives PostLoad + OwnerOperatorSettings use.
 import { Combobox, AsyncCombobox } from "@/components/ui/combobox";
 
 // Deep-link support: open the tab named in ?tab=. Legacy ?tab=id and ?tab=biz
@@ -326,7 +326,7 @@ function BusinessVerification({
           <Clock className="h-10 w-10 text-blue-500" />
           <div>
             <p className="font-semibold">Business verification pending</p>
-            <p className="text-sm text-muted-foreground mt-1">Usually 1–2 business days.</p>
+            <p className="text-sm text-muted-foreground mt-1">Usually 1-2 business days.</p>
           </div>
         </div>
       </SectionCard>
@@ -618,7 +618,7 @@ function DriverSettings({ userId }: { userId: string }) {
               {inp("maxCapacityLbs", "Max Weight Capacity (lbs)", "number", "", true)}
             </div>
             <TaxonomyEquipmentPicker profile={profile} set={set} />
-            <div className="hidden">{/* anchor — original closing div lives below */}
+            <div className="hidden">{/* anchor - original closing div lives below */}
             </div>
 
             {/* Interior dimensions for volume matching */}
@@ -1057,7 +1057,7 @@ function ReceiverSettings({ userId }: { userId: string }) {
               <Label htmlFor="appointmentRequired">Appointment Required</Label>
             </div>
             <Field label="Receiving Hours" id="receivingHours" required>
-              <Input id="receivingHours" required placeholder="e.g. Mon–Fri 7AM–5PM" value={profile.receivingHours ?? ""} onChange={(e) => set("receivingHours", e.target.value)} />
+              <Input id="receivingHours" required placeholder="e.g. Mon-Fri 7AM-5PM" value={profile.receivingHours ?? ""} onChange={(e) => set("receivingHours", e.target.value)} />
             </Field>
             <Button disabled={saving} onClick={save}>
               {isNew ? "Create profile" : "Save changes"}
@@ -1086,7 +1086,7 @@ function ReceiverSettings({ userId }: { userId: string }) {
 
 // ─── Carrier Admin Settings ─────────────────────────────────────────────────
 // CARRIER_ADMIN profile fields live on the Carrier dashboard's Verification
-// tab (legal name, MC/DOT, etc.). The Settings page only needs Security here —
+// tab (legal name, MC/DOT, etc.). The Settings page only needs Security here -
 // the dispatch console is where company info actually belongs.
 
 function CarrierAdminSettings() {
@@ -1131,7 +1131,7 @@ function AdminSettings({ email }: { email: string }) {
 
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })
-    : "—";
+    : "-";
 
   const saveProfile = async () => {
     setSavingProfile(true);
@@ -1278,7 +1278,7 @@ function AdminSettings({ email }: { email: string }) {
         {/* ── Platform ── */}
         <TabsContent value="platform">
           <SectionCard>
-            <h3 className="text-sm font-semibold mb-1">Broadcast matching — server constants</h3>
+            <h3 className="text-sm font-semibold mb-1">Broadcast matching - server constants</h3>
             <p className="text-xs text-muted-foreground mb-5">
               These values are enforced server-side in <code className="font-mono text-[10px]">broadcastService.ts</code>.
               Change them in the backend config and redeploy. Per-driver buffer overrides are set from the Operations console.
@@ -1286,7 +1286,7 @@ function AdminSettings({ email }: { email: string }) {
             <div className="rounded-lg border border-border divide-y divide-border text-sm">
               {[
                 { label: "Minimum cargo insurance", value: "$100,000", hint: "cargoInsuranceAmount threshold in broadcastService" },
-                { label: "MC maturity floor", value: "0 days", hint: "Global minimum — individual loads can require more" },
+                { label: "MC maturity floor", value: "0 days", hint: "Global minimum - individual loads can require more" },
                 { label: "Default broadcast radius", value: "250 miles", hint: "Applied when shipper omits broadcastRadiusMiles" },
                 { label: "Default safety buffer", value: "10%", hint: "Applied to new driver profiles (safetyBufferPct default)" },
                 { label: "Offer TTL", value: "24 hours", hint: "Unaccepted offers expire and trigger rebroadcast" },
@@ -1346,12 +1346,12 @@ class OrgTabErrorBoundary extends React.Component<
 }
 
 const ALL_CAPABILITIES = [
-  { key: "CARRIER",  label: "Carrier",  desc: "Move freight — trucks & drivers" },
+  { key: "CARRIER",  label: "Carrier",  desc: "Move freight - trucks & drivers" },
   { key: "SHIPPER",  label: "Shipper",  desc: "Post loads and find drivers" },
   { key: "RECEIVER", label: "Receiver", desc: "Accept deliveries at facility" },
 ];
 
-// Spec §3.2 roles — MEMBER/VIEWER are deprecated and excluded from invite dropdown
+// Spec §3.2 roles - MEMBER/VIEWER are deprecated and excluded from invite dropdown
 const ORG_ROLES = ["OWNER", "ORG_ADMIN", "DISPATCHER", "ORG_DRIVER", "SHIPPER_USER", "RECEIVER_USER"];
 const ORG_ROLE_LABELS: Record<string, string> = {
   OWNER:         "Owner",
@@ -1468,7 +1468,7 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
       await api.sendInvitation(selectedOrg.orgId, {
         email: inviteEmail, orgRole: inviteOrgRole, userRole: inviteUserRole,
       });
-      toast.success(`Invitation sent to ${inviteEmail} — expires in 7 days`);
+      toast.success(`Invitation sent to ${inviteEmail} - expires in 7 days`);
       setInviteEmail("");
       await refreshMembers(selectedOrg.orgId);
     } catch (e: any) { toast.error(e.message); }
@@ -1495,7 +1495,7 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
       } else {
         await api.suspendMember(selectedOrg.orgId, membershipId);
         setMembers(m => m.map(x => x.membershipId === membershipId ? { ...x, status: "SUSPENDED" } : x));
-        toast.success("Member suspended — access revoked without deleting history");
+        toast.success("Member suspended - access revoked without deleting history");
       }
     } catch (e: any) { toast.error(e.message); }
   }
@@ -1565,7 +1565,7 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
           {selectedOrg.suspended && (
             <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
               <span className="font-semibold">⛔ Organisation suspended</span>
-              {selectedOrg.suspensionReason && <span className="text-muted-foreground">— {selectedOrg.suspensionReason}</span>}
+              {selectedOrg.suspensionReason && <span className="text-muted-foreground">- {selectedOrg.suspensionReason}</span>}
             </div>
           )}
 
@@ -1627,19 +1627,19 @@ function OrgTab({ callerUserRole }: { callerUserRole?: string }) {
               </div>
               {editing && (
                 <p className="text-[11px] text-muted-foreground mt-2">
-                  SHIPPER and CARRIER are mutually exclusive — a shipper-org cannot also be a carrier-org. RECEIVER can pair with either.
+                  SHIPPER and CARRIER are mutually exclusive - a shipper-org cannot also be a carrier-org. RECEIVER can pair with either.
                 </p>
               )}
             </div>
           </SectionCard>
 
-          {/* Owner self-buffer (spec §5.1 — only for OWNER who is also a DRIVER) */}
+          {/* Owner self-buffer (spec §5.1 - only for OWNER who is also a DRIVER) */}
           {amOwner && callerUserRole === "DRIVER" && (
             <SectionCard>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-sm">Safety Buffer (Owner override)</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">As org Owner, you can set your own buffer within the platform range (5–25%).</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">As org Owner, you can set your own buffer within the platform range (5-25%).</p>
                 </div>
                 <span className="text-2xl font-bold text-primary">{bufferPct}%</span>
               </div>

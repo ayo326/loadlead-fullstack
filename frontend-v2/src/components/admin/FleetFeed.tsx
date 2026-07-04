@@ -35,7 +35,7 @@ const STATUS_COLOURS: Record<string, string> = {
 const STATUS_ORDER = ["AVAILABLE", "VERIFIED", "PENDING_VERIFICATION", "OFFLINE", "SUSPENDED"];
 
 function fmtAge(ms: number | null | undefined): string {
-  if (!ms) return "—";
+  if (!ms) return "-";
   const diff = Date.now() - ms;
   if (diff < 60_000)       return "just now";
   if (diff < 3_600_000)    return `${Math.floor(diff / 60_000)}m ago`;
@@ -83,7 +83,7 @@ export function FleetFeed() {
 
   return (
     <div className="space-y-4">
-      {/* Live-tracking banner — honest "not connected" state when no telematics */}
+      {/* Live-tracking banner - honest "not connected" state when no telematics */}
       <div className="rounded-md border border-border bg-card px-4 py-3 flex flex-wrap items-center gap-3" role="status">
         <Truck className="h-4 w-4 text-primary" aria-hidden />
         <span className="text-sm font-semibold">Fleet feed</span>
@@ -166,7 +166,7 @@ export function FleetFeed() {
                   <td className="px-4 py-2">
                     <div className="font-medium">{d.fullName ?? <span className="text-muted-foreground">{d.driverId}</span>}</div>
                   </td>
-                  <td className="px-4 py-2 text-muted-foreground">{d.equipment ?? "—"}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{d.equipment ?? "-"}</td>
                   <td className="px-4 py-2">
                     {d.position
                       ? <span><MapPin className="h-3 w-3 inline mr-1 text-muted-foreground" />{d.position.city ?? "?"}{d.position.state ? `, ${d.position.state}` : ""}</span>
@@ -191,7 +191,7 @@ export function FleetFeed() {
 }
 
 // Compact map for the drawer. Google Maps Embed API (iframe). Rendered
-// ONLY when caller passes real coords — that gate lives in the parent
+// ONLY when caller passes real coords - that gate lives in the parent
 // so this component cannot accidentally invent a position. If the API
 // key is unset the iframe is replaced with a plain "Map unavailable"
 // box; we do NOT render a placeholder labelled as if it were a map.
@@ -264,10 +264,10 @@ function DriverDrawer({ driverId, onClose }: { driverId: string; onClose: () => 
             <section>
               <div className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Profile</div>
               <div className="font-semibold">{detail.driver.fullName ?? detail.driver.driverId}</div>
-              <div className="text-xs text-muted-foreground">{detail.driver.email ?? "—"} · {detail.driver.phone ?? "—"}</div>
+              <div className="text-xs text-muted-foreground">{detail.driver.email ?? "-"} · {detail.driver.phone ?? "-"}</div>
               <div className="text-xs text-muted-foreground mt-1">Status: <Badge variant="outline">{detail.driver.status}</Badge></div>
-              <div className="text-xs text-muted-foreground">Equipment: {detail.driver.equipment ?? "—"}</div>
-              <div className="text-xs text-muted-foreground">MC: {detail.driver.mcNumber ?? "—"}</div>
+              <div className="text-xs text-muted-foreground">Equipment: {detail.driver.equipment ?? "-"}</div>
+              <div className="text-xs text-muted-foreground">MC: {detail.driver.mcNumber ?? "-"}</div>
             </section>
 
             <section>

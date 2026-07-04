@@ -49,7 +49,7 @@ function StatusBadge({ status }: { status: string }) {
 
 // ── Company verification tab (FMCSA + Didit KYB, keyed on orgId) ─────────────
 // Same submitCarrierDocs/getVerification backend functions the Owner
-// Operator verification flow uses — just pointed at an orgId instead of an
+// Operator verification flow uses - just pointed at an orgId instead of an
 // operatorId. See backend routes/org.ts.
 
 function VerificationTab({ orgId }: { orgId: string }) {
@@ -82,7 +82,7 @@ function VerificationTab({ orgId }: { orgId: string }) {
         dotNumber: dotNumber || undefined,
       });
       setVerification(r.verification);
-      toast.success("Verification submitted — FMCSA + KYB checks are running");
+      toast.success("Verification submitted - FMCSA + KYB checks are running");
     } catch (e: any) { toast.error(e.message); }
     finally { setSubmitting(false); }
   };
@@ -105,11 +105,11 @@ function VerificationTab({ orgId }: { orgId: string }) {
         <div className="grid sm:grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-muted-foreground text-xs">FMCSA authority</p>
-            <p className="font-medium">{verification?.fmcsaAuthorityActive === true ? "Active" : verification?.fmcsaAuthorityActive === false ? "Inactive" : "—"}</p>
+            <p className="font-medium">{verification?.fmcsaAuthorityActive === true ? "Active" : verification?.fmcsaAuthorityActive === false ? "Inactive" : "-"}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">KYB (company identity)</p>
-            <p className="font-medium">{verification?.kybStatus ?? "—"}</p>
+            <p className="font-medium">{verification?.kybStatus ?? "-"}</p>
           </div>
         </div>
         {verification?.diditKybUrl && status !== "VERIFIED" && (
@@ -142,7 +142,7 @@ function VerificationTab({ orgId }: { orgId: string }) {
   );
 }
 
-// ── Drivers tab — direct setup AND invite, both wired to the existing routes ─
+// ── Drivers tab - direct setup AND invite, both wired to the existing routes ─
 
 function DriversTab({ orgId }: { orgId: string }) {
   const [members, setMembers] = useState<any[]>([]);
@@ -182,7 +182,7 @@ function DriversTab({ orgId }: { orgId: string }) {
     setCreatingDirect(true);
     try {
       await api.createOrgDriver(orgId, { email: directEmail.trim(), legalName: directName.trim(), phone: directPhone || undefined });
-      toast.success(`${directName.trim()} added — activation email sent`);
+      toast.success(`${directName.trim()} added - activation email sent`);
       setDirectEmail(""); setDirectName(""); setDirectPhone("");
       load();
     } catch (e: any) { toast.error(e.message); }
@@ -340,14 +340,14 @@ function DriversTab({ orgId }: { orgId: string }) {
   );
 }
 
-// ── Dispatch tab — placeholder, no load-posting logic exists for carriers yet ─
+// ── Dispatch tab - placeholder, no load-posting logic exists for carriers yet ─
 
-// ── Dispatch tab — real implementation ───────────────────────────────────────
+// ── Dispatch tab - real implementation ───────────────────────────────────────
 // Lists the org's loads (tendered offers + assigned/in-transit) so a
 // carrier-admin / dispatcher can see at a glance what's in flight. Each row
 // opens a detail dialog with a RouteMapCard so the lane is visible without
 // leaving the dashboard. The dialog also wires through to the read-only
-// AttestationChain panel — handy for confirming the carrier signing chain
+// AttestationChain panel - handy for confirming the carrier signing chain
 // is complete before paying.
 
 function DispatchTab({ orgId }: { orgId: string }) {
@@ -461,8 +461,8 @@ function DispatchTab({ orgId }: { orgId: string }) {
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">
-                    {r.origin?.city ?? '—'}, {r.origin?.state ?? '—'}{' → '}
-                    {r.dest?.city ?? '—'}, {r.dest?.state ?? '—'}
+                    {r.origin?.city ?? '-'}, {r.origin?.state ?? '-'}{' → '}
+                    {r.dest?.city ?? '-'}, {r.dest?.state ?? '-'}
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
                     {(r as any).commodity ?? 'commodity TBD'}
@@ -479,19 +479,19 @@ function DispatchTab({ orgId }: { orgId: string }) {
         </ul>
       )}
 
-      {/* Load detail dialog — map + key fields + read-only attestation chain */}
+      {/* Load detail dialog - map + key fields + read-only attestation chain */}
       <Dialog open={openLoad !== null} onOpenChange={(o) => { if (!o) setOpenLoad(null); }}>
         <DialogContent className="max-w-3xl">
           {openLoad && (
             <div className="space-y-4">
               <div className="flex items-baseline justify-between">
                 <h2 className="text-lg font-semibold">
-                  {openLoad.origin?.city ?? '—'} → {openLoad.dest?.city ?? '—'}
+                  {openLoad.origin?.city ?? '-'} → {openLoad.dest?.city ?? '-'}
                 </h2>
                 <span className="text-xs text-muted-foreground font-mono">{openLoad.loadId}</span>
               </div>
 
-              {/* Route preview — uses the same RouteMapCard the rest of the app
+              {/* Route preview - uses the same RouteMapCard the rest of the app
                   uses. The expand button opens its own fullscreen modal. */}
               <RouteMapCard
                 pickupAddress={openLoad.origin?.city
@@ -530,7 +530,7 @@ function DispatchTab({ orgId }: { orgId: string }) {
                 )}
               </div>
 
-              {/* Dispatcher path — pick a driver + sign CARRIER_ACCEPT.
+              {/* Dispatcher path - pick a driver + sign CARRIER_ACCEPT.
                   Only shown for TENDERED rows (UNASSIGNED rows don't
                   have offer infrastructure to accept against). */}
               {openLoad.status === 'TENDERED' && drivers.length > 0 && (
@@ -548,7 +548,7 @@ function DispatchTab({ orgId }: { orgId: string }) {
                       onChange={(e) => setAssignDriverId(e.target.value)}
                       disabled={dispatching}
                     >
-                      <option value="">— pick a driver —</option>
+                      <option value="">- pick a driver -</option>
                       {drivers.map((d: any) => (
                         <option key={d.driverId} value={d.driverId}>
                           {d.name ?? d.driverId} · {d.availability ?? 'unknown'} · IDV: {d.idvStatus}
@@ -565,7 +565,7 @@ function DispatchTab({ orgId }: { orgId: string }) {
                 </div>
               )}
 
-              {/* Attestation chain — read-only, shows who has signed what */}
+              {/* Attestation chain - read-only, shows who has signed what */}
               <AttestationChain loadId={openLoad.loadId} />
             </div>
           )}
@@ -615,7 +615,7 @@ export default function CarrierDashboard() {
   useEffect(() => {
     api.getMyOrgs()
       .then(r => {
-        // A CARRIER_ADMIN has exactly one org — the carrier company created
+        // A CARRIER_ADMIN has exactly one org - the carrier company created
         // atomically at signup.
         const org = (r.orgs ?? []).find((o: any) => o.capabilities?.includes("CARRIER")) ?? r.orgs?.[0];
         if (org) { setOrgId(org.orgId); setOrgName(org.legalName); }
@@ -688,7 +688,7 @@ export default function CarrierDashboard() {
           </div>
         </div>
 
-        {/* Tab content area — full width minus the page gutters. The
+        {/* Tab content area - full width minus the page gutters. The
             Dispatcher/Exec toggle + Refresh button live inside
             CarrierDashboardView and remain at the top of the Overview tab. */}
         <div className="max-w-7xl w-full mx-auto px-6 py-6 flex-1 min-w-0">

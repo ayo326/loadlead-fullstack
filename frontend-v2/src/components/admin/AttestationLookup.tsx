@@ -13,7 +13,7 @@
 // AuthZ note: the GET /api/attestation/chain/:loadId endpoint accepts
 // ANY authenticated user today. Tightening it to "platform staff OR
 // load party" is a Phase-2 backlog item (logged in
-// docs/ATTESTATION_PHASE_1.md). This UI does NOT widen access — it just
+// docs/ATTESTATION_PHASE_1.md). This UI does NOT widen access - it just
 // makes the existing endpoint discoverable to staff who already have
 // access by virtue of being authenticated.
 
@@ -36,7 +36,7 @@ export function AttestationLookup() {
       setLoadId(null);
       return;
     }
-    // Light client-side shape check — server enforces real validation.
+    // Light client-side shape check - server enforces real validation.
     if (!/^load_[A-Za-z0-9_-]+$/.test(trimmed)) {
       setError("loadId should look like load_<id>. Paste from the FleetFeed row.");
       setLoadId(null);

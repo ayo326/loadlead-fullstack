@@ -21,7 +21,7 @@ function Row({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between py-2.5 border-b border-border last:border-0 gap-4">
       <span className="text-sm text-muted-foreground shrink-0">{label}</span>
-      <span className="text-sm font-medium text-right">{value ?? "—"}</span>
+      <span className="text-sm font-medium text-right">{value ?? "-"}</span>
     </div>
   );
 }
@@ -38,11 +38,11 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.E
 }
 
 function fmt(n: number | undefined | null) {
-  return n != null ? n.toLocaleString() : "—";
+  return n != null ? n.toLocaleString() : "-";
 }
 
 function fmtDate(ts: number | string | undefined) {
-  if (!ts) return "—";
+  if (!ts) return "-";
   const d = typeof ts === "number" ? new Date(ts) : new Date(ts);
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
@@ -124,7 +124,7 @@ export default function OwnerOperatorLoadDetail() {
           <Row label="Load size"   value={load.loadSize} />
           {load.hazmat && <Row label="Hazmat" value="Yes" />}
           {load.temperatureMin != null && load.temperatureMax != null && (
-            <Row label="Temp range" value={`${load.temperatureMin}° – ${load.temperatureMax}°F`} />
+            <Row label="Temp range" value={`${load.temperatureMin}° - ${load.temperatureMax}°F`} />
           )}
         </Section>
 

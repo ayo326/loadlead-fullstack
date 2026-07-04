@@ -1,7 +1,7 @@
-// AttestationChain — read-only ordered chain view for a load.
+// AttestationChain - read-only ordered chain view for a load.
 //
 // Shown on the load detail page to ALL load parties (shipper, carrier,
-// OO, driver, receiver) and to platform ADMIN (read-only — no admin
+// OO, driver, receiver) and to platform ADMIN (read-only - no admin
 // sign UI). Each row surfaces: who, when, what, hash, photo count, any
 // exceptions captured at signing.
 //

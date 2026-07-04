@@ -1,9 +1,9 @@
 /**
- * Compliance / oversight console — the admin face of /api/admin/compliance.
+ * Compliance / oversight console - the admin face of /api/admin/compliance.
  *
  * Least privilege + separation of duties: the tabs shown here are driven by the
  * caller's own compliance grants (fetched from GET /compliance/me), and the
- * server still gates every call. This screen is oversight only — every action
+ * server still gates every call. This screen is oversight only - every action
  * is append-only and audited server-side; nothing here mutates or deletes an
  * immutable pipeline record, decides legal validity, or auto-discloses.
  *
@@ -167,7 +167,7 @@ function DisputesTab() {
         )}
       </Panel>
 
-      <Panel title="Adjudicate" hint="Records an append-only decision. ADJUST/REVERSE with a compensation amount writes a compensating reconciliation entry — the original record is never changed.">
+      <Panel title="Adjudicate" hint="Records an append-only decision. ADJUST/REVERSE with a compensation amount writes a compensating reconciliation entry - the original record is never changed.">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Target type">
             <select className={INPUT} value={adj.targetType} onChange={(e) => setAdj({ ...adj, targetType: e.target.value as AdjudicationTargetType })}>
@@ -339,7 +339,7 @@ function LegalTab() {
         {caseFile && (
           <div className="mt-4">
             <div className={`mb-3 rounded-md px-3 py-2 text-sm ${caseFile.integrity.ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>
-              Integrity: {caseFile.integrity.ok ? "OK — manifest matches all items" : `FAILED — ${caseFile.integrity.gaps.length} gap(s)`}
+              Integrity: {caseFile.integrity.ok ? "OK - manifest matches all items" : `FAILED - ${caseFile.integrity.gaps.length} gap(s)`}
               {!caseFile.integrity.ok && <div className="mt-1 text-xs font-mono">{caseFile.integrity.gaps.join(", ")}</div>}
             </div>
             <div className="text-xs text-muted-foreground mb-2">{caseFile.caseFile.items.length} record(s), assembled {fmtTs(caseFile.caseFile.assembledAt)}</div>
@@ -526,7 +526,7 @@ function LawEnforcementTab() {
         {lastIntake && <p className="mt-2 text-xs text-emerald-700">Recorded request <span className="font-mono">{lastIntake.requestId}</span>. Loaded below for counsel review.</p>}
       </Panel>
 
-      <Panel title="Request review — counsel sign-off & disclosure" hint="Look up a request, record counsel's validity determination, then (only after sign-off) record a scoped disclosure.">
+      <Panel title="Request review - counsel sign-off & disclosure" hint="Look up a request, record counsel's validity determination, then (only after sign-off) record a scoped disclosure.">
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex-1 min-w-[240px]"><Field label="Request id"><input className={INPUT} value={lookupId} onChange={(e) => setLookupId(e.target.value)} placeholder="lereq_..." /></Field></div>
           <Button variant="outline" onClick={lookup}><Search className="h-4 w-4 mr-1.5" aria-hidden /> Look up</Button>
@@ -543,7 +543,7 @@ function LawEnforcementTab() {
             <p className="mt-2 text-xs text-muted-foreground">{detail.intake.describedScope}</p>
             <div className="mt-2">
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${hasSignOff ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                {hasSignOff ? "COUNSEL SIGNED OFF — disclosure permitted" : "PENDING COUNSEL — disclosure blocked"}
+                {hasSignOff ? "COUNSEL SIGNED OFF - disclosure permitted" : "PENDING COUNSEL - disclosure blocked"}
               </span>
             </div>
             {detail.disclosures.length > 0 && (
@@ -628,9 +628,9 @@ function LawEnforcementTab() {
                     {icList.map((x) => (
                       <tr key={x.interceptId} className="border-t border-border">
                         <td className="px-3 py-2 text-xs text-foreground">{x.instruction}</td>
-                        <td className="px-3 py-2 text-xs tabular-nums">{x.amountCents != null ? formatCents(x.amountCents) : x.percentageBps != null ? `${x.percentageBps / 100}%` : "—"}</td>
+                        <td className="px-3 py-2 text-xs tabular-nums">{x.amountCents != null ? formatCents(x.amountCents) : x.percentageBps != null ? `${x.percentageBps / 100}%` : "-"}</td>
                         <td className="px-3 py-2 text-[11px] font-mono text-muted-foreground break-all">{x.instrumentRef}</td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{x.redirectTo ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{x.redirectTo ?? "-"}</td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">{x.priority}</td>
                       </tr>
                     ))}

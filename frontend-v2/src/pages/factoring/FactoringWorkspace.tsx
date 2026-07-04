@@ -1,7 +1,7 @@
 /**
- * Factoring workspace — shared by BOTH carrier personas:
+ * Factoring workspace - shared by BOTH carrier personas:
  *   /owner-operator/factoring  (OWNER_OPERATOR)
- *   /carrier/factoring         (CARRIER_ADMIN — fleet-carrier org managers)
+ *   /carrier/factoring         (CARRIER_ADMIN - fleet-carrier org managers)
  *
  * The backend resolves who the caller acts for (routes/factoring.ts
  * resolveCarrierIdForUser: OO profile first, else ACTIVE OWNER/MANAGER

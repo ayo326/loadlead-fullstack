@@ -2,12 +2,12 @@
 //
 // The official asset lives in frontend-v2/public/loadlead-logo.png
 // (transparent background, 1036×213). The art is pure BLACK (the circle
-// badge + the "LoadLead" wordmark) with a white truck inside the badge —
+// badge + the "LoadLead" wordmark) with a white truck inside the badge -
 // so on a DARK surface the black circle and black wordmark disappear into
 // the background. To fix that without shipping a second asset, `variant="light"`
 // (used on dark hero / sidebar surfaces) inverts the PNG via CSS: black→white,
 // white→black, transparent stays transparent. Result on navy: a white badge
-// with a black truck + a white wordmark — the exact logo art, recolored to
+// with a black truck + a white wordmark - the exact logo art, recolored to
 // read on dark. `variant="dark"` (default) renders the original black art
 // for light surfaces.
 //
@@ -33,7 +33,7 @@ export function Logo({
     <a
       href="https://loadleadapp.com"
       className="flex items-center gap-3 no-underline transition-opacity duration-fast ease-soft hover:opacity-80 cursor-pointer"
-      aria-label="LoadLead — Where loads meet leads."
+      aria-label="LoadLead - Where loads meet leads."
     >
       <img
         src="/loadlead-logo.png"

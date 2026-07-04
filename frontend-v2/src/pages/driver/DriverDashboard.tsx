@@ -90,8 +90,8 @@ export default function DriverDashboard() {
   const maxCapLbs = profile?.maxCapacityLbs ?? 0;
   const maxOpLbs = maxCapLbs * (1 - bufferPct / 100);
   const curLoadLbs = profile?.currentLoadLbs ?? 0;
-  const availCap = profile ? Math.max(0, maxOpLbs - curLoadLbs).toLocaleString() : "—";
-  const maxCap = profile ? maxCapLbs.toLocaleString() : "—";
+  const availCap = profile ? Math.max(0, maxOpLbs - curLoadLbs).toLocaleString() : "-";
+  const maxCap = profile ? maxCapLbs.toLocaleString() : "-";
 
   // Volume
   const interiorL = profile?.interiorLengthIn ?? 0;
@@ -115,7 +115,7 @@ export default function DriverDashboard() {
   // Affiliation gate: a driver with no carrier of record cannot accept loads
   // (resolveCarrierOfRecord returns null in the backend). Show a passive
   // "waiting for invite" banner so the next-step UX is obvious; the driver
-  // can't self-serve here — a carrier admin has to invite them.
+  // can't self-serve here - a carrier admin has to invite them.
   const showAwaitingAffiliation =
     !loading && profile && affiliation && affiliation.status === "UNAFFILIATED";
 
@@ -207,8 +207,8 @@ export default function DriverDashboard() {
           )}
         </div>
 
-        <StatCard label="Equipment" value={profile?.trailerType?.replace("_", " ") ?? "—"} hint={profile?.cdlClass ? `CDL-${profile.cdlClass}` : ""} />
-        <StatCard label="Location" value={profile?.currentCity ?? "—"} hint={profile?.currentState ?? ""} />
+        <StatCard label="Equipment" value={profile?.trailerType?.replace("_", " ") ?? "-"} hint={profile?.cdlClass ? `CDL-${profile.cdlClass}` : ""} />
+        <StatCard label="Location" value={profile?.currentCity ?? "-"} hint={profile?.currentState ?? ""} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -360,20 +360,20 @@ export default function DriverDashboard() {
             <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
               <div className="rounded-lg bg-secondary p-2.5">
                 <div className="text-muted-foreground">Equipment</div>
-                <div className="font-semibold">{profile?.trailerType?.replace("_", " ") ?? "—"}</div>
+                <div className="font-semibold">{profile?.trailerType?.replace("_", " ") ?? "-"}</div>
               </div>
               <div className="rounded-lg bg-secondary p-2.5">
                 <div className="text-muted-foreground">MC</div>
-                <div className="font-semibold">{profile?.mcNumber ?? "—"}</div>
+                <div className="font-semibold">{profile?.mcNumber ?? "-"}</div>
               </div>
             </div>
           </div>
 
           <div className="rounded-md border border-border bg-card p-5">
             <div className="flex items-center gap-2 text-sm font-semibold mb-4"><TrendingUp className="h-4 w-4 text-primary" /> Profile summary</div>
-            <Row icon={Package} label="Experience" value={`${profile?.experienceYears ?? "—"} yrs`} />
-            <Row icon={Gauge} label="CDL class" value={profile ? `Class ${profile.cdlClass}` : "—"} />
-            <Row icon={TrendingUp} label="DOT" value={profile?.dotNumber ?? "—"} />
+            <Row icon={Package} label="Experience" value={`${profile?.experienceYears ?? "-"} yrs`} />
+            <Row icon={Gauge} label="CDL class" value={profile ? `Class ${profile.cdlClass}` : "-"} />
+            <Row icon={TrendingUp} label="DOT" value={profile?.dotNumber ?? "-"} />
           </div>
         </aside>
       </div>
