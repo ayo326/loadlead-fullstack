@@ -62,6 +62,11 @@ function advanceKey(invoiceId: string, lineKind: AdvanceLineKind, chargeId?: str
   return createHash('sha256').update(`${invoiceId}|${lineKind}|${chargeId ?? 'LINEHAUL'}`, 'utf8').digest('hex').slice(0, 32);
 }
 
+/** A conditional-put failure — a concurrent write won the idempotent insert. */
+function isConditionFailure(err: any): boolean {
+  return err?.name === 'ConditionalCheckFailedException' || err?.name === 'TransactionCanceledException';
+}
+
 export class FundingAdvanceService {
   /**
    * Issue an advance against a factorable line. Throws if an accessorial line is
@@ -80,11 +85,11 @@ export class FundingAdvanceService {
     if (input.amountCents <= 0) throw new Error('advance: amount must be > 0');
 
     const key = advanceKey(input.invoiceId, input.lineKind, input.chargeId);
-    const existing = (await this.scanAll()).find((a) => a.idempotencyKey === key);
-    if (existing) return existing; // idempotent: never double-advance a line
-
     const advance: FundingAdvance = {
-      advanceId: Helpers.generateId('advance'),
+      // Deterministic id from the idempotency key, so a concurrent duplicate
+      // loses the conditional put below rather than both inserting (a
+      // scan-then-put would double-advance the line).
+      advanceId: `advance_${key}`,
       invoiceId: input.invoiceId,
       carrierId: input.carrierId,
       lineKind: input.lineKind,
@@ -100,8 +105,21 @@ export class FundingAdvanceService {
       idempotencyKey: key,
       issuedAt: Helpers.getCurrentTimestamp(),
     };
-    await Database.putItem(config.dynamodb.fundingAdvancesTable, advance);
-    return advance;
+    try {
+      await Database.putItem(config.dynamodb.fundingAdvancesTable, advance, {
+        conditionExpression: 'attribute_not_exists(advanceId)',
+      });
+      return advance;
+    } catch (err) {
+      if (isConditionFailure(err)) {
+        const existing = await Database.getItem<FundingAdvance>(
+          config.dynamodb.fundingAdvancesTable,
+          { advanceId: advance.advanceId }
+        );
+        if (existing) return existing; // idempotent: never double-advance a line
+      }
+      throw err;
+    }
   }
 
   static async listForInvoice(invoiceId: string): Promise<FundingAdvance[]> {
