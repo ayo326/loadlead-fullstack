@@ -14,6 +14,12 @@ export default function ShipperDashboard() {
   const [loads, setLoads] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [profileComplete, setProfileComplete] = useState(true);
+  // D1/V7: the "Match velocity" widget renders ONLY when real data is present.
+  // There is no match-velocity endpoint yet, so this stays null and the widget
+  // does not render - no fabricated bars or stat. The component is retained so
+  // it lights up the moment a real endpoint feeds these two values.
+  const [matchVelocity] = useState<{ label: string; pct: number }[] | null>(null);
+  const [avgMatchSeconds] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -141,18 +147,25 @@ export default function ShipperDashboard() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-md border border-border bg-card p-6">
-        <div className="flex items-center gap-2 text-sm font-semibold"><TrendingUp className="h-4 w-4 text-primary" /> Match velocity (7 days)</div>
-        <div className="mt-6 flex items-end gap-2 h-40">
-          {[40, 55, 38, 70, 62, 88, 75].map((h, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-2">
-              <div className="w-full rounded-t-md bg-primary" style={{ height: `${h}%` }} />
-              <div className="text-[10px] text-muted-foreground">{["M","T","W","T","F","S","S"][i]}</div>
-            </div>
-          ))}
+      {/* Match velocity - rendered only with real data (D1/V7). No fabricated
+          bars or average. Wire matchVelocity + avgMatchSeconds to a real
+          endpoint to light this up. */}
+      {matchVelocity && matchVelocity.length > 0 && (
+        <div className="mt-6 rounded-md border border-border bg-card p-6">
+          <div className="flex items-center gap-2 text-sm font-semibold"><TrendingUp className="h-4 w-4 text-primary" /> Match velocity (7 days)</div>
+          <div className="mt-6 flex items-end gap-2 h-40">
+            {matchVelocity.map((d, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                <div className="w-full rounded-t-md bg-primary" style={{ height: `${d.pct}%` }} />
+                <div className="text-[10px] text-muted-foreground">{d.label}</div>
+              </div>
+            ))}
+          </div>
+          {avgMatchSeconds != null && (
+            <div className="mt-4 text-xs text-muted-foreground">Average match: <span className="font-semibold text-foreground">{avgMatchSeconds}s</span></div>
+          )}
         </div>
-        <div className="mt-4 text-xs text-muted-foreground">Average match: <span className="font-semibold text-foreground">52s</span></div>
-      </div>
+      )}
     </>
   );
 }

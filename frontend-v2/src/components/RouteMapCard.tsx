@@ -49,7 +49,13 @@ export function RouteMapCard({
   // Resolve key: prefer prop, fall back to build-time env var
   const resolvedKey = mapsApiKey || (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined);
 
-  const hasRoute = !!(pickupAddress && deliveryAddress);
+  // V6: an address only counts as "resolvable" if it has a street segment
+  // (a non-empty part before the first comma). A partial like ", Chicago, IL"
+  // (city typed, street blank) must NOT produce a directions embed - that
+  // renders a zoomed-all-the-way-out world map. Fall through to the placeholder.
+  const streetResolvable = (a?: string | null) =>
+    !!a && a.trim().length > 0 && a.split(",")[0].trim().length > 0;
+  const hasRoute = streetResolvable(pickupAddress) && streetResolvable(deliveryAddress);
   const hasLocation = !!(currentLat && currentLng) || !!(currentCity && currentState);
 
   // ── Build embed src ──────────────────────────────────────────────────────
@@ -248,10 +254,16 @@ function Placeholder({ currentCity, currentState }: Pick<RouteMapCardProps, "cur
           <div className="relative h-4 w-4 rounded-full bg-white border-2 border-primary" />
         </div>
       </div>
-      {(currentCity || currentState) && (
+      {(currentCity || currentState) ? (
         <div className="absolute bottom-3 left-3 text-primary-foreground">
           <div className="text-xs opacity-70">{currentState ?? ""}</div>
           <div className="text-sm font-semibold">{currentCity ?? "Unknown"}</div>
+        </div>
+      ) : (
+        // V6: no route and no location yet - tell the user what unlocks the map
+        // instead of showing a zoomed-out world view.
+        <div className="absolute inset-x-0 bottom-4 text-center px-4">
+          <p className="text-xs text-muted-foreground">Enter pickup and delivery to preview the route</p>
         </div>
       )}
     </div>
