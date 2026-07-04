@@ -332,17 +332,25 @@ locals {
     # Append-only funding advances (no advance vs non-APPROVED accessorial;
     # idempotent per invoice line).
     FundingAdvances = {
-      hash_key   = "advanceId"
-      attributes = [{ name = "advanceId", type = "S" }]
-      gsis       = []
+      hash_key = "advanceId"
+      attributes = [
+        { name = "advanceId", type = "S" },
+        { name = "invoiceId", type = "S" },
+      ]
+      # V2-M1: listForInvoice queries this instead of scanning the ledger.
+      gsis = [{ name = "invoiceId-index", hash_key = "invoiceId" }]
     }
 
     # Append-only reconciliation + recourse outcomes (payment routing, reserve
     # release, supplemental advance, recourse buyback, non-recourse loss).
     ReconciliationOutcomes = {
-      hash_key   = "outcomeId"
-      attributes = [{ name = "outcomeId", type = "S" }]
-      gsis       = []
+      hash_key = "outcomeId"
+      attributes = [
+        { name = "outcomeId", type = "S" },
+        { name = "invoiceId", type = "S" },
+      ]
+      # V2-M1: outcomesForInvoice queries this instead of scanning the ledger.
+      gsis = [{ name = "invoiceId-index", hash_key = "invoiceId" }]
     }
 
     # Saved factor contact per carrier/owner-operator (pre-fills the recipient).

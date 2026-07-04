@@ -68,9 +68,33 @@ function isConditionFailure(err: any): boolean {
   return err?.name === 'ConditionalCheckFailedException' || err?.name === 'TransactionCanceledException';
 }
 
+/** A query against a GSI that isn't created yet (fall back to a scan until live). */
+function isMissingIndex(err: any): boolean {
+  return err?.name === 'ValidationException' && /index/i.test(String(err?.message ?? ''));
+}
+
 export class ReconciliationService {
   static async outcomesForInvoice(invoiceId: string): Promise<ReconciliationOutcome[]> {
-    return (await this.scanAll()).filter((o) => o.invoiceId === invoiceId).sort((a, b) => a.recordedAt - b.recordedAt);
+    return (await this.byInvoice(invoiceId)).sort((a, b) => a.recordedAt - b.recordedAt);
+  }
+
+  /**
+   * Outcomes for an invoice. M3/V2-M1: query the invoiceId GSI instead of
+   * scanning the (append-only, ever-growing) ledger; fall back to a filtered
+   * scan when the index isn't live yet or the data layer can't query.
+   */
+  private static async byInvoice(invoiceId: string): Promise<ReconciliationOutcome[]> {
+    if (typeof Database.query === 'function') {
+      try {
+        return await Database.query<ReconciliationOutcome>(
+          config.dynamodb.reconciliationOutcomesTable, 'invoiceId-index', '#i = :i', { '#i': 'invoiceId' }, { ':i': invoiceId }
+        );
+      } catch (err: any) {
+        if (err?.name === 'ResourceNotFoundException') return [];
+        if (!isMissingIndex(err)) throw err;
+      }
+    }
+    return (await this.scanAll()).filter((o) => o.invoiceId === invoiceId);
   }
 
   /**
