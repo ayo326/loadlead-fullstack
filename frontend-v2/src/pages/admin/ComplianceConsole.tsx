@@ -304,7 +304,7 @@ function LegalTab() {
           {holds === null ? <div className="text-sm text-muted-foreground">Loading…</div>
             : holdState.filter((h) => h.eventType === "PLACE").length === 0 ? <Empty>No entities are currently under hold.</Empty>
             : (
-              <div className="rounded-md border border-border overflow-hidden">
+              <div className="rounded-md border border-border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-xs text-muted-foreground">
                     <tr><th className="text-left px-3 py-2 font-medium">Entity</th><th className="text-left px-3 py-2 font-medium">State</th><th className="text-left px-3 py-2 font-medium">Reason</th><th className="text-left px-3 py-2 font-medium">Since</th></tr>
@@ -343,7 +343,7 @@ function LegalTab() {
               {!caseFile.integrity.ok && <div className="mt-1 text-xs font-mono">{caseFile.integrity.gaps.join(", ")}</div>}
             </div>
             <div className="text-xs text-muted-foreground mb-2">{caseFile.caseFile.items.length} record(s), assembled {fmtTs(caseFile.caseFile.assembledAt)}</div>
-            <div className="rounded-md border border-border overflow-hidden">
+            <div className="rounded-md border border-border overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-xs text-muted-foreground"><tr><th className="text-left px-3 py-2 font-medium">Kind</th><th className="text-left px-3 py-2 font-medium">Id</th><th className="text-left px-3 py-2 font-medium">Content hash</th></tr></thead>
                 <tbody>
@@ -371,17 +371,21 @@ function LegalTab() {
         {audit !== null && (
           <div className="mt-4">
             {audit.length === 0 ? <Empty>No audit entries.</Empty> : (
-              <div className="rounded-md border border-border overflow-hidden max-h-[420px] overflow-y-auto">
+              <div className="rounded-md border border-border max-h-[420px] overflow-x-auto overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-xs text-muted-foreground sticky top-0"><tr><th className="text-left px-3 py-2 font-medium">When</th><th className="text-left px-3 py-2 font-medium">Actor role</th><th className="text-left px-3 py-2 font-medium">Action</th><th className="text-left px-3 py-2 font-medium">Targets</th><th className="text-left px-3 py-2 font-medium">Reason</th></tr></thead>
+                  {/* D5: Targets (mono id list) collapses below lg; it re-appears
+                      under Action so the decision columns fit narrow screens. */}
+                  <thead className="bg-muted/50 text-xs text-muted-foreground sticky top-0"><tr><th className="text-left px-3 py-2 font-medium">When</th><th className="text-left px-3 py-2 font-medium">Actor role</th><th className="text-left px-3 py-2 font-medium">Action</th><th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Targets</th><th className="text-left px-3 py-2 font-medium">Reason</th></tr></thead>
                   <tbody>
                     {audit.map((a) => (
                       <tr key={a.auditId} className="border-t border-border">
                         <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{fmtTs(a.at)}</td>
                         <td className="px-3 py-2 text-xs text-foreground">{a.actorRole}</td>
-                        <td className="px-3 py-2 text-xs font-medium text-foreground">{a.action}</td>
-                        <td className="px-3 py-2 text-[11px] font-mono text-muted-foreground break-all">{(a.targetRefs ?? []).join(", ") || "—"}</td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{a.reason ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs font-medium text-foreground">{a.action}
+                          {(a.targetRefs ?? []).length > 0 && <div className="mt-0.5 text-[11px] font-mono font-normal text-muted-foreground break-all lg:hidden">{(a.targetRefs ?? []).join(", ")}</div>}
+                        </td>
+                        <td className="px-3 py-2 text-[11px] font-mono text-muted-foreground break-all hidden lg:table-cell">{(a.targetRefs ?? []).join(", ") || "-"}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{a.reason ?? "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -617,7 +621,7 @@ function LawEnforcementTab() {
         {icList !== null && (
           <div className="mt-4">
             {icList.length === 0 ? <Empty>No active intercepts for this invoice + carrier.</Empty> : (
-              <div className="rounded-md border border-border overflow-hidden">
+              <div className="rounded-md border border-border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-xs text-muted-foreground"><tr><th className="text-left px-3 py-2 font-medium">Instruction</th><th className="text-left px-3 py-2 font-medium">Amount</th><th className="text-left px-3 py-2 font-medium">Instrument</th><th className="text-left px-3 py-2 font-medium">Redirect</th><th className="text-left px-3 py-2 font-medium">Prio</th></tr></thead>
                   <tbody>

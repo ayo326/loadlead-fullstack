@@ -125,7 +125,7 @@ export default function StaffManagement() {
         {loading ? (
           <div className="text-sm text-muted-foreground">Loading…</div>
         ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="rounded-lg border border-border overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-xs text-muted-foreground">
                 <tr>
@@ -183,7 +183,7 @@ export default function StaffManagement() {
       {/* Pending invites */}
       <section>
         <h3 className="text-sm font-semibold text-foreground mb-2">Pending invites</h3>
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-lg border border-border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs text-muted-foreground">
               <tr>

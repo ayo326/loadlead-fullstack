@@ -234,13 +234,15 @@ function PipelineTab() {
           arrive, they appear here.
         </div>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-lg border border-border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs text-muted-foreground">
               <tr>
+                {/* D5: Side + Texas collapse below lg so Applicant/Score/Status/
+                    action fit narrow screens; the two re-appear under Applicant. */}
                 <th className="text-left px-3 py-2 font-medium">Applicant</th>
-                <th className="text-left px-3 py-2 font-medium">Side</th>
-                <th className="text-left px-3 py-2 font-medium">Texas</th>
+                <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Side</th>
+                <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Texas</th>
                 <th className="text-left px-3 py-2 font-medium">Score</th>
                 <th className="text-left px-3 py-2 font-medium">Status</th>
                 <th className="px-3 py-2"></th>
@@ -252,10 +254,11 @@ function PipelineTab() {
                   <td className="px-3 py-2">
                     <div className="font-medium text-foreground">{a.fullName || a.workEmail}</div>
                     <div className="text-xs text-muted-foreground">{a.company ?? a.workEmail}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground lg:hidden">{a.side} · {a.texasFocus}</div>
                   </td>
-                  <td className="px-3 py-2">{a.side}</td>
-                  <td className="px-3 py-2">{a.texasFocus}</td>
-                  <td className="px-3 py-2 font-medium">{a.score ?? "—"}<span className="text-muted-foreground">/15</span></td>
+                  <td className="px-3 py-2 hidden lg:table-cell">{a.side}</td>
+                  <td className="px-3 py-2 hidden lg:table-cell">{a.texasFocus}</td>
+                  <td className="px-3 py-2 font-medium">{a.score ?? "-"}<span className="text-muted-foreground">/15</span></td>
                   <td className="px-3 py-2">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_TONE[a.status]}`}>
                       {a.status}
@@ -631,13 +634,14 @@ function AllowlistTab() {
         <button type="submit" disabled={busy} className="rounded-md bg-primary text-primary-foreground px-4 py-1.5 text-sm font-medium disabled:opacity-50">Add</button>
       </form>
 
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="rounded-lg border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
+              {/* D5: Reason collapses below lg; it re-appears under Value. */}
               <th className="text-left px-3 py-2 font-medium">Type</th>
               <th className="text-left px-3 py-2 font-medium">Value</th>
-              <th className="text-left px-3 py-2 font-medium">Reason</th>
+              <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Reason</th>
               <th className="text-left px-3 py-2 font-medium">Active</th>
               <th className="px-3 py-2"></th>
             </tr>
@@ -652,8 +656,9 @@ function AllowlistTab() {
                       {e.value}
                     </button>
                   ) : e.value}
+                  {e.reason && <div className="mt-0.5 text-muted-foreground lg:hidden">{e.reason}</div>}
                 </td>
-                <td className="px-3 py-2 text-muted-foreground text-xs">{e.reason ?? "—"}</td>
+                <td className="px-3 py-2 text-muted-foreground text-xs hidden lg:table-cell">{e.reason ?? "-"}</td>
                 <td className="px-3 py-2">{e.active ? "✓" : "✗"}</td>
                 <td className="px-3 py-2 text-right">
                   {e.active && (
@@ -688,14 +693,16 @@ function WaitlistTab() {
   }
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
+    <div className="rounded-lg border border-border overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-xs text-muted-foreground">
           <tr>
+            {/* D5: Name/Interest/Source collapse below lg so Email/Status/action
+                fit; they re-appear stacked under Email. */}
             <th className="text-left px-3 py-2 font-medium">Email</th>
-            <th className="text-left px-3 py-2 font-medium">Name</th>
-            <th className="text-left px-3 py-2 font-medium">Interest</th>
-            <th className="text-left px-3 py-2 font-medium">Source</th>
+            <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Name</th>
+            <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Interest</th>
+            <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Source</th>
             <th className="text-left px-3 py-2 font-medium">Status</th>
             <th className="px-3 py-2"></th>
           </tr>
@@ -707,10 +714,13 @@ function WaitlistTab() {
                 <button className="text-primary hover:underline" onClick={() => setDrawerEmail(w.email)} title="View submitted intake">
                   {w.email}
                 </button>
+                <div className="mt-0.5 text-muted-foreground lg:hidden font-sans">
+                  {[w.name, w.personaInterest, w.source].filter(Boolean).join(" · ")}
+                </div>
               </td>
-              <td className="px-3 py-2">{w.name ?? "—"}</td>
-              <td className="px-3 py-2">{w.personaInterest ?? "—"}</td>
-              <td className="px-3 py-2 text-muted-foreground text-xs">{w.source}</td>
+              <td className="px-3 py-2 hidden lg:table-cell">{w.name ?? "-"}</td>
+              <td className="px-3 py-2 hidden lg:table-cell">{w.personaInterest ?? "-"}</td>
+              <td className="px-3 py-2 text-muted-foreground text-xs hidden lg:table-cell">{w.source}</td>
               <td className="px-3 py-2">{w.status}</td>
               <td className="px-3 py-2 text-right">
                 {w.status === "WAITING" && (
