@@ -136,6 +136,16 @@ jobs:
         run: |
           curl -sf https://staging.loadleadapp.com/api/health || (echo "Staging health check failed" && exit 1)
 
+      # Security smoke (audit rec #4): an ADMIN with no enrolled MFA must be
+      # refused at login. A real HTTP call catches what the mocked unit test
+      # (M2) could rot on. Skips cleanly until the SMOKE_ADMIN_* secrets exist.
+      - name: Security smoke — ADMIN login requires MFA
+        env:
+          SMOKE_BASE_URL: https://staging.loadleadapp.com
+          SMOKE_ADMIN_NO_MFA_EMAIL: ${{ secrets.SMOKE_ADMIN_NO_MFA_EMAIL }}
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD }}
+        run: node scripts/smoke-admin-mfa.mjs
+
       # Tell the broker this provider version is now in staging so the
       # NEXT can-i-deploy --to-environment=production sees the correct
       # "currently deployed" reference. Skipped if broker not configured.
