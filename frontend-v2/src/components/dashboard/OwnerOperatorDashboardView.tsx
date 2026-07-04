@@ -30,7 +30,7 @@ import {
 
 type View = "dispatcher" | "exec";
 
-export function OwnerOperatorDashboardView() {
+export function OwnerOperatorDashboardView({ hideLoadboard = false }: { hideLoadboard?: boolean } = {}) {
   const [data, setData] = useState<any>(null);
   const [view, setView] = useState<View>("dispatcher");
   const [loading, setLoading] = useState(true);
@@ -85,7 +85,7 @@ export function OwnerOperatorDashboardView() {
       {/* OO-specific: Verification (both gates surfaced at top level) */}
       <VerificationPanel verification={data.verification} />
 
-      {view === "dispatcher" ? <DispatcherView data={data} /> : <ExecView data={data} />}
+      {view === "dispatcher" ? <DispatcherView data={data} hideLoadboard={hideLoadboard} /> : <ExecView data={data} />}
     </div>
   );
 }
@@ -139,7 +139,7 @@ function VerificationPanel({ verification }: { verification: any }) {
 }
 
 // ── Dispatcher view ────────────────────────────────────────────────────────
-function DispatcherView({ data }: { data: any }) {
+function DispatcherView({ data, hideLoadboard = false }: { data: any; hideLoadboard?: boolean }) {
   const a = data.alerts;
   const f = data.fleet;
   const lb = data.loadboard;
@@ -208,19 +208,24 @@ function DispatcherView({ data }: { data: any }) {
         </div>
       </Section>
 
-      <Section title="Tendered loadboard (self + fleet)" icon={Map}>
-        <div className="rounded-xl border border-border bg-card">
-          {lb.tendered.length === 0
-            ? <Empty text="No outstanding offers." />
-            : lb.tendered.slice(0, 10).map((t: any) => (
-                <LoadRow key={t.loadId + t.driverId} data={t} right={
-                  <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded ${t.acceptAs === "self" ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
-                    {t.acceptAs === "self" ? "Accept as self" : "Accept as fleet"}
-                  </span>
-                } />
-              ))}
-        </div>
-        <div className="grid grid-cols-2 gap-3 mt-3">
+      {/* V3: when the page renders the single "Available Loads" board above,
+          suppress this duplicate tendered list (one loadboard, one truth). The
+          Dwell/Deadhead metrics are retained either way (nothing deleted). */}
+      <Section title={hideLoadboard ? "Loadboard metrics" : "Tendered loadboard (self + fleet)"} icon={Map}>
+        {!hideLoadboard && (
+          <div className="rounded-xl border border-border bg-card">
+            {lb.tendered.length === 0
+              ? <Empty text="No outstanding offers." />
+              : lb.tendered.slice(0, 10).map((t: any) => (
+                  <LoadRow key={t.loadId + t.driverId} data={t} right={
+                    <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded ${t.acceptAs === "self" ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
+                      {t.acceptAs === "self" ? "Accept as self" : "Accept as fleet"}
+                    </span>
+                  } />
+                ))}
+          </div>
+        )}
+        <div className={`grid grid-cols-2 gap-3 ${hideLoadboard ? "" : "mt-3"}`}>
           <StatTile label="Dwell"    value={isUnavailable(lb.dwell)    ? <ConnectPlaceholder what="timestamps" reason={lb.dwell.reason} /> : lb.dwell} />
           <StatTile label="Deadhead" value={isUnavailable(lb.deadhead) ? <ConnectPlaceholder what="last-drop data" reason={lb.deadhead.reason} /> : lb.deadhead} />
         </div>
