@@ -268,7 +268,9 @@ export default function AppLayout() {
                 className="pl-9 h-9 bg-secondary border-border"
               />
             </div>
-            <div className="hidden text-label text-muted-foreground sm:block">{user?.email}</div>
+            {/* V8: truncate so a long email ellipsizes instead of clipping
+                against the notification bell / avatar in the top bar. */}
+            <div className="hidden text-label text-muted-foreground sm:block truncate max-w-[220px]">{user?.email}</div>
             <NotificationBell />
             <div
               className="h-8 w-8 rounded-sm overflow-hidden bg-secondary text-foreground flex items-center justify-center text-overline font-mono shrink-0"
