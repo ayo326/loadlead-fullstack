@@ -709,11 +709,11 @@ function DriverSettings({ userId }: { userId: string }) {
               <p className="text-sm">
                 Your effective safety buffer is{" "}
                 <span className="font-semibold text-foreground">{profile.safetyBufferPct ?? 10}%</span>
-                {" "}— {(profile as any).bufferSetByRole === "OWNER" ? "set by your owner" : "set by your admin"}. This keeps your bookable weight at{" "}
+                {" "}- {(profile as any).bufferSetByRole === "OWNER" ? "set by your owner" : "set by your admin"}. This keeps your bookable weight at{" "}
                 <span className="font-semibold text-foreground">
                   {profile.maxCapacityLbs
                     ? `${(Number(profile.maxCapacityLbs) * (1 - (Number(profile.safetyBufferPct ?? 10) / 100))).toLocaleString()} lbs`
-                    : "—"}
+                    : "-"}
                 </span>
                 {" "}below your rated capacity.
               </p>
