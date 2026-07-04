@@ -486,7 +486,7 @@ const settingsTours: Record<Persona, PersonaTour> = {
       {
         id: "intro",
         title: "Your settings",
-        text: "Seven tabs cover your driver record. You'll spend most of your time in Profile, Equipment, and ID Verification.",
+        text: "Four tabs cover your driver record: Operations, Business, Verification, and Security. You'll spend most of your time in Operations and Verification.",
       },
       {
         id: "settings-tabs",
@@ -496,18 +496,11 @@ const settingsTours: Record<Persona, PersonaTour> = {
         waitFor: '[data-tour="settings-tabs"]',
       },
       {
-        id: "settings-tab-profile",
-        title: "Profile",
-        text: "Your legal name, CDL, contact info, and current location. This is what every potential carrier sees about you.",
-        attachTo: { element: '[data-tour="settings-tab-profile"]', on: "right" },
-        waitFor: '[data-tour="settings-tab-profile"]',
-      },
-      {
-        id: "settings-tab-equipment",
-        title: "Equipment",
-        text: "Your truck, your trailer, and your capacity. This drives load matching: if your equipment doesn't fit a load, you won't see the offer.",
-        attachTo: { element: '[data-tour="settings-tab-equipment"]', on: "right" },
-        waitFor: '[data-tour="settings-tab-equipment"]',
+        id: "settings-tab-operations",
+        title: "Operations",
+        text: "Your profile (legal name, CDL, contact, location) and your equipment (truck, trailer, capacity) live here. Equipment drives load matching: if it doesn't fit a load, you won't see the offer.",
+        attachTo: { element: '[data-tour="settings-tab-operations"]', on: "right" },
+        waitFor: '[data-tour="settings-tab-operations"]',
       },
       {
         id: "settings-tab-id",

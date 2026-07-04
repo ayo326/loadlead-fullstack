@@ -28,6 +28,22 @@ function tabFromUrl(fallback: string): string {
   if (t === "id" || t === "biz") return "verification";
   return t;
 }
+
+// D7: Driver settings regroup. The four legacy tabs collapse into two:
+//   Profile + Equipment            -> Operations
+//   Authority & Insurance + Org    -> Business
+// Old deep links (?tab=profile|equipment|authority|organisation|id|biz) keep
+// working by mapping to the new group. Scoped to DriverSettings only so the
+// shared tabFromUrl (Shipper/Receiver, which still have their own tabs) is
+// unaffected.
+function driverTabFromUrl(fallback: string): string {
+  const t = new URLSearchParams(window.location.search).get("tab");
+  if (!t) return fallback;
+  if (t === "profile" || t === "equipment") return "operations";
+  if (t === "authority" || t === "organisation") return "business";
+  if (t === "id" || t === "biz") return "verification";
+  return t;
+}
 import { useEquipmentClasses, taxonomyApi, toEquipmentItems } from "@/services/taxonomy";
 import { useMemo as useMemoTaxonomy } from "react";
 
@@ -534,15 +550,18 @@ function DriverSettings({ userId }: { userId: string }) {
   );
 
   return (
-    <Tabs defaultValue={tabFromUrl("profile")} orientation="vertical" className="flex gap-6">
+    <Tabs defaultValue={driverTabFromUrl("operations")} orientation="vertical" className="flex gap-6">
       <div className="flex flex-col w-48 shrink-0 gap-3">
         <div className="rounded-xl bg-secondary p-3">
           <HeadshotUploader />
         </div>
         <TabsList data-tour="settings-tabs" className="flex flex-col h-auto w-full rounded-xl bg-secondary p-1 gap-1">
-          <TabsTrigger data-tour="settings-tab-profile" value="profile" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Profile</TabsTrigger>
-          <TabsTrigger data-tour="settings-tab-equipment" value="equipment" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Equipment</TabsTrigger>
-          <TabsTrigger value="authority" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Authority & Insurance</TabsTrigger>
+          {/* D7: Profile + Equipment collapse into Operations; Authority &
+              Insurance + Organisation collapse into Business. Each merged tab
+              keeps every field under a sub-header (nothing removed). Legacy
+              ?tab= links still resolve via driverTabFromUrl. */}
+          <TabsTrigger data-tour="settings-tab-operations" value="operations" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Operations</TabsTrigger>
+          <TabsTrigger data-tour="settings-tab-business" value="business" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Business</TabsTrigger>
           {/* D3: ID + Business verification merged into ONE Verification tab
               (two sub-sections). Legacy ?tab=id / ?tab=biz map here. The badge
               reflects identity-verification completion. */}
@@ -552,13 +571,14 @@ function DriverSettings({ userId }: { userId: string }) {
               ? <CheckSquare className="h-3.5 w-3.5 text-green-600" />
               : <span className="text-[10px] font-semibold text-amber-600">2 steps</span>}
           </TabsTrigger>
-          <TabsTrigger value="organisation" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Organisation</TabsTrigger>
           <TabsTrigger data-tour="settings-tab-security" value="security" className="w-full justify-start rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
         </TabsList>
       </div>
 
       <div className="flex-1 min-w-0">
-        <TabsContent value="profile">
+        {/* D7: Operations = Profile + Equipment (two sub-sections). */}
+        <TabsContent value="operations" className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Profile</h3>
           <SectionCard>
             <p className="text-xs text-muted-foreground">Fields marked <span className="text-destructive font-semibold">*</span> are required.</p>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -588,7 +608,8 @@ function DriverSettings({ userId }: { userId: string }) {
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="equipment">
+        <TabsContent value="operations" className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Equipment</h3>
           <SectionCard>
             <p className="text-xs text-muted-foreground">Fields marked <span className="text-destructive font-semibold">*</span> are required.</p>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -706,7 +727,9 @@ function DriverSettings({ userId }: { userId: string }) {
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="authority">
+        {/* D7: Business = Authority & Insurance + Organisation (two sub-sections). */}
+        <TabsContent value="business" className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Authority &amp; Insurance</h3>
           <SectionCard>
             <p className="text-xs text-muted-foreground">Fields marked <span className="text-destructive font-semibold">*</span> are required. Insurance fields are optional.</p>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -744,7 +767,8 @@ function DriverSettings({ userId }: { userId: string }) {
           </div>
         </TabsContent>
 
-        <TabsContent value="organisation">
+        <TabsContent value="business" className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Organisation</h3>
           <OrgTabErrorBoundary><OrgTab callerUserRole="DRIVER" /></OrgTabErrorBoundary>
         </TabsContent>
         <TabsContent value="security">
