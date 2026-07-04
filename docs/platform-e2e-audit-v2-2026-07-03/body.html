@@ -1,0 +1,174 @@
+<h1>LoadLead — Platform E2E Audit v2 (deep seams + recommendations)</h1>
+<p><strong>Date:</strong> 2026-07-03  <strong>Author:</strong> Platform Engineering  <strong>Baseline:</strong> <code>main @ 014bb87</code> (post-H1 merge)
+<strong>Focus:</strong> the seams v1 <em>sampled but did not trace</em> — payments ledger, settlement take-rate, compliance
+intercept/suppression — hunting the cross-table / read-then-write non-atomicity pattern (rec #3, #5).</p>
+<hr>
+<h2>1. Executive summary</h2>
+<p>v1 shipped: H1 (env isolation) merged, M1–M3 in a green PR, M4 (prod static keys) live. This pass traced
+the <strong>money movement path end-to-end</strong> and found <strong>one HIGH, systemic defect the unit suites hide</strong>: the
+reconciliation ledger and funding-advance service enforce idempotency with <strong>scan-then-put</strong> — a
+read-then-write race with no conditional guard. Under concurrent or retried settlement they <strong>double-record
+money</strong> (double payment-routing, double intercept application, double advance = double funding). The exact
+generalization of M1, now on the money ledger itself.</p>
+<p>Everything remediated in v1 re-verified clean. 1 HIGH, 1 MEDIUM, rest green.</p>
+<table>
+<thead>
+<tr>
+<th>Severity</th>
+<th>Finding</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>🔴 HIGH</td>
+<td><strong>V2‑H1</strong> — money ledger + funding advances use non-atomic scan-then-put idempotency → double-record under concurrency</td>
+</tr>
+<tr>
+<td>🟠 MEDIUM</td>
+<td><strong>V2‑M1</strong> — reconciliation / funding / intercept services full-table scan on every op (scale), same class as M3</td>
+</tr>
+<tr>
+<td>🟢 GREEN</td>
+<td>H1 parity fixed (gate green), prod hardened, negotiation + money-primitive core sound, compliance audit log correctly append-only, suite 620/624 (the 4 = M2, pending in PR #23)</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>2. Status of v1&#39;s five recommendations</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Recommendation</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Stand up real staging</td>
+<td><strong>Partly</strong> — 50 isolated staging tables live (~$0); hosted compute deferred on cost</td>
+</tr>
+<tr>
+<td>2</td>
+<td>IaC drift as a release gate</td>
+<td><strong>DONE</strong> — <code>check-table-env-parity.mjs</code> wired into dev+staging deploys; <strong>green on main</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Cross-table transactional integrity at the assignment chokepoint; audit the other seams</td>
+<td><strong>DONE (this pass)</strong> — M1 fixed the assignment seam; tracing the <em>others</em> surfaced <strong>V2‑H1</strong> (same class, money ledger)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Security-control smoke test (ADMIN login w/o MFA refused) vs a real env</td>
+<td><strong>Open</strong> — recommend adding once staging compute exists; unit coverage restored by M2 (#23)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Deep-dive payments ledger + settlement take-rate + compliance seams</td>
+<td><strong>DONE (this pass)</strong> — traced; V2‑H1 is the result</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>3. Findings</h2>
+<h3>🔴 V2‑H1 — Money ledger idempotency is not concurrency-safe</h3>
+<p><strong>What.</strong> Two money-critical, append-only services dedupe by <em>reading then writing</em>:</p>
+<p><code>services/reconciliationService.ts</code> — <code>recordOutcome()</code> (the ledger for <strong>payment routing, reserve release,
+recourse buyback, non-recourse loss, supplemental advance, intercept application, adjudication compensation</strong>):</p>
+<pre><code class="language-ts">if (input.idempotencyKey) {
+  const existing = (await this.scanAll()).find((o) =&gt; o.idempotencyKey === input.idempotencyKey);
+  if (existing) return existing;
+}
+const outcome = { outcomeId: Helpers.generateId(&#39;recon&#39;), ... };  // RANDOM pk
+await Database.putItem(reconciliationOutcomesTable, outcome);       // no condition
+</code></pre>
+<p><code>services/fundingAdvanceService.ts</code> — <code>issueAdvance()</code>, same shape, with the hard invariant &quot;never
+double-advance a line.&quot;</p>
+<p><strong>Failure scenario.</strong> Two concurrent (or client-retried-in-flight) calls with the same <code>idempotencyKey</code>:
+both <code>scanAll()</code> see no existing row, both build a row with a fresh random PK, both <code>putItem</code> → <strong>two ledger
+entries / two advances for the same event</strong>. On the funding path that is <strong>money fronted twice</strong>; on the
+reconciliation path the invoice&#39;s outcome history double-counts (double payment-routing, double intercept).
+It is safe under <em>serial</em> retry (the second read finds the first) — only concurrency/overlap breaks it.</p>
+<p><strong>Why it matters + why tests miss it.</strong> This is the settlement money path (compliance intercepts route
+through <code>recordOutcome</code>). Unit tests call these serially, so the race never manifests → false green. The
+codebase already uses the correct primitive elsewhere: <strong>11 services</strong> (negotiation, attestation, factoring,
+liquidity, verification, …) use <code>attribute_not_exists</code> / <code>ConditionExpression</code>. These two money services are
+the outliers.</p>
+<p><strong>COA (the fix).</strong> Make the idempotent write atomic — deterministic id + conditional put (mirrors
+<code>negotiationService</code>):</p>
+<pre><code class="language-ts">const outcomeId = input.idempotencyKey ? `recon_${input.idempotencyKey}` : Helpers.generateId(&#39;recon&#39;);
+try {
+  await docClient.send(new PutCommand({
+    TableName: reconciliationOutcomesTable, Item: { ...outcome, outcomeId },
+    ConditionExpression: &#39;attribute_not_exists(outcomeId)&#39;,
+  }));
+} catch (e) {
+  if (isConditionFailure(e)) return (await Database.getItem(reconciliationOutcomesTable, { outcomeId }))!; // a concurrent write won
+  throw e;
+}
+</code></pre>
+<p>Same for <code>fundingAdvanceService</code> (deterministic id from <code>advanceKey</code>). <code>Database.putItem</code> has no condition
+param, so use <code>docClient</code> directly (as the negotiation service does) or extend <code>putItem</code> with an optional
+<code>ConditionExpression</code>. Add a test that asserts two overlapping calls with the same key yield exactly one row.</p>
+<hr>
+<h3>🟠 V2‑M1 — Reconciliation / funding / intercept reads are full-table scans</h3>
+<p><code>reconciliationService</code>, <code>fundingAdvanceService</code>, <code>payoutInterceptService</code> all <code>scanAll()</code> on every
+create/list/apply (<code>outcomesForInvoice</code>, <code>listForInvoice</code>, <code>activeFor</code>, and the idempotency read above).
+Same O(table) scale cliff as M3, now on the money tables (which grow forever — append-only). Fine at beta
+volume; add an <code>invoiceId</code> (and <code>idempotencyKey</code>) GSI and query, in the same motion as the V2‑H1 fix.</p>
+<hr>
+<h2>4. Re-verified GREEN (v1 remediations hold)</h2>
+<ul>
+<li><strong>H1 env parity</strong> — <code>check-table-env-parity.mjs</code> <strong>green</strong> on <code>main</code>; 50 staging tables live + isolated.</li>
+<li><strong>Prod</strong> — <code>/api/health</code> → <code>productionHardened:true</code>; hardening intact.</li>
+<li><strong>Compliance audit log</strong> (<code>adminAuditService</code>) — append-only <code>putItem</code>, no dedup by design → <strong>correct</strong>, not affected by V2‑H1.</li>
+<li><strong>Negotiation + money primitives</strong> — conditional writes + integer cents, unchanged, sound.</li>
+<li><strong>Suite</strong> — 620/624 on <code>main</code>; the 4 failures are exactly M2 (adminMfa ×3 + errorHandler ×1), fixed in <strong>PR #23</strong>, not regressions.</li>
+</ul>
+<hr>
+<h2>5. Courses of action — prioritized</h2>
+<table>
+<thead>
+<tr>
+<th>Pri</th>
+<th>Action</th>
+<th>Finding</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>P0</strong></td>
+<td>Merge <strong>#23</strong> (M1–M3) — closes the assignment-seam fix + restores the 4 tests to green</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Fix <strong>V2‑H1</strong>: deterministic id + conditional put in <code>reconciliationService.recordOutcome</code> and <code>fundingAdvanceService.issueAdvance</code>; test the concurrent-duplicate case</td>
+<td>V2‑H1</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Add the <strong>ADMIN-MFA smoke test</strong> (rec #4) — assert login without enrolled MFA is refused</td>
+<td>rec #4</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>Add <code>invoiceId</code>/<code>idempotencyKey</code> GSIs to the money tables; convert scans to queries (bundle with V2‑H1)</td>
+<td>V2‑M1, M3</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>Add the two negotiation GSIs&#39; equivalent for the money tables to the tableset module</td>
+<td>V2‑M1</td>
+</tr>
+<tr>
+<td><strong>P3</strong></td>
+<td>Stand up hosted staging so the security smoke test (rec #4) runs against a real env, not mocks</td>
+<td>rec #1/#4</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>6. Recommendation (strategic)</h2>
+<p>The recurring theme across M1 and V2‑H1 is the same: <strong>append-only + &quot;idempotent by reading first&quot; is not
+idempotent under concurrency.</strong> Adopt one house rule — <em>every idempotent write derives a deterministic key
+and uses a conditional put</em> — and sweep the money/compliance services to it (reconciliation, funding, and
+any future settlement seam). Pair it with the GSIs so the same change removes the scan. That single pattern
+closes the whole class this audit keeps surfacing.</p>
+<p><em>Appendix — all findings reproducible from the audit session; every prod interaction was read-only.</em></p>

@@ -340,6 +340,7 @@ function FleetTab() {
                 </span>
                 <Button
                   variant="ghost" size="icon"
+                  aria-label={`Remove driver ${driver.legalName}`}
                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={() => removeDriver(driver.driverId, driver.legalName)}
                 >

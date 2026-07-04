@@ -156,6 +156,7 @@ export function RouteMapCard({
           onClick={() => { setExpanded(true); setFullLoaded(false); }}
           className="absolute top-2 right-2 z-20 h-8 w-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/80 transition-colors shadow-lg"
           title="Expand map"
+          aria-label="Expand map"
         >
           <Search className="h-3.5 w-3.5" />
         </button>
