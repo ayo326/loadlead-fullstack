@@ -129,6 +129,19 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "*"
       },
       {
+        # During a deploy EB suspends the ASG's scaling processes (and resumes
+        # them after) and may resize it. Scoped to EB-managed ASGs only
+        # (autoScalingGroupName/awseb-*).
+        Sid    = "EBAutoScalingManage"
+        Effect = "Allow"
+        Action = [
+          "autoscaling:SuspendProcesses",
+          "autoscaling:ResumeProcesses",
+          "autoscaling:UpdateAutoScalingGroup",
+        ]
+        Resource = "arn:aws:autoscaling:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/awseb-*"
+      },
+      {
         # GetBucketPolicy: EB reads the app-versions bucket policy during the
         # environment update. Bucket-level, scoped to the EB bucket only.
         Sid      = "EBSourceBundleBucketLocate"
