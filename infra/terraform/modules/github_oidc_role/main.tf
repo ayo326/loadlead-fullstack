@@ -83,15 +83,72 @@ resource "aws_iam_role_policy" "deploy" {
         # EB needs the deploy bundle staged in its auto-created S3 bucket.
         # Object-level for the upload; bucket-level so the action can locate
         # the bucket (HeadBucket/GetBucketLocation) and list existing versions.
+        # EB stages the bundle AND, during the environment update, copies it
+        # into resources/environments/<env-id>/_runtime/_versions/... setting
+        # and clearing ACLs. So the full object op set (Put/Get/GetObjectAcl/
+        # PutObjectAcl/DeleteObject) is needed, scoped to the EB bucket only.
         Sid      = "EBSourceBundleUpload"
         Effect   = "Allow"
-        Action   = ["s3:PutObject", "s3:GetObject"]
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:GetObjectAcl", "s3:PutObjectAcl", "s3:DeleteObject"]
         Resource = "arn:aws:s3:::elasticbeanstalk-${data.aws_region.current.name}-${data.aws_caller_identity.current.account_id}/*"
       },
       {
+        # EB runs the environment update partly under the CALLER's identity and
+        # surfaces read describes across the env's infra (ASG/EC2/ELB/CloudWatch
+        # /SNS/logs). These Describe*/List* actions do NOT support resource-level
+        # scoping, so they are granted on "*". Read-only: no mutation. The
+        # mutating actions stay scoped to this env's EB app/environment, the EB
+        # S3 bucket, and the awseb-* CloudFormation stacks above.
+        Sid    = "EBDeployInfraDescribe"
+        Effect = "Allow"
+        Action = [
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:DescribeScalingActivities",
+          "autoscaling:DescribeLaunchConfigurations",
+          "autoscaling:DescribeAutoScalingInstances",
+          "autoscaling:DescribeNotificationConfigurations",
+          "ec2:DescribeInstances",
+          "ec2:DescribeInstanceStatus",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeVpcs",
+          "ec2:DescribeImages",
+          "ec2:DescribeKeyPairs",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeAccountAttributes",
+          "ec2:DescribeLaunchTemplates",
+          "ec2:DescribeLaunchTemplateVersions",
+          "elasticloadbalancing:DescribeLoadBalancers",
+          "elasticloadbalancing:DescribeTargetGroups",
+          "elasticloadbalancing:DescribeTargetHealth",
+          "elasticloadbalancing:DescribeInstanceHealth",
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:GetMetricStatistics",
+          "sns:ListTopics",
+          "sns:GetTopicAttributes",
+          "logs:DescribeLogGroups",
+        ]
+        Resource = "*"
+      },
+      {
+        # During a deploy EB suspends the ASG's scaling processes (and resumes
+        # them after) and may resize it. Scoped to EB-managed ASGs only
+        # (autoScalingGroupName/awseb-*).
+        Sid    = "EBAutoScalingManage"
+        Effect = "Allow"
+        Action = [
+          "autoscaling:SuspendProcesses",
+          "autoscaling:ResumeProcesses",
+          "autoscaling:UpdateAutoScalingGroup",
+        ]
+        Resource = "arn:aws:autoscaling:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/awseb-*"
+      },
+      {
+        # GetBucketPolicy: EB reads the app-versions bucket policy during the
+        # environment update. Bucket-level, scoped to the EB bucket only.
         Sid      = "EBSourceBundleBucketLocate"
         Effect   = "Allow"
-        Action   = ["s3:ListBucket", "s3:GetBucketLocation"]
+        Action   = ["s3:ListBucket", "s3:GetBucketLocation", "s3:GetBucketPolicy"]
         Resource = "arn:aws:s3:::elasticbeanstalk-${data.aws_region.current.name}-${data.aws_caller_identity.current.account_id}"
       },
       {
