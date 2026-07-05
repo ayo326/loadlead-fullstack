@@ -116,6 +116,8 @@ resource "aws_iam_role_policy" "deploy" {
           "ec2:DescribeKeyPairs",
           "ec2:DescribeAvailabilityZones",
           "ec2:DescribeAccountAttributes",
+          "ec2:DescribeLaunchTemplates",
+          "ec2:DescribeLaunchTemplateVersions",
           "elasticloadbalancing:DescribeLoadBalancers",
           "elasticloadbalancing:DescribeTargetGroups",
           "elasticloadbalancing:DescribeTargetHealth",
