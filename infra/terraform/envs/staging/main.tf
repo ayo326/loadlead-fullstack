@@ -319,9 +319,14 @@ module "github_deploy_role" {
   # allowed_environment = "production"). Using allowed_ref here made the live
   # trust condition ref:refs/heads/main, which never matches the environment
   # sub, so every staging deploy failed sts:AssumeRoleWithWebIdentity.
-  allowed_environment       = "staging"
+  allowed_environment = "staging"
+  # Must match the REAL EB application (lowercase "loadlead-backend", created by
+  # the prod stack and shared). Omitting this defaulted to the module's
+  # "LoadLead-Backend", so the policy's applicationversion/environment ARNs did
+  # not match and CreateApplicationVersion was denied.
+  eb_application_name       = "loadlead-backend"
   dynamodb_table_prefix     = local.prefix
-  eb_environment_name       = local.backend_env_name # deterministic — valid even while the env is paused
+  eb_environment_name       = local.backend_env_name # deterministic - valid even while the env is paused
   frontend_bucket_arn       = "arn:aws:s3:::loadlead-staging-frontend"
   frontend_distribution_arn = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${module.frontend.distribution_id}"
   tags                      = local.tags
