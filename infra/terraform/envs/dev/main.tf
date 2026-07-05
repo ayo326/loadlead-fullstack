@@ -192,11 +192,16 @@ module "backend" {
 }
 
 module "github_deploy_role" {
-  source                    = "../../modules/github_oidc_role"
-  env                       = local.env
-  github_oidc_provider_arn  = data.aws_iam_openid_connect_provider.github.arn
-  github_repo               = var.github_repo
-  allowed_ref               = "refs/heads/dev" # only the dev branch can assume this role
+  source                   = "../../modules/github_oidc_role"
+  env                      = local.env
+  github_oidc_provider_arn = data.aws_iam_openid_connect_provider.github.arn
+  github_repo              = var.github_repo
+  allowed_ref              = "refs/heads/dev" # only the dev branch can assume this role
+  # Must match the REAL EB application (lowercase "loadlead-backend", shared
+  # across envs). Omitting this defaults to the module's "LoadLead-Backend", so
+  # the policy's EB ARNs mismatch and CreateApplicationVersion is denied - the
+  # same bug fixed for staging in #36. Set now so dev is correct if provisioned.
+  eb_application_name       = "loadlead-backend"
   dynamodb_table_prefix     = local.prefix
   eb_environment_name       = module.backend.environment_name
   frontend_bucket_arn       = "arn:aws:s3:::loadlead-dev-frontend"
