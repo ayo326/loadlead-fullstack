@@ -83,10 +83,48 @@ resource "aws_iam_role_policy" "deploy" {
         # EB needs the deploy bundle staged in its auto-created S3 bucket.
         # Object-level for the upload; bucket-level so the action can locate
         # the bucket (HeadBucket/GetBucketLocation) and list existing versions.
+        # GetObjectAcl is required: EB reads the source bundle object's ACL
+        # during the environment update ("s3:GetObjectAcl" error otherwise).
         Sid      = "EBSourceBundleUpload"
         Effect   = "Allow"
-        Action   = ["s3:PutObject", "s3:GetObject"]
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:GetObjectAcl"]
         Resource = "arn:aws:s3:::elasticbeanstalk-${data.aws_region.current.name}-${data.aws_caller_identity.current.account_id}/*"
+      },
+      {
+        # EB runs the environment update partly under the CALLER's identity and
+        # surfaces read describes across the env's infra (ASG/EC2/ELB/CloudWatch
+        # /SNS/logs). These Describe*/List* actions do NOT support resource-level
+        # scoping, so they are granted on "*". Read-only: no mutation. The
+        # mutating actions stay scoped to this env's EB app/environment, the EB
+        # S3 bucket, and the awseb-* CloudFormation stacks above.
+        Sid    = "EBDeployInfraDescribe"
+        Effect = "Allow"
+        Action = [
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:DescribeScalingActivities",
+          "autoscaling:DescribeLaunchConfigurations",
+          "autoscaling:DescribeAutoScalingInstances",
+          "autoscaling:DescribeNotificationConfigurations",
+          "ec2:DescribeInstances",
+          "ec2:DescribeInstanceStatus",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeVpcs",
+          "ec2:DescribeImages",
+          "ec2:DescribeKeyPairs",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeAccountAttributes",
+          "elasticloadbalancing:DescribeLoadBalancers",
+          "elasticloadbalancing:DescribeTargetGroups",
+          "elasticloadbalancing:DescribeTargetHealth",
+          "elasticloadbalancing:DescribeInstanceHealth",
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:GetMetricStatistics",
+          "sns:ListTopics",
+          "sns:GetTopicAttributes",
+          "logs:DescribeLogGroups",
+        ]
+        Resource = "*"
       },
       {
         Sid      = "EBSourceBundleBucketLocate"
