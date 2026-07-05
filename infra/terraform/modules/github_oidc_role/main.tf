@@ -95,6 +95,25 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "arn:aws:s3:::elasticbeanstalk-${data.aws_region.current.name}-${data.aws_caller_identity.current.account_id}"
       },
       {
+        # An EB environment is CloudFormation-backed (awseb-* stacks).
+        # UpdateEnvironment makes the deploying principal read the env's
+        # template/stack; without these it fails
+        # InsufficientPrivilegesException on cloudformation:GetTemplate.
+        # Scoped to EB-managed stacks only (read-only; EB's own service role
+        # performs the actual stack mutation).
+        Sid    = "EBManagedStackRead"
+        Effect = "Allow"
+        Action = [
+          "cloudformation:GetTemplate",
+          "cloudformation:GetTemplateSummary",
+          "cloudformation:DescribeStacks",
+          "cloudformation:DescribeStackResource",
+          "cloudformation:DescribeStackResources",
+          "cloudformation:ListStackResources",
+        ]
+        Resource = "arn:aws:cloudformation:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:stack/awseb-*/*"
+      },
+      {
         Sid      = "FrontendBucketSyncThisEnvOnly"
         Effect   = "Allow"
         Action   = ["s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
