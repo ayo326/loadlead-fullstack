@@ -83,11 +83,13 @@ resource "aws_iam_role_policy" "deploy" {
         # EB needs the deploy bundle staged in its auto-created S3 bucket.
         # Object-level for the upload; bucket-level so the action can locate
         # the bucket (HeadBucket/GetBucketLocation) and list existing versions.
-        # GetObjectAcl is required: EB reads the source bundle object's ACL
-        # during the environment update ("s3:GetObjectAcl" error otherwise).
+        # EB stages the bundle AND, during the environment update, copies it
+        # into resources/environments/<env-id>/_runtime/_versions/... setting
+        # and clearing ACLs. So the full object op set (Put/Get/GetObjectAcl/
+        # PutObjectAcl/DeleteObject) is needed, scoped to the EB bucket only.
         Sid      = "EBSourceBundleUpload"
         Effect   = "Allow"
-        Action   = ["s3:PutObject", "s3:GetObject", "s3:GetObjectAcl"]
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:GetObjectAcl", "s3:PutObjectAcl", "s3:DeleteObject"]
         Resource = "arn:aws:s3:::elasticbeanstalk-${data.aws_region.current.name}-${data.aws_caller_identity.current.account_id}/*"
       },
       {
