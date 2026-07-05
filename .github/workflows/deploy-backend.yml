@@ -6,7 +6,7 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/deploy-backend.yml'
-  workflow_dispatch: {} # manual trigger — required for the prod job below
+  workflow_dispatch: {} # manual trigger - required for the prod job below
 
 permissions:
   id-token: write   # required for OIDC -> AWS role assumption
@@ -28,7 +28,7 @@ jobs:
         with: { node-version: '22' }
 
       # H1 gate: refuse to deploy a non-prod env whose Terraform doesn't
-      # override every DynamoDB table the backend reads — otherwise it would
+      # override every DynamoDB table the backend reads - otherwise it would
       # silently read/write PRODUCTION tables. Fast, zero-dependency.
       - name: Verify non-prod table isolation (H1)
         run: node scripts/check-table-env-parity.mjs
@@ -77,19 +77,32 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
 
-      # ─── Pact can-i-deploy gate ──────────────────────────────────────────
-      # Blocks the staging deploy when at least one persona consumer's
-      # contract isn't satisfied by this provider version. The provider-
-      # verification workflow (verify-provider.yml) is what publishes
-      # those results — this step only QUERIES them.
-      # Skipped when PACT_BROKER_BASE_URL secret is unset (workflows ran
-      # before the broker is wired up), so this is safe to land before
-      # PactFlow is configured.
       # H1 gate: refuse to deploy a non-prod env whose Terraform doesn't
-      # override every DynamoDB table the backend reads — otherwise it would
+      # override every DynamoDB table the backend reads - otherwise it would
       # silently read/write PRODUCTION tables. Fast, zero-dependency.
       - name: Verify non-prod table isolation (H1)
         run: node scripts/check-table-env-parity.mjs
+
+      # ─── Pact: publish this commit's verification, THEN gate ─────────────
+      # verify-provider.yml also verifies+publishes on push to main, but it is
+      # a SEPARATE workflow that races this job: can-i-deploy would query the
+      # broker before the verification for this SHA lands, hitting the
+      # non-retryable "No pacts or verifications have been published for
+      # version <sha>" state (not an "unknown" that --retry-while-unknown
+      # covers). Publishing here first makes the staging deploy self-contained
+      # and removes the race. Both steps skip cleanly when the broker secret
+      # is unset (workflows that ran before PactFlow was wired up).
+      - name: Publish provider verification (this commit)
+        if: ${{ env.PACT_BROKER_BASE_URL != '' }}
+        working-directory: backend
+        env:
+          PACT_BROKER_URL:      ${{ secrets.PACT_BROKER_BASE_URL }}
+          PACT_BROKER_TOKEN:    ${{ secrets.PACT_BROKER_TOKEN }}
+          PACT_BROKER_PUBLISH_VERIFICATION_RESULTS: 'true'
+          PROVIDER_VERSION:     ${{ github.sha }}
+        run: |
+          npm ci
+          npx tsx tests/contract/verify-provider.ts
 
       - name: can-i-deploy (staging)
         if: ${{ env.PACT_BROKER_BASE_URL != '' }}
@@ -134,7 +147,7 @@ jobs:
 
       - name: Smoke test
         # The API is fronted by its own CloudFront (api-staging), not the
-        # frontend domain — the frontend distribution serves static files only
+        # frontend domain - the frontend distribution serves static files only
         # and does not proxy /api.
         run: |
           curl -sf https://api-staging.loadleadapp.com/api/health || (echo "Staging health check failed" && exit 1)
@@ -142,7 +155,7 @@ jobs:
       # Security smoke (audit rec #4): an ADMIN with no enrolled MFA must be
       # refused at login. A real HTTP call catches what the mocked unit test
       # (M2) could rot on. Skips cleanly until the SMOKE_ADMIN_* secrets exist.
-      - name: Security smoke — ADMIN login requires MFA
+      - name: Security smoke - ADMIN login requires MFA
         env:
           SMOKE_BASE_URL: https://api-staging.loadleadapp.com
           SMOKE_ADMIN_NO_MFA_EMAIL: ${{ secrets.SMOKE_ADMIN_NO_MFA_EMAIL }}
@@ -164,7 +177,7 @@ jobs:
 
   # ── Prod: manual trigger only, gated by the "production" GitHub Environment.
   #    The OIDC trust policy on AWS_PROD_DEPLOY_ROLE_ARN only allows
-  #    assumption from a run *targeting* this Environment — so the required
+  #    assumption from a run *targeting* this Environment - so the required
   #    reviewers below are not just a GitHub-side checkbox, they're the only
   #    way the AWS credentials get issued at all. ──────────────────────────
   deploy-prod:
