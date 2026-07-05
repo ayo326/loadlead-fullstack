@@ -129,9 +129,11 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "*"
       },
       {
+        # GetBucketPolicy: EB reads the app-versions bucket policy during the
+        # environment update. Bucket-level, scoped to the EB bucket only.
         Sid      = "EBSourceBundleBucketLocate"
         Effect   = "Allow"
-        Action   = ["s3:ListBucket", "s3:GetBucketLocation"]
+        Action   = ["s3:ListBucket", "s3:GetBucketLocation", "s3:GetBucketPolicy"]
         Resource = "arn:aws:s3:::elasticbeanstalk-${data.aws_region.current.name}-${data.aws_caller_identity.current.account_id}"
       },
       {
