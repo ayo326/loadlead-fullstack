@@ -1,10 +1,10 @@
 ---
-connie-title: Testing — LoadLead Testing Guide
+connie-title: Testing - LoadLead Testing Guide
 connie-publish: true
 connie-page-id: '65935'
 ---
 
-# LoadLead — Testing Guide
+# LoadLead - Testing Guide
 
 > Rigorous test battery for the LoadLead freight-matching platform.
 > Ordered by risk: the areas most likely to cause data leaks, lost loads, or security findings come first.

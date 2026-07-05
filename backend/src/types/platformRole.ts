@@ -33,19 +33,19 @@ export const ALL_PLATFORM_ROLES: PlatformRole[] = [
   PlatformRole.STAFF_TEAM_LEAD,
 ];
 
-/** Read-only tier — sees the console, opens tickets, cannot mutate org/user state. */
+/** Read-only tier - sees the console, opens tickets, cannot mutate org/user state. */
 export const READ_TIER: PlatformRole[] = [
   PlatformRole.STAFF_SUPERVISOR,
   PlatformRole.STAFF_TEAM_LEAD,
 ];
 
-/** Operations tier — non-destructive ops (verify drivers, set buffers, etc). */
+/** Operations tier - non-destructive ops (verify drivers, set buffers, etc). */
 export const OPS_TIER: PlatformRole[] = [
   PlatformRole.STAFF_ADMIN,
   PlatformRole.STAFF_MANAGER,
 ];
 
-/** Destructive tier — suspend/reinstate org, revoke carrier_admin, manage staff, set SLA policy. */
+/** Destructive tier - suspend/reinstate org, revoke carrier_admin, manage staff, set SLA policy. */
 export const DESTRUCTIVE_TIER: PlatformRole[] = [
   PlatformRole.STAFF_ADMIN,
 ];

@@ -1,12 +1,12 @@
 // Org-scoped RBAC for tenant carrier orgs.
-// Per LoadLead_Admin_Carrier_IAM_Spec.md — the spec is the source of truth;
+// Per LoadLead_Admin_Carrier_IAM_Spec.md - the spec is the source of truth;
 // this file is the executable form.
 //
 // Two layers in LoadLead:
-//   • User role (UserRole)  — platform-level identity: DRIVER, SHIPPER,
+//   • User role (UserRole)  - platform-level identity: DRIVER, SHIPPER,
 //     RECEIVER, OWNER_OPERATOR, CARRIER_ADMIN, ADMIN. ADMIN is the platform
 //     superuser and is NEVER conflated with anything here.
-//   • Org role (OrgRole)    — tenant-level membership: OWNER, MANAGER,
+//   • Org role (OrgRole)    - tenant-level membership: OWNER, MANAGER,
 //     DISPATCHER, ORG_DRIVER, SHIPPER_USER, RECEIVER_USER. This file applies
 //     to org-scoped operations only.
 //
@@ -53,7 +53,7 @@ const MATRIX: Record<OrgRole, Permission[]> = {
     'org:edit', 'org:delete', 'org:transfer_ownership',
   ],
   [OrgRole.MANAGER]: [
-    // MANAGER (formerly ORG_ADMIN) — every day-to-day operation, NO billing
+    // MANAGER (formerly ORG_ADMIN) - every day-to-day operation, NO billing
     // and NO ownership/destructive org actions.
     'members:invite', 'members:promote', 'members:remove',
     'drivers:onboard', 'drivers:dispatch',

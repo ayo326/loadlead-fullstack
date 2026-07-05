@@ -3,21 +3,21 @@
 // Designed for ESIGN/UETA + non-repudiation. The Signature record is
 // append-only at the data layer (IAM deny UpdateItem/DeleteItem, PutItem
 // uses `attribute_not_exists(signatureId)`, app code never imports
-// UpdateCommand/DeleteCommand — enforced by an ESLint rule scoped to
+// UpdateCommand/DeleteCommand - enforced by an ESLint rule scoped to
 // services/attestation/*). Corrections are NEW records that carry
 // `correctsSignatureId`.
 //
 // Each Signature is bound to:
-//   - `documentHash` — sha256 of the action-specific canonical projection
+//   - `documentHash` - sha256 of the action-specific canonical projection
 //     of the load+bol state at signing time. Per-action allowlist; sorted
 //     keys; normalized types; photos referenced by contentHash, never URL.
-//   - `proofPhotoIds[]` — ids of the photos taken FOR this handoff. Each
+//   - `proofPhotoIds[]` - ids of the photos taken FOR this handoff. Each
 //     photo carries its own `contentHash` so the signature transitively
 //     binds the bytes.
 //
 // Two version axes travel with every record:
-//   - `attestationVersion` — version of the legal text the human signed.
-//   - `canonicalSchemaVersion` — version of the projection used to compute
+//   - `attestationVersion` - version of the legal text the human signed.
+//   - `canonicalSchemaVersion` - version of the projection used to compute
 //     documentHash. Lets the projection evolve without orphaning records.
 
 export type AttestationAction =
@@ -106,7 +106,7 @@ export interface Signature {
  *      attempt that references a PENDING photo is rejected.
  *
  * This sequencing is the whole point of the synchronous finalize-upload
- * approach — there is never a window where a signature could bind a
+ * approach - there is never a window where a signature could bind a
  * photo whose contentHash isn't known to the server.
  */
 export interface ProofPhoto {

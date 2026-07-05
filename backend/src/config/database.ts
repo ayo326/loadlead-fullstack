@@ -30,7 +30,7 @@ export class Database {
       }));
     } catch (error: any) {
       // A conditional-put miss (attribute_not_exists on an idempotent insert that
-      // lost a race) is expected control flow — the caller handles it. Don't log
+      // lost a race) is expected control flow - the caller handles it. Don't log
       // it as an error; do rethrow so the caller can read back the winning row.
       if (error?.name !== 'ConditionalCheckFailedException') {
         console.error('DynamoDB putItem error:', error);

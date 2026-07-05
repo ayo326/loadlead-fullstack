@@ -1,5 +1,5 @@
 ---
-connie-title: LoadLead — Data Model + API Reference (generated)
+connie-title: LoadLead - Data Model + API Reference (generated)
 connie-publish: true
 status: Reconciled
 last-reconciled-against: 2054ab2
@@ -9,26 +9,26 @@ connie-page-id: '2162689'
 
 # Data Model + API Reference
 
-> Generated from the live code. Do not hand-edit — re-run the reconciliation pass to refresh.
+> Generated from the live code. Do not hand-edit - re-run the reconciliation pass to refresh.
 
-## DDB tables (28 — all PITR enabled, all PAY_PER_REQUEST, all under Terraform)
+## DDB tables (28 - all PITR enabled, all PAY_PER_REQUEST, all under Terraform)
 
 ### Critical / lifecycle (12)
 
 | Table | Hash key | Range key | GSIs | Notes |
 |---|---|---|---|---|
-| LoadLead_Users | userId | — | email-index | All users (5 personas + ADMIN) |
-| LoadLead_Loads | loadId | — | status-index, shipperId-index | Lifecycle source of truth |
-| LoadLead_Offers | offerId | — | loadId-index, driverId-index, driverId-status-index, loadId-driverId-index | OFFERED → ACCEPTED/DECLINED |
-| LoadLead_Drivers | driverId | — | userId-index | DRIVER profiles (incl. OO self-driver) |
-| LoadLead_Receivers | receiverId | — | userId-index | Receiver facility profiles |
-| LoadLead_Shippers | shipperId | — | userId-index | Shipper company profiles |
-| LoadLead_Organizations | orgId | — | — | Carrier/Shipper/Receiver orgs |
-| LoadLead_Memberships | membershipId | — | orgId-index, userId-index | User ↔ org with OrgRole |
-| LoadLead_BOL | bolId | — | loadId-index, status-index | Bill of lading lifecycle |
-| LoadLead_Verifications | entityId | — | status-index | Per-entity verification state (Didit-backed) |
-| LoadLead_Signatures | signatureId | — | loadId-signedAt-index | Append-only attestation chain (IAM Deny + ESLint + ConditionExpression) |
-| LoadLead_PodPhotos | photoId | — | loadId-index | Proof-of-delivery photo metadata (S3 Object Lock per-object) |
+| LoadLead_Users | userId | - | email-index | All users (5 personas + ADMIN) |
+| LoadLead_Loads | loadId | - | status-index, shipperId-index | Lifecycle source of truth |
+| LoadLead_Offers | offerId | - | loadId-index, driverId-index, driverId-status-index, loadId-driverId-index | OFFERED → ACCEPTED/DECLINED |
+| LoadLead_Drivers | driverId | - | userId-index | DRIVER profiles (incl. OO self-driver) |
+| LoadLead_Receivers | receiverId | - | userId-index | Receiver facility profiles |
+| LoadLead_Shippers | shipperId | - | userId-index | Shipper company profiles |
+| LoadLead_Organizations | orgId | - | - | Carrier/Shipper/Receiver orgs |
+| LoadLead_Memberships | membershipId | - | orgId-index, userId-index | User ↔ org with OrgRole |
+| LoadLead_BOL | bolId | - | loadId-index, status-index | Bill of lading lifecycle |
+| LoadLead_Verifications | entityId | - | status-index | Per-entity verification state (Didit-backed) |
+| LoadLead_Signatures | signatureId | - | loadId-signedAt-index | Append-only attestation chain (IAM Deny + ESLint + ConditionExpression) |
+| LoadLead_PodPhotos | photoId | - | loadId-index | Proof-of-delivery photo metadata (S3 Object Lock per-object) |
 
 ### Secondary (16)
 
@@ -49,17 +49,17 @@ connie-page-id: '2162689'
 | LoadLead_SupportMessages | messageId | Threaded support messages |
 | LoadLead_SupportSettings | settingsId | Support team config |
 | LoadLead_SupportTickets | ticketId | Support ticket lifecycle |
-| LoadLead-MembershipAuditLogs | logId | Note the HYPHEN (legacy naming) — IAM membership audit trail |
+| LoadLead-MembershipAuditLogs | logId | Note the HYPHEN (legacy naming) - IAM membership audit trail |
 
-### Storage backing — S3 buckets (5)
+### Storage backing - S3 buckets (5)
 
 | Bucket | Purpose | Object Lock | Public |
 |---|---|---|---|
 | loadlead-signatures-worm-sink | Signature audit mirror via DDB Streams Lambda | ✅ COMPLIANCE 2555d, bucket policy Deny DeleteObject | Private |
 | loadlead-pod-uploads-v2 | POD photo bytes (per-object retention applied at finalize) | ✅ COMPLIANCE 2555d per-object, bucket policy Deny DeleteObject | Private |
-| loadlead-frontend-prod | Customer SPA bundle | — | **Public** (PublicReadGetObject, S3-website endpoint) |
-| loadlead-admin-prod | Admin SPA bundle | — | Private (OAC-only from CloudFront E1RPGX7HLJI48U) |
-| loadlead-terraform-state | TF remote state | — | Private (versioned + AES256-encrypted) |
+| loadlead-frontend-prod | Customer SPA bundle | - | **Public** (PublicReadGetObject, S3-website endpoint) |
+| loadlead-admin-prod | Admin SPA bundle | - | Private (OAC-only from CloudFront E1RPGX7HLJI48U) |
+| loadlead-terraform-state | TF remote state | - | Private (versioned + AES256-encrypted) |
 
 ---
 
@@ -104,10 +104,10 @@ Sign + photo + chain read. Auth via resolver-based assertSignerIsLoadParty.
 
 | Method | Path | Auth | Role gate |
 |---|---|---|---|
-| `POST` | `/api/attestation/photos/upload-url` | 🔒 file | — |
-| `POST` | `/api/attestation/photos/:photoId/finalize` | 🔒 file | — |
-| `POST` | `/api/attestation/sign` | 🔒 file | — |
-| `GET` | `/api/attestation/chain/:loadId` | 🔒 file | — |
+| `POST` | `/api/attestation/photos/upload-url` | 🔒 file | - |
+| `POST` | `/api/attestation/photos/:photoId/finalize` | 🔒 file | - |
+| `POST` | `/api/attestation/sign` | 🔒 file | - |
+| `GET` | `/api/attestation/chain/:loadId` | 🔒 file | - |
 
 ### `routes/auth.ts` (14 routes)
 
@@ -115,20 +115,20 @@ Login / signup / password / 2FA / self. 7 routes pre-auth (signup, login, forgot
 
 | Method | Path | Auth | Role gate |
 |---|---|---|---|
-| `POST` | `/api/auth/signup` | 🔓 public | — |
-| `POST` | `/api/auth/signup/carrier` | 🔓 public | — |
-| `POST` | `/api/auth/login` | 🔓 public | — |
-| `POST` | `/api/auth/2fa/login` | 🔓 public | — |
-| `POST` | `/api/auth/change-password` | ✨ inline | — |
-| `POST` | `/api/auth/2fa/setup` | ✨ inline | — |
-| `POST` | `/api/auth/2fa/verify` | ✨ inline | — |
-| `POST` | `/api/auth/2fa/disable` | ✨ inline | — |
-| `GET` | `/api/auth/2fa/status` | ✨ inline | — |
-| `POST` | `/api/auth/logout` | 🔓 public | — |
-| `GET` | `/api/auth/me` | ✨ inline | — |
-| `PATCH` | `/api/auth/me` | ✨ inline | — |
-| `POST` | `/api/auth/forgot-password` | 🔓 public | — |
-| `POST` | `/api/auth/reset-password` | 🔓 public | — |
+| `POST` | `/api/auth/signup` | 🔓 public | - |
+| `POST` | `/api/auth/signup/carrier` | 🔓 public | - |
+| `POST` | `/api/auth/login` | 🔓 public | - |
+| `POST` | `/api/auth/2fa/login` | 🔓 public | - |
+| `POST` | `/api/auth/change-password` | ✨ inline | - |
+| `POST` | `/api/auth/2fa/setup` | ✨ inline | - |
+| `POST` | `/api/auth/2fa/verify` | ✨ inline | - |
+| `POST` | `/api/auth/2fa/disable` | ✨ inline | - |
+| `GET` | `/api/auth/2fa/status` | ✨ inline | - |
+| `POST` | `/api/auth/logout` | 🔓 public | - |
+| `GET` | `/api/auth/me` | ✨ inline | - |
+| `PATCH` | `/api/auth/me` | ✨ inline | - |
+| `POST` | `/api/auth/forgot-password` | 🔓 public | - |
+| `POST` | `/api/auth/reset-password` | 🔓 public | - |
 
 ### `routes/bol.ts` (8 routes)
 
@@ -136,18 +136,18 @@ Bill of lading lifecycle.
 
 | Method | Path | Auth | Role gate |
 |---|---|---|---|
-| `GET` | `/api/bol/:bolId` | 🔒 file | — |
-| `GET` | `/api/bol/load/:loadId` | 🔒 file | — |
-| `POST` | `/api/bol/` | 🔒 file | — |
-| `PUT` | `/api/bol/:bolId` | 🔒 file | — |
-| `POST` | `/api/bol/:bolId/sign` | 🔒 file | — |
-| `POST` | `/api/bol/:bolId/dispute` | 🔒 file | — |
-| `PUT` | `/api/bol/:bolId/wms` | 🔒 file | — |
-| `GET` | `/api/bol/admin/all` | 🔒 file | — |
+| `GET` | `/api/bol/:bolId` | 🔒 file | - |
+| `GET` | `/api/bol/load/:loadId` | 🔒 file | - |
+| `POST` | `/api/bol/` | 🔒 file | - |
+| `PUT` | `/api/bol/:bolId` | 🔒 file | - |
+| `POST` | `/api/bol/:bolId/sign` | 🔒 file | - |
+| `POST` | `/api/bol/:bolId/dispute` | 🔒 file | - |
+| `PUT` | `/api/bol/:bolId/wms` | 🔒 file | - |
+| `GET` | `/api/bol/admin/all` | 🔒 file | - |
 
 ### `routes/driver.ts` (25 routes)
 
-Driver loadboard + lifecycle. router.use(requireRole(DRIVER, OWNER_OPERATOR, ADMIN)) — OO self-haul admitted.
+Driver loadboard + lifecycle. router.use(requireRole(DRIVER, OWNER_OPERATOR, ADMIN)) - OO self-haul admitted.
 
 | Method | Path | Auth | Role gate |
 |---|---|---|---|
@@ -183,16 +183,16 @@ Carrier factoring opt-in workflow.
 
 | Method | Path | Auth | Role gate |
 |---|---|---|---|
-| `GET` | `/api/factoring/profile` | 🔒 file | — |
-| `POST` | `/api/factoring/byo` | 🔒 file | — |
-| `POST` | `/api/factoring/byo/verify` | 🔒 file | — |
-| `POST` | `/api/factoring/byo/confirm-remittance` | 🔒 file | — |
-| `GET` | `/api/factoring/byo/ready` | 🔒 file | — |
-| `POST` | `/api/factoring/partner` | 🔒 file | — |
-| `POST` | `/api/factoring/release` | 🔒 file | — |
-| `POST` | `/api/factoring/loads/:loadId/opt-in` | 🔒 file | — |
-| `GET` | `/api/factoring/loads/:loadId/payee` | 🔒 file | — |
-| `GET` | `/api/factoring/loads/:loadId/pod` | 🔒 file | — |
+| `GET` | `/api/factoring/profile` | 🔒 file | - |
+| `POST` | `/api/factoring/byo` | 🔒 file | - |
+| `POST` | `/api/factoring/byo/verify` | 🔒 file | - |
+| `POST` | `/api/factoring/byo/confirm-remittance` | 🔒 file | - |
+| `GET` | `/api/factoring/byo/ready` | 🔒 file | - |
+| `POST` | `/api/factoring/partner` | 🔒 file | - |
+| `POST` | `/api/factoring/release` | 🔒 file | - |
+| `POST` | `/api/factoring/loads/:loadId/opt-in` | 🔒 file | - |
+| `GET` | `/api/factoring/loads/:loadId/payee` | 🔒 file | - |
+| `GET` | `/api/factoring/loads/:loadId/pod` | 🔒 file | - |
 
 ### `routes/maps.ts` (3 routes)
 
@@ -200,9 +200,9 @@ Carrier factoring opt-in workflow.
 
 | Method | Path | Auth | Role gate |
 |---|---|---|---|
-| `POST` | `/api/maps/estimate` | 🔓 public | — |
-| `GET` | `/api/maps/geocode` | 🔓 public | — |
-| `GET` | `/api/maps/reverse-geocode` | 🔓 public | — |
+| `POST` | `/api/maps/estimate` | 🔓 public | - |
+| `GET` | `/api/maps/geocode` | 🔓 public | - |
+| `GET` | `/api/maps/reverse-geocode` | 🔓 public | - |
 
 ### `routes/notifications.ts` (7 routes)
 
@@ -210,13 +210,13 @@ In-app notification inbox.
 
 | Method | Path | Auth | Role gate |
 |---|---|---|---|
-| `GET` | `/api/notifications/inbox` | 🔒 file | — |
-| `GET` | `/api/notifications/inbox/unread-count` | 🔒 file | — |
-| `POST` | `/api/notifications/inbox/:notificationId/read` | 🔒 file | — |
-| `POST` | `/api/notifications/inbox/read-all` | 🔒 file | — |
-| `GET` | `/api/notifications/vapid-key` | 🔒 file | — |
-| `POST` | `/api/notifications/subscribe` | 🔒 file | — |
-| `DELETE` | `/api/notifications/subscribe` | 🔒 file | — |
+| `GET` | `/api/notifications/inbox` | 🔒 file | - |
+| `GET` | `/api/notifications/inbox/unread-count` | 🔒 file | - |
+| `POST` | `/api/notifications/inbox/:notificationId/read` | 🔒 file | - |
+| `POST` | `/api/notifications/inbox/read-all` | 🔒 file | - |
+| `GET` | `/api/notifications/vapid-key` | 🔒 file | - |
+| `POST` | `/api/notifications/subscribe` | 🔒 file | - |
+| `DELETE` | `/api/notifications/subscribe` | 🔒 file | - |
 
 ### `routes/org.ts` (25 routes)
 
@@ -294,14 +294,14 @@ Public taxonomy lookups (equipment, modes, services, commodities, accessorials, 
 
 | Method | Path | Auth | Role gate |
 |---|---|---|---|
-| `GET` | `/api/reference/equipment-classes` | 🔓 public | — |
-| `GET` | `/api/reference/equipment-classes/:code` | 🔓 public | — |
-| `GET` | `/api/reference/equipment-models` | 🔓 public | — |
-| `GET` | `/api/reference/load-modes` | 🔓 public | — |
-| `GET` | `/api/reference/service-types` | 🔓 public | — |
-| `GET` | `/api/reference/commodities` | 🔓 public | — |
-| `GET` | `/api/reference/accessorials` | 🔓 public | — |
-| `GET` | `/api/reference/hazmat-classes` | 🔓 public | — |
+| `GET` | `/api/reference/equipment-classes` | 🔓 public | - |
+| `GET` | `/api/reference/equipment-classes/:code` | 🔓 public | - |
+| `GET` | `/api/reference/equipment-models` | 🔓 public | - |
+| `GET` | `/api/reference/load-modes` | 🔓 public | - |
+| `GET` | `/api/reference/service-types` | 🔓 public | - |
+| `GET` | `/api/reference/commodities` | 🔓 public | - |
+| `GET` | `/api/reference/accessorials` | 🔓 public | - |
+| `GET` | `/api/reference/hazmat-classes` | 🔓 public | - |
 
 ### `routes/setup.ts` (3 routes)
 
@@ -309,9 +309,9 @@ Admin bootstrap (single-use token, atomic singleton). 3 routes public by design.
 
 | Method | Path | Auth | Role gate |
 |---|---|---|---|
-| `POST` | `/api/setup/request` | 🔓 public | — |
-| `POST` | `/api/setup/complete` | 🔓 public | — |
-| `GET` | `/api/setup/status` | 🔓 public | — |
+| `POST` | `/api/setup/request` | 🔓 public | - |
+| `POST` | `/api/setup/complete` | 🔓 public | - |
+| `GET` | `/api/setup/status` | 🔓 public | - |
 
 ### `routes/shipper.ts` (12 routes)
 
@@ -357,13 +357,13 @@ Internal support ticket workflow.
 
 - **Auth coverage**: 156/177 = 88.1% routes authenticated.
 - **Truly public**: 21 routes. Of those, 18 are legit-by-design (auth pre-login, taxonomy lookups, admin bootstrap, logout). **3 are a security gap**: `/api/maps/*` (see [PR-1](PendingRegister.md#high)).
-- **Role-gate coverage**: 120/156 = 77% of authenticated routes have an explicit role gate. The other 36 are "any authenticated user" — most are user-self routes (e.g. `/api/auth/me`) which are legit, but worth a focused audit when STIG LL-AC-001 review happens.
+- **Role-gate coverage**: 120/156 = 77% of authenticated routes have an explicit role gate. The other 36 are "any authenticated user" - most are user-self routes (e.g. `/api/auth/me`) which are legit, but worth a focused audit when STIG LL-AC-001 review happens.
 - **This file is generated** from `backend/src/routes/*.ts` via the route-inventory script. If the routes change, re-run the reconciliation pass to refresh.
 
 
 ---
 
-## Reconciliation delta (prior pass → `2054ab2`) — new routes
+## Reconciliation delta (prior pass → `2054ab2`) - new routes
 
 | Route | Auth / gating | Source |
 |---|---|---|

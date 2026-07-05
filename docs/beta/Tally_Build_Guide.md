@@ -2,7 +2,7 @@
 connie-publish: true
 connie-page-id: '4456449'
 ---
-# LoadLead Beta Application — Complete Tally Build Guide
+# LoadLead Beta Application - Complete Tally Build Guide
 
 _A single, click-by-click guide to build the public beta application form in Tally, wire it to the LoadLead admin pipeline via a signed webhook, capture Texas focus, and score applicants. Work top to bottom. The form captures raw answers; your admin Beta Program dashboard is the authoritative scorer._
 

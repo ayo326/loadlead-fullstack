@@ -1,4 +1,4 @@
-// requireSignature(loadId, action) — gate helper.
+// requireSignature(loadId, action) - gate helper.
 //
 // Every transition route uses this to assert the right signature exists
 // in the chain BEFORE applying the state change. Throws AppError 412
@@ -25,7 +25,7 @@ export async function requireSignature(
   action: AttestationAction,
 ): Promise<Signature> {
   const chain = await getChain(loadId);
-  // Newest matching signature wins — corrections are NEW rows; the
+  // Newest matching signature wins - corrections are NEW rows; the
   // chain orders ASC so we pick the last one.
   const matches = chain.filter((s) => s.action === action);
   const sig = matches[matches.length - 1];

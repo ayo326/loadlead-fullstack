@@ -21,11 +21,11 @@ export class BroadcastService {
       // ── Geocoding fallback ────────────────────────────────────────────────────
       // New loads always arrive with coordinates (required at draft time).
       // This fallback handles historical loads that were drafted before that
-      // requirement was added — so they're not stranded with zero offers.
+      // requirement was added - so they're not stranded with zero offers.
       if (!load.pickupLat || !load.pickupLng) {
         const addr = [load.pickupAddress, load.pickupCity, load.pickupState, load.pickupZip]
           .filter(Boolean).join(', ');
-        Logger.info(`Load ${loadId} has no pickup coords — attempting geocode: "${addr}"`);
+        Logger.info(`Load ${loadId} has no pickup coords - attempting geocode: "${addr}"`);
         const coords = await RoutingService.geocodeAddress(addr);
         if (!coords) {
           Logger.warn(`Cannot broadcast load ${loadId}: pickup coords null and geocoding failed/unavailable`);

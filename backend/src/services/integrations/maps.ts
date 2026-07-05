@@ -1,7 +1,7 @@
 // services/integrations/maps.ts
 //
 // Google Maps adapter. Ships to every environment, including production.
-// Moved verbatim from services/googleMapsService.ts — GoogleMapsService now
+// Moved verbatim from services/googleMapsService.ts - GoogleMapsService now
 // delegates here instead of calling fetch() directly; its public method
 // signatures/return shapes are unchanged, so RoutingService and every other
 // caller needs zero changes.
@@ -26,7 +26,7 @@ interface MapsStubModule {
   };
 }
 
-// Built from parts for the same reason as fmcsa.ts's stub import — see that
+// Built from parts for the same reason as fmcsa.ts's stub import - see that
 // file's comment. Centralized here since both maps functions need it.
 async function loadStub(): Promise<MapsStubModule['default']> {
   const modulePath = './stubs/' + 'maps' + 'Stub';

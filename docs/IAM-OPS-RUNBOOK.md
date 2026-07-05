@@ -37,7 +37,7 @@ weaken what's already shipped.
 - Email delivery: integrate Resend's API per the existing `emailService` adapter. Stub in dev outputs to the captureStore (already wired).
 
 **Frontend:**
-- The existing `AcceptInvite.tsx` is the entrypoint — needs to render role context + accept button.
+- The existing `AcceptInvite.tsx` is the entrypoint - needs to render role context + accept button.
 - New "Members" section on the Carrier dashboard (composite `CarrierMembersPanel`): roster table, invite modal, pending invites list, role change controls, transfer ownership confirmation.
 
 **Permissions to enforce server-side:**
@@ -47,10 +47,10 @@ weaken what's already shipped.
 - A driver member must complete their own IDV; the inviting user cannot proxy.
 
 ### IAM-4: Platform override endpoints
-- `GET  /api/admin/orgs?status&limit&cursor` — paginated.
-- `POST /api/admin/orgs/:orgId/suspend`  — body `{ reason }` mandatory.
-- `POST /api/admin/orgs/:orgId/reinstate` — body `{ reason }` mandatory.
-- `POST /api/admin/users/:userId/revoke-admin` — body `{ reason }`; if the user is the SOLE OWNER of an org, **suspend the org's admin functions** rather than orphan it.
+- `GET  /api/admin/orgs?status&limit&cursor` - paginated.
+- `POST /api/admin/orgs/:orgId/suspend`  - body `{ reason }` mandatory.
+- `POST /api/admin/orgs/:orgId/reinstate` - body `{ reason }` mandatory.
+- `POST /api/admin/users/:userId/revoke-admin` - body `{ reason }`; if the user is the SOLE OWNER of an org, **suspend the org's admin functions** rather than orphan it.
 - All four under `router.use(requireAdmin)` so they're 403 for CARRIER_ADMIN regardless of origin.
 - New `LoadLead_AdminAudit` table records each call with `actorUserId`, `targetOrgId|targetUserId`, `action`, `reason`, `timestamp`.
 
@@ -67,7 +67,7 @@ weaken what's already shipped.
   - `PendingInvitesList` (token, expiry, resend + revoke)
   - `RoleChangeDialog` (with confirmation + reason)
   - `TransferOwnershipDialog` (OWNER-only, confirm + reason + new-owner email confirmation)
-- UI gating is convenience only — see the explicit comment in each handler that the real enforcement is server-side.
+- UI gating is convenience only - see the explicit comment in each handler that the real enforcement is server-side.
 - Driver IDV state is read-only; **no UI affordance** to mark another driver's IDV complete.
 
 ### IAM-7: Platform Admin Org table UI
@@ -80,7 +80,7 @@ weaken what's already shipped.
 - DNS: create `admin.loadleadapp.com` -> CloudFront distribution serving `frontend-v2/dist-admin/` (separate build target).
 - Frontend build: add `npm run build:admin` that emits the admin-only console (just the admin route + auth flow), excluding the customer surfaces.
 - WAF: attach an IP-allowlist rule (your team CIDRs + corporate VPN) to the admin distribution. Customer surface unaffected.
-- CORS: `app.use('/api/admin', cors({ origin: 'https://admin.loadleadapp.com', credentials: true }))` — only the admin origin can call it.
+- CORS: `app.use('/api/admin', cors({ origin: 'https://admin.loadleadapp.com', credentials: true }))` - only the admin origin can call it.
 - Session cookie domain: when issuing a session for an ADMIN user, set cookie domain to `admin.loadleadapp.com` so the customer domain never sees it.
 
 > The subdomain is **defense in depth**. The server-side `requireAdmin` gate

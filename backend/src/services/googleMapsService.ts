@@ -1,4 +1,4 @@
-// All external calls now route through services/integrations/maps.ts — this
+// All external calls now route through services/integrations/maps.ts - this
 // class's public method signatures and return shapes are unchanged, so
 // RoutingService and every other caller needs zero changes.
 import * as MapsAdapter from './integrations/maps';

@@ -1,5 +1,5 @@
 /**
- * Equipment type matching — spec §11
+ * Equipment type matching - spec §11
  *
  * Implements the 4-step matching order (cheapest checks first):
  *   1. Equipment type matches an accepted type

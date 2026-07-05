@@ -43,7 +43,7 @@ router.get('/loads/:loadId', asyncHandler(async (req: AuthRequest, res) => {
   res.json({ load });
 }));
 
-// POST /api/receiver/loads/:loadId/confirm — final receipt (NEW).
+// POST /api/receiver/loads/:loadId/confirm - final receipt (NEW).
 // GATE: chain must contain a RECEIVER_CONFIRM signature with receipt photos.
 // Closes LOAD-E2E-005 / UI-E2E-003. The signature is created via
 // POST /api/attestation/sign (action=RECEIVER_CONFIRM); this endpoint

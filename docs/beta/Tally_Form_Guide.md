@@ -1,12 +1,12 @@
 ---
-connie-title: LoadLead — Beta Application Form (Tally) — Field Guide
+connie-title: LoadLead - Beta Application Form (Tally) - Field Guide
 connie-publish: true
 status: Authoritative
 audience: form builder · webhook implementer
 connie-page-id: '4521985'
 ---
 
-# LoadLead Beta Application — Tally Form Field Guide
+# LoadLead Beta Application - Tally Form Field Guide
 
 This document is the **authoritative mapping** between the Tally form's
 question labels and the `BetaApplication` model. The webhook handler
@@ -25,10 +25,10 @@ field, you also rename it here AND ship the code change.
    those exact bytes (timing-safe compare); unsigned or wrong-signature
    requests get 401.
 5. (optional, defence-in-depth) set a custom header `X-Beta-Source: tally`
-   on the Tally webhook and set `TALLY_REQUIRE_SOURCE_HEADER=true` — the
+   on the Tally webhook and set `TALLY_REQUIRE_SOURCE_HEADER=true` - the
    endpoint then also requires that header.
 
-If `TALLY_SIGNING_SECRET` is unset, the endpoint is **inert** — it returns
+If `TALLY_SIGNING_SECRET` is unset, the endpoint is **inert** - it returns
 `503 form_not_connected` and the admin dashboard surfaces the same status.
 There is no fabricated-data fallback. (`TALLY_WEBHOOK_SECRET` is accepted
 as a back-compat alias for the signing secret.)
@@ -40,7 +40,7 @@ an admin session cookie, so it is mounted outside the `requireAdmin` gate.
 > responseId, formId, formName, fields: [{ key, label, type, value }] } }`.
 > Idempotency key is `data.responseId`.
 
-## Section 12 — Field mapping (BY LABEL)
+## Section 12 - Field mapping (BY LABEL)
 
 The webhook maps **by label** (`backend/src/services/betaApplicationService.ts`).
 Labels are matched loosely (older alias labels still accepted) so a minor
@@ -89,7 +89,7 @@ below are what the form should use.
 | `How do you find loads today?` | `sideSpecificData.carrier.findMethod` | load board / TMS → Tools score = 1 |
 | `Your single biggest pain in finding good loads right now` | `sideSpecificData.carrier.pain` | staff sets Pain dimension |
 
-## Section 13 — Scorecard (objective dims computed on ingest)
+## Section 13 - Scorecard (objective dims computed on ingest)
 
 The webhook pre-computes the **objective** dimensions; staff fill the
 subjective ones in the dashboard. Max 15.
@@ -108,25 +108,25 @@ subjective ones in the dashboard. Max 15.
 
 Tally re-generates question IDs whenever you reorder the form. The webhook
 handler treats labels as keys. Renaming a label in Tally requires a code
-change. Adding a new field is safe — unmapped fields get dropped.
+change. Adding a new field is safe - unmapped fields get dropped.
 
 ## Texas focus is mandatory
 
 `texasFocus` is the only required-strict field beyond identity + the
 hard-gate commitments. The webhook rejects the submission (4xx) if it's
-missing — applicants can re-submit. This is by design: Texas focus is the
+missing - applicants can re-submit. This is by design: Texas focus is the
 single most important variable in the Geography scoring dimension and the
 balance widget.
 
 ## See also
 
-- [`Recruitment_Kit.md`](Recruitment_Kit.md) — the scorecard rubric, hard-gate
+- [`Recruitment_Kit.md`](Recruitment_Kit.md) - the scorecard rubric, hard-gate
   rationale, and cohort balance targets that this form feeds.
-- `backend/src/routes/tallyWebhook.ts` — the endpoint (raw-body capture +
+- `backend/src/routes/tallyWebhook.ts` - the endpoint (raw-body capture +
   signature verify + ingest).
-- `backend/src/services/tallySignature.ts` — the HMAC verifier.
-- `backend/src/services/betaApplicationService.ts` — `ingestFromTally()`
+- `backend/src/services/tallySignature.ts` - the HMAC verifier.
+- `backend/src/services/betaApplicationService.ts` - `ingestFromTally()`
   reads these labels at runtime.
-- `backend/src/services/betaAutoQualify.ts` — encodes the hard gates
+- `backend/src/services/betaAutoQualify.ts` - encodes the hard gates
   (NO_AUTHORITY / LOW_VOLUME / NO_COMMITMENT) into status transitions.
-- `backend/src/services/betaScoring.ts` — encodes the score dimensions.
+- `backend/src/services/betaScoring.ts` - encodes the score dimensions.

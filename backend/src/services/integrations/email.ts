@@ -1,14 +1,14 @@
 // services/integrations/email.ts
 //
 // Resend adapter. Ships to every environment, including production. Moved
-// the actual Resend call out of services/emailService.ts — emailService.ts
+// the actual Resend call out of services/emailService.ts - emailService.ts
 // keeps every public method (welcome, loadMatched, offerAccepted, ...)
 // exactly as-is; only its internal send() helper now delegates here.
 //
 // Test mode rewrites the recipient to a safe @resend.dev test address and
 // records what was attempted into the capture store for GET /_test/outbox
-// to expose. It STILL makes a real Resend API call — to the safe rewritten
-// address, using a separate staging Resend key — never to the original
+// to expose. It STILL makes a real Resend API call - to the safe rewritten
+// address, using a separate staging Resend key - never to the original
 // recipient. resend.dev addresses are Resend's own sandbox inboxes: mail
 // shows as delivered in the Resend dashboard but is never actually sent
 // anywhere.
@@ -95,7 +95,7 @@ const FROM = 'LoadLead <noreply@loadleadapp.com>';
 /**
  * Build the safe test recipient. The real inbox address (e.g.
  * delivered@resend.dev) lives ONLY in env config (.env.staging / CI
- * secrets), never as a literal here — this file ships to production, and
+ * secrets), never as a literal here - this file ships to production, and
  * hardcoding it would also trip deploy-backend.sh's deploy-time scan, which
  * treats that address as a forbidden marker precisely so it can never appear
  * in a production artifact.
@@ -104,7 +104,7 @@ function buildTestRecipient(originalTo: string): string {
   const inbox = process.env.EMAIL_TEST_INBOX?.trim();
   if (!inbox) {
     Logger.warn(
-      '[integrations/email] test mode but EMAIL_TEST_INBOX is not set — using a placeholder that delivers nowhere',
+      '[integrations/email] test mode but EMAIL_TEST_INBOX is not set - using a placeholder that delivers nowhere',
     );
     return 'unset-test-inbox@example.invalid';
   }

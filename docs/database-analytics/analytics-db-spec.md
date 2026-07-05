@@ -1,16 +1,16 @@
 ---
-connie-title: Database & Analytics — PostGIS Analytics DB Spec
+connie-title: Database & Analytics - PostGIS Analytics DB Spec
 connie-publish: true
 connie-page-id: '164038'
 ---
 
-# LoadLead — Analytics Database Build Spec (PostGIS, DynamoDB-fed)
+# LoadLead - Analytics Database Build Spec (PostGIS, DynamoDB-fed)
 
 _DynamoDB remains the source of truth. This is a separate Postgres + PostGIS analytics replica fed by DynamoDB Streams, for geospatial and aggregate analytics DynamoDB cannot do. No transactional migration. Scoped to the build-now tier; telematics is defined but gated._
 
 ## 0. Engine reality (read first)
 
-- **PostGIS: supported on RDS** — use it for all geospatial.
+- **PostGIS: supported on RDS** - use it for all geospatial.
 - **TimescaleDB: NOT available on AWS RDS** (`CREATE EXTENSION timescaledb` fails). For time-series, use **native Postgres partitioning + pg_partman + pg_cron** (all supported on RDS). If a heavier time-series engine is ever needed for telematics, that is a separate decision (Timescale Cloud or Amazon Timestream), made when a provider connects.
 - The build-now tier needs only PostGIS + materialized views, so it does NOT depend on any time-series engine.
 
@@ -43,17 +43,17 @@ The analytics DB is **derived and read-only** from the app's perspective: only t
 Indexes: GiST on `loads.origin`, `loads.destination`, `carriers.base`; B-tree on `loads.status`, `loads.equipment`, `offers.load_id`, `verifications.verification_status`.
 
 ### 2.2 Event tables (native partitioned, pg_partman; NO TimescaleDB)
-- `load_status_events(load_id, status, at timestamptz, location geography(Point,4326)) PARTITION BY RANGE (at)` — feeds dwell, detention, OTP. Fed from stream status transitions.
-- `telematics_gps`, `telematics_hos`, `telematics_diag`, `reefer_temp` — **defined now, empty + ingestion disabled** until a telematics provider connects. Native partitioned by time; `telematics_gps` carries `position geography(Point,4326)`. These are the gated tier.
+- `load_status_events(load_id, status, at timestamptz, location geography(Point,4326)) PARTITION BY RANGE (at)` - feeds dwell, detention, OTP. Fed from stream status transitions.
+- `telematics_gps`, `telematics_hos`, `telematics_diag`, `reefer_temp` - **defined now, empty + ingestion disabled** until a telematics provider connects. Native partitioned by time; `telematics_gps` carries `position geography(Point,4326)`. These are the gated tier.
 
 ### 2.3 Aggregates (materialized views, refreshed by pg_cron)
-- `mv_lane_volume` — load count by origin/dest cell + period
-- `mv_rpm_by_lane` — avg `rate_linehaul / route_miles` by lane
-- `mv_revenue` — gross by carrier + period
-- `mv_acceptance` — accepted ÷ offered by carrier + period
-- `mv_otp` — on-time pickup/delivery % from `load_status_events` vs windows
-- `mv_onboarding` — verified / pending / blocked counts by carrier
-- `mv_load_density`, `mv_carrier_density` — spatial bins for heatmaps
+- `mv_lane_volume` - load count by origin/dest cell + period
+- `mv_rpm_by_lane` - avg `rate_linehaul / route_miles` by lane
+- `mv_revenue` - gross by carrier + period
+- `mv_acceptance` - accepted ÷ offered by carrier + period
+- `mv_otp` - on-time pickup/delivery % from `load_status_events` vs windows
+- `mv_onboarding` - verified / pending / blocked counts by carrier
+- `mv_load_density`, `mv_carrier_density` - spatial bins for heatmaps
 
 ### 2.4 Geospatial query helpers (functions/views)
 - carriers within radius of a load: `ST_DWithin(carriers.base, :origin, :radius_m)` on the GiST index
@@ -68,7 +68,7 @@ Indexes: GiST on `loads.origin`, `loads.destination`, `carriers.base`; B-tree on
 
 ## 4. Backfill & refresh
 - One-time backfill: scan each DynamoDB table → populate read models, then Streams keep them current. Idempotent + resumable + a row-count report.
-- pg_cron refreshes the materialized views (`REFRESH MATERIALIZED VIEW CONCURRENTLY`) on a cadence (5–15 min); OTP/dwell derive from `load_status_events` incrementally.
+- pg_cron refreshes the materialized views (`REFRESH MATERIALIZED VIEW CONCURRENTLY`) on a cadence (5-15 min); OTP/dwell derive from `load_status_events` incrementally.
 
 ## 5. Build-now scope vs gated
 - **Build now (no telematics):** read models + PostGIS geospatial-from-load (lane volume, radius matching, deadhead from load points, lane RPM, density) + the aggregate MVs + dwell/OTP from `load_status_events`.

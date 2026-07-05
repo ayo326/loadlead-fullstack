@@ -1,10 +1,10 @@
 /**
- * Tally webhook — the ingestion front door for the beta pipeline.
+ * Tally webhook - the ingestion front door for the beta pipeline.
  *
  *   POST /api/admin/beta/webhook
  *
  * Machine-to-machine: secured by Tally's HMAC signature, NOT by a user
- * session. There is no requireAdmin here — this is mounted OUTSIDE the
+ * session. There is no requireAdmin here - this is mounted OUTSIDE the
  * admin router (in index.ts, before express.json) precisely so a webhook
  * with no cookie can reach it.
  *
@@ -23,7 +23,7 @@
  *   6. ingest → BetaApplication (idempotent by responseId; auto-qualify +
  *      objective score run inside ingestFromTally) → 200/201
  *
- * Logging redacts email / phone / MC — never log PII or the raw body.
+ * Logging redacts email / phone / MC - never log PII or the raw body.
  */
 
 import { Request, Response } from 'express';

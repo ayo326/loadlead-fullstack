@@ -1,7 +1,7 @@
 import { PutCommand, GetCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient } from '../config/aws';
 // The actual webpush dispatch now routes through services/integrations/push.ts
-// — every public method below is unchanged.
+// - every public method below is unchanged.
 import { sendPush } from './integrations/push';
 import { NotificationService, NotificationKind } from './notificationService';
 import Logger from '../utils/logger';

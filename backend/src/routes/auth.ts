@@ -71,7 +71,7 @@ router.post(
 );
 
 // POST /api/auth/signup/carrier
-// Dedicated, atomic carrier-admin signup — separate from the generic
+// Dedicated, atomic carrier-admin signup - separate from the generic
 // signup() above on purpose (see AuthService.signupCarrierAdmin). Does not
 // touch or share code paths with the four existing personas' signup.
 router.post(
@@ -109,7 +109,7 @@ router.post(
 // (with the neutral private-beta message) UNLESS role=ADMIN (always allowed
 // regardless of betaMode) or the user.betaUser flag is true. The CLI
 // bootstrap (backend/scripts/bootstrapAdmin.mjs) creates ADMIN accounts
-// directly in DDB — it never hits this route, so the gate cannot block it.
+// directly in DDB - it never hits this route, so the gate cannot block it.
 router.post(
   '/login',
   requireBetaGate({ mode: 'login' }),
@@ -146,7 +146,7 @@ router.post(
   })
 );
 
-// POST /api/auth/2fa/login — second-step exchange of (ticket + code) for token
+// POST /api/auth/2fa/login - second-step exchange of (ticket + code) for token
 router.post('/2fa/login', asyncHandler(async (req, res) => {
   const { ticket, code } = req.body as { ticket?: string; code?: string };
   if (!ticket || !code) return res.status(400).json({ error: 'ticket and code required' });
@@ -190,7 +190,7 @@ router.get('/2fa/status', authenticate, asyncHandler(async (req: any, res) => {
   res.json({ enabled });
 }));
 
-// POST /api/auth/logout — clears the httpOnly cookie
+// POST /api/auth/logout - clears the httpOnly cookie
 router.post('/logout', (_req, res) => {
   res.clearCookie('ll_token', {
     httpOnly: true,
@@ -211,7 +211,7 @@ router.get(
   })
 );
 
-// PATCH /api/auth/me — update own profile (displayName, phone)
+// PATCH /api/auth/me - update own profile (displayName, phone)
 router.patch(
   '/me',
   authenticate,

@@ -1,10 +1,10 @@
 ---
-connie-title: Database & Analytics — Operator Provisioning Checklist
+connie-title: Database & Analytics - Operator Provisioning Checklist
 connie-publish: true
 connie-page-id: '164048'
 ---
 
-# LoadLead Analytics DB — Operator Provisioning Checklist
+# LoadLead Analytics DB - Operator Provisioning Checklist
 
 > Companion to `LoadLead_Analytics_DB_Spec.md`. The application code does **not**
 > provision infrastructure (spec §6). This document is everything you (the
@@ -12,18 +12,18 @@ connie-page-id: '164048'
 > the analytics replica and dashboards to real data.
 >
 > Two independent tiers:
-> 1. **Geospatial / build-now tier** — PostGIS + RDS + DynamoDB Streams.
+> 1. **Geospatial / build-now tier** - PostGIS + RDS + DynamoDB Streams.
 >    Ships independently. No external provider needed.
-> 2. **Telematics tier** — HOS, reefer, GPS, diagnostics, fuel cards, CSA
+> 2. **Telematics tier** - HOS, reefer, GPS, diagnostics, fuel cards, CSA
 >    scores. Gated on a third-party provider. Until connected, every
 >    telematics-derived dashboard field renders **"Connect <X>"**, never zeros.
 
 ---
 
-## TIER 1 — Geospatial (Build-now)
+## TIER 1 - Geospatial (Build-now)
 
 Provision these and the analytics replica goes live. Total set-up time: **~45 min**
-in the AWS console. Monthly cost at the build-now tier: **~$25–40/mo** (db.t4g.small
+in the AWS console. Monthly cost at the build-now tier: **~$25-40/mo** (db.t4g.small
 + 50 GB gp3 + Lambda invocations from DynamoDB Streams).
 
 ### 1.1 RDS PostgreSQL with PostGIS
@@ -31,18 +31,18 @@ in the AWS console. Monthly cost at the build-now tier: **~$25–40/mo** (db.t4g
 | Setting | Value |
 |---|---|
 | Engine | PostgreSQL **16.4** or newer |
-| Instance class | **db.t4g.small** (2 vCPU, 2 GB RAM) — sufficient for build-now |
+| Instance class | **db.t4g.small** (2 vCPU, 2 GB RAM) - sufficient for build-now |
 | Storage | **gp3, 50 GB** initial |
 | Multi-AZ | No (build-now). Yes for production resilience later. |
-| Public access | **No** — same VPC as the Elastic Beanstalk backend |
+| Public access | **No** - same VPC as the Elastic Beanstalk backend |
 | VPC | Same VPC as `loadlead-backend-prod` env |
 | Subnets | Private subnets of that VPC |
 | DB name | `loadlead_analytics` |
 | Master username | `loadlead_admin` |
-| Master password | Generate a strong random one — store in Secrets Manager (§1.4) |
+| Master password | Generate a strong random one - store in Secrets Manager (§1.4) |
 | Backup retention | 7 days minimum |
-| Encryption | KMS — use the default `aws/rds` key, or your own CMK |
-| Parameter group | Custom — needed to enable `pg_cron` (see §1.7) |
+| Encryption | KMS - use the default `aws/rds` key, or your own CMK |
+| Parameter group | Custom - needed to enable `pg_cron` (see §1.7) |
 
 **Steps:**
 1. AWS Console → RDS → **Create database**
@@ -72,9 +72,9 @@ Once the instance is **Available**:
    Notes:
    - URL-encode the password if it contains `@`, `:`, `/`, `?`, `#`, or `%`
      (use `python3 -c "import urllib.parse; print(urllib.parse.quote('your-pass'))"`).
-   - The default port is 5432 — change only if you customized it.
+   - The default port is 5432 - change only if you customized it.
 
-3. Hand this URL to me as **`ANALYTICS_DATABASE_URL`** (see §1.4 — it goes
+3. Hand this URL to me as **`ANALYTICS_DATABASE_URL`** (see §1.4 - it goes
    into Secrets Manager, never into env vars or files).
 
 ---
@@ -95,11 +95,11 @@ connections from security groups you explicitly trust.
 VPC → Security Groups → select `loadlead-analytics-rds-sg` → **Edit inbound
 rules** → add the two rules above.
 
-Outbound: leave the default (allow all) — Lambda/EB only need to reach the DB.
+Outbound: leave the default (allow all) - Lambda/EB only need to reach the DB.
 
 ---
 
-### 1.4 AWS Secrets Manager — analytics secret
+### 1.4 AWS Secrets Manager - analytics secret
 
 Spec §6: the connection string is a secret. Never put it in a `.env` file or
 in code.
@@ -111,11 +111,11 @@ in code.
    - Value: the connection string from §1.2
 4. Encryption key: default (`aws/secretsmanager`) is fine
 5. **Secret name**: `loadlead/analytics/db`
-6. Resource permissions — leave default for now (least-privilege via IAM role)
+6. Resource permissions - leave default for now (least-privilege via IAM role)
 7. Rotation: enable later with the **Lambda rotation** option; not required for build-now
 8. Click **Store**
 
-**Note the secret ARN** — I'll need it to grant the stream consumer Lambda
+**Note the secret ARN** - I'll need it to grant the stream consumer Lambda
 permission to read it.
 
 ---
@@ -171,7 +171,7 @@ the secret. **No write permissions to DynamoDB.**
 6. **Tags**: `app=loadlead`, `tier=analytics`
 
 ⚠️ **Verify the role has NO write permissions to DynamoDB.** The stream
-consumer is read-only on Dynamo by spec — if you accidentally grant
+consumer is read-only on Dynamo by spec - if you accidentally grant
 `PutItem` / `UpdateItem` / `DeleteItem`, that's a compliance violation
 (LL-AC-001).
 
@@ -179,7 +179,7 @@ consumer is read-only on Dynamo by spec — if you accidentally grant
 
 ### 1.6 Enable DynamoDB Streams on the 8 source tables
 
-Stream image type: **New and old images** (spec §3 requires both — old image
+Stream image type: **New and old images** (spec §3 requires both - old image
 needed to compute deltas, new image needed to update read models).
 
 Tables:
@@ -200,7 +200,7 @@ Tables:
 4. Click **Turn on stream**
 5. **Copy the stream ARN** (looks like `arn:aws:dynamodb:us-east-1:…:table/LoadLead_Loads/stream/2026-…`)
 
-Send me all 8 stream ARNs as a list — I'll wire each one to the Lambda
+Send me all 8 stream ARNs as a list - I'll wire each one to the Lambda
 trigger.
 
 **Free**: streams have no per-stream cost, only per-record read cost
@@ -267,7 +267,7 @@ Once received, I'll build:
 
 ---
 
-## TIER 2 — Telematics (Gated on provider)
+## TIER 2 - Telematics (Gated on provider)
 
 Until one of these is connected, **every telematics-derived field renders
 "Connect <X>"**, never zeros (spec §0 no-fabrication rule).
@@ -291,9 +291,9 @@ hard-brake events, live ETA.
 
 **Once a provider is chosen, hand me:**
 
-- API base URL (sandbox + production — keep them separate per LL-TP-001)
+- API base URL (sandbox + production - keep them separate per LL-TP-001)
 - Auth credentials (OAuth client_id/client_secret, or API key/bearer token)
-- Webhook signing secret (for HMAC verification — LL-CR-004)
+- Webhook signing secret (for HMAC verification - LL-CR-004)
 - The scope your account has subscribed to (HOS only? + GPS? + diagnostics?)
 - Whether the provider is currently in **sandbox or live** for your account
 
@@ -343,7 +343,7 @@ Drives: reefer deviation alerts, temperature compliance for cold-chain loads.
 
 ---
 
-### 2.4 FMCSA SMS / CSA scores (no provider — public dataset)
+### 2.4 FMCSA SMS / CSA scores (no provider - public dataset)
 
 Drives: `csaScores` field in the carrier SLA panel.
 
@@ -360,11 +360,11 @@ Drives: `csaScores` field in the carrier SLA panel.
 
 | Tier | Monthly | One-time setup |
 |---|---|---|
-| Tier 1 — Geospatial (build-now) | ~$25–40 (db.t4g.small + 50 GB + Lambda invocations) | ~45 min in AWS console |
-| Tier 2 — ELD provider | varies; ~$30–50 per truck per month from most providers | provider-specific onboarding (1–2 weeks for some) |
-| Tier 2 — Reefer | varies; some are included in trailer purchase, others ~$10/month per unit | hardware registration |
-| Tier 2 — Fuel card | usually $0 monthly (provider makes margin on transactions) | underwriting + card issuance (~1 week) |
-| Tier 2 — FMCSA CSA | $0 | none |
+| Tier 1 - Geospatial (build-now) | ~$25-40 (db.t4g.small + 50 GB + Lambda invocations) | ~45 min in AWS console |
+| Tier 2 - ELD provider | varies; ~$30-50 per truck per month from most providers | provider-specific onboarding (1-2 weeks for some) |
+| Tier 2 - Reefer | varies; some are included in trailer purchase, others ~$10/month per unit | hardware registration |
+| Tier 2 - Fuel card | usually $0 monthly (provider makes margin on transactions) | underwriting + card issuance (~1 week) |
+| Tier 2 - FMCSA CSA | $0 | none |
 
 ---
 
@@ -380,7 +380,7 @@ Drives: `csaScores` field in the carrier SLA panel.
 - ❌ **Never** try to install TimescaleDB on RDS. Spec §0: it's not on the
       allow-list. Use `pg_partman` + `pg_cron` instead.
 - ✅ **Always** pin the stream consumer to one provider per integration (LL-TP-001).
-      Don't fan out across multiple ELD vendors simultaneously — that's a
+      Don't fan out across multiple ELD vendors simultaneously - that's a
       reliability and cost trap.
 
 ---
@@ -391,5 +391,5 @@ When Tier 1 (or any subset) is ready, message me:
 > "Analytics tier 1 ready. Stream ARNs and secret name attached."
 
 I'll start writing the schema migrations + stream consumer immediately. The
-build-now tier ships independently of the telematics work — you can decide on
+build-now tier ships independently of the telematics work - you can decide on
 ELD providers without blocking the geospatial rollout.

@@ -1,15 +1,15 @@
 ---
-connie-title: LoadLead — Beta Recruitment Kit (cohort plan + scorecard)
+connie-title: LoadLead - Beta Recruitment Kit (cohort plan + scorecard)
 connie-publish: true
 status: Authoritative
 audience: staff scoring applicants · founders setting cohort policy
 connie-page-id: '4489217'
 ---
 
-# LoadLead — Beta Recruitment Kit
+# LoadLead - Beta Recruitment Kit
 
 The **policy** behind who gets into the private beta. Code under
-`backend/src/services/beta*.ts` encodes this kit verbatim — if you change
+`backend/src/services/beta*.ts` encodes this kit verbatim - if you change
 this doc, you ship the corresponding code change in the same PR.
 
 ## Cohort plan
@@ -23,7 +23,7 @@ this doc, you ship the corresponding code change in the same PR.
 | Weekly feedback cadence | Required | Required |
 
 The shipper:carrier ratio is the **headline metric** on the dashboard. Out
-of balance ratios make Wave-N freight unmatchable — a 10-shipper / 2-carrier
+of balance ratios make Wave-N freight unmatchable - a 10-shipper / 2-carrier
 imbalance means most loads sit unaccepted, the cohort produces bad data,
 and we lose feedback signal. Don't admit any side past +20% of the other
 without an explicit override note from a founder.
@@ -47,7 +47,7 @@ decide whether to override. `DISQUALIFIED` is a **staff-only** verdict
 (e.g. fake credentials caught on manual review).
 
 Geography/Texas is a **scoring** dimension, not an auto-gate: an
-OUTSIDE-Texas applicant is QUALIFIED with Geography=0 — scored down, not
+OUTSIDE-Texas applicant is QUALIFIED with Geography=0 - scored down, not
 gated out.
 
 ## Scorecard (max 15 points)
@@ -58,7 +58,7 @@ objective dimensions (Volume, Geography, Tools) are pre-computed at ingest.
 
 | Dimension | Max | How |
 |---|---|---|
-| **Volume** | 3 | _Auto from loadsPerWeek_. 0=<5, 1=5–9, 2=10–24, 3=25+ |
+| **Volume** | 3 | _Auto from loadsPerWeek_. 0=<5, 1=5-9, 2=10-24, 3=25+ |
 | **Segment fit** | 3 | Staff. Does this applicant fit the cohort thesis (e.g. flatbed-on-Texas-triangle)? |
 | **Geography / Texas** | 3 | _Auto from texasFocus_. MOSTLY=3, PARTLY=2, OUTSIDE=0 |
 | **Lane overlap** | 2 | Staff. How well do their lanes overlap with already-admitted other-side accounts? The detail view surfaces overlapping accounts. |
@@ -92,7 +92,7 @@ favors that pairing.
      - For SHIPPER / OWNER_OPERATOR / RECEIVER / DRIVER side: a self-signup
        invite (orgId=null, userRole=<persona>)
      - For CARRIER side: a carrier-org admin invite (orgId=existing or
-       pending — staff specifies)
+       pending - staff specifies)
    - Sets `BetaApplication.status = ADMITTED → INVITED`, stamps `cohort`,
      `wave`, `linkedInvitationToken`
 3. When the applicant later signs up via that invite, the gate sets
@@ -105,12 +105,12 @@ Admit NEVER creates a parallel invite mechanism. It reuses `OrgInvitationService
 
 Set `BETA_MODE=off` in production env. The gate stops gating; existing
 `betaUser` accounts keep their cohort tag for filtering and post-launch
-study. There is no "graduation" event — beta accounts simply convert to
+study. There is no "graduation" event - beta accounts simply convert to
 normal accounts at the flag flip.
 
 ## See also
 
-- [`Tally_Form_Guide.md`](Tally_Form_Guide.md) — the form fields that feed
+- [`Tally_Form_Guide.md`](Tally_Form_Guide.md) - the form fields that feed
   every column of `BetaApplication`.
-- [`PendingRegister.md`](../PendingRegister.md) — open items including
+- [`PendingRegister.md`](../PendingRegister.md) - open items including
   any beta-related gaps surfaced after build.

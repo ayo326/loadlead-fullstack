@@ -6,7 +6,7 @@ import { config } from './environment';
 
 const isLocalDynamo = !!config.dynamodb.endpoint;
 
-// If using DynamoDB Local, AWS SDK still requires creds — dummy values are fine.
+// If using DynamoDB Local, AWS SDK still requires creds - dummy values are fine.
 const credentials =
   isLocalDynamo
     ? {

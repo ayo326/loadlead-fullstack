@@ -1,4 +1,4 @@
-// LoadLead — Account-level factoring profile
+// LoadLead - Account-level factoring profile
 // A carrier is in exactly ONE active mode at a time (BYO or integrated partner).
 // This prevents double-assignment: two factors claiming the same receivable.
 //
@@ -20,14 +20,14 @@ import { AppError } from '../middleware/errorHandler';
 export type FactoringMode = 'BYO' | 'INTEGRATED' | 'NONE';
 
 export interface CarrierFactoringProfile {
-  carrierId:   string;   // PK — operatorId or orgId
+  carrierId:   string;   // PK - operatorId or orgId
   mode:        FactoringMode;
   updatedAt:   string;
 
   // BYO fields
   byoFactorName?:         string;
   byoNoaKey?:             string;  // S3 key for the Notice of Assignment doc
-  byoRemittanceRef?:      string;  // reference only — never raw bank details
+  byoRemittanceRef?:      string;  // reference only - never raw bank details
   byoKybStatus?:          'pending' | 'pass' | 'fail';
   byoRemittanceVerified?: boolean;
   byoReleasedAt?:         string;
@@ -62,7 +62,7 @@ function baseProfile(carrierId: string): CarrierFactoringProfile {
 // ---------------------------------------------------------------------------
 
 // Step 1: register a BYO factor. Blocked while an existing assignment (BYO or
-// integrated) is active — caller must release first.
+// integrated) is active - caller must release first.
 export async function registerByoFactor(
   carrierId: string,
   data: { factorName: string; noaKey: string; remittanceRef: string },
@@ -96,7 +96,7 @@ export async function verifyByoFactor(carrierId: string): Promise<void> {
   if (!profile || profile.mode !== 'BYO') throw new AppError('No BYO factor registered', 400);
 
   if (!process.env.DIDIT_API_KEY) {
-    console.warn(`[factoringProfile] DIDIT_API_KEY not set — stubbing BYO KYB as PASS for ${carrierId}`);
+    console.warn(`[factoringProfile] DIDIT_API_KEY not set - stubbing BYO KYB as PASS for ${carrierId}`);
     await saveProfile({ ...profile, byoKybStatus: 'pass', updatedAt: new Date().toISOString() });
     return;
   }
@@ -104,7 +104,7 @@ export async function verifyByoFactor(carrierId: string): Promise<void> {
 }
 
 // Step 3: ops/automated process confirms remittance with the factor out-of-band.
-// This is the anti-redirect control — we never trust carrier-entered bank details alone.
+// This is the anti-redirect control - we never trust carrier-entered bank details alone.
 export async function confirmByoRemittance(carrierId: string): Promise<void> {
   const profile = await getFactoringProfile(carrierId);
   if (!profile || profile.mode !== 'BYO') throw new AppError('No BYO factor registered', 400);
@@ -164,7 +164,7 @@ export async function selectIntegratedPartner(
 }
 
 // ---------------------------------------------------------------------------
-// Release — must be called before switching modes.
+// Release - must be called before switching modes.
 // Records the letter of release before clearing the active mode.
 // ---------------------------------------------------------------------------
 export async function releaseCurrentFactor(

@@ -1,10 +1,10 @@
 /**
- * BetaApplicationService — owns the BetaApplication pipeline records.
+ * BetaApplicationService - owns the BetaApplication pipeline records.
  *
- *   ingestFromTally(payload)  — maps Tally fields BY LABEL (per
+ *   ingestFromTally(payload)  - maps Tally fields BY LABEL (per
  *       docs/beta/Tally_Form_Guide.md), runs auto-qualify, pre-computes the
  *       objective score dimensions, and persists. Idempotent by responseId.
- *   list / get / updateScore / setStatus / admit / addNote — the dashboard
+ *   list / get / updateScore / setStatus / admit / addNote - the dashboard
  *       operations.
  *
  * Field mapping is by LABEL because Tally regenerates question ids on
@@ -24,7 +24,7 @@ import { preComputeObjective, applyStaffScores, totalOf, coerceText } from './be
 /** Shape of a Tally webhook payload (the parts we read). Tally wraps the
  *  answers in data.fields[]; each field has a `label`, `type`, and `value`.
  *  For multiple-choice the value is an option id and the labels live in a
- *  parallel `options` array — we resolve those to human strings. */
+ *  parallel `options` array - we resolve those to human strings. */
 /**
  * Tally webhook payload (the parts we read). Authoritative shape per spec:
  *   { eventType: "FORM_RESPONSE", createdAt,
@@ -198,7 +198,7 @@ export class BetaApplicationService {
     const m = fieldMap(payload);
 
     // Diagnostic: log the incoming question LABELS only (never the answer
-    // values — labels are static form text, not PII). debug-level so prod
+    // values - labels are static form text, not PII). debug-level so prod
     // logs stay quiet; flip NODE_ENV/log level or re-enable to surface
     // label drift if the live Tally form renames a question.
     Logger.debug(`[tally] ingest field labels: ${JSON.stringify(Object.keys(m))}`);
@@ -216,7 +216,7 @@ export class BetaApplicationService {
       throw new AppError('Tally submission missing valid Work email', 422);
     }
 
-    // Field mapping BY LABEL — authoritative labels per the guide §12.
+    // Field mapping BY LABEL - authoritative labels per the guide §12.
     // loadsPerWeek is stored RAW (band string or number); the gate/score
     // normalize it. Storing toInt() here would mis-read "Under 5" as 5.
     const sideSpecificData: BetaApplication['sideSpecificData'] = {};
@@ -224,7 +224,7 @@ export class BetaApplicationService {
     // multi-select answers as arrays; coerceText joins them) so the stored
     // model matches its `string` type and downstream `.trim()` is safe.
     // loadsPerWeek is kept RAW (band string interpreted by normalizeLoadsPerWeek).
-    // Field mapping BY LABEL — live Tally labels first, then older aliases.
+    // Field mapping BY LABEL - live Tally labels first, then older aliases.
     // loadsPerWeek uses findAnswer (label + keyword fallback) since it drives
     // both the LOW_VOLUME gate and the Volume score; it is stored RAW (band
     // string interpreted by normalizeLoadsPerWeek).
@@ -258,7 +258,7 @@ export class BetaApplicationService {
       };
     }
 
-    // Commitment questions — match the live Tally labels first, then older
+    // Commitment questions - match the live Tally labels first, then older
     // aliases, then a keyword fallback so a future label edit can't silently
     // default these to false (which would wrongly fire NO_COMMITMENT).
     const commitment = {
@@ -414,12 +414,12 @@ export class BetaApplicationService {
   }
 
   /**
-   * Cohort balance — the HEADLINE metric. Reports the shipper:carrier
+   * Cohort balance - the HEADLINE metric. Reports the shipper:carrier
    * composition for TWO populations so the dashboard can show the true
    * balance (and never call an empty/skewed population "balanced"):
    *
-   *   admitted — status ADMITTED/INVITED/ONBOARDED = "seats filled"
-   *   pipeline — status QUALIFIED, not yet admitted = "about to admit"
+   *   admitted - status ADMITTED/INVITED/ONBOARDED = "seats filled"
+   *   pipeline - status QUALIFIED, not yet admitted = "about to admit"
    *
    * A BOTH applicant supplies AND demands freight, so it counts toward
    * BOTH the shipper and carrier tallies of its population. `seats` is the
@@ -457,7 +457,7 @@ export interface CohortBalanceData {
 /**
  * Honest balance verdict (target ~1:1 per the recruitment kit). Measures
  * the admitted cohort when any seat is filled, otherwise the qualified
- * pipeline — so the badge tells you what you HAVE, or failing that what
+ * pipeline - so the badge tells you what you HAVE, or failing that what
  * you're ABOUT TO admit. Never reports an empty population as balanced.
  */
 export type BalanceState = 'EMPTY' | 'NEED_CARRIERS' | 'NEED_SHIPPERS' | 'SKEWED' | 'BALANCED';

@@ -63,7 +63,7 @@ function key(...parts: (string | undefined)[]): string {
   return createHash('sha256').update(parts.map((p) => p ?? '-').join('|'), 'utf8').digest('hex').slice(0, 32);
 }
 
-/** A conditional-put failure — a concurrent write won the idempotent insert. */
+/** A conditional-put failure - a concurrent write won the idempotent insert. */
 function isConditionFailure(err: any): boolean {
   return err?.name === 'ConditionalCheckFailedException' || err?.name === 'TransactionCanceledException';
 }

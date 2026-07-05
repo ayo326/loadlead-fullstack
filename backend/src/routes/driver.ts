@@ -26,7 +26,7 @@ const router = express.Router();
 
 router.use(authenticate);
 // OWNER_OPERATOR is admitted because their self-driver row makes them the
-// driver of record on their own loads — DriverService.getProfileByUserId
+// driver of record on their own loads - DriverService.getProfileByUserId
 // already resolves it correctly. Without this, OO self-haul cannot use
 // the per-driver routes (loadboard, pickup, deliver, etc.), which broke
 // the prod attestation e2e on DRIVER_PICKUP.
@@ -50,7 +50,7 @@ router.get(
 );
 
 // ─── Driver-side identity verification (mirrors OO endpoints) ──────────────
-// Verification is keyed by userId — same record an OO maintains for
+// Verification is keyed by userId - same record an OO maintains for
 // themselves. Splitting the route under /api/driver/ surfaces the IDV
 // flow inside the driver's own UI so the onboarding page doesn't need to
 // know whether the user is a DRIVER or OWNER_OPERATOR.
@@ -64,7 +64,7 @@ router.post('/verification/idv', asyncHandler(async (req: AuthRequest, res) => {
   res.status(201).json({ verification });
 }));
 
-// ─── Affiliation status — who is this driver's carrier of record? ──────────
+// ─── Affiliation status - who is this driver's carrier of record? ──────────
 // "Affiliated" means the driver has either:
 //   - an OO ownership link (driver.ownedByOperatorId), OR
 //   - an ACTIVE membership in a CARRIER-capability org.
@@ -192,7 +192,7 @@ router.post(
       if (load?.shipperId) {
         const origin = `${load.pickupCity}, ${load.pickupState}`;
         const destination = `${load.deliveryCity}, ${load.deliveryState}`;
-        // Email + push (best-effort — shipperId used as userId since they share the same ID)
+        // Email + push (best-effort - shipperId used as userId since they share the same ID)
         await PushService.send(load.shipperId, '✅ Load Accepted',
           `${driver.fullName || 'A driver'} accepted your load: ${origin} → ${destination}`,
           `https://loadleadapp.com/shipper/loads/${loadId}`);
@@ -233,7 +233,7 @@ router.get(
   })
 );
 
-// POST /api/driver/headshot/upload-url — presigned URL to upload profile headshot
+// POST /api/driver/headshot/upload-url - presigned URL to upload profile headshot
 router.post(
   '/headshot/upload-url',
   asyncHandler(async (req: AuthRequest, res) => {
@@ -247,7 +247,7 @@ router.post(
   })
 );
 
-// POST /api/driver/loads/:loadId/pod/upload-url — get presigned S3 URL for photo upload
+// POST /api/driver/loads/:loadId/pod/upload-url - get presigned S3 URL for photo upload
 router.post(
   '/loads/:loadId/pod/upload-url',
   asyncHandler(async (req: AuthRequest, res) => {
@@ -261,7 +261,7 @@ router.post(
   })
 );
 
-// POST /api/driver/loads/:loadId/pickup — driver pickup transition (NEW).
+// POST /api/driver/loads/:loadId/pickup - driver pickup transition (NEW).
 // GATE: chain must contain a DRIVER_PICKUP signature (records pickup
 // photos + driver attestation). Transitions Load.status BOOKED → IN_TRANSIT.
 // Closes LOAD-E2E-004 (missing IN_TRANSIT endpoint).
@@ -286,7 +286,7 @@ router.post(
   }),
 );
 
-// POST /api/driver/loads/:loadId/deliver — driver delivery transition (NEW; replaces /pod).
+// POST /api/driver/loads/:loadId/deliver - driver delivery transition (NEW; replaces /pod).
 // GATE: chain must contain a DRIVER_DELIVER signature with delivery photos.
 // Transitions Load.status IN_TRANSIT → DELIVERED.
 router.post(
@@ -328,7 +328,7 @@ router.post(
   }),
 );
 
-// POST /api/driver/loads/:loadId/pod — LEGACY (deprecated). Kept for back-compat.
+// POST /api/driver/loads/:loadId/pod - LEGACY (deprecated). Kept for back-compat.
 // Returns 410 with a structured deprecation message pointing clients at the
 // new sign + deliver flow. Will be removed in Phase 1b after client cutover.
 router.post(
@@ -342,7 +342,7 @@ router.post(
   }),
 );
 
-// POST /api/driver/loads/:loadId/pod-legacy — bypass to preserve existing
+// POST /api/driver/loads/:loadId/pod-legacy - bypass to preserve existing
 // driver-app behavior until clients migrate. Same body shape as before;
 // auto-marks DELIVERED without attestation. Behind ALLOW_LEGACY_POD env so
 // it can be turned off cleanly.
@@ -389,7 +389,7 @@ router.post(
   })
 );
 
-// POST /api/driver/capacity/check — evaluate a prospective load against driver's current capacity
+// POST /api/driver/capacity/check - evaluate a prospective load against driver's current capacity
 router.post(
   '/capacity/check',
   asyncHandler(async (req: AuthRequest, res) => {
@@ -406,7 +406,7 @@ router.post(
   })
 );
 
-// GET /api/driver/history — loads this driver has accepted (BOOKED / IN_TRANSIT / DELIVERED)
+// GET /api/driver/history - loads this driver has accepted (BOOKED / IN_TRANSIT / DELIVERED)
 router.get(
   '/history',
   asyncHandler(async (req: AuthRequest, res) => {
@@ -434,7 +434,7 @@ router.get(
   })
 );
 
-// PATCH /api/driver/capacity/buffer — driver views/confirms their buffer (read-only for drivers; only admins change it)
+// PATCH /api/driver/capacity/buffer - driver views/confirms their buffer (read-only for drivers; only admins change it)
 router.get(
   '/capacity/buffer',
   asyncHandler(async (req: AuthRequest, res) => {
@@ -476,7 +476,7 @@ router.post(
 
     const { operatorId } = await OwnerOperatorService.acceptFleetInvite(token, driver.driverId);
 
-    // Set ownedByOperatorId on the driver — this is what carrierOfRecord.ts reads
+    // Set ownedByOperatorId on the driver - this is what carrierOfRecord.ts reads
     // to resolve the governing carrier entity for fleet drivers.
     await Database.updateItem(
       config.dynamodb.driversTable,
@@ -494,9 +494,9 @@ router.post(
 
 // ── Verification ─────────────────────────────────────────────────────────────
 
-// GET /api/driver/verification — current IDV status
+// GET /api/driver/verification - current IDV status
 // Identity is per-person (User.idvStatus), not per-Driver-row, so it's keyed
-// by userId — this also means it works before a Driver profile even exists.
+// by userId - this also means it works before a Driver profile even exists.
 router.get(
   '/verification',
   asyncHandler(async (req: AuthRequest, res) => {
@@ -505,7 +505,7 @@ router.get(
   }),
 );
 
-// POST /api/driver/verification/submit — start IDV for this person
+// POST /api/driver/verification/submit - start IDV for this person
 router.post(
   '/verification/submit',
   asyncHandler(async (req: AuthRequest, res) => {

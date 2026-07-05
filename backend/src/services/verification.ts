@@ -1,10 +1,10 @@
-// LoadLead — Carrier/Driver verification
+// LoadLead - Carrier/Driver verification
 // State machine:
 //   UNVERIFIED -> PENDING -> VERIFIED | REJECTED
 //   VERIFIED   -> EXPIRED (authority lapse / re-check due) -> PENDING -> ...
 //
 // Invariant: only a VERIFIED carrier entity with currently-active FMCSA authority
-// may accept loads. Enforced in middleware — never in the UI.
+// may accept loads. Enforced in middleware - never in the UI.
 
 import { Request, Response, NextFunction } from 'express';
 import { createHmac, timingSafeEqual } from 'crypto';
@@ -76,7 +76,7 @@ export async function getVerification(entityId: string): Promise<Verification | 
   return (res.Item as Verification) ?? null;
 }
 
-// Identity (IDV) only gates DRIVER-entity records (keyed by userId) — carrier
+// Identity (IDV) only gates DRIVER-entity records (keyed by userId) - carrier
 // authority records (OO/org, keyed by operatorId/orgId) are gated on
 // FMCSA + KYB + AML only. Identity is checked separately, per person, in
 // requireVerifiedCarrier() gate 2 against the same DRIVER-entity record.
@@ -111,7 +111,7 @@ export async function recomputeAndPersist(
 
   await docClient.send(new PutCommand({ TableName: TABLE, Item: merged }));
 
-  // Identity lives on the User, not the Driver (spec §4) — mirror the derived
+  // Identity lives on the User, not the Driver (spec §4) - mirror the derived
   // status onto Users.idvStatus so it can be read without a second lookup
   // shape, and so it survives independent of which carrier parent governs
   // this person's haul authority.
@@ -143,13 +143,13 @@ export async function getReviewQueue(
 }
 
 // ---------------------------------------------------------------------------
-// THE GATE — apply to every accept route (driver self-accept, and OO acting
+// THE GATE - apply to every accept route (driver self-accept, and OO acting
 // on behalf of a fleet driver or its own self-driver).
 //
 // Two independent gates, composed via carrierOfRecord.ts (spec §4, §8):
-//   1. Carrier AUTHORITY — resolveCarrierOfRecord(driver) must be non-null
+//   1. Carrier AUTHORITY - resolveCarrierOfRecord(driver) must be non-null
 //      and VERIFIED (FMCSA + KYB + AML at the OO/Carrier-org parent level).
-//   2. Driver IDENTITY   — the acting driver's own user.idvStatus must be
+//   2. Driver IDENTITY   - the acting driver's own user.idvStatus must be
 //      VERIFIED (Didit IDV, per person, never inherited from the parent).
 // ---------------------------------------------------------------------------
 export function requireVerifiedCarrier() {
@@ -181,13 +181,13 @@ export function requireVerifiedCarrier() {
         }
       }
 
-      // Gate 1 — carrier authority.
+      // Gate 1 - carrier authority.
       const { verified, carrier, status } = await isCarrierVerified(driver);
       if (!verified) {
         return res.status(403).json({ error: 'carrier_not_verified', reason: status });
       }
 
-      // Gate 2 — driver identity (per person, on the User record).
+      // Gate 2 - driver identity (per person, on the User record).
       const identity = await getVerification(driver.userId);
       if (identity?.verificationStatus !== VerificationStatus.VERIFIED) {
         return res.status(403).json({ error: 'driver_not_verified', reason: 'idv_incomplete' });
@@ -205,9 +205,9 @@ export function requireVerifiedCarrier() {
 }
 
 // ---------------------------------------------------------------------------
-// FMCSA QCMobile check + Didit session/AML — both now route through
+// FMCSA QCMobile check + Didit session/AML - both now route through
 // services/integrations/. This file no longer reads FMCSA_WEBKEY or
-// DIDIT_API_KEY, or calls fetch() against either provider, directly — the
+// DIDIT_API_KEY, or calls fetch() against either provider, directly - the
 // adapters are the only thing that do. Exported signatures below are
 // unchanged from before this refactor.
 // ---------------------------------------------------------------------------
@@ -225,7 +225,7 @@ async function callDiditAml(entityId: string, fullName: string): Promise<SubStat
 
 // Carrier (OO or org) submits MC/DOT + docs.
 // Runs FMCSA check, persists PENDING record, then launches a Didit KYB session.
-// Identity (IDV) is NOT part of this submission — it is per-person and lives
+// Identity (IDV) is NOT part of this submission - it is per-person and lives
 // on User.idvStatus (see submitDriverIdv). An OO completes IDV the same way
 // any Carrier-org driver does, once, for their own userId.
 // Returns the verification record with the KYB session URL for redirection.
@@ -263,8 +263,8 @@ export async function submitCarrierDocs(
 }
 
 // Per-person identity verification (Didit IDV). Required for EVERY operating
-// driver — Carrier-org members, OO fleet drivers, and an OO's own self-driver
-// — keyed by userId (not driverId), since identity is per-human and an OO who
+// driver - Carrier-org members, OO fleet drivers, and an OO's own self-driver
+// - keyed by userId (not driverId), since identity is per-human and an OO who
 // also drives verifies once for both roles.
 // Returns the verification record with diditIdvUrl for frontend redirection.
 export async function submitDriverIdv(userId: string): Promise<Verification> {
@@ -276,7 +276,7 @@ export async function submitDriverIdv(userId: string): Promise<Verification> {
 
   const idvWorkflow = process.env.DIDIT_IDV_WORKFLOW_ID;
   if (!idvWorkflow) {
-    console.warn('[verification] DIDIT_IDV_WORKFLOW_ID not set — skipping IDV session');
+    console.warn('[verification] DIDIT_IDV_WORKFLOW_ID not set - skipping IDV session');
     return v;
   }
 
@@ -289,7 +289,7 @@ export async function submitDriverIdv(userId: string): Promise<Verification> {
   });
 }
 
-// Admin manual override — approve or reject a verification record.
+// Admin manual override - approve or reject a verification record.
 export async function adminOverride(
   entityId: string,
   decision: 'approve' | 'reject',
@@ -308,13 +308,13 @@ export async function adminOverride(
 }
 
 // ---------------------------------------------------------------------------
-// Didit webhook — PUBLIC route (no JWT). Mount as POST /api/webhooks/didit.
+// Didit webhook - PUBLIC route (no JWT). Mount as POST /api/webhooks/didit.
 //
 // Didit v3 signature verification:
-//   X-Timestamp   — Unix epoch seconds of the request
-//   X-Signature-V2 — HMAC-SHA256(secret, "${timestamp}.${rawBody}")
+//   X-Timestamp   - Unix epoch seconds of the request
+//   X-Signature-V2 - HMAC-SHA256(secret, "${timestamp}.${rawBody}")
 //
-// Raw body must be captured before JSON parsing — Express must be configured
+// Raw body must be captured before JSON parsing - Express must be configured
 // with `verify` on express.json() to store req.rawBody. See index.ts note.
 // ---------------------------------------------------------------------------
 
@@ -324,13 +324,13 @@ function verifyDiditSignature(req: Request, secret: string): boolean {
   const sigSimple      = req.headers['x-signature-simple'] as string | undefined;
   const rawBody        = (req as any).rawBody as Buffer | undefined;
 
-  // Debug log — does not expose secret or body content.
-  console.info('[verification] webhook sig check — rawBody present:', !!rawBody,
+  // Debug log - does not expose secret or body content.
+  console.info('[verification] webhook sig check - rawBody present:', !!rawBody,
     '| sigV2 present:', !!sigV2, '| sigSimple present:', !!sigSimple,
     '| timestamp:', timestamp);
 
   if (!rawBody) {
-    console.error('[verification] rawBody not captured — check express.json verify config');
+    console.error('[verification] rawBody not captured - check express.json verify config');
     return false;
   }
 
@@ -340,9 +340,9 @@ function verifyDiditSignature(req: Request, secret: string): boolean {
   if (sigSimple) {
     try {
       const expected = createHmac('sha256', secret).update(bodyStr).digest('hex');
-      console.info('[verification] sigSimple check — received:', sigSimple.slice(0, 8), 'expected:', expected.slice(0, 8));
+      console.info('[verification] sigSimple check - received:', sigSimple.slice(0, 8), 'expected:', expected.slice(0, 8));
       if (timingSafeEqual(Buffer.from(sigSimple), Buffer.from(expected))) return true;
-    } catch { /* length mismatch — fall through */ }
+    } catch { /* length mismatch - fall through */ }
   }
 
   // Try X-Signature-V2: HMAC-SHA256(secret, "${timestamp}.${rawBody}")
@@ -355,19 +355,19 @@ function verifyDiditSignature(req: Request, secret: string): boolean {
     }
     try {
       const expected = createHmac('sha256', secret).update(`${timestamp}.${bodyStr}`).digest('hex');
-      console.info('[verification] sigV2 check — received:', sigV2.slice(0, 8), 'expected:', expected.slice(0, 8));
+      console.info('[verification] sigV2 check - received:', sigV2.slice(0, 8), 'expected:', expected.slice(0, 8));
       if (timingSafeEqual(Buffer.from(sigV2), Buffer.from(expected))) return true;
-    } catch { /* length mismatch — fall through */ }
+    } catch { /* length mismatch - fall through */ }
   }
 
-  console.warn('[verification] all signature formats exhausted — none matched');
+  console.warn('[verification] all signature formats exhausted - none matched');
   return false;
 }
 
 export async function diditWebhookHandler(req: Request, res: Response) {
   const event: any = req.body;
 
-  // Skip test events BEFORE signature check — test webhooks from the Didit console
+  // Skip test events BEFORE signature check - test webhooks from the Didit console
   // carry metadata.test_webhook === true and the X-Didit-Test-Webhook header.
   // Didit test payloads may not be signed with a real key, so we bypass sig check for them.
   const isTestEvent =
@@ -375,7 +375,7 @@ export async function diditWebhookHandler(req: Request, res: Response) {
     req.headers['x-didit-test-webhook'] === 'true';
 
   if (isTestEvent) {
-    console.info('[verification] Didit test webhook received — skipping signature check');
+    console.info('[verification] Didit test webhook received - skipping signature check');
     return res.json({ ok: true, test: true });
   }
 
@@ -386,17 +386,17 @@ export async function diditWebhookHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'invalid_signature' });
     }
   } else {
-    console.warn('[verification] DIDIT_WEBHOOK_SECRET not set — skipping signature check');
+    console.warn('[verification] DIDIT_WEBHOOK_SECRET not set - skipping signature check');
   }
 
   // Didit v3 payload shape (confirmed from test webhook):
-  //   event.vendor_data        — our entityId
-  //   event.status             — 'Approved' | 'Declined' | 'In Review'
-  //   event.session_id         — Didit session UUID
-  //   event.webhook_type       — 'status.updated' | 'user.status.updated' |
+  //   event.vendor_data        - our entityId
+  //   event.status             - 'Approved' | 'Declined' | 'In Review'
+  //   event.session_id         - Didit session UUID
+  //   event.webhook_type       - 'status.updated' | 'user.status.updated' |
   //                              'business.status.updated' | 'business.data.updated' | ...
-  //   event.metadata.test_webhook — true on test events
-  //   event.decision.aml_screenings[0] — AML result when AML feature is present
+  //   event.metadata.test_webhook - true on test events
+  //   event.decision.aml_screenings[0] - AML result when AML feature is present
 
   const entityId   = event?.vendor_data;
   const status     = event?.status;      // 'Approved' | 'Declined' | 'In Review'
@@ -404,7 +404,7 @@ export async function diditWebhookHandler(req: Request, res: Response) {
   const webhookType: string = event?.webhook_type ?? '';
 
   if (!entityId) {
-    console.warn('[verification] Didit webhook missing vendor_data — body:', JSON.stringify(event));
+    console.warn('[verification] Didit webhook missing vendor_data - body:', JSON.stringify(event));
     return res.status(400).json({ error: 'missing_entity' });
   }
 
@@ -433,7 +433,7 @@ export async function diditWebhookHandler(req: Request, res: Response) {
   return res.json({ ok: true });
 }
 
-// AML screening — runs a synchronous Didit AML check on the entity.
+// AML screening - runs a synchronous Didit AML check on the entity.
 // Typically called after KYB passes to check the beneficial owner name.
 export async function screenCarrierAml(entityId: string, fullName: string): Promise<void> {
   const result = await callDiditAml(entityId, fullName);

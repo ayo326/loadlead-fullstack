@@ -105,7 +105,7 @@ export class LoadService {
         offerTtlMinutes: data.offerTtlMinutes || config.app.offerTtl,
         offeredDriverCount: 0,
 
-        // ─── Equipment + Load Type Taxonomy (spec §2–§3) ───────────────
+        // ─── Equipment + Load Type Taxonomy (spec §2-§3) ───────────────
         // New orthogonal fields. Accept whatever the caller sent; the
         // legacy-to-canonical mapping below fills in anything missing.
         equipment_required:   data.equipment_required,

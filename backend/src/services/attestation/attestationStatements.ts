@@ -20,9 +20,9 @@ const STATEMENTS: AttestationStatement[] = [
     action: 'BOL_SUBMIT',
     version: '1.0.0',
     text:
-      "I, the authorized representative of the shipper, certify that the bill of lading details — " +
+      "I, the authorized representative of the shipper, certify that the bill of lading details - " +
       "commodity, weight, origin, destination, equipment requirements, and any hazardous-materials " +
-      "declarations — are accurate, complete, and submitted in good faith. I consent to sign this " +
+      "declarations - are accurate, complete, and submitted in good faith. I consent to sign this " +
       "tender electronically and to be bound by my electronic signature, which carries the same legal " +
       "effect as a handwritten signature under ESIGN (15 U.S.C. ch. 96) and UETA.",
   },

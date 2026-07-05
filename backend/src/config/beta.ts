@@ -1,7 +1,7 @@
 /**
  * Private-beta configuration. Read once at boot; never mutated after.
  *
- * The single source of truth for "are we in private beta?" — every callsite
+ * The single source of truth for "are we in private beta?" - every callsite
  * (signup gate, login gate, landing-page redirect, dashboard banner) reads
  * `isBetaMode()` instead of touching process.env directly, so flipping the
  * flag is one env change + one restart.
@@ -11,19 +11,19 @@
  *                    for cohort separation but stop affecting auth.
  *
  * Other knobs:
- *   BETA_CURRENT_COHORT     — string tag stamped on every new beta account
+ *   BETA_CURRENT_COHORT     - string tag stamped on every new beta account
  *                             (e.g. "wave-1"). Default "wave-1".
- *   BETA_COHORT_CAP         — soft cap shown on the dashboard balance widget.
+ *   BETA_COHORT_CAP         - soft cap shown on the dashboard balance widget.
  *                             Not enforced server-side (staff judgment). 0 = none.
- *   TALLY_SIGNING_SECRET    — HMAC signing key from Tally. If unset, the
+ *   TALLY_SIGNING_SECRET    - HMAC signing key from Tally. If unset, the
  *                             Tally webhook endpoint is INERT (returns 503
  *                             "form not connected") and the dashboard shows
  *                             the same status. No fabricated applications.
  *                             (TALLY_WEBHOOK_SECRET is accepted as a
  *                             back-compat alias.)
- *   TALLY_FORM_ID           — the Tally form id (optional; used as a sanity
+ *   TALLY_FORM_ID           - the Tally form id (optional; used as a sanity
  *                             check against the payload's `formId`).
- *   TALLY_REQUIRE_SOURCE_HEADER — when "true", the webhook additionally
+ *   TALLY_REQUIRE_SOURCE_HEADER - when "true", the webhook additionally
  *                             requires the custom header X-Beta-Source=tally
  *                             (defence-in-depth alongside the signature).
  */
@@ -67,7 +67,7 @@ export function getBetaConfig(): BetaConfig {
   return cached;
 }
 
-/** Convenience predicate — equivalent to `getBetaConfig().betaMode`. */
+/** Convenience predicate - equivalent to `getBetaConfig().betaMode`. */
 export function isBetaMode(): boolean {
   return getBetaConfig().betaMode;
 }

@@ -1,15 +1,15 @@
-# End-to-End Test Report — Load Negotiation
+# End-to-End Test Report - Load Negotiation
 ## Playwright, real UI bundle, backend mocked at the network boundary
 
 **Team:** Platform Engineering  **Date:** 2026-07-03  **Framework:** Playwright 1.57 (Chromium)
 **Branch:** `platform/SCRUM-248-esign-at-assign`  **Result:** **14 / 14 scenarios pass, 0 flaky, 17.2s**
-**Scope:** the negotiation flow across both party UIs — the Owner-Operator Load Detail page
+**Scope:** the negotiation flow across both party UIs - the Owner-Operator Load Detail page
 (`/owner-operator/loads/:loadId`, party = HAULER) and the Shipper Load Detail page
 (`/shipper/loads/:loadId`, party = SHIPPER), driving the real `NegotiationPanel`.
 
 ---
 
-## 1. Approach — and why it is hermetic
+## 1. Approach - and why it is hermetic
 
 The suite drives the **real compiled React application** (Vite dev server on `:3001`) and the **real
 `NegotiationPanel` component** end to end: real routing, the real auth-gated `RequireRole`, the real
@@ -19,7 +19,7 @@ negotiation state machine that mirrors the server's `viewFor()` and advances on 
 
 **Why the backend is mocked rather than live:**
 - **It must not touch production.** Running against prod would mutate the demo load you will click
-  through — every accept would assign it, every reject would rebroadcast it. The mock keeps prod
+  through - every accept would assign it, every reject would rebroadcast it. The mock keeps prod
   pristine (the standing "don't change anything" constraint).
 - **The local Docker daemon is down**, so a full local DynamoDB + backend stack could not be brought
   up unattended tonight.
@@ -31,13 +31,13 @@ negotiation state machine that mirrors the server's `viewFor()` and advances on 
 
 ## 2. What "100% coverage" means here
 
-E2E does not measure line coverage — it measures **behaviour coverage**. The target is **100% of the
+E2E does not measure line coverage - it measures **behaviour coverage**. The target is **100% of the
 UI-reachable transitions of the negotiation state machine**: every edge a real user can trigger from a
 button, plus the live-update channel and the e-sign gate. The matrix in §3 shows every such edge with
 the scenario that exercises it. (Statement/branch/basis-path coverage of the underlying code is
 measured separately in the **Path Coverage report**; the two are complementary.)
 
-The one state not driven by a button — **EXPIRED** — is reachable in the UI only through the long-poll
+The one state not driven by a button - **EXPIRED** - is reachable in the UI only through the long-poll
 delivering an expiry (there is no "expire" control); scenario **H9** exercises exactly that path, so
 the observable state machine is fully covered.
 
@@ -96,27 +96,27 @@ Full Playwright HTML report (traces on any failure): `docs/overnight-2026-07-03/
 Building a real-browser E2E flushed out three issues that unit tests could not. None blocks the
 negotiation feature; all are worth a fast-follow.
 
-### F1 — Onboarding tour overlay intercepts clicks on the load-detail panels  *(UX / medium)*
+### F1 - Onboarding tour overlay intercepts clicks on the load-detail panels  *(UX / medium)*
 The Shepherd persona tour auto-starts ~700ms after a dashboard-family route mounts. On the
 Owner-Operator and Shipper **load-detail** pages its modal overlay renders **on top of the negotiation
 panel**, intermittently intercepting clicks (it blocked the accept button mid-test until suppressed).
 A user who deep-links to a load while the tour is unseen can be blocked from acting on it.
 **COA:** do not auto-start the tour on deep-linked `.../loads/:id` routes (only on the dashboard root),
 or ensure the tour's overlay never covers primary action panels and dismisses on outside interaction.
-*(The E2E suppresses the tour via its own localStorage completion flag — the app's supported gate.)*
+*(The E2E suppresses the tour via its own localStorage completion flag - the app's supported gate.)*
 
-### F2 — Hard page reload on assignment  *(UX / low)*
+### F2 - Hard page reload on assignment  *(UX / low)*
 Both detail pages wire `onAssigned={() => window.location.reload()}`. On accept, the whole page
-reloads — scroll position is lost, every panel refetches, and there is a visible flash.
+reloads - scroll position is lost, every panel refetches, and there is a visible flash.
 **COA:** refetch just the load + negotiation state (a local `refresh()`), not a full document reload.
 
-### F3 — Panels white-screen on a malformed list response  *(resilience / low)*
+### F3 - Panels white-screen on a malformed list response  *(resilience / low)*
 `AccessorialsPanel` reads `res.charges` and `AttestationChain` reads `res.chain` and then render
 `.length` / `.map` on the result. When the response lacks that array (an unexpected shape or a partial
 outage), the value is `undefined` and the **whole page** crashes to the "Something went wrong" error
-boundary — the negotiation panel included, because they share the page. (Surfaced when the mock
+boundary - the negotiation panel included, because they share the page. (Surfaced when the mock
 returned a bare object; the live backend returns the correct shape today.)
-**COA:** default at the read site — `const charges = res?.charges ?? []` / `res?.chain ?? []` — so an
+**COA:** default at the read site - `const charges = res?.charges ?? []` / `res?.chain ?? []` - so an
 unexpected response degrades to an empty list instead of taking down the page.
 
 ---
@@ -133,15 +133,15 @@ Chromium is installed via `npx playwright install chromium`. The suite is hermet
 
 ---
 
-## Appendix — harness design
+## Appendix - harness design
 
-- `frontend-v2/playwright.config.ts` — vite `webServer` on `:3001`, retries 2 (absorbs long-poll
+- `frontend-v2/playwright.config.ts` - vite `webServer` on `:3001`, retries 2 (absorbs long-poll
   timing jitter), reports to the deliverables folder.
-- `frontend-v2/e2e/support/negotiationMock.ts` — the stateful network-boundary mock: it re-implements
+- `frontend-v2/e2e/support/negotiationMock.ts` - the stateful network-boundary mock: it re-implements
   `viewFor()` per party, advances the state machine on each POST, holds the events long-poll (~500ms)
   to emulate the server and avoid a tight loop, exposes a controller to simulate the counterparty
   (`shipperCounter`, `haulerBid`, `expire`) and the e-sign gate (`setEsignBlocked`), suppresses the
   persona tour, and returns benign empty shapes for incidental endpoints so the page always renders.
-- `frontend-v2/e2e/haulerFlows.spec.ts` (H1–H9) and `frontend-v2/e2e/shipperFlows.spec.ts` (S1–S5).
+- `frontend-v2/e2e/haulerFlows.spec.ts` (H1-H9) and `frontend-v2/e2e/shipperFlows.spec.ts` (S1-S5).
 
 **Not deployed. Branch artifact for review.**

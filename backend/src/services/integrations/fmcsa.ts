@@ -2,7 +2,7 @@
 //
 // FMCSA QCMobile carrier-authority adapter. Ships to every environment,
 // including production (resolveMode('fmcsa') always returns 'live' there).
-// Moved verbatim from services/verification.ts — verification.ts now
+// Moved verbatim from services/verification.ts - verification.ts now
 // delegates to this module instead of calling fetch() directly, but its own
 // exported signatures are unchanged, so recomputeAndPersist/deriveStatus and
 // everything downstream of them are untouched.
@@ -21,7 +21,7 @@ export async function checkCarrierAuthority(mc?: string, dot?: string): Promise<
     // Path built from parts, not a single literal: deploy-backend.sh's
     // deploy-time scan treats this stub module's bare name as a forbidden
     // marker, and the scan greps the COMPILED output of every shipped file
-    // — including this one, since fmcsa.ts itself is not pruned. A plain
+    // - including this one, since fmcsa.ts itself is not pruned. A plain
     // literal import string here would make every clean production build
     // fail that scan. This branch is also structurally unreachable in
     // production: resolveMode() returns 'live' unconditionally there.
@@ -32,7 +32,7 @@ export async function checkCarrierAuthority(mc?: string, dot?: string): Promise<
 
   const key = process.env.FMCSA_WEBKEY;
   if (!key) {
-    Logger.warn('[integrations/fmcsa] live mode but FMCSA_WEBKEY not set — treating authority check as passing');
+    Logger.warn('[integrations/fmcsa] live mode but FMCSA_WEBKEY not set - treating authority check as passing');
     return true;
   }
 

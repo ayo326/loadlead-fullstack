@@ -1,5 +1,5 @@
 ---
-connie-title: LoadLead — Frontend Architecture (status-tagged)
+connie-title: LoadLead - Frontend Architecture (status-tagged)
 connie-publish: true
 status: Reconciled
 last-reconciled-against: 2054ab2
@@ -21,7 +21,7 @@ connie-page-id: '1966082'
 | Tour | shepherd.js | `src/tour/LoadLeadTour.tsx` |
 | E2E | Cypress 15.18 | `frontend-v2/cypress/e2e/` |
 
-## Build artifacts ✅ Done — two deployable bundles
+## Build artifacts ✅ Done - two deployable bundles
 
 | Bundle | Built with | Deployed to | Behind |
 |---|---|---|---|
@@ -79,8 +79,8 @@ frontend-v2/src/
 - Evidence: `src/pages/Landing.tsx`, `src/pages/Signup.tsx`
 
 ### Verification ✅ (driver UX gap closed)
-- `OwnerOperatorVerification.tsx` — OO two-gate (authority + identity)
-- `DriverVerification.tsx` — driver two-gate (affiliation + identity), new in `978dce9`. Fills the gap where unaffiliated drivers had no obvious next step on the dashboard.
+- `OwnerOperatorVerification.tsx` - OO two-gate (authority + identity)
+- `DriverVerification.tsx` - driver two-gate (affiliation + identity), new in `978dce9`. Fills the gap where unaffiliated drivers had no obvious next step on the dashboard.
 
 ### Load creation with taxonomy dropdowns ✅
 - `PostLoad.tsx` uses `Combobox`, `MultiCombobox`, `AsyncCombobox` over the reference-data API (`/api/reference/*`)
@@ -105,11 +105,11 @@ Each persona's pact pins the authZ behavior it depends on. Pact verification run
 | Persona | Contract | Why it matters |
 |---|---|---|
 | Driver | UNAFFILIATED returns `200 { loads: [] }` (NOT 403) | Dashboard relies on the empty list + the dedicated `/affiliation` signal to render the "Awaiting affiliation" banner; would crash on 403 |
-| Shipper | Cross-shipper read returns `404` (NOT 403) | Existence-leak protection — shipper UI distinguishes "load not found" from "forbidden" |
+| Shipper | Cross-shipper read returns `404` (NOT 403) | Existence-leak protection - shipper UI distinguishes "load not found" from "forbidden" |
 | Receiver | Cross-receiver read returns `404` (NOT 403) | Same existence-leak protection |
 | Receiver | Confirm without signature returns `412 RECEIVER_CONFIRM_REQUIRED` | UI shows the gate inline instead of generic 500 |
 | Carrier | ORG_DRIVER reading the carrier dashboard returns `403` | UI routes 403 to "insufficient permission" empty state; flipping to 200-with-empty would leak revenue aggregates to drivers |
-| Admin | Suspend without 6+ char reason returns `400` | The 400 IS the audit-trail enforcement mechanism — without the reason, no row gets written |
+| Admin | Suspend without 6+ char reason returns `400` | The 400 IS the audit-trail enforcement mechanism - without the reason, no row gets written |
 
 All 6 are part of the `@H5..@H10` Pact features; see `docs/LoadLead_CrossPersona_Contract_UAT_BDD.md`.
 
@@ -118,9 +118,9 @@ All 6 are part of the `@H5..@H10` Pact features; see `docs/LoadLead_CrossPersona
 | Surface | Status | Notes |
 |---|---|---|
 | Driver verification + affiliation banner | ✅ | shipped `978dce9` |
-| Receiver de-fabricated dashboard | ✅ | shipped `978dce9`; stat cards "—" where backend metric doesn't exist (honest) |
+| Receiver de-fabricated dashboard | ✅ | shipped `978dce9`; stat cards "-" where backend metric doesn't exist (honest) |
 | Admin attestation chain lookup | ✅ | `src/components/admin/AttestationLookup.tsx` |
-| Receiver "Delivered (30d)" + "Exceptions" stat cards | 🟠 | Both honest "—" with "Backend metric pending" hint until a receiver-side aggregation endpoint exists |
+| Receiver "Delivered (30d)" + "Exceptions" stat cards | 🟠 | Both honest "-" with "Backend metric pending" hint until a receiver-side aggregation endpoint exists |
 | Admin view of `correctsSignatureId` correction chain | 🟠 | Field plumbed end-to-end; UI not yet rendering "this corrects X." See [PR-6](PendingRegister.md#medium) |
 | Per-OO settings vs Carrier settings | ✅ | Separated by independence rule |
 
@@ -130,15 +130,15 @@ All 6 are part of the `@H5..@H10` Pact features; see `docs/LoadLead_CrossPersona
 |---|---|---|
 | Cypress E2E | 9 specs (5 personas + a11y + cross-tenant authz + tour + smoke) | `frontend-v2/cypress/e2e/` |
 | Consumer pact (contract) | 6 files, 18 interactions | `frontend-v2/tests/contract/` |
-| Component / unit | Minimal — most logic is in `lib/api.ts` (tested via pacts) | n/a |
-| k6 load | `tests/load/fan100.js` — 100 concurrent load lifecycles | repo root `tests/load/` |
+| Component / unit | Minimal - most logic is in `lib/api.ts` (tested via pacts) | n/a |
+| k6 load | `tests/load/fan100.js` - 100 concurrent load lifecycles | repo root `tests/load/` |
 
 Frontend type-check: `0 errors` against the current main (`npx tsc --noEmit` in `frontend-v2/`).
 
 ---
 
-## Reconciliation delta (prior pass → `2054ab2`) — Status: Done
+## Reconciliation delta (prior pass → `2054ab2`) - Status: Done
 
-- **Admin console** ✅ — three sections: Operations console (`pages/admin/AdminDashboard.tsx` → Organisations / Support inbox / Fleet feed / Attestation lookup / Support channels), **Beta Program** (`BetaProgramDashboard.tsx` — pipeline, cohort-balance widget, applicant panel, admit→auto-email), **Settings** (`AdminSettings.tsx` — Staff/Team IAM + read-only integration states). Separate admin bundle (`npm run build:admin`).
-- **Private-beta surfaces** ✅ — `pages/PrivateBetaLanding.tsx` (waitlist wall) rendered on the apex `/login` **and** `/signup` while `BETA_MODE` is on (`isBetaHost()` gate, `lib/host.ts`); the beta subdomain shows the real app. `beta.loadleadapp.com` = exact-copy distribution.
-- **Glass design system** ✅ — shared CSS tokens: `styles/admin-glass.css` (`.admin-glass`, admin-only) and `styles/customer-glass.css` (`.cx-glass`, customer). Restyle only; admin and customer stay independent (no shared container). Landing uses the same `--cx-*` tokens (composition C).
+- **Admin console** ✅ - three sections: Operations console (`pages/admin/AdminDashboard.tsx` → Organisations / Support inbox / Fleet feed / Attestation lookup / Support channels), **Beta Program** (`BetaProgramDashboard.tsx` - pipeline, cohort-balance widget, applicant panel, admit→auto-email), **Settings** (`AdminSettings.tsx` - Staff/Team IAM + read-only integration states). Separate admin bundle (`npm run build:admin`).
+- **Private-beta surfaces** ✅ - `pages/PrivateBetaLanding.tsx` (waitlist wall) rendered on the apex `/login` **and** `/signup` while `BETA_MODE` is on (`isBetaHost()` gate, `lib/host.ts`); the beta subdomain shows the real app. `beta.loadleadapp.com` = exact-copy distribution.
+- **Glass design system** ✅ - shared CSS tokens: `styles/admin-glass.css` (`.admin-glass`, admin-only) and `styles/customer-glass.css` (`.cx-glass`, customer). Restyle only; admin and customer stay independent (no shared container). Landing uses the same `--cx-*` tokens (composition C).

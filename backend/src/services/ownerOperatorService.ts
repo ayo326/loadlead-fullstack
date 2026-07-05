@@ -31,7 +31,7 @@ export class OwnerOperatorService {
     Logger.info(`OwnerOperator profile created: ${operatorId}`);
 
     // Every OO gets a "self" Driver record so they can personally haul loads
-    // (spec §5, §6) — broadcast, acceptance, tracking, and POD all flow
+    // (spec §5, §6) - broadcast, acceptance, tracking, and POD all flow
     // through it exactly like a fleet driver, with no special-casing.
     await this.ensureSelfDriver(record);
 

@@ -1,5 +1,5 @@
 /**
- * /api/admin/beta/* — the Beta Program management surface for platform
+ * /api/admin/beta/* - the Beta Program management surface for platform
  * staff. Exact-ADMIN gated (same requireAdmin used by the rest of the
  * admin console). Mounted separately from admin.ts to keep the beta
  * concern self-contained.
@@ -7,7 +7,7 @@
  * The ADMIT action is the heart of Part B: it REUSES the existing
  * OrgInvitationService (createSelfSignupInvitation for non-carrier
  * personas, createInvitation for carrier-org) AND adds the email to
- * BetaAllowlist — never a parallel invite mechanism. The eventual signup
+ * BetaAllowlist - never a parallel invite mechanism. The eventual signup
  * through that invite stamps betaUser=true / cohort / invitedVia=INVITE.
  *
  * Every mutating action is audit-logged (Logger + the action carries the
@@ -48,7 +48,7 @@ router.get('/applications', asyncHandler(async (req: AuthRequest, res) => {
 }));
 
 /**
- * GET /api/admin/beta/applications/by-email/:email — the submitted intake for
+ * GET /api/admin/beta/applications/by-email/:email - the submitted intake for
  * a given email. Lets the allowlist and waitlist tabs open a drawer with
  * exactly what the applicant sent on the Tally form (those stores key by
  * email; the full intake lives in the applications store). Mounted before the
@@ -60,7 +60,7 @@ router.get('/applications/by-email/:email', asyncHandler(async (req: AuthRequest
   res.json({ application });
 }));
 
-/** GET /api/admin/beta/applications/:id — detail + lane-overlap helper */
+/** GET /api/admin/beta/applications/:id - detail + lane-overlap helper */
 router.get('/applications/:id', asyncHandler(async (req: AuthRequest, res) => {
   const app = await BetaApplicationService.get(req.params.id);
   if (!app) return res.status(404).json({ error: 'Application not found' });
@@ -85,7 +85,7 @@ router.get('/applications/:id', asyncHandler(async (req: AuthRequest, res) => {
   res.json({ application: app, laneOverlaps: overlapDetail });
 }));
 
-/** PUT /api/admin/beta/applications/:id/score — staff edits subjective dims */
+/** PUT /api/admin/beta/applications/:id/score - staff edits subjective dims */
 router.put(
   '/applications/:id/score',
   validate([
@@ -120,7 +120,7 @@ router.post('/applications/:id/assign', asyncHandler(async (req: AuthRequest, re
   res.json({ ok: true });
 }));
 
-/** POST /api/admin/beta/applications/:id/waitlist — move to waitlist tier */
+/** POST /api/admin/beta/applications/:id/waitlist - move to waitlist tier */
 router.post('/applications/:id/waitlist', asyncHandler(async (req: AuthRequest, res) => {
   const app = await BetaApplicationService.get(req.params.id);
   if (!app) return res.status(404).json({ error: 'Application not found' });
@@ -138,7 +138,7 @@ router.post('/applications/:id/waitlist', asyncHandler(async (req: AuthRequest, 
 }));
 
 /**
- * POST /api/admin/beta/applications/:id/admit — THE admit round-trip.
+ * POST /api/admin/beta/applications/:id/admit - THE admit round-trip.
  *   1. issue an Invitation via the EXISTING flow (self-signup invite for
  *      Shipper/OO/Receiver/Driver; carrier-org invite path for Carrier)
  *   2. add the applicant's email to BetaAllowlist (so even if they lose
@@ -168,7 +168,7 @@ router.post(
     const staffId = req.user!.userId;
 
     // 1. Issue an invite via the EXISTING service. Self-signup invite
-    //    (no orgId) for every persona including carrier — the carrier
+    //    (no orgId) for every persona including carrier - the carrier
     //    creates their org during signupCarrier, so a self-signup invite
     //    is correct here (the org isn't pre-created by staff).
     const invitation = await OrgInvitationService.createSelfSignupInvitation({
@@ -197,7 +197,7 @@ router.post(
     // Auto-send the applicant their private-beta access link. During private
     // beta the app lives on the beta subdomain, so the link is absolute to
     // BETA_FRONTEND_URL (default https://beta.loadleadapp.com). Fire-and-forget
-    // — a mail failure never rolls back the admit; the absolute URL is also
+    // - a mail failure never rolls back the admit; the absolute URL is also
     // returned so staff can copy it as a fallback.
     const betaBase = process.env.BETA_FRONTEND_URL || 'https://beta.loadleadapp.com';
     const acceptUrl = `${betaBase}/accept-invite?token=${invitation.token}`;
@@ -230,8 +230,8 @@ router.get('/cohort-balance', asyncHandler(async (req: AuthRequest, res) => {
   const verdict = balanceVerdict(balance);
 
   res.json({
-    admitted: balance.admitted,      // { shippers, carriers, both } — BOTH double-counts
-    pipeline: balance.pipeline,      // { shippers, carriers, both } — QUALIFIED only
+    admitted: balance.admitted,      // { shippers, carriers, both } - BOTH double-counts
+    pipeline: balance.pipeline,      // { shippers, carriers, both } - QUALIFIED only
     seatsFilled: balance.seatsFilled,
     cohortCap: cfg.cohortCap,
     ratioTarget: '1:1',
@@ -271,7 +271,7 @@ router.post(
   }),
 );
 
-/** DELETE /api/admin/beta/allowlist/:id — soft-delete */
+/** DELETE /api/admin/beta/allowlist/:id - soft-delete */
 router.delete('/allowlist/:id', asyncHandler(async (req: AuthRequest, res) => {
   await BetaAllowlistService.deactivate(req.params.id, req.user!.userId);
   res.json({ ok: true });
@@ -286,7 +286,7 @@ router.get('/waitlist', asyncHandler(async (_req: AuthRequest, res) => {
   res.json({ entries });
 }));
 
-/** POST /api/admin/beta/waitlist/:id/promote — promote a waitlisted person
+/** POST /api/admin/beta/waitlist/:id/promote - promote a waitlisted person
  *  to an invite (issues a self-signup invite + allowlists + marks INVITED). */
 router.post(
   '/waitlist/:id/promote',

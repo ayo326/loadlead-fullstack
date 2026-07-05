@@ -138,11 +138,11 @@ export class CapacityService {
    */
   static canDriverHandleLoad(driver: Driver, load: Load): { canHandle: boolean; reason?: string } {
     try {
-      // Steps 1 & 2 — equipment type + loading requirements
+      // Steps 1 & 2 - equipment type + loading requirements
       const equipCheck = EquipmentService.checkEquipmentMatch(driver, load);
       if (!equipCheck.eligible) return { canHandle: false, reason: equipCheck.reason };
 
-      // Steps 3 & 4 — capacity (weight + volume) + geometric fit
+      // Steps 3 & 4 - capacity (weight + volume) + geometric fit
       const result = CapacityService.evaluateLoad(driver, load);
       if (result.zone === 'DANGER') {
         return { canHandle: false, reason: result.blockMessage };
@@ -206,7 +206,7 @@ export class CapacityService {
     };
     await Database.putItem('LoadLead_BufferAuditLog', log).catch(() => {
       // Table may not exist in early deploys; log and continue
-      Logger.warn('LoadLead_BufferAuditLog table not yet created — audit entry skipped');
+      Logger.warn('LoadLead_BufferAuditLog table not yet created - audit entry skipped');
     });
 
     // Retroactive re-evaluation: tighter buffer → check for overBuffer

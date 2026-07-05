@@ -1,6 +1,6 @@
 // In-app notification inbox.
 // Persists every outbound notification (email, push, or system) so users can
-// review them in the app, mark read, and act on links — independent of whether
+// review them in the app, mark read, and act on links - independent of whether
 // the email/push reached the OS.
 
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
@@ -33,7 +33,7 @@ export interface Notification {
 
 export class NotificationService {
   /**
-   * Record a notification. Non-blocking — failures are logged but never
+   * Record a notification. Non-blocking - failures are logged but never
    * thrown, because the caller is in the middle of sending email/push and
    * a failed insert here must not prevent the underlying delivery.
    */

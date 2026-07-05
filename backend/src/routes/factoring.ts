@@ -1,4 +1,4 @@
-// Factoring routes — /api/factoring
+// Factoring routes - /api/factoring
 // All routes require authentication. Carrier identity is resolved from the
 // authenticated user's OO or org profile.
 
@@ -58,7 +58,7 @@ const FACTORING_ORG_ROLES: ReadonlySet<OrgRole> = new Set<OrgRole>([
 
 /**
  * Resolve the carrierId the authenticated user acts for. Mirrors the
- * carrier-of-record precedence (services/carrierOfRecord.ts — identity team,
+ * carrier-of-record precedence (services/carrierOfRecord.ts - identity team,
  * consumed here per the payee seam):
  *   1. Owner Operator profile        -> operatorId
  *   2. ACTIVE management membership in a CARRIER-capability org -> orgId
@@ -96,7 +96,7 @@ router.get('/profile', asyncHandler(async (req: AuthRequest, res) => {
   res.json({ profile: profile ?? { carrierId, mode: 'NONE' } });
 }));
 
-// POST /api/factoring/byo — register a BYO factor
+// POST /api/factoring/byo - register a BYO factor
 router.post('/byo', asyncHandler(async (req: AuthRequest, res) => {
   const carrierId = await resolveCarrierId(req);
   const { factorName, noaKey, remittanceRef } = req.body;
@@ -107,28 +107,28 @@ router.post('/byo', asyncHandler(async (req: AuthRequest, res) => {
   res.status(201).json({ profile });
 }));
 
-// POST /api/factoring/byo/verify — trigger KYB on the BYO factor (Didit)
+// POST /api/factoring/byo/verify - trigger KYB on the BYO factor (Didit)
 router.post('/byo/verify', asyncHandler(async (req: AuthRequest, res) => {
   const carrierId = await resolveCarrierId(req);
   await verifyByoFactor(carrierId);
   res.json({ ok: true });
 }));
 
-// POST /api/factoring/byo/confirm-remittance — ops confirms remittance out-of-band
+// POST /api/factoring/byo/confirm-remittance - ops confirms remittance out-of-band
 router.post('/byo/confirm-remittance', asyncHandler(async (req: AuthRequest, res) => {
   const carrierId = await resolveCarrierId(req);
   await confirmByoRemittance(carrierId);
   res.json({ ok: true });
 }));
 
-// GET /api/factoring/byo/ready — is BYO assignment fully operational?
+// GET /api/factoring/byo/ready - is BYO assignment fully operational?
 router.get('/byo/ready', asyncHandler(async (req: AuthRequest, res) => {
   const carrierId = await resolveCarrierId(req);
   const ready     = await byoReady(carrierId);
   res.json({ ready });
 }));
 
-// POST /api/factoring/partner — select an integrated partner
+// POST /api/factoring/partner - select an integrated partner
 router.post('/partner', asyncHandler(async (req: AuthRequest, res) => {
   const carrierId = await resolveCarrierId(req);
   const { partnerId } = req.body;
@@ -137,7 +137,7 @@ router.post('/partner', asyncHandler(async (req: AuthRequest, res) => {
   res.status(201).json({ profile });
 }));
 
-// POST /api/factoring/release — release current assignment (required before switching)
+// POST /api/factoring/release - release current assignment (required before switching)
 router.post('/release', asyncHandler(async (req: AuthRequest, res) => {
   const carrierId = await resolveCarrierId(req);
   const { letterOfReleaseKey } = req.body;
@@ -148,20 +148,20 @@ router.post('/release', asyncHandler(async (req: AuthRequest, res) => {
 
 // ── Per-load integrated opt-in ────────────────────────────────────────────────
 
-// POST /api/factoring/loads/:loadId/opt-in — opt a delivered load into integrated factoring
+// POST /api/factoring/loads/:loadId/opt-in - opt a delivered load into integrated factoring
 router.post('/loads/:loadId/opt-in', asyncHandler(async (req: AuthRequest, res) => {
   const carrierId = await resolveCarrierId(req);
   const optIn     = await optInToFactoring(req.params.loadId, carrierId);
   res.status(201).json({ optIn });
 }));
 
-// GET /api/factoring/loads/:loadId/payee — who receives the invoice payment?
+// GET /api/factoring/loads/:loadId/payee - who receives the invoice payment?
 router.get('/loads/:loadId/payee', asyncHandler(async (req: AuthRequest, res) => {
   const result = await resolveInvoicePayee(req.params.loadId);
   res.json(result);
 }));
 
-// GET /api/factoring/loads/:loadId/pod — check POD completeness for a load
+// GET /api/factoring/loads/:loadId/pod - check POD completeness for a load
 router.get('/loads/:loadId/pod', asyncHandler(async (req: AuthRequest, res) => {
   const result = await assertPodComplete(req.params.loadId);
   res.json(result);
@@ -195,16 +195,16 @@ const FACTORING_TERMS_WINDOW_DAYS = 90;
  * Resolve the REAL facts for the invoice package (the service is the canonical
  * assessor; this caller must not assume). Exported for unit tests.
  *
- *   mover.verified  — Verifications table for the carrier of record (FMCSA/KYB),
+ *   mover.verified  - Verifications table for the carrier of record (FMCSA/KYB),
  *                     same store requireVerifiedCarrier gates hauling on.
- *   debtor.verified — LoadLead runs no shipper KYB program, so this attests the
+ *   debtor.verified - LoadLead runs no shipper KYB program, so this attests the
  *                     weaker fact we can actually stand behind: the shipper is a
  *                     known account in good standing (profile exists + user not
  *                     suspended). Factors underwrite debtor credit themselves.
- *   withinTerms     — delivery attested no more than FACTORING_TERMS_WINDOW_DAYS ago.
- *   rateConfRef     — the newest REAL agreed-terms record for the load: the
+ *   withinTerms     - delivery attested no more than FACTORING_TERMS_WINDOW_DAYS ago.
+ *   rateConfRef     - the newest REAL agreed-terms record for the load: the
  *                     carrier's e-sign policy acceptance, else the shipper's
- *                     posting agreement. Omitted when neither exists — no more
+ *                     posting agreement. Omitted when neither exists - no more
  *                     synthetic rateconf:<loadId> pointer to a document that
  *                     does not exist.
  */
@@ -270,13 +270,13 @@ export async function buildPackageForInvoice(invoiceId: string, carrierId: strin
   return { load, pkg, podRef: deliver?.signatureId as string | undefined, activeAssignment };
 }
 
-// GET /api/factoring/contact — the saved factor contact
+// GET /api/factoring/contact - the saved factor contact
 router.get('/contact', asyncHandler(async (req: AuthRequest, res) => {
   const carrierId = await resolveCarrierId(req);
   res.json({ contact: await FactorContactService.get(carrierId) });
 }));
 
-// PUT /api/factoring/contact — save/update the saved factor contact
+// PUT /api/factoring/contact - save/update the saved factor contact
 router.put(
   '/contact',
   validate([
@@ -293,7 +293,7 @@ router.put(
   })
 );
 
-// POST /api/factoring/assignments — create an assignment (+ Notice of Assignment)
+// POST /api/factoring/assignments - create an assignment (+ Notice of Assignment)
 router.post(
   '/assignments',
   validate([
@@ -330,7 +330,7 @@ router.post(
   })
 );
 
-// GET /api/factoring/assignments — the mover's assignment history
+// GET /api/factoring/assignments - the mover's assignment history
 router.get('/assignments', asyncHandler(async (req: AuthRequest, res) => {
   const carrierId = await resolveCarrierId(req);
   const assignments = await FactoringAssignmentService.listForCarrier(carrierId);
@@ -347,7 +347,7 @@ router.post(
   })
 );
 
-// GET /api/factoring/invoices/:invoiceId/payee — who receives payment (v3 resolver)
+// GET /api/factoring/invoices/:invoiceId/payee - who receives payment (v3 resolver)
 router.get(
   '/invoices/:invoiceId/payee',
   validate([param('invoiceId').isString().isLength({ min: 1, max: 200 })]),
@@ -362,7 +362,7 @@ router.get(
   })
 );
 
-// GET /api/factoring/invoices/:invoiceId/package — factoring-ready package per line
+// GET /api/factoring/invoices/:invoiceId/package - factoring-ready package per line
 router.get(
   '/invoices/:invoiceId/package',
   validate([param('invoiceId').isString().isLength({ min: 1, max: 200 })]),
@@ -373,7 +373,7 @@ router.get(
   })
 );
 
-// POST /api/factoring/export — assemble the packet, review, and (on confirm) send.
+// POST /api/factoring/export - assemble the packet, review, and (on confirm) send.
 // Without confirmed:true this returns the manifest + resolved recipient for the
 // review step and sends nothing. With confirmed:true it sends to the confirmed
 // recipient only, on the authenticated domain, and records the submission.
@@ -440,7 +440,7 @@ router.post(
   })
 );
 
-// GET /api/factoring/submissions — the disclosure trail (submitted to your factor)
+// GET /api/factoring/submissions - the disclosure trail (submitted to your factor)
 router.get('/submissions', asyncHandler(async (req: AuthRequest, res) => {
   const carrierId = await resolveCarrierId(req);
   const submissions = await FactoringSubmissionService.listForCarrier(carrierId);

@@ -67,7 +67,7 @@ export const requireOwnerOperator = requireRole(UserRole.OWNER_OPERATOR, UserRol
  *
  * Use after `authenticate + requireAdmin` so the surface gate runs first
  * (a non-ADMIN never reaches this). The platformRole comes from a fresh
- * DB read of the user record — we DO NOT trust the JWT payload, which
+ * DB read of the user record - we DO NOT trust the JWT payload, which
  * may have been minted before the tier was changed. Pre-Phase-1 admins
  * with no platformRole resolve to STAFF_ADMIN for back-compat.
  */
@@ -115,7 +115,7 @@ export const requireComplianceRole = (role: ComplianceRole) => {
 };
 
 /**
- * Gate by org capability — e.g. only a CARRIER-capability org may onboard
+ * Gate by org capability - e.g. only a CARRIER-capability org may onboard
  * drivers. Reads req.params.orgId, requires the caller be an active member
  * (Platform Admin bypasses) of an org whose capabilities include `cap`.
  */

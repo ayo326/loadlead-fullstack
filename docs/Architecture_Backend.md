@@ -1,5 +1,5 @@
 ---
-connie-title: LoadLead — Backend Architecture (status-tagged)
+connie-title: LoadLead - Backend Architecture (status-tagged)
 connie-publish: true
 status: Reconciled
 last-reconciled-against: 2054ab2
@@ -18,9 +18,9 @@ connie-page-id: '2097156'
 | Language | TypeScript (strict) | `backend/tsconfig.json` |
 | Web framework | Express 5 | `backend/src/index.ts` |
 | Database | DynamoDB (28 prod tables, all PAY_PER_REQUEST, all PITR) | `infra/terraform/envs/prod/imported-tables.tf` + `main.tf` |
-| Object storage | S3 — 5 buckets, 2 WORM | `infra/terraform/envs/prod/{worm-sink,pod-uploads-v2,frontend-buckets-imported}.tf` |
+| Object storage | S3 - 5 buckets, 2 WORM | `infra/terraform/envs/prod/{worm-sink,pod-uploads-v2,frontend-buckets-imported}.tf` |
 | Auth | JWT in httpOnly cookies | `backend/src/middleware/auth.ts` |
-| Tests | Vitest — 266 cases, 0 failures | `backend/tests/` (unit + security + reliability + contract) |
+| Tests | Vitest - 266 cases, 0 failures | `backend/tests/` (unit + security + reliability + contract) |
 
 ## High-level component map ✅ Done
 
@@ -82,7 +82,7 @@ flowchart TB
 | `routes/bol.ts` | 8 | ✅ | Bill of lading lifecycle |
 | `routes/driver.ts` | 25 | ✅ | Driver loadboard + lifecycle |
 | `routes/factoring.ts` | 10 | ✅ | Carrier factoring opt-in |
-| `routes/maps.ts` | 3 | 🟠 **NONE** — see [PR-1](PendingRegister.md#high) | Google Maps quota exposure |
+| `routes/maps.ts` | 3 | 🟠 **NONE** - see [PR-1](PendingRegister.md#high) | Google Maps quota exposure |
 | `routes/notifications.ts` | 7 | ✅ | In-app inbox |
 | `routes/org.ts` | 24 | ✅ | Org membership + IAM + dispatch |
 | `routes/ownerOperator.ts` | 18 | ✅ | OO self-haul + fleet |
@@ -112,7 +112,7 @@ flowchart LR
 | Token type | JWT (HS256) | `backend/src/middleware/auth.ts` |
 | Transport | httpOnly cookie, `Secure`, `SameSite=Lax` | `backend/src/middleware/auth.ts` issue/clear logic |
 | Refresh | Single-token (no refresh-token rotation yet) | Limitation noted in `STIG LL-SM-002` (Not Reviewed) |
-| Logout | Cookie cleared; **no server-side denylist** | `STIG LL-SM-003` — gap if reuse-after-logout is a threat |
+| Logout | Cookie cleared; **no server-side denylist** | `STIG LL-SM-003` - gap if reuse-after-logout is a threat |
 | Auth gate | `router.use(authenticate)` at file top (11/15 files) | grep `router\.use\(authenticate\)` in `backend/src/routes/*.ts` |
 | Public-by-design routes | 21: 7 in auth.ts (signup/login/etc), 8 in reference.ts (taxonomy), 3 in setup.ts (admin bootstrap), 3 in maps.ts (🟠 see PR-1) | docs/.build/route_inventory.json |
 
@@ -129,9 +129,9 @@ flowchart TD
 ```
 
 Three legitimate carriers-of-record:
-- **Owner Operator** — driver.ownedByOperatorId set (OO self-driver: ownedByOperatorId === own operatorId)
-- **Carrier organization** — first ACTIVE membership in an org with CARRIER capability
-- **None** — UNAFFILIATED driver; cannot accept loads; surfaces as the "Awaiting affiliation" banner in the driver UI
+- **Owner Operator** - driver.ownedByOperatorId set (OO self-driver: ownedByOperatorId === own operatorId)
+- **Carrier organization** - first ACTIVE membership in an org with CARRIER capability
+- **None** - UNAFFILIATED driver; cannot accept loads; surfaces as the "Awaiting affiliation" banner in the driver UI
 
 | Property | Status | Evidence |
 |---|---|---|
@@ -144,8 +144,8 @@ Three legitimate carriers-of-record:
 
 Every driver acceptance passes through **two independent verification gates**:
 
-1. **Authority** — the carrier-of-record's `LoadLead_Verifications` row must be `VERIFIED` (FMCSA active + KYB passed via Didit, for OO/Carrier orgs)
-2. **Identity** — the driver themselves must have `idvStatus=VERIFIED` (personal IDV via Didit)
+1. **Authority** - the carrier-of-record's `LoadLead_Verifications` row must be `VERIFIED` (FMCSA active + KYB passed via Didit, for OO/Carrier orgs)
+2. **Identity** - the driver themselves must have `idvStatus=VERIFIED` (personal IDV via Didit)
 
 Both must clear. An OO with passed KYB who hasn't done personal IDV still can't accept loads (they're acting as their own driver).
 
@@ -157,19 +157,19 @@ Both must clear. An OO with passed KYB who hasn't done personal IDV still can't 
 | Webhook idempotency | ✅ | Conditional write on the Verifications row; double-fire is rejected |
 | Tests | ✅ | `tests/unit/verification/gates.test.ts`, `deriveStatus.test.ts` |
 
-## Attestation / signature chain ✅ Done — three-layer immutability
+## Attestation / signature chain ✅ Done - three-layer immutability
 
 The five lifecycle signatures (`BOL_SUBMIT` / `CARRIER_ACCEPT` / `DRIVER_PICKUP` / `DRIVER_DELIVER` / `RECEIVER_CONFIRM`) are stored as append-only rows in `LoadLead_Signatures`. Three independent layers prevent mutation:
 
 ```mermaid
 flowchart LR
-    subgraph "Layer 1 — Authoring time"
+    subgraph "Layer 1 - Authoring time"
         L1["ESLint rule denies imports of<br/>UpdateCommand/DeleteCommand/<br/>BatchWriteCommand in<br/>services/attestation/"]
     end
-    subgraph "Layer 2 — IAM"
+    subgraph "Layer 2 - IAM"
         L2["aws-elasticbeanstalk-ec2-role<br/>has inline policy:<br/>Deny UpdateItem/DeleteItem/<br/>BatchWriteItem on LoadLead_Signatures"]
     end
-    subgraph "Layer 3 — DDB API"
+    subgraph "Layer 3 - DDB API"
         L3["PutItem carries<br/>ConditionExpression:<br/>attribute_not_exists(signatureId)"]
     end
     L1 -.->|"impossible to author<br/>an update path"| L2
@@ -201,9 +201,9 @@ flowchart LR
 | Resolver-based signer authZ | ✅ | `backend/src/services/attestation/assertSignerIsLoadParty.ts` |
 | Chain READ authZ (admin || party) | ✅ | `assertChainReadAccess()` in same file; tested in `tests/unit/attestation/chainReadAccess.test.ts` |
 | `correctsSignatureId` field plumbed | ✅ | Persisted on the row; tested in `tests/reliability/signatureReplayProtection.test.ts` |
-| `correctsSignatureId` UI | 🟡 | No admin surface yet — see [PR-6](PendingRegister.md#medium) |
+| `correctsSignatureId` UI | 🟡 | No admin surface yet - see [PR-6](PendingRegister.md#medium) |
 
-## Proof photos (POD) ✅ Done — Object Lock per-object
+## Proof photos (POD) ✅ Done - Object Lock per-object
 
 ```mermaid
 sequenceDiagram
@@ -247,16 +247,16 @@ Boot-time mode resolver picks live vs stub per `APP_ENV` (production = live, dev
 | AWS SES | Inbound email → support inbox | `services/supportInboundService.ts` | ✅ |
 | Web Push | Driver push notifications | `services/integrations/push.ts` + `.stub.ts` | ✅ |
 
-Production-locked boot guard at `backend/src/services/integrations/bootGuard.ts` — fails closed if `APP_ENV=production` and any integration is in stub mode.
+Production-locked boot guard at `backend/src/services/integrations/bootGuard.ts` - fails closed if `APP_ENV=production` and any integration is in stub mode.
 
-## Data model — 28 DDB tables
+## Data model - 28 DDB tables
 
 All under Terraform management as of `d1a3ec6`. All have PITR enabled. Full schemas (hash key, range key, GSIs) in [`Data_API_Reference.md`](Data_API_Reference.md).
 
 | Group | Tables | Status |
 |---|---|---|
-| **Critical (lifecycle)** | Users, Loads, Offers, Drivers, Shippers, Receivers, Organizations, Memberships, BOL, Verifications, Signatures, PodPhotos | ✅ Done — all 12 imported, all PITR, append-only on Signatures |
-| **Secondary (support/admin)** | AdminAudit, AdminBootstrapAttempts, CarrierFactoringProfiles, FactoringOptIns, FleetInvites, Invitations, Notifications, OwnerOperators, PasswordResets, PushSubscriptions, SetupTokens, SupportInbound, SupportMessages, SupportSettings, SupportTickets, MembershipAuditLogs | ✅ Done — all 16 imported, all PITR (was disabled on all 16 pre-import, fixed in `d1a3ec6`) |
+| **Critical (lifecycle)** | Users, Loads, Offers, Drivers, Shippers, Receivers, Organizations, Memberships, BOL, Verifications, Signatures, PodPhotos | ✅ Done - all 12 imported, all PITR, append-only on Signatures |
+| **Secondary (support/admin)** | AdminAudit, AdminBootstrapAttempts, CarrierFactoringProfiles, FactoringOptIns, FleetInvites, Invitations, Notifications, OwnerOperators, PasswordResets, PushSubscriptions, SetupTokens, SupportInbound, SupportMessages, SupportSettings, SupportTickets, MembershipAuditLogs | ✅ Done - all 16 imported, all PITR (was disabled on all 16 pre-import, fixed in `d1a3ec6`) |
 
 ## Async / event-driven layer ✅ Done
 
@@ -267,7 +267,7 @@ All under Terraform management as of `d1a3ec6`. All have PITR enabled. Full sche
 | Didit webhook | `routes/diditWebhook` | Updates Verifications row | ✅ HMAC-verified, idempotent |
 | SES inbound | `supportInboundService` | Email → support ticket | ✅ |
 
-## Observability ✅ Done — alarms wired
+## Observability ✅ Done - alarms wired
 
 | Alarm | Source signal | Status |
 |---|---|---|
@@ -275,19 +275,19 @@ All under Terraform management as of `d1a3ec6`. All have PITR enabled. Full sche
 | `worm_sink_throttles` | Lambda Throttles metric | ✅ |
 | `worm_sink_iterator_age` | Lambda IteratorAge metric | ✅ |
 | IAM Access Analyzer | Account-wide policy scan | ✅ |
-| SNS topic | `loadlead-prod-ops-alerts` | ✅ (no subscriber yet — see [`PendingRegister.md`](PendingRegister.md)) |
+| SNS topic | `loadlead-prod-ops-alerts` | ✅ (no subscriber yet - see [`PendingRegister.md`](PendingRegister.md)) |
 
 PITR-state alarms (gap if it gets disabled out-of-band) are a follow-up in `PendingRegister.md` item #8.
 
 ---
 
-## Reconciliation delta (prior pass → `2054ab2`) — Status: Partial→Done
+## Reconciliation delta (prior pass → `2054ab2`) - Status: Partial→Done
 
 Shipped since the last full pass; each verified against the route/service:
 
-- **Private-beta gate** ✅ — `middleware/betaGate.ts` `requireBetaGate({mode:'signup'|'login'})`; `BETA_MODE` flag; ADMIN + `user.betaUser` exempt; fail-closed on DB error. Mounted on auth routes.
-- **Beta program services** ✅ — `services/betaApplicationService.ts` (Tally ingest, field-label mapping, auto-qualify), `betaScoring.ts` (7-dim rubric), `betaAllowlistService.ts`, `waitlistService.ts`.
-- **Tally webhook** ✅ — `routes/tallyWebhook.ts` mounted at `POST /api/admin/beta/webhook` with `express.raw()` before `express.json`; raw-body HMAC-SHA256 (`TALLY_SIGNING_SECRET`); idempotent by `responseId`; inert 503 when unconfigured.
-- **Platform-staff IAM** ✅ — `types/platformRole.ts` (`PlatformRole` enum, separate from `OrgRole`), `services/staffService.ts`, `routes/adminStaff.ts`; gated by `requireStaffTier(...tiers)` (exact-match, `middleware/auth.ts:84`). Public `POST /api/admin/staff/accept-invite` validated separately.
-- **Email** ✅ — `services/emailService.ts` via the Resend adapter (`integrations/email.ts`); transactional + beta/staff templates; sender domain `loadleadapp.com` verified.
+- **Private-beta gate** ✅ - `middleware/betaGate.ts` `requireBetaGate({mode:'signup'|'login'})`; `BETA_MODE` flag; ADMIN + `user.betaUser` exempt; fail-closed on DB error. Mounted on auth routes.
+- **Beta program services** ✅ - `services/betaApplicationService.ts` (Tally ingest, field-label mapping, auto-qualify), `betaScoring.ts` (7-dim rubric), `betaAllowlistService.ts`, `waitlistService.ts`.
+- **Tally webhook** ✅ - `routes/tallyWebhook.ts` mounted at `POST /api/admin/beta/webhook` with `express.raw()` before `express.json`; raw-body HMAC-SHA256 (`TALLY_SIGNING_SECRET`); idempotent by `responseId`; inert 503 when unconfigured.
+- **Platform-staff IAM** ✅ - `types/platformRole.ts` (`PlatformRole` enum, separate from `OrgRole`), `services/staffService.ts`, `routes/adminStaff.ts`; gated by `requireStaffTier(...tiers)` (exact-match, `middleware/auth.ts:84`). Public `POST /api/admin/staff/accept-invite` validated separately.
+- **Email** ✅ - `services/emailService.ts` via the Resend adapter (`integrations/email.ts`); transactional + beta/staff templates; sender domain `loadleadapp.com` verified.
 - **New `/api` mounts** (`index.ts`): `/api/beta`, `/api/admin/beta`, `/api/admin/staff`, `/api/factoring`, `/api/reference`, `POST /api/webhooks/didit`.

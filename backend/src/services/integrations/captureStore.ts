@@ -3,7 +3,7 @@
 // In-memory inspectable store for what the email/push adapters captured
 // instead of dispatching live, in test/capture mode. Backs GET /_test/outbox
 // (routes/_test) so E2E runs can assert "an email/push WOULD have gone out"
-// without anything reaching a real inbox or device. Process-lifetime only —
+// without anything reaching a real inbox or device. Process-lifetime only -
 // no durability needed; a dev/staging EB instance restart clearing it is
 // fine and arguably desirable (no stale captures across deploys).
 //

@@ -65,7 +65,7 @@ export class SecurityService {
     const otpauthUrl = generateURI({ label: email, issuer: 'LoadLead', secret });
     const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
 
-    // Stash secret without enabling yet — only verify() flips the enabled flag.
+    // Stash secret without enabling yet - only verify() flips the enabled flag.
     await Database.updateItem(config.dynamodb.usersTable, { userId }, {
       twoFactorSecret: secret,
       twoFactorEnabled: false,

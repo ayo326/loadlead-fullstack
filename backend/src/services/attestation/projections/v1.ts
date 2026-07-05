@@ -1,7 +1,7 @@
 // Canonical projection v1.
 //
 // Per-action allowlist. Old signatures stay verifiable against the
-// version they were signed under — DO NOT EDIT v1 IN PLACE; bump to v2
+// version they were signed under - DO NOT EDIT v1 IN PLACE; bump to v2
 // in a new file when fields change.
 //
 // The projection MUST NOT include:

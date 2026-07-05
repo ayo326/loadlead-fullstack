@@ -29,7 +29,7 @@ export interface SupportTicket {
   /** First-response target in minutes, if configured. */
   slaFirstResponseMinutes?: number | null;
 
-  /** Optional linkages — set when staff create a ticket from a Carrier org or driver context. */
+  /** Optional linkages - set when staff create a ticket from a Carrier org or driver context. */
   linkedOrgId?:    string | null;
   linkedDriverId?: string | null;
 

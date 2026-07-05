@@ -1,5 +1,5 @@
 /**
- * /api/admin/staff/* — platform-staff IAM management.
+ * /api/admin/staff/* - platform-staff IAM management.
  *
  * GATED to STAFF_ADMIN only: authenticate → requireStaffTier(DESTRUCTIVE_TIER).
  * requireStaffTier does a fresh DB read of the user's platformRole (not the
@@ -25,12 +25,12 @@ const router = express.Router();
 router.use(authenticate);
 router.use(requireStaffTier(...DESTRUCTIVE_TIER));
 
-/** GET /api/admin/staff — list platform staff with role + status. */
+/** GET /api/admin/staff - list platform staff with role + status. */
 router.get('/', asyncHandler(async (_req: AuthRequest, res) => {
   res.json({ staff: await StaffService.listStaff() });
 }));
 
-/** POST /api/admin/staff/invite { email, platformRole } — reuses Invitation flow. */
+/** POST /api/admin/staff/invite { email, platformRole } - reuses Invitation flow. */
 router.post(
   '/invite',
   validate([
@@ -53,7 +53,7 @@ router.post(
   }),
 );
 
-/** PUT /api/admin/staff/:userId/role { platformRole } — promote/demote. */
+/** PUT /api/admin/staff/:userId/role { platformRole } - promote/demote. */
 router.put(
   '/:userId/role',
   validate([body('platformRole').isIn(ALL_PLATFORM_ROLES as string[])]),
@@ -75,12 +75,12 @@ router.post('/:userId/reactivate', asyncHandler(async (req: AuthRequest, res) =>
   res.json({ ok: true });
 }));
 
-/** GET /api/admin/staff/invites — pending staff invites. */
+/** GET /api/admin/staff/invites - pending staff invites. */
 router.get('/invites', asyncHandler(async (_req: AuthRequest, res) => {
   res.json({ invites: await StaffService.listPendingInvites() });
 }));
 
-/** DELETE /api/admin/staff/invites/:token — revoke a pending invite. */
+/** DELETE /api/admin/staff/invites/:token - revoke a pending invite. */
 router.delete('/invites/:token', asyncHandler(async (req: AuthRequest, res) => {
   await StaffService.revokeInvite(req.params.token, req.user!.userId);
   res.json({ ok: true });
@@ -89,7 +89,7 @@ router.delete('/invites/:token', asyncHandler(async (req: AuthRequest, res) => {
 export default router;
 
 /**
- * PUBLIC accept handler (no session — the invitee isn't a user yet).
+ * PUBLIC accept handler (no session - the invitee isn't a user yet).
  * POST /api/admin/staff/accept-invite { token, password, fullName }
  * Mounted standalone in index.ts BEFORE the gated router so it's reachable
  * without auth. Token is the gate; reuses the same invite validation as

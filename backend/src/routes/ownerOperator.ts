@@ -1,5 +1,5 @@
 /**
- * Owner Operator routes — /api/owner-operator
+ * Owner Operator routes - /api/owner-operator
  *
  * Owner Operators are independent truck owners who:
  *  - Can drive themselves (have a driver-like profile)
@@ -32,14 +32,14 @@ router.use(requireOwnerOperator);
 router.get('/profile', asyncHandler(async (req: AuthRequest, res) => {
   const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
   if (!profile) return res.status(404).json({ message: 'Profile not found' });
-  // Lazy backfill — covers Owner Operators created before self-drivers existed.
+  // Lazy backfill - covers Owner Operators created before self-drivers existed.
   await OwnerOperatorService.ensureSelfDriver(profile);
   res.json({ ownerOperator: profile });
 }));
 
 router.post('/profile', asyncHandler(async (req: AuthRequest, res) => {
   const existing = await OwnerOperatorService.getByUserId(req.user!.userId);
-  if (existing) throw new AppError('Profile already exists — use PUT to update', 409);
+  if (existing) throw new AppError('Profile already exists - use PUT to update', 409);
   const profile = await OwnerOperatorService.createProfile({
     userId: req.user!.userId,
     ...req.body,
@@ -49,7 +49,7 @@ router.post('/profile', asyncHandler(async (req: AuthRequest, res) => {
 
 router.put('/profile', asyncHandler(async (req: AuthRequest, res) => {
   const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
-  if (!profile) throw new AppError('Profile not found — create it first', 404);
+  if (!profile) throw new AppError('Profile not found - create it first', 404);
   await OwnerOperatorService.updateProfile(profile.operatorId, req.body);
   res.json({ ownerOperator: { ...profile, ...req.body } });
 }));
@@ -58,7 +58,7 @@ router.put('/profile', asyncHandler(async (req: AuthRequest, res) => {
 
 router.get('/loadboard', asyncHandler(async (req: AuthRequest, res) => {
   // Owner operator sees loads that have been broadcast to any of their fleet
-  // drivers, PLUS loads directly matched to their own self-driver — without
+  // drivers, PLUS loads directly matched to their own self-driver - without
   // the self-driver, a solo OO with no fleet would see an empty loadboard.
   const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
   if (!profile) return res.json({ loads: [] });
@@ -94,7 +94,7 @@ router.get('/loadboard', asyncHandler(async (req: AuthRequest, res) => {
 }));
 
 // ── Offer management ─────────────────────────────────────────────────────────
-// Mirrors driver offer routes. The OO acts on behalf of a fleet driver — the
+// Mirrors driver offer routes. The OO acts on behalf of a fleet driver - the
 // offer record is keyed by driverId (whoever the broadcast was sent to).
 // Body param `driverId` selects which fleet driver's offer to act on; if omitted
 // the first active offer found for that load across the fleet is used.
@@ -113,7 +113,7 @@ async function resolveFleetDriverForLoad(
     ...(selfDriver ? [selfDriver.driverId] : []),
     ...(profile.fleetDriverIds ?? []),
   ];
-  if (!candidates.length) throw new AppError('No drivers available — no self-driver or fleet', 400);
+  if (!candidates.length) throw new AppError('No drivers available - no self-driver or fleet', 400);
 
   if (requestedDriverId) {
     if (!candidates.includes(requestedDriverId)) {
@@ -122,7 +122,7 @@ async function resolveFleetDriverForLoad(
     return requestedDriverId;
   }
 
-  // No driverId supplied — find the first candidate with an active offer for this load.
+  // No driverId supplied - find the first candidate with an active offer for this load.
   for (const dId of candidates) {
     const offer = await OfferService.getOffer(loadId, dId);
     if (offer && offer.status === OfferStatus.OFFERED) return dId;
@@ -130,7 +130,7 @@ async function resolveFleetDriverForLoad(
   throw new AppError('No active offer found for this load', 404);
 }
 
-// GET /api/owner-operator/offers/:loadId — offer + load detail for a fleet driver
+// GET /api/owner-operator/offers/:loadId - offer + load detail for a fleet driver
 router.get('/offers/:loadId', asyncHandler(async (req: AuthRequest, res) => {
   const { loadId } = req.params;
   const { driverId } = req.query as { driverId?: string };
@@ -158,7 +158,7 @@ router.post('/offers/:loadId/accept', requireVerifiedCarrier(), asyncHandler(asy
   const driverId = await resolveFleetDriverForLoad(profile, loadId, requestedDriverId);
   await OfferService.acceptOffer(loadId, driverId);
 
-  // Notify shipper — best effort
+  // Notify shipper - best effort
   try {
     const [load, driver] = await Promise.all([
       LoadService.getLoadById(loadId),
@@ -216,7 +216,7 @@ router.delete('/fleet/:driverId', asyncHandler(async (req: AuthRequest, res) => 
   const { driverId } = req.params;
 
   // The self-driver is permanently bound to its own OO and cannot be removed
-  // or re-parented (spec §5, §6) — it isn't in fleetDriverIds anyway, but
+  // or re-parented (spec §5, §6) - it isn't in fleetDriverIds anyway, but
   // guard explicitly in case the same userId's self-driver id is passed here.
   const target = await DriverService.getProfileById(driverId);
   if (target?.isSelf) {
@@ -247,7 +247,7 @@ router.post('/fleet/invite', asyncHandler(async (req: AuthRequest, res) => {
   res.status(201).json({ invite });
 }));
 
-// GET /api/owner-operator/history — accepted loads across self-driver + fleet
+// GET /api/owner-operator/history - accepted loads across self-driver + fleet
 router.get('/history', asyncHandler(async (req: AuthRequest, res) => {
   const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
   if (!profile) return res.json({ loads: [] });
@@ -288,8 +288,8 @@ router.get('/history', asyncHandler(async (req: AuthRequest, res) => {
 
 // ── Verification ─────────────────────────────────────────────────────────────
 
-// GET /api/owner-operator/verification — current carrier AUTHORITY status
-// (FMCSA + KYB, keyed by operatorId — gate 1 for any of this OO's drivers).
+// GET /api/owner-operator/verification - current carrier AUTHORITY status
+// (FMCSA + KYB, keyed by operatorId - gate 1 for any of this OO's drivers).
 router.get('/verification', asyncHandler(async (req: AuthRequest, res) => {
   const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
   if (!profile) throw new AppError('Profile not found', 404);
@@ -298,8 +298,8 @@ router.get('/verification', asyncHandler(async (req: AuthRequest, res) => {
   res.json({ verification: verification ?? { verificationStatus: 'UNVERIFIED' } });
 }));
 
-// POST /api/owner-operator/verification/submit — submit MC/DOT docs for carrier AUTHORITY
-// (FMCSA + KYB only). Personal identity is separate — see /verification/idv.
+// POST /api/owner-operator/verification/submit - submit MC/DOT docs for carrier AUTHORITY
+// (FMCSA + KYB only). Personal identity is separate - see /verification/idv.
 router.post('/verification/submit', asyncHandler(async (req: AuthRequest, res) => {
   const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
   if (!profile) throw new AppError('Profile not found', 404);
@@ -316,15 +316,15 @@ router.post('/verification/submit', asyncHandler(async (req: AuthRequest, res) =
   res.status(201).json({ verification });
 }));
 
-// GET /api/owner-operator/verification/idv — this OO's own personal IDV status.
-// Keyed by userId — the same identity record their self-driver's acceptance
+// GET /api/owner-operator/verification/idv - this OO's own personal IDV status.
+// Keyed by userId - the same identity record their self-driver's acceptance
 // gate reads, and the same one a fleet driver maintains for themselves.
 router.get('/verification/idv', asyncHandler(async (req: AuthRequest, res) => {
   const verification = await getVerification(req.user!.userId);
   res.json({ verification: verification ?? { verificationStatus: 'UNVERIFIED' } });
 }));
 
-// POST /api/owner-operator/verification/idv — start this OO's own personal IDV.
+// POST /api/owner-operator/verification/idv - start this OO's own personal IDV.
 // An OO who also drives verifies identity once; it covers their self-driver.
 router.post('/verification/idv', asyncHandler(async (req: AuthRequest, res) => {
   const verification = await submitDriverIdv(req.user!.userId);
@@ -344,11 +344,11 @@ router.get('/fleet/invites', asyncHandler(async (req: AuthRequest, res) => {
 
 // ─── Owner Operator settings aggregation (canonical sections) ───────────────
 // Read-only aggregation of the spec §3 canonical sections, bound to this
-// OO's canonical records. Writes are NOT here — they go through existing
+// OO's canonical records. Writes are NOT here - they go through existing
 // canonical endpoints (PUT /profile, POST /verification/submit, etc.).
 //
 // Independent of the carrier-org settings endpoint per the Independence
-// Principle. Members & roles is ABSENT (not stubbed) per spec §3 — OO is its
+// Principle. Members & roles is ABSENT (not stubbed) per spec §3 - OO is its
 // own owner; the fleet section already covers the only people it manages.
 router.get('/settings', requireOwnerOperator, asyncHandler(async (req: AuthRequest, res) => {
   const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
@@ -438,7 +438,7 @@ router.get('/settings', requireOwnerOperator, asyncHandler(async (req: AuthReque
         endpoint: `GET/PUT /api/notifications/preferences`,
         data: { pushEnabled: null, emailEnabled: null },
       },
-      // membersAndRoles: ABSENT per spec — OO is its own owner.
+      // membersAndRoles: ABSENT per spec - OO is its own owner.
       capabilities: {
         editable: false,            // CARRIER is inherent for an OO; read-only mirror
         data: { current: ['CARRIER'] },
@@ -448,12 +448,12 @@ router.get('/settings', requireOwnerOperator, asyncHandler(async (req: AuthReque
 }));
 
 // ─── Owner Operator dashboard aggregation ───────────────────────────────────
-// Independent implementation per the spec's Independence Principle — does NOT
+// Independent implementation per the spec's Independence Principle - does NOT
 // share container code with the carrier dashboard. Composes the persona-neutral
 // calc service (dashboardCalc) for the math, and an OO-specific "My haul" panel
 // for the blended driver-and-dispatcher view.
 //
-// 🔴 fields return { available:false } — no fabrication.
+// 🔴 fields return { available:false } - no fabrication.
 router.get('/dashboard', requireOwnerOperator, asyncHandler(async (req: AuthRequest, res) => {
   const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
   if (!profile) throw new AppError('Owner Operator profile not found', 404);
@@ -508,7 +508,7 @@ router.get('/dashboard', requireOwnerOperator, asyncHandler(async (req: AuthRequ
       delivery: { city: active.deliveryCity, state: active.deliveryState, at: active.deliveryDate },
       rate: active.rateAmount,
       miles: active.totalMiles,
-      // selfEta: live tracking ETA — Calc.etaAtRisk would surface it, but for
+      // selfEta: live tracking ETA - Calc.etaAtRisk would surface it, but for
       // "my haul" we just expose the deliveryDate target. Real ETA needs a
       // tracking provider wired (🟡).
       selfEta: null,

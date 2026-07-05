@@ -3,7 +3,7 @@ title: LoadLead E2E Load + Functional Audit (fan-100)
 date: 2026-06-23T00:00:00.000Z
 harness: tests/load/fan100.js (k6 v2.0.0)
 target: 'http://localhost:4000 (dev backend + DynamoDB Local; sandboxed externals)'
-prod_guard: PASS — harness aborts in init if BASE_URL matches api.loadleadapp.com
+prod_guard: PASS - harness aborts in init if BASE_URL matches api.loadleadapp.com
 connie-publish: true
 connie-page-id: '2064385'
 ---
@@ -17,10 +17,10 @@ Ran 100 full load-lifecycle iterations across 5 personas (Shipper, Carrier_admin
 | Metric | Value | Target |
 |---|---|---|
 | iterations | 100 | 100 |
-| http_reqs total | 669 | — |
+| http_reqs total | 669 | - |
 | http_req_failed | **36.02%** | < 5% |
 | http_req_duration p50 / p95 / max | 8 / 249 / 398 ms | p95 < 2000 ms |
-| iteration_duration p95 | 2025 ms | — |
+| iteration_duration p95 | 2025 ms | - |
 | biz_loads_posted | **72 / 100** | ≥ 95 |
 | biz_loads_accepted | **0** | ≥ 80 |
 | biz_loads_delivered | **0** | ≥ 70 |
@@ -35,15 +35,15 @@ Ran 100 full load-lifecycle iterations across 5 personas (Shipper, Carrier_admin
 | `POST /api/shipper/loads/draft` | 100 | ✓ exercised; 100% drafted |
 | `POST /api/shipper/loads/:loadId/submit` | 72 | ⚠ 28 dropped |
 | `GET /api/driver/loadboard` (async-broadcast poll) | 359 | ✓ exercised (8x retry per iter) |
-| `POST /api/driver/offers/:loadId/accept` | 31 | ✗ **all failed (500)** — see FIND-001 |
+| `POST /api/driver/offers/:loadId/accept` | 31 | ✗ **all failed (500)** - see FIND-001 |
 | `POST /api/driver/loads/:loadId/pod` | 0 | ✗ never reached (gated by accept) |
 | `GET /api/receiver/incoming` | 0 | ✗ never reached |
-| `GET /api/admin/orgs` (negative — driver token) | 47 | ⚠ 36 × 403 + 11 non-403 |
-| `GET /api/driver/loadboard` (negative — carrier_admin token) | ~70 | mostly 403 |
+| `GET /api/admin/orgs` (negative - driver token) | 47 | ⚠ 36 × 403 + 11 non-403 |
+| `GET /api/driver/loadboard` (negative - carrier_admin token) | ~70 | mostly 403 |
 | `GET /api/owner-operator/dashboard` | 0 | ✗ never reached |
 | `GET /api/org/:orgId/dashboard` | 0 | ✗ org seed didn't include orgId |
-| Probe `POST /api/driver/loads/:loadId/status` (IN_TRANSIT) | 1 | ✗ 404 expected — endpoint missing (FIND-004) |
-| Probe `POST /api/receiver/loads/:loadId/confirm` | 1 | ✗ 404 expected — endpoint missing (FIND-005) |
+| Probe `POST /api/driver/loads/:loadId/status` (IN_TRANSIT) | 1 | ✗ 404 expected - endpoint missing (FIND-004) |
+| Probe `POST /api/receiver/loads/:loadId/confirm` | 1 | ✗ 404 expected - endpoint missing (FIND-005) |
 
 # Per-persona breakdown
 
@@ -59,7 +59,7 @@ Ran 100 full load-lifecycle iterations across 5 personas (Shipper, Carrier_admin
 
 # Findings (severity-ordered)
 
-## FIND-001 [BLOCKER, Highest] — Accept-offer 500 on missing DynamoDB table
+## FIND-001 [BLOCKER, Highest] - Accept-offer 500 on missing DynamoDB table
 
 **Where**: `POST /api/driver/offers/:loadId/accept`
 **Symptom**:
@@ -67,20 +67,20 @@ Ran 100 full load-lifecycle iterations across 5 personas (Shipper, Carrier_admin
 ResourceNotFoundException: Cannot do operations on a non-existent table
     at AwsJson1_0Protocol.handleError ...
 ```
-**Root cause**: `services/carrierOfRecord.ts` reads `LoadLead_Verifications` (and possibly `LoadLead_OrgMemberships`) via `DYNAMODB_VERIFICATIONS_TABLE`. `backend/scripts/createTables.mjs` only provisions Users, Drivers, Shippers, Receivers, Loads, Offers — the auxiliary tables are missing, so every accept attempt 500s under `requireVerifiedCarrier()`'s carrier-of-record resolution.
-**Impact**: Entire post-broadcast lifecycle is unreachable in dev — accept, status, POD, receiver visibility all blocked.
+**Root cause**: `services/carrierOfRecord.ts` reads `LoadLead_Verifications` (and possibly `LoadLead_OrgMemberships`) via `DYNAMODB_VERIFICATIONS_TABLE`. `backend/scripts/createTables.mjs` only provisions Users, Drivers, Shippers, Receivers, Loads, Offers - the auxiliary tables are missing, so every accept attempt 500s under `requireVerifiedCarrier()`'s carrier-of-record resolution.
+**Impact**: Entire post-broadcast lifecycle is unreachable in dev - accept, status, POD, receiver visibility all blocked.
 **Test ID**: H2 (cross-persona contract: carrier → driver assignment)
 **Recommendation**: Extend `createTables.mjs` to provision Verifications, Organisations, OrgMemberships, OrgInvitations tables (whatever the carrier-of-record + permissions matrix touches). Fail-loud at boot if a referenced table doesn't exist.
 
-## FIND-002 [BLOCKER, Highest] — Security check pass rate 88.3% (target 100%)
+## FIND-002 [BLOCKER, Highest] - Security check pass rate 88.3% (target 100%)
 
 **Where**: `GET /api/admin/orgs` with non-admin bearer
-**Symptom**: 47 negative probes, only 36 returned 403. 11 returned something else (likely 500/connection error under concurrency, not a 200 auth leak — see FIND-007 on http_req_failed).
-**Investigation**: Direct curl probes returned 403 consistently. Failures were tied to the 36% http_req_failed rate during the run — likely the backend crashed mid-probe or returned non-403 transients (timeouts).
+**Symptom**: 47 negative probes, only 36 returned 403. 11 returned something else (likely 500/connection error under concurrency, not a 200 auth leak - see FIND-007 on http_req_failed).
+**Investigation**: Direct curl probes returned 403 consistently. Failures were tied to the 36% http_req_failed rate during the run - likely the backend crashed mid-probe or returned non-403 transients (timeouts).
 **Test ID**: SEC-1 / LL-AC-001
 **Recommendation**: Re-run after FIND-001 + FIND-007 are fixed. If 100% holds, this resolves; if not, escalate to authorization audit.
 
-## FIND-003 [HIGH] — Submit drops 28% under 6-VU concurrency
+## FIND-003 [HIGH] - Submit drops 28% under 6-VU concurrency
 
 **Where**: `POST /api/shipper/loads/:loadId/submit`
 **Symptom**: 100 drafts succeeded, only 72 submits did. Direct probe works.
@@ -88,34 +88,34 @@ ResourceNotFoundException: Cannot do operations on a non-existent table
 **Test ID**: H1 (broadcast contract)
 **Recommendation**: Add retry-with-backoff on submit, instrument the submit handler, and re-run.
 
-## FIND-004 [MEDIUM] — Driver IN_TRANSIT status endpoint missing
+## FIND-004 [MEDIUM] - Driver IN_TRANSIT status endpoint missing
 
 **Where**: `POST /api/driver/loads/:loadId/status` returns 404
 **Symptom**: Spec calls for a 6-stage lifecycle (dispatched → at pickup → picked up → in transit → at delivery → delivered). Implementation collapses to BOOKED (on accept) → DELIVERED (on POD). No driver-facing status transition between them.
 **Test ID**: H3
 **Recommendation**: Add `POST /api/driver/loads/:loadId/status` with state-machine validation (`BOOKED → IN_TRANSIT → AT_DELIVERY → DELIVERED`).
 
-## FIND-005 [MEDIUM] — Receiver confirm-delivery endpoint missing
+## FIND-005 [MEDIUM] - Receiver confirm-delivery endpoint missing
 
 **Where**: `POST /api/receiver/loads/:loadId/confirm` returns 404
 **Symptom**: Spec calls for receiver-side delivery confirmation. Currently the driver's POD post auto-marks DELIVERED. Receiver has read-only `/api/receiver/incoming`.
 **Test ID**: H4 (receiver → POD chain)
 **Recommendation**: Add `POST /api/receiver/loads/:loadId/confirm` for receiver-side acknowledgement. Useful for chain-of-custody disputes.
 
-## FIND-006 [MEDIUM] — Matching/broadcast is async with no readiness signal
+## FIND-006 [MEDIUM] - Matching/broadcast is async with no readiness signal
 
 **Where**: Driver loadboard polling after `submit`
 **Symptom**: Drivers had to poll up to 8× over 1.6s before the matched offer appeared. No event or webhook signals broadcast completion.
 **Test ID**: H1
 **Recommendation**: Either make broadcast synchronous on submit, or expose a `GET /api/shipper/loads/:loadId/offers` so clients can know when matching settled.
 
-## FIND-007 [HIGH] — http_req_failed rate 36% under 6-VU concurrency
+## FIND-007 [HIGH] - http_req_failed rate 36% under 6-VU concurrency
 
 **Where**: Across the run
 **Symptom**: Over a third of HTTP calls failed. Most were the 31 acceptance 500s + the 28 dropped submits + the 11 non-403 admin probes. Indicates the dev backend is not robust to even modest concurrency.
 **Recommendation**: Add structured error logging on submit + accept; investigate whether ts-node-dev was thrashing under 6 VUs (try `npm start` against `dist/`).
 
-## FIND-008 [LOW] — Auth rate limiter not env-tunable
+## FIND-008 [LOW] - Auth rate limiter not env-tunable
 
 **Where**: `backend/src/index.ts` authRateLimiter
 **Symptom**: Hard-coded 15-req/15-min limit. Local E2E setup needed a dev-only `skip()` bypass added to this file as part of harness bring-up. Production limit is good; just needs a `RATE_LIMIT_MAX` env knob.

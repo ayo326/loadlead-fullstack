@@ -2,7 +2,7 @@
 //
 // NON-PRODUCTION ONLY. Physically deleted from the production build by
 // deploy-backend.sh. Reachable only via the guarded dynamic import in
-// services/integrations/fmcsa.ts — never import this statically.
+// services/integrations/fmcsa.ts - never import this statically.
 //
 // Canned, QCMobile-shaped responses for a fixed set of seeded test MC/DOT
 // numbers. Shape matches exactly what the live FMCSA adapter parses:
@@ -39,7 +39,7 @@ export default {
     }
 
     // Unseeded MC/DOT in stub mode (e.g. a developer typing a random test
-    // number) — default to active so ordinary dev/staging flows aren't
+    // number) - default to active so ordinary dev/staging flows aren't
     // blocked. The seeded INACTIVE ids exist specifically to exercise the
     // rejection path on demand.
     return isActive(qcMobileShape('Y', null));

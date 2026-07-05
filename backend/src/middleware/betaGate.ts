@@ -1,5 +1,5 @@
 /**
- * requireBetaGate — the single server-side gate for private-beta access.
+ * requireBetaGate - the single server-side gate for private-beta access.
  *
  * Precedence (matches the TASK spec, all SERVER-SIDE):
  *   1. BETA_MODE flag. OFF → gate lifts entirely, next() immediately.
@@ -9,7 +9,7 @@
  *           DOMAIN row)
  *   3. Otherwise: 403 with neutral "LoadLead is in private beta" message.
  *      No disclosure of whether the email exists, no different message
- *      for "not allowlisted" vs "no invite" — same message either way.
+ *      for "not allowlisted" vs "no invite" - same message either way.
  *
  * The middleware attaches `req.betaContext` so downstream handlers know
  * HOW the user got through:
@@ -18,11 +18,11 @@
  *
  * Routes that should NEVER be gated (admin, setup, health, the gate
  * endpoints themselves) MUST NOT mount this middleware. We do not try to
- * be clever with path-based bypass — that's a footgun. Mount it only on
+ * be clever with path-based bypass - that's a footgun. Mount it only on
  * the routes that need it (the two signup routes + login).
  *
  * The CLI bootstrap path (backend/scripts/bootstrapAdmin.mjs) writes
- * directly to DDB and never hits HTTP — it is structurally outside this
+ * directly to DDB and never hits HTTP - it is structurally outside this
  * gate. ADMIN logins go through /api/auth/login and the middleware lets
  * ADMIN through unconditionally (the role is on the user record; we
  * check it via the email after a tentative lookup).
@@ -45,7 +45,7 @@ export interface BetaContext {
 }
 
 /**
- * Neutral response — never discloses whether the email exists, whether
+ * Neutral response - never discloses whether the email exists, whether
  * an invite was found, or anything else specific. Same shape no matter
  * which sub-check failed.
  */
@@ -87,10 +87,10 @@ async function checkInvitation(
 
 /**
  * The gate middleware. Reads `email` and (optionally) `inviteToken` from
- * the request body. For login, the inviteToken is absent — we only
+ * the request body. For login, the inviteToken is absent - we only
  * check the allowlist and the existing user's betaUser flag.
  *
- * @param opts.mode  'signup' or 'login' — login also lets ADMINs through
+ * @param opts.mode  'signup' or 'login' - login also lets ADMINs through
  *                    unconditionally and checks existing user.betaUser
  *                    instead of requiring a new invite.
  */
@@ -115,7 +115,7 @@ export function requireBetaGate(opts: { mode: 'signup' | 'login' }) {
           { ':email': email.trim().toLowerCase() },
         );
         const user = matches[0];
-        // No user — let the auth route handle "invalid credentials" with
+        // No user - let the auth route handle "invalid credentials" with
         // its own neutral response. Don't reveal "no such email" via
         // a different status code.
         if (!user) return next();
@@ -123,7 +123,7 @@ export function requireBetaGate(opts: { mode: 'signup' | 'login' }) {
         // ADMIN never gated.
         if (user.role === UserRole.ADMIN) return next();
 
-        // Existing beta user — allow.
+        // Existing beta user - allow.
         if (user.betaUser === true) return next();
 
         // Pre-beta accounts that exist but aren't part of the cohort:

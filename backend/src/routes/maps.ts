@@ -93,7 +93,7 @@ router.get(
 
     const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
     if (!apiKey) {
-      return res.status(503).json({ error: 'Server geocoding unavailable — GOOGLE_MAPS_API_KEY not configured' });
+      return res.status(503).json({ error: 'Server geocoding unavailable - GOOGLE_MAPS_API_KEY not configured' });
     }
 
     let coords: LatLng | null = null;
@@ -105,7 +105,7 @@ router.get(
 
     if (!coords) {
       return res.status(422).json({
-        error: 'Unable to geocode address — verify street, city, state, and zip are correct',
+        error: 'Unable to geocode address - verify street, city, state, and zip are correct',
       });
     }
 

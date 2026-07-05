@@ -1,10 +1,10 @@
 ---
-connie-title: Automation — Jira Smart Commits Convention
+connie-title: Automation - Jira Smart Commits Convention
 connie-publish: true
 connie-page-id: '163993'
 ---
 
-# Jira Smart Commits — LoadLead Convention
+# Jira Smart Commits - LoadLead Convention
 
 This repo uses Atlassian's [Smart Commits](https://confluence.atlassian.com/fisheye/using-smart-commits-298976812.html)
 to link every commit, branch, and deploy back to the SCRUM Jira project.
@@ -17,10 +17,10 @@ Smart Commits do nothing unless **all three** of these are true:
    (`atlassian.net`) and active.
 2. **The `loadlead-fullstack` GitHub repo is connected** to that integration
    (Settings → Apps → GitHub for Jira → repos).
-3. **Your GitHub commit-email is linked to your Atlassian account** —
+3. **Your GitHub commit-email is linked to your Atlassian account** -
    otherwise Jira can identify the commit but can't attribute it.
 
-Without these, the convention below is **inert** — your commit messages will
+Without these, the convention below is **inert** - your commit messages will
 work fine for git, but Jira won't link/comment/transition anything. Verify by
 opening any existing issue and looking for a "Development" panel showing
 linked commits. No panel? The integration isn't connected yet.
@@ -50,7 +50,7 @@ SCRUM-<n> SCRUM-<m> deploy: <env>   # multiple keys allowed
 | `#in-review`  | Transition to **In Review**.                    |
 | `#done`       | Transition to **Done**.                         |
 
-The transition keywords are derived from this board's workflow names —
+The transition keywords are derived from this board's workflow names -
 lowercased, spaces replaced with hyphens. Verify in your project's workflow
 viewer if you ever add a state.
 
@@ -79,8 +79,8 @@ bash scripts/hooks/install.sh
 ```
 
 This drops:
-- `.git/hooks/commit-msg` — the warn/block hook
-- `git config commit.template .gitmessage` — so `git commit` opens with the
+- `.git/hooks/commit-msg` - the warn/block hook
+- `git config commit.template .gitmessage` - so `git commit` opens with the
   template populated.
 
 ### Default behaviour
@@ -89,7 +89,7 @@ This drops:
 prints:
 
 ```
-⚠ no SCRUM-<n> key found in commit message — Jira will not link this commit.
+⚠ no SCRUM-<n> key found in commit message - Jira will not link this commit.
   Add a key on the first line: "SCRUM-123: <summary>"
   (Warning only. Set JIRA_COMMIT_ENFORCE=block to require.)
 ```
@@ -119,7 +119,7 @@ SCRUM-12: thing #imn-progress wiring
 ## Server-side enforcement (CI)
 
 Pull requests must reference at least one SCRUM key across their commit
-range. This is enforced by `.github/workflows/pr-jira-ref.yml` — see
+range. This is enforced by `.github/workflows/pr-jira-ref.yml` - see
 that file. A PR with no `SCRUM-<n>` in any commit message fails the
 "Jira reference" status check and cannot merge.
 
@@ -132,13 +132,13 @@ to coexist without stepping on each other:
 
 - **Sync may move issues** between `To Do` and `Done` based on automated
   status (test results, compliance findings).
-- **Sync MUST NOT touch** `In Progress` or `In Review` — those are
+- **Sync MUST NOT touch** `In Progress` or `In Review` - those are
   human-owned states. The sync logs and skips them.
 - **Smart Commit transitions are developer intent** and may move issues
   into ANY state, including `In Progress` / `In Review`. That's the
   sanctioned way to move those states.
 - There is no conflict: once a developer marks `SCRUM-12 #in-progress`,
-  the sync will not push it back to `To Do` on the next run — it sees
+  the sync will not push it back to `To Do` on the next run - it sees
   the human-owned state and skips.
 
 ---
@@ -148,10 +148,10 @@ to coexist without stepping on each other:
 The deploy hooks (`deploy-backend.sh`, `deploy-frontend.sh`) parse the
 SCRUM keys across the commit range since the last deploy tag and:
 
-1. Link every referenced SCRUM key (no transition — that's developer intent).
+1. Link every referenced SCRUM key (no transition - that's developer intent).
 2. Post **ONE aggregated comment** like:
    ```
-   Deployed to staging @ <sha> — <DEPLOY_MSG>
+   Deployed to staging @ <sha> - <DEPLOY_MSG>
    ```
    The comment is posted as a top-level deployment record, not fanned out
    one-per-issue. (Fanning out spams everyone watching multiple issues.)
@@ -170,7 +170,7 @@ Prod deploys require `DEPLOY_MSG`; staging/dev are optional.
 - Or add the key to a follow-up commit; both will be parsed.
 
 **Q: I'm reverting a commit. What should the message look like?**
-- `Revert "SCRUM-12: original summary"` is fine — the key is preserved
+- `Revert "SCRUM-12: original summary"` is fine - the key is preserved
   in the quoted original message and Jira will link the revert.
 
 **Q: My commit covers multiple issues.**

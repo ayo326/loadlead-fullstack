@@ -1,19 +1,19 @@
-// Attestation routes — neutral, action-driven, role-agnostic.
+// Attestation routes - neutral, action-driven, role-agnostic.
 //
 // One sign endpoint handles all five actions. Fine-grained authZ is
 // delegated to assertSignerIsLoadParty so each action's "who can sign"
 // rule is in exactly one place. requireDriver / requireShipper / etc.
-// are NOT used here — they're coarse role checks that would either
+// are NOT used here - they're coarse role checks that would either
 // duplicate the resolver's logic or exclude legitimate signers (e.g. a
 // carrier_admin signing CARRIER_ACCEPT can't be inside /api/driver/*).
 //
 // Photo flow under the same router:
-//   POST /api/attestation/photos/upload-url  — stage-aware presign (PENDING row)
-//   POST /api/attestation/photos/:photoId/finalize — server hashes + READY
+//   POST /api/attestation/photos/upload-url  - stage-aware presign (PENDING row)
+//   POST /api/attestation/photos/:photoId/finalize - server hashes + READY
 //
 // All routes require `authenticate`. The internal admin console (ADMIN /
 // MANAGER / SUPERVISOR / TEAM_LEAD platform roles) is excluded by the
-// resolver — there is no codepath that maps them to a load party.
+// resolver - there is no codepath that maps them to a load party.
 
 import express from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
@@ -223,7 +223,7 @@ router.post('/sign', asyncHandler(async (req: AuthRequest, res) => {
  * users separately. A user who is NOT a party AND not platform staff
  * gets 403 WRONG_READER.
  *
- * Returns a summary (no raw signatureData blobs) — fetch a single sig
+ * Returns a summary (no raw signatureData blobs) - fetch a single sig
  * if you need full evidence (Phase-2 endpoint, not built yet).
  * ───────────────────────────────────────────────────────────── */
 router.get('/chain/:loadId', asyncHandler(async (req: AuthRequest, res) => {
@@ -231,7 +231,7 @@ router.get('/chain/:loadId', asyncHandler(async (req: AuthRequest, res) => {
   if (!load) throw new AppError(`Load ${req.params.loadId} not found`, 404);
   await assertChainReadAccess(load, req.user!.userId, req.user!.role);
   const chain = await getChain(req.params.loadId);
-  // Strip large signatureData blobs from list reads — they're per-row
+  // Strip large signatureData blobs from list reads - they're per-row
   // legal evidence, not list-view data. Fetch the single sig if needed.
   const summary = chain.map((s) => ({
     signatureId:            s.signatureId,

@@ -1,10 +1,10 @@
 ---
-connie-title: Testing — E2E / System / UAT / BDD Test Plan
+connie-title: Testing - E2E / System / UAT / BDD Test Plan
 connie-publish: true
 connie-page-id: '196849'
 ---
 
-# LoadLead — E2E, System, UAT & BDD Test Plan
+# LoadLead - E2E, System, UAT & BDD Test Plan
 
 _Generated June 2026. Companion to `LoadLead_Test_Spec.md` (unit + integration matrix). This layer covers full-journey and acceptance testing. Attach to Claude Code; run against a seeded staging stack._
 
@@ -26,7 +26,7 @@ _Generated June 2026. Companion to `LoadLead_Test_Spec.md` (unit + integration m
 
 **Stack:** a dedicated `staging` deployment (EB + DynamoDB) OR a local full stack (API on localhost + DynamoDB Local + the Vite dev server). Never run destructive E2E against production.
 
-**External dependencies — use sandboxes, never live:**
+**External dependencies - use sandboxes, never live:**
 - Didit: sandbox workflow IDs; drive KYB/IDV/AML outcomes via sandbox controls; webhooks delivered to staging with valid HMAC.
 - FMCSA QCMobile: test WebKey; seed known-active and known-inactive MC/DOT numbers.
 - Google Maps: test key with quota; assert geocode/distance calls are made and cached.
@@ -45,7 +45,7 @@ npx playwright install
 
 ---
 
-## 2. Horizontal E2E (breadth — full journeys)
+## 2. Horizontal E2E (breadth - full journeys)
 
 Each scenario is one complete journey crossing many modules. Run on UI where a screen exists; fall back to API for unbuilt screens (e.g., the OO second IDV step).
 
@@ -73,7 +73,7 @@ Each scenario is one complete journey crossing many modules. Run on UI where a s
 
 ---
 
-## 3. Vertical E2E (depth — one feature through every layer)
+## 3. Vertical E2E (depth - one feature through every layer)
 
 Each slice is exercised top to bottom with an assertion at every tier.
 
@@ -88,17 +88,17 @@ Each slice is exercised top to bottom with an assertion at every tier.
 | VE2E-7 | **Auth session** | login UI → JWT httpOnly cookie set → middleware validates → protected route 200 → token expiry → refresh → logout clears cookie |
 | VE2E-8 | **Fleet invite** | OO invite UI → token email (captured) → driver accept-invite UI → `ownedByOperatorId` set + `fleetDriverIds[]` updated → one-parent invariant enforced → DynamoDB |
 
-**Per-slice rule:** assert the *boundary crossings*, not just the endpoints — e.g., VE2E-1 must prove the FMCSA call happened, the webhook signature was checked, and the identity landed on `User`, not the carrier record.
+**Per-slice rule:** assert the *boundary crossings*, not just the endpoints - e.g., VE2E-1 must prove the FMCSA call happened, the webhook signature was checked, and the identity landed on `User`, not the carrier record.
 
 ---
 
 ## 4. System testing
 
 ### 4.1 Functional coverage
-The system satisfies every role flow in sections 2–3 with no regressions against `LoadLead_Test_Spec.md` (unit/integration). Run that suite green first; system testing assumes it passes.
+The system satisfies every role flow in sections 2-3 with no regressions against `LoadLead_Test_Spec.md` (unit/integration). Run that suite green first; system testing assumes it passes.
 
 ### 4.2 Performance & load (k6)
-Targets are to be set and measured — suggested starting SLAs in parentheses.
+Targets are to be set and measured - suggested starting SLAs in parentheses.
 
 | ID | Scenario | Measure | Suggested target |
 |---|---|---|---|
@@ -150,7 +150,7 @@ Run an automated ZAP baseline scan against staging for the OWASP top-10 surface.
 
 ### 4.6 Compatibility
 - Browsers: latest Chrome, Safari, Firefox, Edge; iOS Safari + Android Chrome for the driver POD/camera flow.
-- Web Push support varies by browser/OS — assert graceful fallback (email) where push is unsupported.
+- Web Push support varies by browser/OS - assert graceful fallback (email) where push is unsupported.
 - Responsive: driver flows usable on a phone; shipper/admin on desktop.
 
 ### 4.7 Observability
@@ -403,12 +403,12 @@ Because scenarios carry `[ID]` tags, `sync-tracker.js` (extended to read `cucumb
 
 ## 7. Execution order & exit criteria
 
-1. **Unit + integration** (`LoadLead_Test_Spec.md`) green — entry gate for everything below.
-2. **Vertical E2E** — prove each feature works through all layers.
-3. **Horizontal E2E** — prove the journeys.
-4. **BDD** — behavior conformance (can run alongside 2–3; same staging).
-5. **System** — performance, security, resilience, compatibility.
-6. **UAT** — persona sign-off, last.
+1. **Unit + integration** (`LoadLead_Test_Spec.md`) green - entry gate for everything below.
+2. **Vertical E2E** - prove each feature works through all layers.
+3. **Horizontal E2E** - prove the journeys.
+4. **BDD** - behavior conformance (can run alongside 2-3; same staging).
+5. **System** - performance, security, resilience, compatibility.
+6. **UAT** - persona sign-off, last.
 
 **Exit / go-live criteria:** all Tier-1 unit/integration green; all Horizontal E2E pass; no open Sev-1/Sev-2; security checks SEC-1..SEC-10 pass; performance within agreed SLAs; every UAT acceptance criterion signed off.
 
@@ -419,8 +419,8 @@ Because scenarios carry `[ID]` tags, `sync-tracker.js` (extended to read `cucumb
 | This plan | Maps back to |
 |---|---|
 | Horizontal E2E HE2E-1..10 | the full load lifecycle + refactor decisions in `LoadLead_Reference_Refactored.md` |
-| Vertical E2E VE2E-1..8 | the services and routes in sections 3–10 of the reference |
+| Vertical E2E VE2E-1..8 | the services and routes in sections 3-10 of the reference |
 | System 4.5 invariants | unit/integration §4A,4C,4D,4E,4H |
 | BDD `@A*/@B*/@C*/@D*/@F*/@H*` | the identically-numbered rows of the unit/integration matrix |
 
-Defects are filed by the matrix ID they break, so a failure here points straight at the unit test that should also be failing — and at the line of code that owns the behavior.
+Defects are filed by the matrix ID they break, so a failure here points straight at the unit test that should also be failing - and at the line of code that owns the behavior.

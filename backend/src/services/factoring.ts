@@ -1,9 +1,9 @@
-// LoadLead — Per-load integrated factoring opt-in
+// LoadLead - Per-load integrated factoring opt-in
 // LoadLead is data-only: funds never route through the platform.
 // The factor receives a data payload (load, BOL, POD evidence) and disburses
 // directly to the carrier. LoadLead stores an immutable consent record.
 //
-// BYO factoring uses factoringProfile.ts — invoice packets are generated
+// BYO factoring uses factoringProfile.ts - invoice packets are generated
 // separately and the POD gate must be called before release.
 
 import { v4 as uuidv4 } from 'uuid';
@@ -31,7 +31,7 @@ export interface FactoringOptIn {
   carrierId:   string;
   partnerId:   string;
   status:      'PENDING' | 'SUBMITTED' | 'FUNDED' | 'REJECTED';
-  consentAt:   string;   // ISO — immutable, captured at opt-in
+  consentAt:   string;   // ISO - immutable, captured at opt-in
   termsVersion: string;
   debtorAmlStatus: 'pending' | 'pass' | 'fail';
   submittedAt?: string;
@@ -67,7 +67,7 @@ export async function getOptInByLoad(loadId: string): Promise<FactoringOptIn | n
 // STUB: auto-passes until DIDIT_API_KEY is set.
 async function screenDebtorAml(shipperId: string): Promise<'pass' | 'fail'> {
   if (!process.env.DIDIT_API_KEY) {
-    console.warn(`[factoring] DIDIT_API_KEY not set — stubbing debtor AML as PASS for ${shipperId}`);
+    console.warn(`[factoring] DIDIT_API_KEY not set - stubbing debtor AML as PASS for ${shipperId}`);
     return 'pass';
   }
   // TODO: call Didit AML endpoint for shipperId; return 'pass' | 'fail'
@@ -91,7 +91,7 @@ export async function optInToFactoring(
   }
   const partnerId = fpProfile.integratedPartnerId;
 
-  // 2. POD must be complete — throws 400 with detail if not.
+  // 2. POD must be complete - throws 400 with detail if not.
   await assertPodComplete(loadId);
 
   // 3. Screen the debtor for AML/sanctions.
@@ -100,7 +100,7 @@ export async function optInToFactoring(
 
   const debtorAmlStatus = await screenDebtorAml(load.shipperId);
   if (debtorAmlStatus === 'fail') {
-    throw new AppError('Debtor failed AML/sanctions screening — factoring cannot proceed.', 400);
+    throw new AppError('Debtor failed AML/sanctions screening - factoring cannot proceed.', 400);
   }
 
   // 4. Write immutable consent record.
@@ -157,7 +157,7 @@ async function handOffToPartner(optIn: FactoringOptIn, load: any): Promise<void>
       signedAt:           bol.consigneeSignature?.signedAt,
       podPhotoCount:      bol.podPhotos?.length ?? 0,
     } : null,
-    // Funds never route through LoadLead — the partner disburses directly.
+    // Funds never route through LoadLead - the partner disburses directly.
   };
 
   console.info(`[factoring] handoff to partner ${optIn.partnerId}:`, JSON.stringify(payload));
@@ -165,7 +165,7 @@ async function handOffToPartner(optIn: FactoringOptIn, load: any): Promise<void>
 }
 
 // Decide who receives the invoice payment for a given load.
-// Returns 'FACTOR' if an integrated opt-in is active, otherwise 'CARRIER' —
+// Returns 'FACTOR' if an integrated opt-in is active, otherwise 'CARRIER' -
 // resolved via carrierOfRecord.ts (the OO or Carrier org governing the load's
 // assigned driver) so callers know which entity to actually pay.
 export async function resolveInvoicePayee(

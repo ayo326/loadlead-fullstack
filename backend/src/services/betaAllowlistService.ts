@@ -1,5 +1,5 @@
 /**
- * BetaAllowlistService — the runtime-editable list of who can sign up
+ * BetaAllowlistService - the runtime-editable list of who can sign up
  * under BETA_MODE without an explicit Invitation token.
  *
  * Two row shapes share the table:
@@ -7,7 +7,7 @@
  *   - DOMAIN: value = the lowercased domain (e.g. "acme.com", no leading @).
  *             Anyone at @acme.com can self-sign-up.
  *
- * Lookups are by the `value-index` GSI for O(1) reads — no Scans.
+ * Lookups are by the `value-index` GSI for O(1) reads - no Scans.
  *
  * Soft-delete only: `active=false` retains the audit trail. The lookup
  * helpers filter to active rows; the admin list endpoint shows both.
@@ -44,7 +44,7 @@ export class BetaAllowlistService {
    * Lookup helper used by the beta gate. Returns the matching ACTIVE entry
    * (preferring EMAIL match over DOMAIN match if both exist) or null.
    *
-   * O(2) DDB reads via the value-index GSI — one for the email and one
+   * O(2) DDB reads via the value-index GSI - one for the email and one
    * for the domain. No Scan.
    */
   static async findActiveMatchForEmail(email: string): Promise<BetaAllowlistEntry | null> {

@@ -4,7 +4,7 @@ owner: Platform Engineering
 status: active
 ---
 
-# Staging Hosting — cheapest tier, pause to $0
+# Staging Hosting - cheapest tier, pause to $0
 
 Staging (`staging.loadleadapp.com` + `api-staging.loadleadapp.com`) is designed
 to **rest at ~$0** and only cost money while a backend instance is actually
@@ -22,7 +22,7 @@ running.
 | **Backend compute** | Elastic Beanstalk **SingleInstance, t3.micro** | **~$7.50/mo running, $0 paused** |
 | NAT / ALB | *none* (public subnet + IGW; CloudFront terminates TLS) | $0 |
 
-There is **no ALB and no NAT gateway** — those were the two standing charges,
+There is **no ALB and no NAT gateway** - those were the two standing charges,
 and both are removed. HTTPS for the API is done by a CloudFront distribution
 that fronts the SingleInstance EB env over plain HTTP. The EB instance SG only
 accepts port 80 from CloudFront's origin-facing IP ranges.
@@ -34,7 +34,7 @@ variable, which **defaults to `false`**. So the resting state of staging is
 "backend torn down, everything else idle" → **~$0**.
 
 The EB CNAME is pinned (`loadlead-backend-staging.us-east-1.elasticbeanstalk.com`)
-and the API CloudFront origin points at that fixed name — so pausing/resuming
+and the API CloudFront origin points at that fixed name - so pausing/resuming
 the backend never touches the API URL. Clients just get a 502 while it's down.
 
 ```sh
@@ -52,22 +52,22 @@ the EB env.
 
 ## Typical flow (verify, then park)
 
-1. `make staging-resume` — bring the backend up.
+1. `make staging-resume` - bring the backend up.
 2. Deploy the app to it (GitHub Actions `deploy-backend` on `main`, or the deploy
    script targeting `loadlead-backend-staging`).
 3. Smoke: `curl https://api-staging.loadleadapp.com/api/health`.
 4. Run whatever you needed staging for (e.g. the rec #4 admin-MFA smoke).
-5. `make staging-pause` — back to ~$0.
+5. `make staging-pause` - back to ~$0.
 
 ## Frontend build note
 
 The frontend must be built with its API base pointing at
 `https://api-staging.loadleadapp.com` (the Vite env, e.g. `VITE_API_BASE_URL`)
-for the staging bundle. Same-origin is not required — the API CloudFront sends
+for the staging bundle. Same-origin is not required - the API CloudFront sends
 permissive CORS via the app's `FRONTEND_URL=https://staging.loadleadapp.com`
 setting.
 
-## Promotion flow — staging first, always
+## Promotion flow - staging first, always
 
 Everything ships to **staging before prod**:
 
@@ -78,7 +78,7 @@ Everything ships to **staging before prod**:
 For **Terraform** (which is applied per-env, not by the app pipeline), a CI gate
 enforces the same rule: the `terraform-staging-first` workflow fails a PR that
 changes the prod stack (`infra/terraform/envs/prod/**`) without a matching change
-to the staging stack (`infra/terraform/envs/staging/**`) — so prod infra never
+to the staging stack (`infra/terraform/envs/staging/**`) - so prod infra never
 diverges without going through staging first. Genuinely prod-only changes opt out
 with `[terraform-prod-only]` in the PR body (or the `terraform-prod-only` label).
 Shared-module changes get a non-blocking reminder to apply to staging before the
@@ -96,5 +96,5 @@ reaches the gated prod surface. Do not turn `BETA_MODE` on in staging.
 - Default state = paused = ~$0. You have to opt *in* to spend.
 - Running 24/7 ≈ $7.50/mo (t3.micro). If you ever leave it up, consider a
   scheduled `staging-pause` (e.g. nightly cron) to cut that ~75%.
-- Nothing here provisions a NAT gateway or ALB — the two line items that used to
+- Nothing here provisions a NAT gateway or ALB - the two line items that used to
   dominate the estimate.

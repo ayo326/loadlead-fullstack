@@ -8,7 +8,7 @@
  * key is the signing secret string as-is (no whsec_ prefix, no base64
  * decode of the key).
  *
- * Reference: Tally docs — "Signing secret" under form → Integrations →
+ * Reference: Tally docs - "Signing secret" under form → Integrations →
  * Webhooks. The header name is `Tally-Signature`.
  *
  * We reject:

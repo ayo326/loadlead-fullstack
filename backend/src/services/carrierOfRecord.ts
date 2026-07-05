@@ -1,7 +1,7 @@
 // services/carrierOfRecord.ts
 //
 // Single source of truth for "who is the carrier of record for this driver".
-// A driver MUST belong to a carrier parent to HAUL — either an Owner Operator
+// A driver MUST belong to a carrier parent to HAUL - either an Owner Operator
 // fleet or a Carrier-capable organization. A driver with no parent is
 // unaffiliated: allowed to exist (self-signup stays open) but blocked at the
 // acceptance gate. There is no solo HAULING.
@@ -26,7 +26,7 @@ import {
   VerificationEntityType,
   CarrierOfRecord,
 } from '../types';
-// Type-only import — erased at compile time, so this does not create a
+// Type-only import - erased at compile time, so this does not create a
 // runtime circular dependency with verification.ts (which imports from here).
 import type { Verification, VerificationStatus } from './verification';
 
@@ -37,7 +37,7 @@ const VERIFICATIONS_TABLE = process.env.DYNAMODB_VERIFICATIONS_TABLE || 'LoadLea
  * Returns null when the driver belongs to no carrier parent (unaffiliated).
  */
 export async function resolveCarrierOfRecord(driver: Driver): Promise<CarrierOfRecord | null> {
-  // 1. Owner Operator fleet — explicit fleet assignment wins. An OO's self-driver
+  // 1. Owner Operator fleet - explicit fleet assignment wins. An OO's self-driver
   //    carries ownedByOperatorId === its own operatorId, so OO self-haul lands here.
   if (driver.ownedByOperatorId) {
     return {
@@ -46,7 +46,7 @@ export async function resolveCarrierOfRecord(driver: Driver): Promise<CarrierOfR
     };
   }
 
-  // 2. Carrier organization — first ACTIVE membership in an org whose
+  // 2. Carrier organization - first ACTIVE membership in an org whose
   //    capabilities array includes CARRIER.
   const memberships = await docClient.send(
     new QueryCommand({
@@ -75,14 +75,14 @@ export async function resolveCarrierOfRecord(driver: Driver): Promise<CarrierOfR
     }
   }
 
-  // 3. Unaffiliated — no carrier parent. Not permitted to accept loads.
+  // 3. Unaffiliated - no carrier parent. Not permitted to accept loads.
   return null;
 }
 
 /**
- * Gate 1 — carrier AUTHORITY. True only when the resolved carrier of record
+ * Gate 1 - carrier AUTHORITY. True only when the resolved carrier of record
  * (OO or Carrier org) is currently VERIFIED (FMCSA active + KYB + AML).
- * Gate 2 — driver IDENTITY — is checked separately in requireVerifiedCarrier()
+ * Gate 2 - driver IDENTITY - is checked separately in requireVerifiedCarrier()
  * against the USER record's idvStatus, since identity is per-person.
  */
 export async function isCarrierVerified(driver: Driver): Promise<{

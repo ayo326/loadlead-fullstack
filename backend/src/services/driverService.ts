@@ -218,7 +218,7 @@ export class DriverService {
 
   static async getDriversByStatus(status: DriverStatus): Promise<Driver[]> {
     try {
-      // LoadLead_Drivers has no status GSI — use a Scan with FilterExpression.
+      // LoadLead_Drivers has no status GSI - use a Scan with FilterExpression.
       // For small driver tables this is acceptable; add a GSI if the table grows large.
       return await Database.scan<Driver>(
         config.dynamodb.driversTable,
