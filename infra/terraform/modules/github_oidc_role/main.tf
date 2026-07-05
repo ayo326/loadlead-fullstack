@@ -35,12 +35,12 @@ data "aws_iam_policy_document" "trust" {
 }
 
 resource "aws_iam_role" "this" {
-  name               = "loadlead-${var.env}-github-deploy"
-  assume_role_policy = data.aws_iam_policy_document.trust.json
+  name                 = "loadlead-${var.env}-github-deploy"
+  assume_role_policy   = data.aws_iam_policy_document.trust.json
   max_session_duration = 3600 # 1h — AWS minimum (validator rejects <3600). Deploys are quick;
-                              # actual STS session token TTL is set by the workflow's `role-duration-seconds`,
-                              # which can still be lower than max_session_duration.
-  tags                  = var.tags
+  # actual STS session token TTL is set by the workflow's `role-duration-seconds`,
+  # which can still be lower than max_session_duration.
+  tags = var.tags
 }
 
 data "aws_caller_identity" "current" {}
@@ -69,11 +69,49 @@ resource "aws_iam_role_policy" "deploy" {
         ]
       },
       {
+        # The deploy action (no bucket passed) calls CreateStorageLocation to
+        # find/create the shared elasticbeanstalk-<region>-<account> bucket.
+        # This API does not support resource-level permissions, so it must be
+        # granted on "*". It is idempotent and only ensures the standard EB
+        # app-versions bucket exists - no other resource is affected.
+        Sid      = "EBCreateStorageLocation"
+        Effect   = "Allow"
+        Action   = ["elasticbeanstalk:CreateStorageLocation"]
+        Resource = "*"
+      },
+      {
         # EB needs the deploy bundle staged in its auto-created S3 bucket.
+        # Object-level for the upload; bucket-level so the action can locate
+        # the bucket (HeadBucket/GetBucketLocation) and list existing versions.
         Sid      = "EBSourceBundleUpload"
         Effect   = "Allow"
         Action   = ["s3:PutObject", "s3:GetObject"]
         Resource = "arn:aws:s3:::elasticbeanstalk-${data.aws_region.current.name}-${data.aws_caller_identity.current.account_id}/*"
+      },
+      {
+        Sid      = "EBSourceBundleBucketLocate"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket", "s3:GetBucketLocation"]
+        Resource = "arn:aws:s3:::elasticbeanstalk-${data.aws_region.current.name}-${data.aws_caller_identity.current.account_id}"
+      },
+      {
+        # An EB environment is CloudFormation-backed (awseb-* stacks).
+        # UpdateEnvironment makes the deploying principal read the env's
+        # template/stack; without these it fails
+        # InsufficientPrivilegesException on cloudformation:GetTemplate.
+        # Scoped to EB-managed stacks only (read-only; EB's own service role
+        # performs the actual stack mutation).
+        Sid    = "EBManagedStackRead"
+        Effect = "Allow"
+        Action = [
+          "cloudformation:GetTemplate",
+          "cloudformation:GetTemplateSummary",
+          "cloudformation:DescribeStacks",
+          "cloudformation:DescribeStackResource",
+          "cloudformation:DescribeStackResources",
+          "cloudformation:ListStackResources",
+        ]
+        Resource = "arn:aws:cloudformation:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:stack/awseb-*/*"
       },
       {
         Sid      = "FrontendBucketSyncThisEnvOnly"
