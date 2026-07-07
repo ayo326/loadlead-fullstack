@@ -33,12 +33,24 @@ export default defineConfig(({ mode }) => ({
       output: {
         // D6: split slow-moving vendor code into cacheable chunks so the app
         // shell stays small and a dependency bump does not re-hash everything.
+        //
+        // IMPORTANT: React must NOT live in a chunk separate from the vendor
+        // code that consumes it eagerly (radix, react-router and their deps).
+        // A separate "react-vendor" chunk created a circular/unordered chunk
+        // dependency (react-router-dom -> @remix-run/router -> ... -> react,
+        // radix -> @floating-ui -> react) so React's named exports were
+        // undefined when radix evaluated -> "Cannot read properties of
+        // undefined (reading 'forwardRef')" -> blank page. Keep React and all
+        // its eager consumers in one "vendor" chunk (Rollup orders modules
+        // within a chunk, so React always initialises first). Only genuinely
+        // independent, lazily-loaded heavy libs are split out.
         manualChunks(id: string) {
           if (!id.includes("node_modules")) return undefined;
-          if (/[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) return "react-vendor";
-          if (id.includes("@radix-ui")) return "radix-vendor";
-          if (id.includes("recharts") || id.includes("d3-")) return "charts-vendor";
+          // Lazy-route-only heavy libs: loaded via dynamic import after React
+          // is already up, so a separate chunk is safe here.
           if (id.includes("shepherd")) return "tour-vendor";
+          if (id.includes("recharts") || id.includes("d3-")) return "charts-vendor";
+          // React + react-dom + router + radix + every other UI lib together.
           return "vendor";
         },
       },
