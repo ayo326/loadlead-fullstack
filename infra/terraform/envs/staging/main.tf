@@ -142,6 +142,11 @@ module "backend" {
     # validate everything before prod. Only PROD runs the private-beta wall
     # (BETA_MODE defaults to on when unset, so prod needs no override).
     BETA_MODE                        = "off"
+    # Fleet-carrier persona ENABLED in staging. Prod defaults this off (the
+    # persona is muted there); staging is the full-app pre-prod mirror, so we
+    # run the persona ON to validate the enabled path. Flip to "false" to
+    # mirror prod's muted state - no code change, just this env var + roll.
+    FLEET_CARRIER_PERSONA_ENABLED    = "true"
     FRONTEND_URL                     = "https://${var.staging_domain}"
     DYNAMODB_USERS_TABLE             = "${local.prefix}Users"
     DYNAMODB_DRIVERS_TABLE           = "${local.prefix}Drivers"
