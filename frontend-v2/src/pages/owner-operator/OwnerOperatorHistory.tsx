@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { PageHeader } from "@/components/PageHeader";
 import { LoadHistoryList } from "@/components/LoadHistoryList";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -25,18 +24,16 @@ export default function OwnerOperatorHistory() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader
-        title="Load History"
-        subtitle="Loads accepted by your fleet - booked, in transit, and delivered"
-      />
-      <div className="max-w-4xl mx-auto p-6">
-        <LoadHistoryList
-          items={items}
-          emptyText="No load history yet. Loads accepted by your fleet drivers will appear here."
-          loadDetailHref={(load) => `/owner-operator/loads/${load.loadId}`}
-        />
+    <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
+      <div>
+        <h1 className="text-2xl font-bold">Load History</h1>
+        <p className="text-sm text-muted-foreground">Loads accepted by your fleet - booked, in transit, and delivered</p>
       </div>
+      <LoadHistoryList
+        items={items}
+        emptyText="No load history yet. Loads accepted by your fleet drivers will appear here."
+        loadDetailHref={(load) => `/owner-operator/loads/${load.loadId}`}
+      />
     </div>
   );
 }
