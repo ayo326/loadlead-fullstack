@@ -180,6 +180,7 @@ export default function OwnerOperatorDashboard() {
                     </span>
                   </div>
                   <LoadRoutePanel
+                    key={routeLoad.loadId}
                     pickupAddress={routeLoad.pickupAddress}
                     deliveryAddress={routeLoad.deliveryAddress}
                     pickupCity={routeLoad.pickupCity}
