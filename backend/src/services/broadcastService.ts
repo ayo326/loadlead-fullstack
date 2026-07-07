@@ -6,8 +6,25 @@ import { CapacityService } from './capacityService';
 import { EquipmentService, deriveLoadingRequirements } from './equipmentService';
 import { GeolocationService } from './geolocationService';
 import { RoutingService } from './routingService';
+import { isFleetCarrierDriver } from './carrierOfRecord';
+import { isFleetCarrierPersonaEnabled } from '../config/featureFlags';
 import { Helpers } from '../utils/helpers';
 import Logger from '../utils/logger';
+
+/**
+ * Persona-aware pool filter for the broadcast/matching pool. While the
+ * fleet-carrier persona is muted, drivers who haul under a fleet-carrier
+ * organization are excluded from the pool, so no load is broadcast to a fleet
+ * carrier. Owner-operator drivers (self and fleet) and unaffiliated drivers
+ * are untouched, and the matching logic (equipment/capacity/insurance/etc.)
+ * is not altered - this only narrows WHO is considered. When the persona is
+ * enabled, the pool is returned unchanged with no extra reads.
+ */
+async function excludeMutedFleetCarriers<T extends Driver>(drivers: T[]): Promise<T[]> {
+  if (isFleetCarrierPersonaEnabled()) return drivers;
+  const keep = await Promise.all(drivers.map(async (d) => !(await isFleetCarrierDriver(d))));
+  return drivers.filter((_, i) => keep[i]);
+}
 
 export class BroadcastService {
   static async broadcastLoad(loadId: string): Promise<void> {
@@ -52,7 +69,17 @@ export class BroadcastService {
       );
 
       Logger.info(`Found ${driversInRadius.length} drivers within ${load.broadcastRadiusMiles} miles of load ${loadId}`);
-      
+
+      // Persona muting: drop fleet-carrier drivers from the pool while the
+      // persona is off. No-op (and no extra reads) when the persona is on.
+      const personaFilteredDrivers = await excludeMutedFleetCarriers(driversInRadius);
+      if (personaFilteredDrivers.length !== driversInRadius.length) {
+        Logger.info(
+          `Persona filter: excluded ${driversInRadius.length - personaFilteredDrivers.length} ` +
+          `fleet-carrier driver(s) from load ${loadId} pool (persona muted)`,
+        );
+      }
+
       // Filter by capacity and requirements
       const eligibleDrivers: Array<Driver & { distanceMiles: number }> = [];
       
@@ -66,7 +93,7 @@ export class BroadcastService {
              ),
       };
 
-      for (const driver of driversInRadius) {
+      for (const driver of personaFilteredDrivers) {
         // Step 1+2: equipment type + loading requirements (spec §11.4)
         const equipCheck = EquipmentService.checkEquipmentMatch(driver, loadWithDerived as any);
         if (!equipCheck.eligible) {
@@ -186,6 +213,11 @@ static async tryMatchOpenLoadsForDriver(driverId: string): Promise<number> {
 
   // Only available/verified drivers should be considered "online"
   if (![DriverStatus.AVAILABLE, DriverStatus.VERIFIED].includes(driver.status as any)) return 0;
+
+  // Persona muting: a fleet-carrier driver coming online receives no offers
+  // through this reverse-match path either, mirroring the broadcast pool
+  // filter. Owner-operator and unaffiliated drivers are unaffected.
+  if (!isFleetCarrierPersonaEnabled() && await isFleetCarrierDriver(driver)) return 0;
 
   const openLoads = await LoadService.getLoadsByStatus('OPEN' as any);
   let offersCreated = 0;

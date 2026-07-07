@@ -35,6 +35,7 @@ import { NegotiationService, LoadNegotiation, NegotiationParty } from '../servic
 import { DriverService } from '../services/driverService';
 import { ShipperService } from '../services/shipperService';
 import { resolveCarrierOfRecord } from '../services/carrierOfRecord';
+import { isFleetCarrierPersonaEnabled } from '../config/featureFlags';
 import { requireVerifiedCarrier } from '../services/verification';
 import { PushService } from '../services/pushService';
 import { LoadService } from '../services/loadService';
@@ -118,12 +119,12 @@ async function resolveHaulerDriver(
   throw new AppError('You are not authorized to act on this driver', 403);
 }
 
-async function haulerActor(req: AuthRequest): Promise<{ party: NegotiationParty; driverId: string; userId: string; carrierId: string }> {
+async function haulerActor(req: AuthRequest): Promise<{ party: NegotiationParty; driverId: string; userId: string; carrierId: string; carrierEntityType: VerificationEntityType }> {
   const requestedDriverId = (req.body?.driverId ?? undefined) as string | undefined;
   const { driver, cor } = await resolveHaulerDriver(req.user!.userId, requestedDriverId);
   // haulerUserId tracks the DRIVER who will haul (notifications reach them). In
   // self-haul this is the acting user; for dispatch-on-behalf it is the driver.
-  return { party: 'HAULER', driverId: driver.driverId, userId: driver.userId, carrierId: cor.entityId };
+  return { party: 'HAULER', driverId: driver.driverId, userId: driver.userId, carrierId: cor.entityId, carrierEntityType: cor.entityType };
 }
 
 async function shipperActor(req: AuthRequest, neg: LoadNegotiation): Promise<{ party: NegotiationParty; shipperId: string }> {
@@ -246,6 +247,20 @@ router.post(
   ]),
   asyncHandler(async (req: AuthRequest, res) => {
     const actor = await haulerActor(req);
+    // Persona muting: a fleet-carrier hauler cannot START a new negotiation
+    // while the persona is off. This closes the only hauler-initiated entry
+    // that is not already fed by a broadcast offer (engage takes a raw
+    // loadId), so a muted fleet carrier cannot bypass the suppressed pool by
+    // engaging a load id directly. Owner-operator haulers are unaffected, and
+    // in-flight negotiations (bid/counter/accept) are NOT blocked here so a
+    // fleet negotiation started before muting can still be completed.
+    if (!isFleetCarrierPersonaEnabled()
+        && actor.carrierEntityType === VerificationEntityType.CARRIER_ORG) {
+      return res.status(403).json({
+        code: 'PERSONA_DISABLED',
+        error: 'The fleet-carrier persona is not currently available.',
+      });
+    }
     // No e-sign gate here: CARRIER_ACCEPT is an ASSIGNMENT attestation (its
     // projection binds assignedDriverId) so it cannot exist on a still-broadcast
     // load. Engagement only acquires the exclusive negotiation lock. The e-sign
