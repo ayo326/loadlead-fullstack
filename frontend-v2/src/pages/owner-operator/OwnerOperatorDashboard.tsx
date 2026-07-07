@@ -152,7 +152,7 @@ export default function OwnerOperatorDashboard() {
                           Route
                         </button>
                         {(routeOpenId ?? loads[0]?.load?.loadId) === load.loadId && (
-                          <span className="text-[10px] text-muted-foreground ml-1">Shown in Route preview</span>
+                          <span className="text-[10px] text-muted-foreground ml-1">Load route shown below</span>
                         )}
                       </div>
                     </div>
@@ -180,18 +180,23 @@ export default function OwnerOperatorDashboard() {
                     </span>
                   </div>
                   <LoadRoutePanel
-                    key={routeLoad.loadId}
+                    // Include routeOpenId so clicking "Route" on a load remounts
+                    // the panel (even the already-shown default one) onto the
+                    // Load route tab. Initial view (no click) = To pickup.
+                    key={`${routeLoad.loadId}-${routeOpenId ?? "default"}`}
                     pickupAddress={routeLoad.pickupAddress}
                     deliveryAddress={routeLoad.deliveryAddress}
                     pickupCity={routeLoad.pickupCity}
                     pickupState={routeLoad.pickupState}
                     deliveryCity={routeLoad.deliveryCity}
                     deliveryState={routeLoad.deliveryState}
-                    currentCity={profile?.currentCity ?? null}
-                    currentState={profile?.currentState ?? null}
+                    // Current location = the editable profile address (city/state);
+                    // fall back to the GPS-style currentCity only if unset.
+                    currentCity={profile?.city ?? profile?.currentCity ?? null}
+                    currentState={profile?.state ?? profile?.currentState ?? null}
                     mapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
                     mapAspectRatio="32 / 9"
-                    defaultTab="dropoff"
+                    defaultTab={routeOpenId ? "dropoff" : "pickup"}
                   />
                 </div>
               );
