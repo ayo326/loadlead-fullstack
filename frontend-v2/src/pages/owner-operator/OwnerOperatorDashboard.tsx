@@ -189,6 +189,7 @@ export default function OwnerOperatorDashboard() {
                     currentCity={profile?.currentCity ?? null}
                     currentState={profile?.currentState ?? null}
                     mapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                    mapAspectRatio="32 / 9"
                   />
                 </div>
               );

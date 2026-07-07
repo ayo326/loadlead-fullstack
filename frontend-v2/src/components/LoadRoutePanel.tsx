@@ -38,6 +38,9 @@ interface LoadRoutePanelProps {
   currentState?: string | null;
   /** Google Maps Embed API key */
   mapsApiKey?: string | null;
+  /** Mini-map aspect ratio (CSS aspect-ratio). Default "16 / 9"; pass a wider
+   *  ratio (e.g. "24 / 9") to make the pane shorter. */
+  mapAspectRatio?: string;
 }
 
 export function LoadRoutePanel({
@@ -52,6 +55,7 @@ export function LoadRoutePanel({
   currentCity,
   currentState,
   mapsApiKey,
+  mapAspectRatio = "16 / 9",
 }: LoadRoutePanelProps) {
   const [tab, setTab] = useState<Tab>("pickup");
   const [dropoffOrigin, setDropoffOrigin] = useState<DropoffOrigin>("pickup");
@@ -147,11 +151,11 @@ export function LoadRoutePanel({
 
       {/* ── Map area ──────────────────────────────────────────────────────── */}
       {!src ? (
-        <NoLocation hasMapsKey={!!resolvedKey} />
+        <NoLocation hasMapsKey={!!resolvedKey} aspectRatio={mapAspectRatio} />
       ) : (
         <div
           className="relative rounded-xl overflow-hidden border border-border/50"
-          style={{ aspectRatio: "16 / 9" }}
+          style={{ aspectRatio: mapAspectRatio }}
         >
           {/* Loading skeleton - neutral, no brand gradient */}
           {!miniLoaded && (
@@ -275,11 +279,11 @@ function ToggleBtn({
   );
 }
 
-function NoLocation({ hasMapsKey }: { hasMapsKey: boolean }) {
+function NoLocation({ hasMapsKey, aspectRatio = "16 / 9" }: { hasMapsKey: boolean; aspectRatio?: string }) {
   return (
     <div
       className="rounded-xl bg-secondary flex flex-col items-center justify-center text-center gap-2 p-6 text-sm text-muted-foreground"
-      style={{ aspectRatio: "16 / 9" }}
+      style={{ aspectRatio }}
     >
       <Navigation className="h-5 w-5 opacity-40" />
       {hasMapsKey
