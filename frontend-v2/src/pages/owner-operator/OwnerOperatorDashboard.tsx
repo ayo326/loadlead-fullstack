@@ -78,7 +78,7 @@ export default function OwnerOperatorDashboard() {
         subtitle="Owner Operator Dashboard"
       />
 
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div className="max-w-6xl mx-auto px-6 pb-8 -mt-4 space-y-4">
         {/* P1 (above the fold): the actionable loadboard + route map + key
             stats come first. The blended secondary view (my haul, verification,
             fleet health, financial, SLA) renders BELOW. V2. */}
