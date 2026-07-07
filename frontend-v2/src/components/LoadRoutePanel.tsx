@@ -109,8 +109,8 @@ export function LoadRoutePanel({
 
   const tabLabel =
     tab === "pickup"
-      ? `To Pickup${pickupCity ? ` · ${pickupCity}${pickupState ? `, ${pickupState}` : ""}` : ""}`
-      : `To Dropoff${deliveryCity ? ` · ${deliveryCity}${deliveryState ? `, ${deliveryState}` : ""}` : ""}`;
+      ? `To pickup${pickupCity ? ` · ${pickupCity}${pickupState ? `, ${pickupState}` : ""}` : ""}`
+      : `Load route${deliveryCity ? ` · to ${deliveryCity}${deliveryState ? `, ${deliveryState}` : ""}` : ""}`;
 
   // Reset load state when tab or origin changes
   const switchTab = (t: Tab) => {
@@ -128,11 +128,11 @@ export function LoadRoutePanel({
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <TabBtn active={tab === "pickup"} onClick={() => switchTab("pickup")}>
           <Navigation className="h-3 w-3" />
-          Pickup
+          To pickup
         </TabBtn>
         <TabBtn active={tab === "dropoff"} onClick={() => switchTab("dropoff")}>
           <MapPin className="h-3 w-3" />
-          Dropoff
+          Load route
         </TabBtn>
 
         {/* Dropoff origin toggle */}
