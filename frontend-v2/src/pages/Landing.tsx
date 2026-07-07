@@ -4,10 +4,15 @@ import { ArrowRight, Briefcase, Building2, CheckCircle2, Clock, Gauge, MapPin, P
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { StagingEnvToggle } from "@/components/StagingEnvToggle";
+import { useRuntimeConfig } from "@/contexts/RuntimeConfigContext";
 
 const API = (import.meta.env.VITE_API_URL ?? "https://api.loadleadapp.com") + "/api";
 
 export default function Landing() {
+  // Fleet-carrier persona flag. While muted, the public Carrier persona card
+  // and its signup CTA are not shown. Owner-operator, driver, shipper, and
+  // receiver cards are unaffected.
+  const { fleetCarrierPersonaEnabled } = useRuntimeConfig();
   return (
     <div className="font-display-hangar min-h-screen bg-background text-foreground">
       {/* Engineering-only staging start/pause control (renders only in the staging build) */}
@@ -162,7 +167,9 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 py-24">
           <div className="text-center max-w-2xl mx-auto">
             <div className="text-xs uppercase tracking-widest text-primary font-semibold">For your team</div>
-            <h2 className="mt-3 text-4xl font-bold tracking-tight">One platform. Five purpose-built dashboards.</h2>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight">
+              One platform. {fleetCarrierPersonaEnabled ? "Five" : "Four"} purpose-built dashboards.
+            </h2>
           </div>
           <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
@@ -173,7 +180,7 @@ export default function Landing() {
               { icon: ShipWheel,   role: "Driver",         desc: "Accept loads matched to you. Join a carrier or owner operator to start hauling.", to: "/signup?role=DRIVER",      cta: "Sign up" },
               { icon: PackageCheck,role: "Shipper",        desc: "Post loads and reach verified carriers instantly.",                            to: "/signup?role=SHIPPER",        cta: "Sign up" },
               { icon: MapPin,      role: "Receiver",       desc: "Track inbound deliveries to your facility in real time.",                      to: "/signup?role=RECEIVER",       cta: "Sign up" },
-            ].map((r) => {
+            ].filter((r) => r.role !== "Carrier" || fleetCarrierPersonaEnabled).map((r) => {
               const Card = (
                 <>
                   <div className="flex items-start justify-between gap-3">

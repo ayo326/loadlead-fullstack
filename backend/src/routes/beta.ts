@@ -22,6 +22,7 @@ import { validate } from '../middleware/validation';
 import { WaitlistService } from '../services/waitlistService';
 import { EmailService } from '../services/emailService';
 import { getBetaConfig, isTallyConnected } from '../config/beta';
+import { isFleetCarrierPersonaEnabled } from '../config/featureFlags';
 import { Logger } from '../utils/logger';
 import { UserRole } from '../types';
 
@@ -35,6 +36,10 @@ router.get('/status', (req, res) => {
     betaMode: cfg.betaMode,
     currentCohort: cfg.currentCohort,
     tallyConnected: isTallyConnected(),
+    // Persona flags for the FE to gate muted personas. The FE reads the same
+    // single source here (no scattered env reads); the backend enforces
+    // independently.
+    fleetCarrierPersonaEnabled: isFleetCarrierPersonaEnabled(),
   });
 });
 

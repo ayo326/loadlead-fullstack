@@ -80,6 +80,22 @@ export async function resolveCarrierOfRecord(driver: Driver): Promise<CarrierOfR
 }
 
 /**
+ * True when the driver's carrier of record is a fleet-carrier ORGANIZATION
+ * (a CARRIER-capability org), i.e. the driver hauls under the fleet-carrier
+ * persona. Owner-operator drivers (including an OO's own self-driver and any
+ * driver in an OO fleet) resolve to OWNER_OPERATOR and return false here, as
+ * do unaffiliated drivers. Pure resolution - the persona flag is applied by
+ * the caller so this stays independently testable.
+ */
+export async function isFleetCarrierDriver(driver: Driver): Promise<boolean> {
+  // OO self/fleet drivers carry ownedByOperatorId - never a fleet carrier,
+  // and we can decide without any extra reads.
+  if (driver.ownedByOperatorId) return false;
+  const carrier = await resolveCarrierOfRecord(driver);
+  return carrier?.entityType === VerificationEntityType.CARRIER_ORG;
+}
+
+/**
  * Gate 1 - carrier AUTHORITY. True only when the resolved carrier of record
  * (OO or Carrier org) is currently VERIFIED (FMCSA active + KYB + AML).
  * Gate 2 - driver IDENTITY - is checked separately in requireVerifiedCarrier()

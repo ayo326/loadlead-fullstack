@@ -7,7 +7,7 @@ import { Helpers } from '../utils/helpers';
 import { asyncHandler } from '../middleware/errorHandler';
 import { authValidators } from '../utils/validators';
 import { validate } from '../middleware/validation';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, requireFleetCarrierPersona } from '../middleware/auth';
 import { requireBetaGate, BetaContext } from '../middleware/betaGate';
 import { getBetaConfig } from '../config/beta';
 import { EmailService } from '../services/emailService';
@@ -76,6 +76,10 @@ router.post(
 // touch or share code paths with the four existing personas' signup.
 router.post(
   '/signup/carrier',
+  // Fleet-carrier PERSONA gate: while muted, no new fleet-carrier account can
+  // be created. Returns 403 { code: 'PERSONA_DISABLED' } so the FE renders the
+  // friendly paused state. The four other persona signups are untouched.
+  requireFleetCarrierPersona,
   requireBetaGate({ mode: 'signup' }),
   validate([
     body('email').isEmail().withMessage('Valid email is required'),

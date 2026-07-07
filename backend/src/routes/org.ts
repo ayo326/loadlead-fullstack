@@ -1,12 +1,13 @@
 import express from 'express';
 import { body, param } from 'express-validator';
-import { authenticate, AuthRequest, requireRole, requireOrgCapability } from '../middleware/auth';
+import { authenticate, AuthRequest, requireRole, requireOrgCapability, requireFleetCarrierPersona } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { validate } from '../middleware/validation';
 import {
   OrgService, OrgMembershipService, OrgInvitationService, OrgAuditService,
 } from '../services/orgService';
 import { OrgCapability, OrgRole, ADMIN_ORG_ROLES, UserRole } from '../types';
+import { isFleetCarrierPersonaEnabled } from '../config/featureFlags';
 import { hasPermission } from '../services/orgPermissions';
 import { AppError } from '../middleware/errorHandler';
 import { EmailService } from '../services/emailService';
@@ -81,6 +82,19 @@ router.post(
   ]),
   asyncHandler(async (req: AuthRequest, res) => {
     const { legalName, capabilities, dba, dotNumber, mcNumber, city, state, zip, country } = req.body;
+    // While the fleet-carrier persona is muted, refuse to create a new
+    // CARRIER-capability org (that is a fleet carrier). Other org types
+    // (SHIPPER, RECEIVER) are unaffected; Platform Admin bypasses. Existing
+    // fleet orgs are untouched - this only blocks new creation.
+    if (!isFleetCarrierPersonaEnabled()
+        && req.user!.role !== UserRole.ADMIN
+        && Array.isArray(capabilities)
+        && capabilities.includes(OrgCapability.CARRIER)) {
+      return res.status(403).json({
+        code: 'PERSONA_DISABLED',
+        error: 'The fleet-carrier persona is not currently available.',
+      });
+    }
     const result = await OrgService.createOrg({
       legalName,
       capabilities,
@@ -141,6 +155,18 @@ router.patch(
     if (!canEdit) throw new AppError('Forbidden', 403);
 
     const { legalName, capabilities, dba, dotNumber, mcNumber, city, state, zip, country } = req.body;
+    // Do not let a CARRIER capability be added/kept via update while the
+    // persona is muted (that would stand up a fleet carrier). Non-carrier
+    // capability edits are unaffected; Platform Admin bypasses.
+    if (!isFleetCarrierPersonaEnabled()
+        && req.user!.role !== UserRole.ADMIN
+        && Array.isArray(capabilities)
+        && capabilities.includes(OrgCapability.CARRIER)) {
+      return res.status(403).json({
+        code: 'PERSONA_DISABLED',
+        error: 'The fleet-carrier persona is not currently available.',
+      });
+    }
     await OrgService.updateOrg(orgId, { legalName, capabilities, dba, dotNumber, mcNumber, city, state, zip, country });
     res.json({ ok: true });
   })
@@ -157,6 +183,7 @@ router.patch(
  */
 router.get(
   '/:orgId/verification',
+  requireFleetCarrierPersona,
   requireOrgCapability(OrgCapability.CARRIER),
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId } = req.params;
@@ -177,6 +204,7 @@ router.get(
  */
 router.post(
   '/:orgId/verification/submit',
+  requireFleetCarrierPersona,
   requireOrgCapability(OrgCapability.CARRIER),
   validate([
     body('mcNumber').optional().isString(),
@@ -449,6 +477,7 @@ router.patch(
  */
 router.post(
   '/:orgId/drivers',
+  requireFleetCarrierPersona,
   requireOrgCapability(OrgCapability.CARRIER),
   validate([
     body('email').isEmail().withMessage('Valid email required'),
@@ -495,6 +524,20 @@ router.post(
 
     const org = await OrgService.getOrgById(orgId);
     if (!org) throw new AppError('Organisation not found', 404);
+
+    // Fleet-driver onboarding is a fleet-carrier persona concern (an
+    // ORG_DRIVER invite always requires a CARRIER-capability org). Block it
+    // while the persona is muted; MANAGER/DISPATCHER and other org invites are
+    // unaffected. Platform Admin bypasses. OO signups never hit this (an OO is
+    // not an org and does not invite ORG_DRIVERs).
+    if (orgRole === OrgRole.ORG_DRIVER
+        && !isFleetCarrierPersonaEnabled()
+        && req.user!.role !== UserRole.ADMIN) {
+      return res.status(403).json({
+        code: 'PERSONA_DISABLED',
+        error: 'The fleet-carrier persona is not currently available.',
+      });
+    }
 
     if (orgRole === OrgRole.ORG_DRIVER && !org.capabilities?.includes(OrgCapability.CARRIER)) {
       throw new AppError('ORG_DRIVER invitations require the organisation to have CARRIER capability', 409);

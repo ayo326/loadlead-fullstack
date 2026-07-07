@@ -7,6 +7,7 @@ import { ComplianceRole } from '../types/complianceRole';
 import { OrgService, OrgMembershipService } from '../services/orgService';
 import { ComplianceRoleService } from '../services/complianceRoleService';
 import { Database } from '../config/database';
+import { isFleetCarrierPersonaEnabled } from '../config/featureFlags';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -144,4 +145,31 @@ export const requireOrgCapability = (cap: OrgCapability) => {
       next(err);
     }
   };
+};
+
+/**
+ * Fleet-carrier PERSONA gate. While the persona is muted
+ * (FLEET_CARRIER_PERSONA_ENABLED=false), routes that exist ONLY to serve the
+ * fleet-carrier persona return 403 with a machine-readable code so the FE can
+ * render the friendly interstitial rather than a raw error. Nothing is
+ * deleted - the handler is preserved and re-enables with the single flag.
+ *
+ * IMPORTANT scoping:
+ *  - Apply ONLY to fleet-carrier-persona concerns (carrier org creation,
+ *    fleet driver onboarding/invites, carrier console endpoints). Do NOT
+ *    apply to owner-operator flows or to any shared carrier-entity code an
+ *    OO runs through (accessorials, factoring, negotiation, e-sign,
+ *    settlement) - those are NOT muted.
+ *  - Platform Admin (UserRole.ADMIN) bypasses the gate so oversight over
+ *    existing fleet accounts and data is never blocked.
+ */
+export const requireFleetCarrierPersona = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (req.user?.role === UserRole.ADMIN) return next();
+  if (!isFleetCarrierPersonaEnabled()) {
+    return res.status(403).json({
+      code: 'PERSONA_DISABLED',
+      error: 'The fleet-carrier persona is not currently available.',
+    });
+  }
+  return next();
 };
