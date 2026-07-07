@@ -85,6 +85,16 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, var(--cx-shadow);
 }
 
+/* ── Page-root wrappers must not paint over the frosted canvas ──────────── */
+/* Every routed page roots in `min-h-screen bg-background`, an OPAQUE slab
+   (hsl(210 40% 98%)). Inside the frosted canvas that slab reads as a hard-
+   edged rectangle: it is flat/opaque while the canvas around it (the `main`
+   padding) is frosted + subtly navy-tinted, so a seam shows around the page
+   header and content. Neutralise the fill so page content sits directly on
+   the one frosted canvas. Inputs/tables/.data-solid keep their own solid
+   backplates via the rules below, so AA is unaffected. */
+.cx-glass main .bg-background { background: transparent !important; }
+
 /* ── Cards on the canvas: one deliberate elevation treatment (V4) ───────── */
 .cx-glass .bg-card {
   /* Very subtle top-to-bottom sheen instead of flat pure-white, so a card
