@@ -45,20 +45,27 @@ export class Database {
     updates: Record<string, any>
   ): Promise<void> {
     try {
-      const updateExpression = 'SET ' + Object.keys(updates)
+      // Never attempt to SET a primary-key attribute: DynamoDB rejects it with
+      // "This attribute is part of the key", surfacing as a 500. Strip any key
+      // attrs a caller may have passed (e.g. a form PUTting the whole record).
+      const keyAttrs = new Set(Object.keys(key));
+      const attrs = Object.keys(updates).filter((k) => !keyAttrs.has(k));
+      if (attrs.length === 0) return; // nothing to update
+
+      const updateExpression = 'SET ' + attrs
         .map((k, i) => `#attr${i} = :val${i}`)
         .join(', ');
-      
-      const expressionAttributeNames = Object.keys(updates).reduce((acc, k, i) => {
+
+      const expressionAttributeNames = attrs.reduce((acc, k, i) => {
         acc[`#attr${i}`] = k;
         return acc;
       }, {} as Record<string, string>);
-      
-      const expressionAttributeValues = Object.keys(updates).reduce((acc, k, i) => {
+
+      const expressionAttributeValues = attrs.reduce((acc, k, i) => {
         acc[`:val${i}`] = updates[k];
         return acc;
       }, {} as Record<string, any>);
-      
+
       await docClient.send(new UpdateCommand({
         TableName: tableName,
         Key: key,
