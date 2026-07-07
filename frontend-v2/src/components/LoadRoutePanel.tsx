@@ -41,6 +41,10 @@ interface LoadRoutePanelProps {
   /** Mini-map aspect ratio (CSS aspect-ratio). Default "16 / 9"; pass a wider
    *  ratio (e.g. "24 / 9") to make the pane shorter. */
   mapAspectRatio?: string;
+  /** Which leg to show first. Default "pickup" (current -> pickup, for
+   *  navigating to the load). Pass "dropoff" to open on the load's own route
+   *  (pickup -> dropoff). */
+  defaultTab?: Tab;
 }
 
 export function LoadRoutePanel({
@@ -56,8 +60,9 @@ export function LoadRoutePanel({
   currentState,
   mapsApiKey,
   mapAspectRatio = "16 / 9",
+  defaultTab = "pickup",
 }: LoadRoutePanelProps) {
-  const [tab, setTab] = useState<Tab>("pickup");
+  const [tab, setTab] = useState<Tab>(defaultTab);
   const [dropoffOrigin, setDropoffOrigin] = useState<DropoffOrigin>("pickup");
   const [miniLoaded, setMiniLoaded] = useState(false);
   const [expanded, setExpanded] = useState(false);
