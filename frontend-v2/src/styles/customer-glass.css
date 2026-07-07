@@ -20,15 +20,21 @@
   --cx-saturate: 160%;
   --cx-radius: 18px;
   --cx-shadow: 0 20px 50px rgba(4, 18, 52, 0.30);
-  /* V4 finish: cards are opaque white so they read as deliberate raised
-     surfaces (not translucent "paper cut-outs"); the canvas is a slightly
-     firmer light so the contrast between canvas and card is legible. */
+  /* V5 finish: soften the "cut-out" read. The canvas is warmed to a near-white
+     frost (0.90, cooler-neutral) so the blue tint no longer fights the cards,
+     and cards are gently raised (soft diffuse shadow + faint top sheen) rather
+     than stark pure-white rectangles snapped onto a blue sheet. Still glass:
+     the canvas stays translucent + blurred, so the navy reads softly at the
+     margins. Cards remain light for AA on the frosted canvas. */
   --cx-card: #ffffff;
-  --cx-canvas: rgba(255, 255, 255, 0.82);
-  /* One consistent card treatment: a neutral hairline border + a single soft
-     shadow token, matching the design-system elevation scale. */
-  --cx-card-border: rgba(15, 23, 42, 0.08);
-  --cx-card-shadow: 0 4px 8px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --cx-canvas: rgba(248, 250, 253, 0.90);
+  /* Softer, more diffuse card elevation + a hairline top highlight so edges
+     feather into the canvas instead of snapping. Border is a hair lighter. */
+  --cx-card-border: rgba(15, 23, 42, 0.06);
+  --cx-card-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 24px -12px rgba(15, 23, 42, 0.16),
+    0 3px 8px -4px rgba(15, 23, 42, 0.08);
   --cx-navy-1: #0a2a66;
   --cx-navy-2: #0a3f9e;
   --cx-navy-3: #1e54c0;
@@ -69,17 +75,21 @@
   background: var(--cx-canvas) !important;
   backdrop-filter: blur(var(--cx-blur)) saturate(var(--cx-saturate));
   -webkit-backdrop-filter: blur(var(--cx-blur)) saturate(var(--cx-saturate));
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  /* Soft slate hairline instead of a stark white outline, so the canvas edge
+     does not read as a punched-out sticker against the navy. */
+  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: var(--cx-radius);
   margin: 12px auto;
   max-width: 1240px;
   width: calc(100% - 24px);
-  box-shadow: var(--cx-shadow);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, var(--cx-shadow);
 }
 
 /* ── Cards on the canvas: one deliberate elevation treatment (V4) ───────── */
 .cx-glass .bg-card {
-  background: var(--cx-card) !important;
+  /* Very subtle top-to-bottom sheen instead of flat pure-white, so a card
+     reads as a gently raised glass surface rather than a hard cut-out. */
+  background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%) !important;
   border-color: var(--cx-card-border) !important;
   box-shadow: var(--cx-card-shadow);
 }
