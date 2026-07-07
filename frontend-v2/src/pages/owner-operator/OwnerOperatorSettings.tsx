@@ -80,7 +80,10 @@ function ProfileTab() {
         setIsNew(false);
         toast.success("Profile created!");
       } else {
-        await api.updateOwnerOperatorProfile(profile);
+        // Never PUT key/immutable fields back: DynamoDB rejects updating the
+        // partition key (operatorId), which 500s the whole save.
+        const { operatorId, userId, createdAt, updatedAt, ...mutable } = profile;
+        await api.updateOwnerOperatorProfile(mutable);
         toast.success("Changes saved!");
       }
     } catch (e: any) { toast.error(e.message); }
