@@ -6,6 +6,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRuntimeConfig } from "@/contexts/RuntimeConfigContext";
 import { api } from "@/lib/api";
 import { isBetaHost, BETA_ORIGIN } from "@/lib/host";
 import PrivateBetaLanding from "@/pages/PrivateBetaLanding";
@@ -145,6 +146,15 @@ export default function Login() {
   const [loading, setLoading]       = useState(false);
 
   const { login, twoFactorLogin }  = useAuth();
+  // Fleet-carrier persona flag. While muted, a fleet-carrier (CARRIER_ADMIN)
+  // account still signs in normally (session preserved) but lands on the
+  // friendly interstitial instead of the carrier console, and the carrier
+  // persona card is hidden from the picker. Owner-operators are unaffected.
+  const { fleetCarrierPersonaEnabled } = useRuntimeConfig();
+  // Persona picker cards. The fleet-carrier (CARRIER_ADMIN) card is hidden
+  // while the persona is muted so no one selects a paused portal. Nothing is
+  // removed from the source list - it just is not offered until the flag is on.
+  const visibleRoles = roles.filter((r) => r.key !== "CARRIER_ADMIN" || fleetCarrierPersonaEnabled);
   const navigate   = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect");
@@ -174,13 +184,23 @@ export default function Login() {
     setRoleMismatch(null);
   };
 
+  // Resolve where a freshly authenticated user should land. A fleet-carrier
+  // (CARRIER_ADMIN) account routes to the interstitial while the persona is
+  // muted - never to /carrier, and never the honored `redirect` param (which
+  // could point back into a gated carrier route). All other roles are
+  // untouched.
+  function homeFor(role: string): string {
+    if (role === "CARRIER_ADMIN" && !fleetCarrierPersonaEnabled) return "/carrier-unavailable";
+    return redirectTo ?? roleHome[role] ?? "/";
+  }
+
   function completeLoginRedirect(user: any) {
     if (user.role !== selected.key) {
       setRoleMismatch(`This account is registered as ${user.role}. Taking you to your dashboard…`);
-      setTimeout(() => navigate(redirectTo ?? roleHome[user.role] ?? "/"), 1800);
+      setTimeout(() => navigate(homeFor(user.role)), 1800);
       return;
     }
-    navigate(redirectTo ?? roleHome[user.role] ?? "/");
+    navigate(homeFor(user.role));
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -240,7 +260,7 @@ export default function Login() {
           </Link>
 
           {/* Role icon buttons */}
-          {roles.map((r) => {
+          {visibleRoles.map((r) => {
             const active = selected.key === r.key;
             return (
               <button
@@ -349,7 +369,7 @@ export default function Login() {
 
           {/* Mobile role picker */}
           <div className="mt-5 flex flex-wrap gap-2 lg:hidden">
-            {roles.map((r) => {
+            {visibleRoles.map((r) => {
               const active = selected.key === r.key;
               return (
                 <button

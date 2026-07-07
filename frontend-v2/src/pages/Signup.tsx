@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRuntimeConfig } from "@/contexts/RuntimeConfigContext";
 import { api } from "@/lib/api";
 import { isBetaHost, BETA_ORIGIN } from "@/lib/host";
 import PrivateBetaLanding from "@/pages/PrivateBetaLanding";
@@ -91,6 +92,14 @@ function Stepper({ steps, current }: { steps: string[]; current: number }) {
 
 export default function Signup() {
   const { signup, signupCarrier } = useAuth();
+  // Fleet-carrier persona flag. While muted, the Carrier account type is not
+  // offered at signup, and the CARRIER business-capability is hidden from the
+  // org step so no new carrier-capability org is created. Owner-operator,
+  // driver, shipper, and receiver signups are unaffected. The backend enforces
+  // the same rule independently (rejects new fleet-carrier account creation).
+  const { fleetCarrierPersonaEnabled } = useRuntimeConfig();
+  const visibleRoles = roles.filter((r) => r.key !== "CARRIER" || fleetCarrierPersonaEnabled);
+  const visibleCapabilities = CAPABILITIES.filter((c) => c.key !== "CARRIER" || fleetCarrierPersonaEnabled);
   const navigate   = useNavigate();
 
   // Step state
@@ -499,7 +508,7 @@ export default function Signup() {
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-3">What best describes you?</p>
                 <div className="grid grid-cols-1 gap-2.5">
-                  {roles.map((r) => {
+                  {visibleRoles.map((r) => {
                     const active = role.key === r.key;
                     return (
                       <button
@@ -577,7 +586,7 @@ export default function Signup() {
                 </label>
                 <p className="text-xs text-gray-400">Select all that apply to your organisation.</p>
                 <div className="space-y-2">
-                  {CAPABILITIES.map(cap => {
+                  {visibleCapabilities.map(cap => {
                     const checked = capabilities.includes(cap.key);
                     return (
                       <button

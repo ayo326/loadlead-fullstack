@@ -187,7 +187,7 @@ export const api = {
   // Private-beta surface (public, no auth)
   beta: {
     status: () =>
-      request<{ betaMode: boolean; currentCohort: string; tallyConnected: boolean }>(
+      request<{ betaMode: boolean; currentCohort: string; tallyConnected: boolean; fleetCarrierPersonaEnabled?: boolean }>(
         "GET", "/beta/status"
       ),
     joinWaitlist: (params: { email: string; name?: string; personaInterest?: string }) =>

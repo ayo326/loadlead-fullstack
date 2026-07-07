@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { RuntimeConfigProvider, useRuntimeConfig } from "@/contexts/RuntimeConfigContext";
 // Eager: the public entry surface (first paint) + the app shell.
 import Landing from "./pages/Landing.tsx";
 import Login from "./pages/Login.tsx";
@@ -40,6 +41,7 @@ const CarrierMembers = lazy(() => import("./pages/carrier/CarrierMembers.tsx").t
 const DriverHistory = lazy(() => import("./pages/driver/DriverHistory.tsx"));
 const DriverVerification = lazy(() => import("./pages/driver/DriverVerification.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const FleetCarrierPaused = lazy(() => import("./pages/FleetCarrierPaused.tsx"));
 const TaxonomySandbox = lazy(() => import("./pages/sandbox/TaxonomySandbox.tsx"));
 
 const queryClient = new QueryClient();
@@ -68,12 +70,24 @@ function RequireRole({ role, children }: { role: string; children: React.ReactNo
   return <>{children}</>;
 }
 
+// Gates the fleet-carrier PERSONA routes. While the persona is muted (flag
+// off), direct navigation lands on the friendly interstitial instead of a
+// broken/half-working page. When the flag is on, the route renders normally.
+// The code is preserved either way. RequireRole still protects role as today.
+function FleetCarrierGate({ children }: { children: React.ReactNode }) {
+  const { fleetCarrierPersonaEnabled, loaded } = useRuntimeConfig();
+  if (!loaded) return null; // wait for config so we do not flash the wrong state
+  if (!fleetCarrierPersonaEnabled) return <Navigate to="/carrier-unavailable" replace />;
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <RuntimeConfigProvider>
         <AuthProvider>
           <ErrorBoundary>
           <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">Loading…</div>}>
@@ -88,6 +102,10 @@ const App = () => (
             <Route path="/sandbox/taxonomy" element={<TaxonomySandbox />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            {/* Interstitial for fleet-carrier accounts while the persona is
+                muted. Standalone (no AppLayout) so a muted fleet user never
+                sees a half-working carrier shell. Session is preserved. */}
+            <Route path="/carrier-unavailable" element={<FleetCarrierPaused />} />
             <Route path="/forgot-password" element={<ResetPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/accept-invite" element={<AcceptInvite />} />
@@ -109,11 +127,11 @@ const App = () => (
               <Route path="/owner-operator/analytics" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorAnalytics /></RequireRole>} />
               <Route path="/owner-operator/factoring" element={<RequireRole role="OWNER_OPERATOR"><FactoringWorkspace /></RequireRole>} />
               {/* Same workspace for fleet-carrier org managers - the backend resolves the org as the carrier (resolveCarrierIdForUser). */}
-              <Route path="/carrier/factoring" element={<RequireRole role="CARRIER_ADMIN"><FactoringWorkspace /></RequireRole>} />
+              <Route path="/carrier/factoring" element={<RequireRole role="CARRIER_ADMIN"><FleetCarrierGate><FactoringWorkspace /></FleetCarrierGate></RequireRole>} />
               <Route path="/driver/analytics" element={<RequireRole role="DRIVER"><DriverAnalytics /></RequireRole>} />
               <Route path="/owner-operator/settings" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorSettings /></RequireRole>} />
-              <Route path="/carrier" element={<RequireRole role="CARRIER_ADMIN"><CarrierDashboard /></RequireRole>} />
-              <Route path="/carrier/members" element={<RequireRole role="CARRIER_ADMIN"><CarrierMembers /></RequireRole>} />
+              <Route path="/carrier" element={<RequireRole role="CARRIER_ADMIN"><FleetCarrierGate><CarrierDashboard /></FleetCarrierGate></RequireRole>} />
+              <Route path="/carrier/members" element={<RequireRole role="CARRIER_ADMIN"><FleetCarrierGate><CarrierMembers /></FleetCarrierGate></RequireRole>} />
               <Route path="/settings"    element={<SettingsPage />} />
               {/* Bill of Lading - all roles, accessed via their load detail */}
               <Route path="/bol/:loadId" element={<BillOfLadingPage />} />
@@ -123,6 +141,7 @@ const App = () => (
           </Suspense>
           </ErrorBoundary>
         </AuthProvider>
+        </RuntimeConfigProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
