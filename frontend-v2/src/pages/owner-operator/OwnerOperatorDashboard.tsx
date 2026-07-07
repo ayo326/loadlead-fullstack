@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { MapPin, Navigation, Truck, Users, Package, ArrowRight, AlertCircle } from "lucide-react";
 import { LoadRoutePanel } from "@/components/LoadRoutePanel";
-import { PageHeader, StatCard } from "@/components/PageHeader";
+import { StatCard } from "@/components/PageHeader";
 import { PushSubscriptionPrompt } from "@/components/PushSubscriptionPrompt";
 import { OwnerOperatorDashboardView } from "@/components/dashboard/OwnerOperatorDashboardView";
 import { Button } from "@/components/ui/button";
@@ -69,16 +69,16 @@ export default function OwnerOperatorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="mx-auto max-w-6xl space-y-4 p-4 md:p-6">
       <PushSubscriptionPrompt />
-      {/* V1: Settings lives once, in the sidebar (canonical). The former header
-          Settings duplicate is removed. */}
-      <PageHeader
-        title={`Welcome back, ${profile.legalName ?? user?.email}`}
-        subtitle="Owner Operator Dashboard"
-      />
+      {/* Inline header (Factoring-benchmark style); Settings lives once, in the
+          sidebar (canonical). */}
+      <div>
+        <h1 className="text-2xl font-bold">Welcome back, {profile.legalName ?? user?.email}</h1>
+        <p className="text-sm text-muted-foreground">Owner Operator Dashboard</p>
+      </div>
 
-      <div className="max-w-6xl mx-auto px-6 pb-8 -mt-4 space-y-4">
+      <div className="space-y-4">
         {/* P1 (above the fold): the actionable loadboard + route map + key
             stats come first. The blended secondary view (my haul, verification,
             fleet health, financial, SLA) renders BELOW. V2. */}
