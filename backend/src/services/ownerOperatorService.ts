@@ -82,8 +82,13 @@ export class OwnerOperatorService {
   }
 
   static async updateProfile(operatorId: string, updates: Partial<OwnerOperator>): Promise<void> {
+    // Strip key + immutable fields: callers (e.g. the Settings form) PUT the
+    // whole profile back, and DynamoDB rejects SET on a key attribute
+    // (operatorId), which surfaces as a 500.
+    const { operatorId: _oid, userId: _uid, createdAt: _c, ...mutable } =
+      updates as Partial<OwnerOperator> & Record<string, unknown>;
     await Database.updateItem(OO_TABLE, { operatorId }, {
-      ...updates,
+      ...mutable,
       updatedAt: Helpers.getCurrentTimestamp(),
     });
   }

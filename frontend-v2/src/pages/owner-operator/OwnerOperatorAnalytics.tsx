@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { PageHeader } from "@/components/PageHeader";
 import { AnalyticsView } from "@/components/AnalyticsView";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -24,11 +23,12 @@ export default function OwnerOperatorAnalytics() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title="Fleet Analytics" subtitle="Earnings, miles, and performance across your fleet" />
-      <div className="max-w-5xl mx-auto p-6">
-        <AnalyticsView items={items} />
+    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
+      <div>
+        <h1 className="text-2xl font-bold">Fleet Analytics</h1>
+        <p className="text-sm text-muted-foreground">Earnings, miles, and performance across your fleet</p>
       </div>
+      <AnalyticsView items={items} />
     </div>
   );
 }

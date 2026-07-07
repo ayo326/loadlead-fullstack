@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { MapPin, Navigation, Truck, Users, Package, ArrowRight, AlertCircle } from "lucide-react";
 import { LoadRoutePanel } from "@/components/LoadRoutePanel";
-import { PageHeader, StatCard } from "@/components/PageHeader";
+import { StatCard } from "@/components/PageHeader";
 import { PushSubscriptionPrompt } from "@/components/PushSubscriptionPrompt";
 import { OwnerOperatorDashboardView } from "@/components/dashboard/OwnerOperatorDashboardView";
 import { Button } from "@/components/ui/button";
-import { RouteMapCard } from "@/components/RouteMapCard";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -70,16 +69,16 @@ export default function OwnerOperatorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="mx-auto max-w-6xl space-y-4 p-4 md:p-6">
       <PushSubscriptionPrompt />
-      {/* V1: Settings lives once, in the sidebar (canonical). The former header
-          Settings duplicate is removed. */}
-      <PageHeader
-        title={`Welcome back, ${profile.legalName ?? user?.email}`}
-        subtitle="Owner Operator Dashboard"
-      />
+      {/* Inline header (Factoring-benchmark style); Settings lives once, in the
+          sidebar (canonical). */}
+      <div>
+        <h1 className="text-2xl font-bold">Welcome back, {profile.legalName ?? user?.email}</h1>
+        <p className="text-sm text-muted-foreground">Owner Operator Dashboard</p>
+      </div>
 
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div className="space-y-4">
         {/* P1 (above the fold): the actionable loadboard + route map + key
             stats come first. The blended secondary view (my haul, verification,
             fleet health, financial, SLA) renders BELOW. V2. */}
@@ -103,9 +102,9 @@ export default function OwnerOperatorDashboard() {
           />
         </div>
 
-        {/* Main grid: loads + fleet on left, map sidebar on right */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        {/* Single column: Available Loads, then a horizontal Route preview, then
+            Your Fleet. Clicking "Route" on a load updates the preview map. */}
+        <div className="space-y-6">
 
             {/* Load offers */}
             <div data-tour="oo-loadboard" className="rounded-xl border bg-card">
@@ -141,43 +140,67 @@ export default function OwnerOperatorDashboard() {
                         </div>
                       </div>
 
-                      {/* Route toggle footer */}
+                      {/* Route select: updates the horizontal Route preview below. */}
                       <div className="border-t border-border/60 px-5 py-2.5 flex items-center gap-2 bg-secondary/30">
                         <button
-                          onClick={() => setRouteOpenId(routeOpenId === load.loadId ? null : load.loadId)}
+                          onClick={() => setRouteOpenId(load.loadId)}
                           className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
-                            routeOpenId === load.loadId ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                            (routeOpenId ?? loads[0]?.load?.loadId) === load.loadId ? "text-primary" : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
                           <Navigation className="h-3.5 w-3.5" />
-                          {routeOpenId === load.loadId ? "Hide route" : "Route"}
+                          Route
                         </button>
-                        {routeOpenId === load.loadId && (
-                          <span className="text-[10px] text-muted-foreground ml-1">
-                            {load.pickupCity} → {load.deliveryCity}
-                          </span>
+                        {(routeOpenId ?? loads[0]?.load?.loadId) === load.loadId && (
+                          <span className="text-[10px] text-muted-foreground ml-1">Load route shown below</span>
                         )}
                       </div>
-
-                      {/* Route panel */}
-                      {routeOpenId === load.loadId && (
-                        <LoadRoutePanel
-                          pickupAddress={load.pickupAddress}
-                          deliveryAddress={load.deliveryAddress}
-                          pickupCity={load.pickupCity}
-                          pickupState={load.pickupState}
-                          deliveryCity={load.deliveryCity}
-                          deliveryState={load.deliveryState}
-                          currentCity={profile?.currentCity ?? null}
-                          currentState={profile?.currentState ?? null}
-                          mapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-                        />
-                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Route preview: horizontal, sits between Available Loads and Your
+                Fleet. Defaults to the first offer; clicking "Route" on a load
+                above updates it, using the same LoadRoutePanel route logic. */}
+            {loads.length > 0 && (() => {
+              const routeLoad =
+                (routeOpenId && loads.find((l: any) => l.load.loadId === routeOpenId)?.load) ||
+                loads[0]?.load;
+              if (!routeLoad) return null;
+              return (
+                <div className="rounded-xl border bg-card p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <MapPin className="h-4 w-4 text-primary" /> Route preview
+                    </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full bg-primary/10 text-primary truncate max-w-[240px]">
+                      {routeLoad.pickupCity} → {routeLoad.deliveryCity}
+                    </span>
+                  </div>
+                  <LoadRoutePanel
+                    // Include routeOpenId so clicking "Route" on a load remounts
+                    // the panel (even the already-shown default one) onto the
+                    // Load route tab. Initial view (no click) = To pickup.
+                    key={`${routeLoad.loadId}-${routeOpenId ?? "default"}`}
+                    pickupAddress={routeLoad.pickupAddress}
+                    deliveryAddress={routeLoad.deliveryAddress}
+                    pickupCity={routeLoad.pickupCity}
+                    pickupState={routeLoad.pickupState}
+                    deliveryCity={routeLoad.deliveryCity}
+                    deliveryState={routeLoad.deliveryState}
+                    // Current location = the editable profile address (city/state);
+                    // fall back to the GPS-style currentCity only if unset.
+                    currentCity={profile?.city ?? profile?.currentCity ?? null}
+                    currentState={profile?.state ?? profile?.currentState ?? null}
+                    mapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                    mapAspectRatio="32 / 9"
+                    defaultTab={routeOpenId ? "dropoff" : "pickup"}
+                  />
+                </div>
+              );
+            })()}
 
             {/* Fleet */}
             <div data-tour="oo-fleet" className="rounded-xl border bg-card">
@@ -229,36 +252,6 @@ export default function OwnerOperatorDashboard() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* ── Sidebar: route/position map ──────────────────────────────── */}
-          <aside>
-            <div className="rounded-md border border-border bg-card p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  {loads.length > 0 ? "Route preview" : "Fleet area"}
-                </div>
-                {loads.length > 0 && (
-                  <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full bg-primary/10 text-primary truncate max-w-[130px]">
-                    {loads[0].load?.pickupCity} → {loads[0].load?.deliveryCity}
-                  </span>
-                )}
-              </div>
-              <RouteMapCard
-                pickupAddress={loads[0]?.load?.pickupAddress ?? null}
-                deliveryAddress={loads[0]?.load?.deliveryAddress ?? null}
-                currentCity={profile?.currentCity ?? null}
-                currentState={profile?.currentState ?? null}
-                mapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-              />
-              {loads.length > 1 && (
-                <p className="mt-3 text-[11px] text-muted-foreground text-center">
-                  +{loads.length - 1} more offer{loads.length > 2 ? "s" : ""} available
-                </p>
-              )}
-            </div>
-          </aside>
         </div>
 
         {/* P2/P3: blended secondary view (my haul, verification, fleet health,

@@ -1004,7 +1004,9 @@ function ReceiverSettings({ userId }: { userId: string }) {
         setIsNew(false);
         toast.success("Profile created!");
       } else {
-        await api.updateReceiverProfile(data);
+        // Don't PUT key/immutable fields back (DynamoDB rejects updating the key).
+        const { receiverId, userId, createdAt, updatedAt, ...mutable } = data;
+        await api.updateReceiverProfile(mutable);
         toast.success("Changes saved!");
       }
     } catch (e: any) {
