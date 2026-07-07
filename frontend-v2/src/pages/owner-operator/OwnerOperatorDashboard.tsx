@@ -180,6 +180,7 @@ export default function OwnerOperatorDashboard() {
                     <div
                       key={load.loadId}
                       ref={(el) => { offerRefs.current[load.loadId] = el; }}
+                      data-testid={`offer-${load.loadId}`}
                       className={`border-b border-border px-4 py-3 last:border-0 transition-colors ${
                         activeId === load.loadId ? "bg-amber-400/10" : ""
                       }`}

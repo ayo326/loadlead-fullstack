@@ -166,25 +166,25 @@ export function CommandMap({
     [valid, center, zoom],
   );
 
-  // No key at all: a quiet dark placeholder (never a blank/world map).
-  if (!src) {
-    return (
-      <div className={`relative overflow-hidden rounded-md bg-[#0e1a38] ${className ?? ""}`} style={{ aspectRatio: `${W} / ${H}` }}>
+  // The basemap image needs an API key; when absent we still render the dark
+  // canvas and the clickable pin overlay (a degraded but useful state, and the
+  // pins stay interactive) rather than a blank hole.
+  return (
+    <div className={`relative overflow-hidden rounded-md border border-[#22314f] bg-[#0e1a38] ${className ?? ""}`} style={{ aspectRatio: `${W} / ${H}` }}>
+      {src ? (
+        <img src={src} alt="Operating area map" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+      ) : (
         <div
           className="absolute inset-0 opacity-40"
           style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(157,170,201,0.18) 1px, transparent 0)", backgroundSize: "18px 18px" }}
         />
+      )}
+      {!src && positioned.length === 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[#9daac9]">
           <MapPin className="h-6 w-6 opacity-60" />
           <p className="text-xs">Map unavailable</p>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`relative overflow-hidden rounded-md border border-[#22314f] bg-[#0e1a38] ${className ?? ""}`} style={{ aspectRatio: `${W} / ${H}` }}>
-      <img src={src} alt="Operating area map" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+      )}
 
       {/* Clickable pin overlay - percentages of the logical W x H box, so it
           stays aligned as the image scales with the container. */}
