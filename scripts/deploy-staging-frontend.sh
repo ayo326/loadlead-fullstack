@@ -25,7 +25,21 @@ echo "› build frontend-v2 (VITE_API_URL=$API_URL, toggle=${TOGGLE_URL:-none})"
 eval "$(aws configure export-credentials --format env 2>/dev/null)"
 
 echo "› sync dist → s3://$BUCKET"
-aws s3 sync "$ROOT/frontend-v2/dist/" "s3://$BUCKET/" --delete --region "$REGION"
+# Hashed /assets/* are content-addressed, so cache them immutably forever. Sync
+# everything EXCEPT index.html with the immutable header first...
+aws s3 sync "$ROOT/frontend-v2/dist/" "s3://$BUCKET/" --delete --region "$REGION" \
+  --cache-control "public,max-age=31536000,immutable" \
+  --exclude "index.html"
+
+# ...then re-upload index.html with no-cache so browsers always revalidate the
+# HTML and pick up a new bundle immediately. A plain `aws s3 sync` sets no
+# Cache-Control on index.html, which lets CloudFront's CachingOptimized default
+# TTL pin clients to a stale bundle — this durable cp is what keeps the
+# hand-applied metadata from being lost on the next deploy. Mirrors the prod
+# path in deploy-frontend.sh.
+aws s3 cp "$ROOT/frontend-v2/dist/index.html" "s3://$BUCKET/index.html" --region "$REGION" \
+  --cache-control "no-cache,no-store,must-revalidate" \
+  --content-type "text/html"
 
 echo "› invalidate CloudFront"
 DIST="$(aws cloudfront list-distributions \

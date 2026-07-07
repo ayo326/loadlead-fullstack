@@ -63,12 +63,24 @@ resource "aws_cloudfront_distribution" "this" {
     cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6" # AWS managed: CachingOptimized
   }
 
-  # Next.js static export emits per-route index.html — a clean 404 page
-  # is enough; no SPA-style "rewrite everything to /" needed.
+  # frontend-v2 is a client-routed Vite SPA (not per-route static HTML), so a
+  # deep-route refresh hits an S3 key that doesn't exist. With the private
+  # OAC-only bucket (no s3:ListBucket), a missing key returns 403, not 404 —
+  # so BOTH codes must fall back to the SPA entrypoint with a 200 to let the
+  # router take over. error_caching_min_ttl = 0 keeps CloudFront from caching
+  # the fallback, so a real key that appears on the next deploy is served
+  # immediately. Mirrors the prod customer distro (E38CZNP7L2DB98).
   custom_error_response {
-    error_code         = 404
-    response_code      = 404
-    response_page_path = "/404.html"
+    error_code            = 403
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0
+  }
+  custom_error_response {
+    error_code            = 404
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0
   }
 
   restrictions {
