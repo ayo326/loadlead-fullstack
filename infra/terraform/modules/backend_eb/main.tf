@@ -114,4 +114,14 @@ resource "aws_elastic_beanstalk_environment" "this" {
   }
 
   tags = merge(var.tags, { Name = "loadlead-backend-${var.env}", Environment = var.env })
+
+  lifecycle {
+    # The AWS provider doesn't read the EB environment's "Name" tag back into
+    # state (EB exposes tags via a separate API the resource doesn't refresh
+    # from), so every plan re-proposes adding a Name tag that is already live —
+    # a benign perpetual diff. The tag is still SET on create (ignore_changes
+    # doesn't affect creation); we just stop churning it on every subsequent
+    # plan. Scoped to the single key so all other tag drift stays visible.
+    ignore_changes = [tags["Name"], tags_all["Name"]]
+  }
 }
