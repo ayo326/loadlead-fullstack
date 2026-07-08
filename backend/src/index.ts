@@ -56,6 +56,7 @@ import { diditWebhookHandler } from './services/verification';
 import factoringRoutes from './routes/factoring';
 import accessorialRoutes from './routes/accessorials';
 import adminComplianceRoutes from './routes/adminCompliance';
+import complianceRoutes from './routes/compliance';
 import negotiationRoutes from './routes/negotiations';
 import { NegotiationService } from './services/negotiationService';
 import referenceRoutes from './routes/reference';
@@ -235,6 +236,7 @@ app.use('/api/receiver', receiverRoutes);
 app.use('/api/bol', bolRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/owner-operator', ownerOperatorRoutes);
+app.use('/api/compliance', complianceRoutes);
 
 // Note: errorHandler must be registered AFTER all route mounts.
 // Moved below the second batch of routes (/api/org, /api/setup, etc.)
