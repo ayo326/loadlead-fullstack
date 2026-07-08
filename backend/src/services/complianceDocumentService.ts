@@ -44,7 +44,8 @@ export type ComplianceVerificationEventType =
   | 'VERIFIED'
   | 'REJECTED'
   | 'EXPIRED'
-  | 'SUPERSEDED';
+  | 'SUPERSEDED'
+  | 'REFRESH_REQUIRED';
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
 
