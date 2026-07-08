@@ -128,6 +128,35 @@ export const config = {
     // photo metadata. Same table as load attachments in the long run; isolated
     // for now so app reads stay simple.
     podPhotosTable: process.env.DYNAMODB_POD_PHOTOS_TABLE || 'LoadLead_PodPhotos',
+    // ── Carrier compliance documents (W9, COI, Letter of Authority) ─────────
+    // Append-only, versioned compliance documents on the hauler (or driver)
+    // entity. A re-upload is a new row that supersedes the prior version; old
+    // rows are never deleted. The W9 TIN is never stored here in plaintext.
+    complianceDocumentsTable:
+      process.env.DYNAMODB_COMPLIANCE_DOCUMENTS_TABLE || 'LoadLead_ComplianceDocuments',
+    // Append-only verification events for a compliance document (SUBMITTED,
+    // AUTO_CHECK_PASSED/FAILED, VERIFIED, REJECTED, EXPIRED). Never mutated.
+    complianceVerificationEventsTable:
+      process.env.DYNAMODB_COMPLIANCE_VERIFICATION_EVENTS_TABLE || 'LoadLead_ComplianceVerificationEvents',
+    // Append-only access log of every full-W9 open (viewer, relationship basis,
+    // when). The most sensitive read on the platform; never mutated or deleted.
+    w9AccessLogTable: process.env.DYNAMODB_W9_ACCESS_LOG_TABLE || 'LoadLead_W9AccessLog',
+    // Versioned shipper compliance policies (Phase 7). Editing creates a new
+    // version; prior versions are never mutated. Snapshotted onto a load at accept.
+    shipperCompliancePoliciesTable:
+      process.env.DYNAMODB_SHIPPER_COMPLIANCE_POLICIES_TABLE || 'LoadLead_ShipperCompliancePolicies',
+    // Append-only snapshots of the shipper policy version pinned onto a load at
+    // acceptance, plus the hauler's signature reference. References load by id.
+    shipperPolicyAttachmentsTable:
+      process.env.DYNAMODB_SHIPPER_POLICY_ATTACHMENTS_TABLE || 'LoadLead_ShipperPolicyAttachments',
+  },
+
+  // KMS-backed envelope encryption for the W9 TIN (the most sensitive field on
+  // the platform). keyId is provisioned by platform Terraform; in local/test
+  // mode the fieldCrypto helper falls back to a deterministic local stub so dev
+  // and CI run without AWS. See src/utils/fieldCrypto.ts.
+  kms: {
+    w9TinKeyId: process.env.W9_TIN_KMS_KEY_ID || '',
   },
 
   jwt: {
