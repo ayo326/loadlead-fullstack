@@ -9,7 +9,7 @@
  * the relationship resolver (Phase 6).
  */
 import express from 'express';
-import { authenticate, requireOwnerOperator, AuthRequest } from '../middleware/auth';
+import { authenticate, requireOwnerOperator, requireShipper, requireAdmin, AuthRequest } from '../middleware/auth';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { OwnerOperatorService } from '../services/ownerOperatorService';
 import { ComplianceDocumentService } from '../services/complianceDocumentService';
@@ -17,14 +17,24 @@ import {
   submitW9,
   previewW9,
   openFullW9,
+  markW9Verified,
   toPublicW9,
   SubmitW9Input,
 } from '../services/compliance/w9Service';
+import { submitCoi, decideCoi, coiDocumentUrl } from '../services/compliance/coiService';
+import {
+  submitLetterOfAuthority,
+  decideLetterOfAuthority,
+  letterOfAuthorityUrl,
+} from '../services/compliance/letterOfAuthorityService';
+import { complianceBadges, assemblePacket } from '../services/compliance/compliancePacketService';
+import { resolveShipperHaulerRelationship } from '../services/compliance/relationshipResolver';
 import { NotificationService } from '../services/notificationService';
 
 const router = express.Router();
+// Per-route guards (this router serves hauler, shipper, and admin surfaces),
+// so authentication is applied at the router and role is enforced per route.
 router.use(authenticate);
-router.use(requireOwnerOperator);
 
 /** Resolve the acting owner-operator entity (the hauler) for the current user. */
 async function haulerFor(req: AuthRequest): Promise<{ operatorId: string; userId: string }> {
@@ -70,6 +80,7 @@ function w9InputFrom(body: any, operatorId: string): SubmitW9Input {
  */
 router.post(
   '/w9/preview',
+  requireOwnerOperator,
   asyncHandler(async (req: AuthRequest, res) => {
     const { operatorId } = await haulerFor(req);
     const input = w9InputFrom(req.body, operatorId);
@@ -84,6 +95,7 @@ router.post(
 /** Submit the in-app W-9: validate, render, encrypt the TIN, store, sign. */
 router.post(
   '/w9',
+  requireOwnerOperator,
   asyncHandler(async (req: AuthRequest, res) => {
     const { operatorId } = await haulerFor(req);
     const input = w9InputFrom(req.body, operatorId);
@@ -113,6 +125,7 @@ router.post(
 /** The hauler's current W-9 (masked; TIN last 4 only). */
 router.get(
   '/w9/current',
+  requireOwnerOperator,
   asyncHandler(async (req: AuthRequest, res) => {
     const { operatorId } = await haulerFor(req);
     const doc = await ComplianceDocumentService.getCurrent('HAULER', operatorId, 'W9');
@@ -126,12 +139,161 @@ router.get(
  */
 router.get(
   '/w9/:documentId/document',
+  requireOwnerOperator,
   asyncHandler(async (req: AuthRequest, res) => {
     const { operatorId } = await haulerFor(req);
     const doc = await ComplianceDocumentService.getById(req.params.documentId);
     if (!doc || doc.ownerId !== operatorId) throw new AppError('W9 not found', 404);
     const { url, document } = await openFullW9(req.params.documentId, req.user!.userId, 'SELF');
     res.json({ url, document });
+  }),
+);
+
+// ── COI (Certificate of Insurance), hauler-facing ─────────────────────────────
+
+/** Upload a COI (file as base64) plus the structured fields. */
+router.post(
+  '/coi',
+  requireOwnerOperator,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { operatorId } = await haulerFor(req);
+    const bytes = Buffer.from(String(req.body.fileBase64 ?? ''), 'base64');
+    if (bytes.length === 0) throw new AppError('fileBase64 is required', 400);
+    const doc = await submitCoi(
+      {
+        ownerType: 'HAULER',
+        ownerId: operatorId,
+        fileBytes: bytes,
+        originalFilename: req.body.originalFilename ?? 'coi.pdf',
+        contentType: req.body.contentType ?? 'application/pdf',
+        fields: req.body.fields,
+      },
+      req.user!.userId,
+    );
+    res.status(201).json({ documentId: doc.documentId, status: doc.verificationStatus, expiresAt: doc.expiresAt });
+  }),
+);
+
+// ── Letter of Authority, hauler-facing ────────────────────────────────────────
+
+router.post(
+  '/loa',
+  requireOwnerOperator,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { operatorId } = await haulerFor(req);
+    const bytes = Buffer.from(String(req.body.fileBase64 ?? ''), 'base64');
+    if (bytes.length === 0) throw new AppError('fileBase64 is required', 400);
+    const doc = await submitLetterOfAuthority(
+      {
+        ownerType: 'HAULER',
+        ownerId: operatorId,
+        fileBytes: bytes,
+        originalFilename: req.body.originalFilename ?? 'loa.pdf',
+        contentType: req.body.contentType ?? 'application/pdf',
+        mcNumber: req.body.mcNumber,
+        dotNumber: req.body.dotNumber,
+      },
+      req.user!.userId,
+    );
+    res.status(201).json({ documentId: doc.documentId, status: doc.verificationStatus });
+  }),
+);
+
+/** The hauler's own compliance badges (all three documents). */
+router.get(
+  '/status',
+  requireOwnerOperator,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { operatorId } = await haulerFor(req);
+    res.json({ badges: await complianceBadges(operatorId) });
+  }),
+);
+
+// ── Shipper-facing: public badges, gated packet + documents ───────────────────
+
+/** Public badges for a hauler: presence, verification state, expiry. */
+router.get(
+  '/haulers/:operatorId/badges',
+  requireShipper,
+  asyncHandler(async (req: AuthRequest, res) => {
+    res.json({ badges: await complianceBadges(req.params.operatorId) });
+  }),
+);
+
+/** The full packet, only when the relationship resolver allows it. */
+router.get(
+  '/haulers/:operatorId/packet',
+  requireShipper,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const rel = await resolveShipperHaulerRelationship(req.user!.userId, req.params.operatorId);
+    if (!rel.allowed) {
+      return res.status(403).json({
+        error: 'RELATIONSHIP_REQUIRED',
+        message:
+          'The full compliance packet opens once you have an active negotiation, an assigned load, or a recently completed load with this carrier.',
+      });
+    }
+    const packet = await assemblePacket(req.params.operatorId);
+    res.json({ packet, basis: rel.basis });
+  }),
+);
+
+/**
+ * Shipper opens a hauler's full document (W9/COI/LOA), gated by the resolver.
+ * The W9 open writes the access log with the relationship basis.
+ */
+router.get(
+  '/haulers/:operatorId/:docType/document',
+  requireShipper,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const rel = await resolveShipperHaulerRelationship(req.user!.userId, req.params.operatorId);
+    if (!rel.allowed) {
+      return res.status(403).json({ error: 'RELATIONSHIP_REQUIRED' });
+    }
+    const type = String(req.params.docType).toUpperCase();
+    if (type === 'W9') {
+      const doc = await ComplianceDocumentService.getCurrent('HAULER', req.params.operatorId, 'W9');
+      if (!doc) throw new AppError('W9 not found', 404);
+      const { url, document } = await openFullW9(doc.documentId, req.user!.userId, rel.basis ?? 'RELATIONSHIP');
+      return res.json({ url, document });
+    }
+    if (type === 'COI') {
+      const doc = await ComplianceDocumentService.getCurrent('HAULER', req.params.operatorId, 'COI');
+      if (!doc) throw new AppError('COI not found', 404);
+      return res.json({ url: await coiDocumentUrl(doc.documentId) });
+    }
+    if (type === 'LOA') {
+      const doc = await ComplianceDocumentService.getCurrent('HAULER', req.params.operatorId, 'LETTER_OF_AUTHORITY');
+      if (!doc) throw new AppError('Letter of Authority not found', 404);
+      return res.json({ url: await letterOfAuthorityUrl(doc.documentId) });
+    }
+    throw new AppError('Unknown document type', 400);
+  }),
+);
+
+// ── Admin verification (beta manual review) ───────────────────────────────────
+
+router.post(
+  '/admin/:documentId/decide',
+  requireAdmin,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const doc = await ComplianceDocumentService.getById(req.params.documentId);
+    if (!doc) throw new AppError('Document not found', 404);
+    const decision = req.body.decision as 'VERIFIED' | 'REJECTED';
+    if (decision !== 'VERIFIED' && decision !== 'REJECTED') throw new AppError('decision must be VERIFIED or REJECTED', 400);
+
+    if (doc.documentType === 'W9') {
+      if (decision === 'REJECTED') {
+        await ComplianceDocumentService.setVerificationStatus(doc.documentId, 'REJECTED', 'REJECTED', req.user!.userId, req.body.reason);
+      } else {
+        await markW9Verified(doc.documentId, req.user!.userId);
+      }
+    } else if (doc.documentType === 'COI') {
+      await decideCoi(doc.documentId, req.user!.userId, decision, req.body.reason);
+    } else {
+      await decideLetterOfAuthority(doc.documentId, req.user!.userId, decision, req.body.reason);
+    }
+    res.json({ ok: true });
   }),
 );
 
