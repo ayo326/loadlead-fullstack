@@ -12,9 +12,9 @@
 // boot on a leaked/contaminated value; resolveMode() itself never lets a
 // stray env var override production.
 
-export type IntegrationName = 'didit' | 'fmcsa' | 'maps' | 'email' | 'push';
+export type IntegrationName = 'didit' | 'fmcsa' | 'maps' | 'email' | 'push' | 'kms';
 
-export const INTEGRATIONS: IntegrationName[] = ['didit', 'fmcsa', 'maps', 'email', 'push'];
+export const INTEGRATIONS: IntegrationName[] = ['didit', 'fmcsa', 'maps', 'email', 'push', 'kms'];
 
 /** The env var each integration's mode is read from outside production. */
 export const MODE_ENV_VAR: Record<IntegrationName, string> = {
@@ -23,6 +23,7 @@ export const MODE_ENV_VAR: Record<IntegrationName, string> = {
   maps: 'MAPS_MODE',
   email: 'EMAIL_MODE',
   push: 'PUSH_MODE',
+  kms: 'KMS_MODE',
 };
 
 /** The value that means "really call the real provider" for each integration. */
@@ -32,6 +33,7 @@ export const LIVE_MODE: Record<IntegrationName, string> = {
   maps: 'live',
   email: 'live',
   push: 'live',
+  kms: 'live',
 };
 
 /** Default mode used outside production when the env var is unset. */
@@ -41,6 +43,10 @@ export const DEFAULT_NONPROD_MODE: Record<IntegrationName, string> = {
   maps: 'stub',
   email: 'test',
   push: 'capture',
+  // Field crypto: outside production, use a deterministic local key so dev and
+  // CI encrypt/decrypt the W9 TIN without calling AWS KMS. Production always
+  // resolves to 'live' (real KMS envelope encryption), unconditionally.
+  kms: 'local',
 };
 
 function isProduction(): boolean {
