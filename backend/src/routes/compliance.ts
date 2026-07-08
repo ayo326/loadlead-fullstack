@@ -37,6 +37,7 @@ import {
   policyDocumentUrl,
 } from '../services/compliance/shipperPolicyService';
 import { NotificationService } from '../services/notificationService';
+import { notifyVerificationOutcome } from '../services/compliance/complianceNotifications';
 
 const router = express.Router();
 // Per-route guards (this router serves hauler, shipper, and admin surfaces),
@@ -357,6 +358,7 @@ router.post(
     } else {
       await decideLetterOfAuthority(doc.documentId, req.user!.userId, decision, req.body.reason);
     }
+    await notifyVerificationOutcome(doc.documentId);
     res.json({ ok: true });
   }),
 );
