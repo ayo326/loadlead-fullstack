@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AccessorialsPanel } from "@/components/AccessorialsPanel";
 import { NegotiationPanel } from "@/components/NegotiationPanel";
 import { api } from "@/lib/api";
+import { LoadPolicySignCard } from "@/components/LoadPolicySignCard";
 import { toast } from "sonner";
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -108,6 +109,8 @@ export default function OwnerOperatorLoadDetail() {
             <span className="text-xs text-muted-foreground">Accepted {fmtDate(offer.acceptedAt)}</span>
           )}
         </div>
+
+        {loadId && <LoadPolicySignCard loadId={loadId} />}
 
         <Section title="Route" icon={MapPin}>
           <Row label="Pickup"   value={`${load.pickupCity}, ${load.pickupState}`} />
