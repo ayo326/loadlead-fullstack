@@ -57,6 +57,43 @@ resource "aws_iam_role_policy" "app_data_access" {
   })
 }
 
+# Carrier-compliance-documents S3 bucket (SCRUM-59). Scoped to THIS env's
+# compliance bucket only — created as a separate policy (rather than folded into
+# app_data_access) so it's gated on the arn being supplied, and so the grant
+# is legible/auditable as its own least-privilege statement.
+resource "aws_iam_role_policy" "compliance_docs_s3" {
+  count = var.compliance_s3_enabled ? 1 : 0
+  name  = "loadlead-${var.env}-compliance-docs-s3"
+  role  = aws_iam_role.eb_instance_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "S3ComplianceDocsObjectRW"
+      Effect   = "Allow"
+      Action   = ["s3:GetObject", "s3:PutObject"]
+      Resource = ["${var.compliance_s3_bucket_arn}/*"]
+    }]
+  })
+}
+
+# W9-TIN envelope-encryption KMS key (SCRUM-59). GenerateDataKey + Decrypt on
+# the ONE dedicated key only — this role can neither use any other key nor
+# perform key administration. Fields other than the W9 TIN never touch KMS.
+resource "aws_iam_role_policy" "w9_tin_kms" {
+  count = var.w9_tin_kms_enabled ? 1 : 0
+  name  = "loadlead-${var.env}-w9-tin-kms"
+  role  = aws_iam_role.eb_instance_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "KmsW9TinEnvelopeCrypto"
+      Effect   = "Allow"
+      Action   = ["kms:GenerateDataKey", "kms:Decrypt"]
+      Resource = [var.w9_tin_kms_key_arn]
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "eb" {
   name = "loadlead-${var.env}-eb-instance-profile"
   role = aws_iam_role.eb_instance_role.name

@@ -462,6 +462,40 @@ locals {
       attributes = [{ name = "emailId", type = "S" }]
       gsis       = []
     }
+
+    # ── Carrier compliance documents (W9 / COI / Letter of Authority) ──────────
+    # SCRUM-59. Append-only, versioned compliance records on the hauler/driver:
+    # a re-upload writes a NEW row that supersedes the prior version; rows are
+    # never deleted. Services read via full-table Scan today (no GSI needed yet
+    # — do not add one until a follow-up asks). Hash keys mirror the ids the
+    # backend generates (see backend/src/services/compliance/*). The W9 TIN is
+    # never stored here in plaintext — it's KMS-envelope-encrypted (see the
+    # per-env w9-tin KMS key) before the ciphertext lands on the document row.
+    ComplianceDocuments = {
+      hash_key   = "documentId"
+      attributes = [{ name = "documentId", type = "S" }]
+      gsis       = []
+    }
+    ComplianceVerificationEvents = {
+      hash_key   = "eventId"
+      attributes = [{ name = "eventId", type = "S" }]
+      gsis       = []
+    }
+    W9AccessLog = {
+      hash_key   = "accessId"
+      attributes = [{ name = "accessId", type = "S" }]
+      gsis       = []
+    }
+    ShipperCompliancePolicies = {
+      hash_key   = "policyVersionId"
+      attributes = [{ name = "policyVersionId", type = "S" }]
+      gsis       = []
+    }
+    ShipperPolicyAttachments = {
+      hash_key   = "attachmentId"
+      attributes = [{ name = "attachmentId", type = "S" }]
+      gsis       = []
+    }
   }
 }
 

@@ -58,6 +58,30 @@ variable "dynamodb_table_prefix" {
   type        = string
 }
 
+variable "compliance_s3_enabled" {
+  description = "Toggle the compliance-docs S3 grant on the instance role (s3:GetObject+s3:PutObject, scoped to compliance_s3_bucket_arn). Static bool — kept separate from the arn so `count` is knowable at plan time even when the bucket is created in the same apply."
+  type        = bool
+  default     = false
+}
+
+variable "compliance_s3_bucket_arn" {
+  description = "ARN of this env's private carrier-compliance-documents S3 bucket (W9/COI/LOA objects). Granted s3:GetObject+s3:PutObject ONLY, and only when compliance_s3_enabled = true."
+  type        = string
+  default     = ""
+}
+
+variable "w9_tin_kms_enabled" {
+  description = "Toggle the W9-TIN KMS grant on the instance role (kms:GenerateDataKey+kms:Decrypt, scoped to w9_tin_kms_key_arn). Static bool so `count` is knowable at plan time even when the key is created in the same apply. Leave false for envs that run field crypto in local-stub mode (dev)."
+  type        = bool
+  default     = false
+}
+
+variable "w9_tin_kms_key_arn" {
+  description = "ARN of this env's dedicated W9-TIN KMS key. Granted kms:GenerateDataKey+kms:Decrypt ONLY (least privilege), and only when w9_tin_kms_enabled = true."
+  type        = string
+  default     = ""
+}
+
 variable "environment_type" {
   description = "SingleInstance (no ELB — cheapest, fine for dev/staging) or LoadBalanced (prod)"
   type        = string

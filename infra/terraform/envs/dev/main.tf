@@ -61,6 +61,38 @@ resource "aws_s3_bucket_lifecycle_configuration" "pod_uploads" {
   }
 }
 
+############################################################################
+# Carrier-compliance-documents bucket (SCRUM-59). Private; objects are served
+# only via short-lived (300s) presigned GET URLs from the backend. Dev has NO
+# Object Lock (its data is disposable) — that hardening is prod-only, mirroring
+# the pod-uploads dev↔prod-v2 split. SSE + versioning + full public-access
+# block match the prod bucket's baseline so the app behaves identically.
+############################################################################
+resource "aws_s3_bucket" "compliance_docs" {
+  bucket = "loadlead-dev-compliance-docs"
+  tags   = local.tags
+}
+
+resource "aws_s3_bucket_public_access_block" "compliance_docs" {
+  bucket                  = aws_s3_bucket.compliance_docs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "compliance_docs" {
+  bucket = aws_s3_bucket.compliance_docs.id
+  rule {
+    apply_server_side_encryption_by_default { sse_algorithm = "AES256" }
+  }
+}
+
+resource "aws_s3_bucket_versioning" "compliance_docs" {
+  bucket = aws_s3_bucket.compliance_docs.id
+  versioning_configuration { status = "Enabled" }
+}
+
 # ACM cert for the dev CloudFront alias — must be requested in us-east-1
 resource "aws_acm_certificate" "dev" {
   provider          = aws.us_east_1
@@ -124,6 +156,11 @@ module "backend" {
   max_instances         = 1
   environment_type      = "SingleInstance" # no ALB cost
   dynamodb_table_prefix = local.prefix
+  # SCRUM-59: grant the instance role s3:Get/PutObject on the dev compliance
+  # bucket. No KMS grant in dev — field crypto runs the local-stub key
+  # (resolveMode('kms') defaults to 'local' outside production), so no live KMS.
+  compliance_s3_enabled    = true
+  compliance_s3_bucket_arn = aws_s3_bucket.compliance_docs.arn
   env_vars = merge(var.backend_env_vars, {
     NODE_ENV                         = "development"
     FRONTEND_URL                     = "https://${var.dev_domain}"
@@ -186,7 +223,15 @@ module "backend" {
     DYNAMODB_SUPPORT_MESSAGES_TABLE = "${local.prefix}SupportMessages"
     DYNAMODB_SUPPORT_SETTINGS_TABLE = "${local.prefix}SupportSettings"
     DYNAMODB_SUPPORT_INBOUND_TABLE  = "${local.prefix}SupportInbound"
-    POD_S3_BUCKET                   = "loadlead-dev-pod-uploads"
+    # carrier compliance documents (SCRUM-59) — env-namespaced so dev never
+    # reads/writes the prod LoadLead_* compliance tables (parity check enforced).
+    DYNAMODB_COMPLIANCE_DOCUMENTS_TABLE           = "${local.prefix}ComplianceDocuments"
+    DYNAMODB_COMPLIANCE_VERIFICATION_EVENTS_TABLE = "${local.prefix}ComplianceVerificationEvents"
+    DYNAMODB_W9_ACCESS_LOG_TABLE                  = "${local.prefix}W9AccessLog"
+    DYNAMODB_SHIPPER_COMPLIANCE_POLICIES_TABLE    = "${local.prefix}ShipperCompliancePolicies"
+    DYNAMODB_SHIPPER_POLICY_ATTACHMENTS_TABLE     = "${local.prefix}ShipperPolicyAttachments"
+    COMPLIANCE_S3_BUCKET                          = aws_s3_bucket.compliance_docs.bucket
+    POD_S3_BUCKET                                 = "loadlead-dev-pod-uploads"
   })
   tags = local.tags
 }
