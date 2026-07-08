@@ -34,13 +34,14 @@ const TEMPLATE_PATH = join(__dirname, '../../../assets/tax/fw9-rev-3-2024.pdf');
 // comb fields sit at y ~348-420; Part II and the Sign Here box are below. Tune
 // via visual QA if a future revision shifts the layout.
 const LAYOUT = {
-  // Calibrated against the template content stream (Tm-anchored labels):
-  // the Sign Here line sits at y~216 (its "Signature of U.S. person" / "Date"
-  // captions are at y~204/196); the certification items 1-4 span y~248-326, so
-  // item 2's first line ("I am not subject to backup withholding because:") is
-  // at y~300. Re-verify with a rendered proof if a future revision shifts.
-  signatureXY: { x: 150, y: 216 },
-  dateXY: { x: 430, y: 216 },
+  // Calibrated against the template content stream and confirmed on a rendered
+  // proof: the "Signature of U.S. person" / "Date" captions sit at y~204/196, so
+  // the signed values land just above them (to the right of each caption arrow).
+  // The certification items 1-4 span y~248-326; item 2's first line ("I am not
+  // subject to backup withholding because:") is at y~300. Re-verify with a
+  // rendered proof if a future revision shifts the layout.
+  signatureXY: { x: 185, y: 206 },
+  dateXY: { x: 420, y: 198 },
   appliedForXY: { x: 300, y: 404 },
   // Strike through certification item 2's first line (the IRS cross-out).
   item2StrikeFrom: { x: 40, y: 300 },
