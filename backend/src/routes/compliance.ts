@@ -29,6 +29,13 @@ import {
 } from '../services/compliance/letterOfAuthorityService';
 import { complianceBadges, assemblePacket } from '../services/compliance/compliancePacketService';
 import { resolveShipperHaulerRelationship } from '../services/compliance/relationshipResolver';
+import {
+  upsertPolicy,
+  getCurrentPolicy,
+  getAttachment,
+  signAttachedPolicy,
+  policyDocumentUrl,
+} from '../services/compliance/shipperPolicyService';
 import { NotificationService } from '../services/notificationService';
 
 const router = express.Router();
@@ -268,6 +275,63 @@ router.get(
       return res.json({ url: await letterOfAuthorityUrl(doc.documentId) });
     }
     throw new AppError('Unknown document type', 400);
+  }),
+);
+
+// ── Shipper policy (Phase 7): authoring, load attachment, hauler signature ─────
+
+/** Shipper authors/edits their policy (upload FILE base64 or typed TEXT). Edit = new version. */
+router.post(
+  '/shipper/policy',
+  requireShipper,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const sourceType = req.body.sourceType === 'FILE' ? 'FILE' : 'TEXT';
+    const fileBytes =
+      sourceType === 'FILE' && req.body.fileBase64 ? Buffer.from(String(req.body.fileBase64), 'base64') : undefined;
+    const version = await upsertPolicy({
+      shipperId: req.user!.userId,
+      sourceType,
+      richText: req.body.richText,
+      fileBytes,
+      createdBy: req.user!.userId,
+    });
+    res.status(201).json({ policyVersionId: version.policyVersionId, version: version.version });
+  }),
+);
+
+/** The shipper's current policy version. */
+router.get(
+  '/shipper/policy/current',
+  requireShipper,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const p = await getCurrentPolicy(req.user!.userId);
+    res.json({ policy: p ? { policyVersionId: p.policyVersionId, version: p.version, sourceType: p.sourceType } : null });
+  }),
+);
+
+/** The policy attached to a load (both parties), with a signed URL to view/print. */
+router.get(
+  '/policy/load/:loadId',
+  asyncHandler(async (req: AuthRequest, res) => {
+    const att = await getAttachment(req.params.loadId);
+    if (!att) return res.json({ attachment: null });
+    const url = await policyDocumentUrl(att.policyVersionId);
+    res.json({ attachment: att, url });
+  }),
+);
+
+/** The hauler signs the attached policy (post-acceptance prompt by default). */
+router.post(
+  '/policy/load/:loadId/sign',
+  requireOwnerOperator,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const signed = await signAttachedPolicy({
+      loadId: req.params.loadId,
+      signerUserId: req.user!.userId,
+      signatureName: req.body.signatureName,
+      consentGiven: req.body.consentGiven === true,
+    });
+    res.json({ attachment: signed });
   }),
 );
 
