@@ -69,14 +69,26 @@ locals {
       gsis = [
         { name = "status-createdAt-index", hash_key = "status", range_key = "createdAt" },
         { name = "shipperId-index", hash_key = "shipperId" },
+        # loadService.getLoadsByStatus queries "status-index" (HASH status, no
+        # range). Prod's LoadLead_Loads carries exactly this index; without it
+        # the OO loadboard 500s (ValidationException: index does not exist).
+        # Added out-of-band to staging earlier — reconciled here for parity.
+        { name = "status-index", hash_key = "status" },
       ]
     }
     Offers = {
-      hash_key   = "offerId"
-      attributes = [{ name = "offerId", type = "S" }, { name = "loadId", type = "S" }, { name = "driverId", type = "S" }]
+      hash_key = "offerId"
+      attributes = [
+        { name = "offerId", type = "S" }, { name = "loadId", type = "S" },
+        { name = "driverId", type = "S" }, { name = "status", type = "S" },
+      ]
       gsis = [
         { name = "loadId-driverId-index", hash_key = "loadId", range_key = "driverId" },
         { name = "driverId-index", hash_key = "driverId" },
+        # offerService.getOffersByDriver queries "driverId-status-index"
+        # (HASH driverId + RANGE status). Prod's LoadLead_Offers carries this
+        # index; added out-of-band to staging earlier — reconciled here.
+        { name = "driverId-status-index", hash_key = "driverId", range_key = "status" },
       ]
     }
     FactoringOptIns = {
