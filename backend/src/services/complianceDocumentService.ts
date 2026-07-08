@@ -239,6 +239,12 @@ export class ComplianceDocumentService {
     return all.filter((d) => d.ownerType === ownerType && d.ownerId === ownerId && d.isCurrentVersion);
   }
 
+  /** Every current-version document of a type across all owners (for jobs like COI expiry). */
+  static async listAllCurrentOfType(documentType: ComplianceDocumentType): Promise<ComplianceDocument[]> {
+    const all = await Database.scan<ComplianceDocument>(this.docsTable);
+    return all.filter((d) => d.documentType === documentType && d.isCurrentVersion);
+  }
+
   /**
    * Set the live verification status on a document and append the matching
    * event. The status field is the current state; the event table is the
