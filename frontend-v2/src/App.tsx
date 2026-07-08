@@ -34,6 +34,7 @@ const OwnerOperatorSettings = lazy(() => import("./pages/owner-operator/OwnerOpe
 const OwnerOperatorHistory = lazy(() => import("./pages/owner-operator/OwnerOperatorHistory.tsx"));
 const OwnerOperatorLoadDetail = lazy(() => import("./pages/owner-operator/OwnerOperatorLoadDetail.tsx"));
 const OwnerOperatorAnalytics = lazy(() => import("./pages/owner-operator/OwnerOperatorAnalytics.tsx"));
+const OwnerOperatorCompliance = lazy(() => import("./pages/owner-operator/OwnerOperatorCompliance.tsx"));
 const FactoringWorkspace = lazy(() => import("./pages/factoring/FactoringWorkspace.tsx"));
 const DriverAnalytics = lazy(() => import("./pages/driver/DriverAnalytics.tsx"));
 const CarrierDashboard = lazy(() => import("./pages/carrier/CarrierDashboard.tsx"));
@@ -125,6 +126,7 @@ const App = () => (
               <Route path="/owner-operator/history"  element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorHistory /></RequireRole>} />
               <Route path="/owner-operator/loads/:loadId" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorLoadDetail /></RequireRole>} />
               <Route path="/owner-operator/analytics" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorAnalytics /></RequireRole>} />
+              <Route path="/owner-operator/compliance" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorCompliance /></RequireRole>} />
               <Route path="/owner-operator/factoring" element={<RequireRole role="OWNER_OPERATOR"><FactoringWorkspace /></RequireRole>} />
               {/* Same workspace for fleet-carrier org managers - the backend resolves the org as the carrier (resolveCarrierIdForUser). */}
               <Route path="/carrier/factoring" element={<RequireRole role="CARRIER_ADMIN"><FleetCarrierGate><FactoringWorkspace /></FleetCarrierGate></RequireRole>} />

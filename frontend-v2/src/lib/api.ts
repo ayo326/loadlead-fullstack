@@ -723,6 +723,20 @@ export const api = {
     request<{ loads: any[] }>("GET", "/owner-operator/loadboard"),
   getOwnerOperatorOffer: (loadId: string) =>
     request<{ offer: any; load: any; driverId?: string }>("GET", `/owner-operator/offers/${loadId}`),
+
+  // ── Compliance documents (W9 / COI / Letter of Authority) ───────────────────
+  getComplianceStatus: () => request<{ badges: any[] }>("GET", "/compliance/status"),
+  previewW9: (data: unknown) =>
+    request<{ contentHash: string; pdfBase64: string }>("POST", "/compliance/w9/preview", data),
+  submitW9: (data: unknown) =>
+    request<{ document?: any; contentHash?: string; requiresW8?: boolean; errors?: any[] }>("POST", "/compliance/w9", data),
+  getCurrentW9: () => request<{ w9: any }>("GET", "/compliance/w9/current"),
+  openOwnW9: (documentId: string) =>
+    request<{ url: string; document: any }>("GET", `/compliance/w9/${documentId}/document`),
+  uploadCoi: (data: unknown) =>
+    request<{ documentId: string; status: string; expiresAt?: number }>("POST", "/compliance/coi", data),
+  uploadLetterOfAuthority: (data: unknown) =>
+    request<{ documentId: string; status: string }>("POST", "/compliance/loa", data),
   // Dashboard + settings - independent per persona, same canonical shape
   getCarrierDashboard: (orgId: string) =>
     request<any>("GET", `/org/${orgId}/dashboard`),
