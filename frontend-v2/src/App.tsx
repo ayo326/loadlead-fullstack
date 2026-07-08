@@ -21,6 +21,8 @@ const DriverLoadDetail = lazy(() => import("./pages/driver/LoadDetail.tsx"));
 const ShipperDashboard = lazy(() => import("./pages/shipper/ShipperDashboard.tsx"));
 const ShipperPostLoad = lazy(() => import("./pages/shipper/PostLoad.tsx"));
 const ShipperLoadDetail = lazy(() => import("./pages/shipper/LoadDetail.tsx"));
+const ShipperPolicy = lazy(() => import("./pages/shipper/ShipperPolicy.tsx"));
+const ShipperCarrierCompliance = lazy(() => import("./pages/shipper/CarrierCompliance.tsx"));
 const ReceiverDashboard = lazy(() => import("./pages/receiver/ReceiverDashboard.tsx"));
 const ReceiverLoadDetail = lazy(() => import("./pages/receiver/LoadDetail.tsx"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.tsx"));
@@ -119,6 +121,8 @@ const App = () => (
               <Route path="/shipper"                  element={<RequireRole role="SHIPPER"><ShipperDashboard /></RequireRole>} />
               <Route path="/shipper/post"             element={<RequireRole role="SHIPPER"><ShipperPostLoad /></RequireRole>} />
               <Route path="/shipper/loads/:loadId"   element={<RequireRole role="SHIPPER"><ShipperLoadDetail /></RequireRole>} />
+              <Route path="/shipper/policy"           element={<RequireRole role="SHIPPER"><ShipperPolicy /></RequireRole>} />
+              <Route path="/shipper/carriers/:operatorId/compliance" element={<RequireRole role="SHIPPER"><ShipperCarrierCompliance /></RequireRole>} />
               <Route path="/receiver"            element={<RequireRole role="RECEIVER"><ReceiverDashboard /></RequireRole>} />
               <Route path="/receiver/loads/:loadId" element={<RequireRole role="RECEIVER"><ReceiverLoadDetail /></RequireRole>} />
               <Route path="/admin"        element={<RequireRole role="ADMIN"><AdminDashboard /></RequireRole>} />
