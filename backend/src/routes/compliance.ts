@@ -21,6 +21,7 @@ import {
   toPublicW9,
   SubmitW9Input,
 } from '../services/compliance/w9Service';
+import { renderW9 } from '../services/compliance/w9FillService';
 import { submitCoi, decideCoi, coiDocumentUrl } from '../services/compliance/coiService';
 import {
   submitLetterOfAuthority,
@@ -40,6 +41,31 @@ import { NotificationService } from '../services/notificationService';
 import { notifyVerificationOutcome } from '../services/compliance/complianceNotifications';
 
 const router = express.Router();
+
+// Deploy self-check (no auth, no DB, no KMS, no PII): render the official W-9
+// template with canned synthetic input, exercising exactly the template
+// load + AcroForm fill + flatten path. If the template is missing from the
+// deploy artifact (the SCRUM-59 packaging bug), this 500s and the post-deploy
+// smoke fails BEFORE a real hauler ever hits it - a route-mount 401 check does
+// not exercise this. Returns only a hash + byte length, never the PDF. MUST be
+// registered before router.use(authenticate) so it stays public.
+router.get(
+  '/w9/render-check',
+  asyncHandler(async (_req, res) => {
+    const rendered = await renderW9({
+      line1Name: 'RENDER SMOKE',
+      classification: 'INDIVIDUAL_SOLE_PROPRIETOR',
+      address: '1 Test St',
+      cityStateZip: 'Testville, TX 75001',
+      tinType: 'SSN',
+      tin: '000000000',
+      signatureName: 'RENDER SMOKE',
+      signedDateISO: '2000-01-01',
+    });
+    res.json({ ok: true, contentHash: rendered.contentHash, byteLength: rendered.bytes.length });
+  }),
+);
+
 // Per-route guards (this router serves hauler, shipper, and admin surfaces),
 // so authentication is applied at the router and role is enforced per route.
 router.use(authenticate);
