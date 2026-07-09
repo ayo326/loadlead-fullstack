@@ -222,77 +222,37 @@ module "backend" {
     # envelope path on so it's validated here before prod (same "run the real
     # path in staging" posture as the persona flag above). W9_TIN_KMS_KEY_ID must
     # be set whenever KMS is live or fieldCrypto fails closed (throws) on encrypt.
-    KMS_MODE                         = "live"
-    W9_TIN_KMS_KEY_ID                = aws_kms_key.w9_tin.key_id
-    FRONTEND_URL                     = "https://${var.staging_domain}"
-    DYNAMODB_USERS_TABLE             = "${local.prefix}Users"
-    DYNAMODB_DRIVERS_TABLE           = "${local.prefix}Drivers"
-    DYNAMODB_SHIPPERS_TABLE          = "${local.prefix}Shippers"
-    DYNAMODB_RECEIVERS_TABLE         = "${local.prefix}Receivers"
-    DYNAMODB_LOADS_TABLE             = "${local.prefix}Loads"
-    DYNAMODB_OFFERS_TABLE            = "${local.prefix}Offers"
-    DYNAMODB_BOL_TABLE               = "${local.prefix}BOL"
-    DYNAMODB_ORGS_TABLE              = "${local.prefix}Organizations"
-    DYNAMODB_MEMBERSHIPS_TABLE       = "${local.prefix}Memberships"
-    DYNAMODB_INVITATIONS_TABLE       = "${local.prefix}Invitations"
-    DYNAMODB_OWNER_OPERATORS_TABLE   = "${local.prefix}OwnerOperators"
-    DYNAMODB_FLEET_INVITES_TABLE     = "${local.prefix}FleetInvites"
-    DYNAMODB_VERIFICATIONS_TABLE     = "${local.prefix}Verifications"
-    DYNAMODB_FACTORING_OPTINS_TABLE  = "${local.prefix}FactoringOptIns"
-    DYNAMODB_SIGNATURES_TABLE        = "${local.prefix}Signatures"
-    DYNAMODB_POD_PHOTOS_TABLE        = "${local.prefix}PodPhotos"
-    DYNAMODB_BETA_ALLOWLIST_TABLE    = "${local.prefix}BetaAllowlist"
-    DYNAMODB_WAITLIST_TABLE          = "${local.prefix}Waitlist"
-    DYNAMODB_BETA_APPLICATIONS_TABLE = "${local.prefix}BetaApplications"
-    DYNAMODB_BETA_TRUST_EVENTS_TABLE = "${local.prefix}BetaTrustEvents"
-    # identity / infra
-    DYNAMODB_PUSH_TABLE             = "${local.prefix}PushSubscriptions"
-    DYNAMODB_RESET_TABLE            = "${local.prefix}PasswordResets"
-    DYNAMODB_SETUP_TOKENS_TABLE     = "${local.prefix}SetupTokens"
-    DYNAMODB_NOTIFICATIONS_TABLE    = "${local.prefix}Notifications"
-    DYNAMODB_MEMBERSHIP_AUDIT_TABLE = "${local.prefix}MembershipAuditLogs"
-    DYNAMODB_BOOTSTRAP_AUDIT_TABLE  = "${local.prefix}AdminBootstrapAttempts"
-    # negotiation
-    DYNAMODB_LOAD_NEGOTIATIONS_TABLE  = "${local.prefix}LoadNegotiations"
-    DYNAMODB_NEGOTIATION_OFFERS_TABLE = "${local.prefix}NegotiationOffers"
-    DYNAMODB_NEGOTIATION_LOCKS_TABLE  = "${local.prefix}NegotiationLocks"
-    # payments / financing
-    DYNAMODB_PLATFORM_FEE_POLICY_TABLE            = "${local.prefix}PlatformFeePolicy"
-    DYNAMODB_ACCESSORIAL_POLICIES_TABLE           = "${local.prefix}AccessorialPolicies"
-    DYNAMODB_ACCESSORIAL_POLICY_ACCEPTANCES_TABLE = "${local.prefix}AccessorialPolicyAcceptances"
-    DYNAMODB_SHIPPER_AGREEMENTS_TABLE             = "${local.prefix}ShipperAgreements"
-    DYNAMODB_STOP_EVENTS_TABLE                    = "${local.prefix}StopEvents"
-    DYNAMODB_ACCESSORIAL_CHARGES_TABLE            = "${local.prefix}AccessorialCharges"
-    DYNAMODB_CHARGE_STATUS_HISTORY_TABLE          = "${local.prefix}AccessorialChargeStatusHistory"
-    DYNAMODB_FACTORING_ASSIGNMENTS_TABLE          = "${local.prefix}FactoringAssignments"
-    DYNAMODB_FACTORING_PROFILES_TABLE             = "${local.prefix}CarrierFactoringProfiles"
-    DYNAMODB_FACTORING_SUBMISSIONS_TABLE          = "${local.prefix}FactoringSubmissions"
-    DYNAMODB_FACTOR_CONTACTS_TABLE                = "${local.prefix}FactorContacts"
-    DYNAMODB_FUNDING_ADVANCES_TABLE               = "${local.prefix}FundingAdvances"
-    DYNAMODB_NOTICES_OF_ASSIGNMENT_TABLE          = "${local.prefix}NoticesOfAssignment"
-    DYNAMODB_RECONCILIATION_OUTCOMES_TABLE        = "${local.prefix}ReconciliationOutcomes"
-    # compliance / oversight
-    DYNAMODB_ADMIN_AUDIT_LOG_TABLE          = "${local.prefix}AdminAuditLog"
-    DYNAMODB_COMPLIANCE_GRANTS_TABLE        = "${local.prefix}ComplianceGrants"
-    DYNAMODB_ADJUDICATIONS_TABLE            = "${local.prefix}Adjudications"
-    DYNAMODB_LEGAL_HOLDS_TABLE              = "${local.prefix}LegalHolds"
-    DYNAMODB_LAW_ENFORCEMENT_REQUESTS_TABLE = "${local.prefix}LawEnforcementRequests"
-    DYNAMODB_DISCLOSURES_TABLE              = "${local.prefix}Disclosures"
-    DYNAMODB_PAYOUT_INTERCEPTS_TABLE        = "${local.prefix}PayoutIntercepts"
-    # support / helpdesk
-    DYNAMODB_SUPPORT_TICKETS_TABLE  = "${local.prefix}SupportTickets"
-    DYNAMODB_SUPPORT_MESSAGES_TABLE = "${local.prefix}SupportMessages"
-    DYNAMODB_SUPPORT_SETTINGS_TABLE = "${local.prefix}SupportSettings"
-    DYNAMODB_SUPPORT_INBOUND_TABLE  = "${local.prefix}SupportInbound"
-    # carrier compliance documents (SCRUM-59) — env-namespaced so staging never
-    # reads/writes the prod LoadLead_* compliance tables (parity check enforced).
-    DYNAMODB_COMPLIANCE_DOCUMENTS_TABLE           = "${local.prefix}ComplianceDocuments"
-    DYNAMODB_COMPLIANCE_VERIFICATION_EVENTS_TABLE = "${local.prefix}ComplianceVerificationEvents"
-    DYNAMODB_W9_ACCESS_LOG_TABLE                  = "${local.prefix}W9AccessLog"
-    DYNAMODB_SHIPPER_COMPLIANCE_POLICIES_TABLE    = "${local.prefix}ShipperCompliancePolicies"
-    DYNAMODB_SHIPPER_POLICY_ATTACHMENTS_TABLE     = "${local.prefix}ShipperPolicyAttachments"
-    COMPLIANCE_S3_BUCKET                          = aws_s3_bucket.compliance_docs.bucket
-    POD_S3_BUCKET                                 = "loadlead-staging-pod-uploads"
+    KMS_MODE          = "live"
+    W9_TIN_KMS_KEY_ID = aws_kms_key.w9_tin.key_id
+    FRONTEND_URL      = "https://${var.staging_domain}"
+
+    # ── DynamoDB table names ────────────────────────────────────────────────
+    # ONE prefix knob instead of ~50 per-table overrides. environment.ts derives
+    # every config.dynamodb table as `prefix + (default minus its LoadLead_ stem)`
+    # -> e.g. LoadLead_Users becomes LoadLead-Staging-Users, byte-identical to the
+    # values these enumerated vars used to set. This collapse is what keeps the EB
+    # EnvironmentVariables aggregate under CloudFormation's 4096-char cap (the full
+    # enumeration busted it and blocked the SCRUM-59 env update). Prod sets NO
+    # prefix, so it falls through to the LoadLead_* defaults - prod is unchanged.
+    DYNAMODB_TABLE_PREFIX = local.prefix
+
+    # Service-file-direct tables: these are read as process.env.* inside service
+    # files with NO config.dynamodb slot, so the prefix deriver doesn't reach them
+    # and each still needs an explicit override. (Migrating these into config would
+    # let them ride the prefix too - future cleanup.)
+    DYNAMODB_OWNER_OPERATORS_TABLE    = "${local.prefix}OwnerOperators"
+    DYNAMODB_FLEET_INVITES_TABLE      = "${local.prefix}FleetInvites"
+    DYNAMODB_VERIFICATIONS_TABLE      = "${local.prefix}Verifications"
+    DYNAMODB_FACTORING_OPTINS_TABLE   = "${local.prefix}FactoringOptIns"
+    DYNAMODB_FACTORING_PROFILES_TABLE = "${local.prefix}CarrierFactoringProfiles"
+    DYNAMODB_PUSH_TABLE               = "${local.prefix}PushSubscriptions"
+    DYNAMODB_RESET_TABLE              = "${local.prefix}PasswordResets"
+    DYNAMODB_SETUP_TOKENS_TABLE       = "${local.prefix}SetupTokens"
+    DYNAMODB_NOTIFICATIONS_TABLE      = "${local.prefix}Notifications"
+    DYNAMODB_BOOTSTRAP_AUDIT_TABLE    = "${local.prefix}AdminBootstrapAttempts"
+
+    COMPLIANCE_S3_BUCKET = aws_s3_bucket.compliance_docs.bucket
+    POD_S3_BUCKET        = "loadlead-staging-pod-uploads"
   })
   tags = local.tags
 }
