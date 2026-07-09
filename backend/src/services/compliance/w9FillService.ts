@@ -18,7 +18,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import {
@@ -28,7 +28,18 @@ import {
   W9LlcCode,
 } from './w9FieldMap';
 
-const TEMPLATE_PATH = join(__dirname, '../../../assets/tax/fw9-rev-3-2024.pdf');
+// Resolve the official W-9 template in BOTH runtime layouts:
+//   - deployed: code runs from dist/services/compliance, and the build's
+//     `copy-assets` step places the template at dist/assets/tax/ (the deploy
+//     artifact zips dist/, so the file ships with it). -> ../../assets/tax
+//   - local dev (tsx from src/services/compliance): the template lives at
+//     backend/assets/tax/. -> ../../../assets/tax
+// Pick the first that exists so neither context 500s on a missing template.
+const TEMPLATE_CANDIDATES = [
+  join(__dirname, '../../assets/tax/fw9-rev-3-2024.pdf'), // dist runtime (copied into dist)
+  join(__dirname, '../../../assets/tax/fw9-rev-3-2024.pdf'), // src runtime (backend/assets)
+];
+const TEMPLATE_PATH = TEMPLATE_CANDIDATES.find(existsSync) ?? TEMPLATE_CANDIDATES[0];
 
 // Calibrated for the Rev. 3-2024 US-Letter template (page 612 x 792). The TIN
 // comb fields sit at y ~348-420; Part II and the Sign Here box are below. Tune
