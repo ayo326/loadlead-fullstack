@@ -16,6 +16,7 @@ export type NotificationKind =
   | 'LOAD_DELIVERED'
   | 'INVITE_RECEIVED'
   | 'VERIFICATION_UPDATE'
+  | 'COMPLIANCE'
   | 'PASSWORD_RESET'
   | 'SYSTEM';
 

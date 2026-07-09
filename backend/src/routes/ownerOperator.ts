@@ -22,6 +22,8 @@ import { OfferStatus, LoadStatus, Driver, Load, Offer } from '../types';
 import { requireVerifiedCarrier, submitCarrierDocs, submitDriverIdv, getVerification, EntityType } from '../services/verification';
 import { resolveInvoicePayee } from '../services/factoring';
 import * as Calc from '../services/dashboardCalc';
+import { flagW9RefreshRequired } from '../services/compliance/w9Service';
+import { NotificationService } from '../services/notificationService';
 
 const router = express.Router();
 router.use(authenticate);
@@ -51,6 +53,27 @@ router.put('/profile', asyncHandler(async (req: AuthRequest, res) => {
   const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
   if (!profile) throw new AppError('Profile not found - create it first', 404);
   await OwnerOperatorService.updateProfile(profile.operatorId, req.body);
+
+  // Re-collection trigger: a legal-name or business-name change requires a new
+  // W-9 (IRS instructions). Flag the current W-9 for refresh and notify. The old
+  // version stays append-only. Best-effort: never fails the profile save.
+  const nameChanged =
+    (req.body.legalName !== undefined && req.body.legalName !== profile.legalName) ||
+    (req.body.businessName !== undefined && req.body.businessName !== (profile as any).businessName);
+  if (nameChanged) {
+    try {
+      const flagged = await flagW9RefreshRequired('HAULER', profile.operatorId, 'Legal or business name changed');
+      if (flagged) {
+        await NotificationService.record({
+          userId: profile.userId,
+          kind: 'VERIFICATION_UPDATE',
+          title: 'W-9 refresh needed',
+          body: 'Your name changed, so a new W-9 is required. Please complete an updated W-9.',
+        }).catch(() => undefined);
+      }
+    } catch { /* never block the profile save on the trigger */ }
+  }
+
   res.json({ ownerOperator: { ...profile, ...req.body } });
 }));
 

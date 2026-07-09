@@ -37,6 +37,7 @@ import { NEGOTIATION_POLICY } from '../config/negotiationPolicy';
 import { dollarsToCents, assertIntegerCents } from '../utils/money';
 import { LoadService } from './loadService';
 import { AppError } from '../middleware/errorHandler';
+import { snapshotPolicyOntoLoad } from './compliance/shipperPolicyService';
 
 export type NegotiationStatus = 'ENGAGED' | 'PENDING_SHIPPER' | 'PENDING_HAULER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 export type NegotiationParty = 'HAULER' | 'SHIPPER';
@@ -529,6 +530,18 @@ export class NegotiationService {
     }
 
     await this.appendOffer(neg, party, action, agreedRatePerMileCents != null ? { ratePerMileCents: agreedRatePerMileCents } : { totalCents: agreedLinehaulCents });
+
+    // Snapshot the shipper's current compliance policy onto the load at accept
+    // (Phase 7), following the accessorial policy-snapshot pattern. Signing is
+    // prompted post-acceptance so it adds no friction inside the window. A
+    // require-policy config error (AppError) propagates; transient errors do not
+    // block assignment.
+    try {
+      await snapshotPolicyOntoLoad(neg.loadId, neg.shipperId);
+    } catch (e) {
+      if (e instanceof AppError) throw e;
+      Logger.warn(`[negotiation] shipper policy snapshot failed for ${neg.loadId}: ${e}`);
+    }
 
     // 2. Assignment + lock release via the idempotent reconciler, so a failure
     //    after the terminal transition is healed by any retry (or the sweeper),

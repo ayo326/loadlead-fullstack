@@ -723,6 +723,38 @@ export const api = {
     request<{ loads: any[] }>("GET", "/owner-operator/loadboard"),
   getOwnerOperatorOffer: (loadId: string) =>
     request<{ offer: any; load: any; driverId?: string }>("GET", `/owner-operator/offers/${loadId}`),
+
+  // ── Compliance documents (W9 / COI / Letter of Authority) ───────────────────
+  getComplianceStatus: () => request<{ badges: any[] }>("GET", "/compliance/status"),
+  previewW9: (data: unknown) =>
+    request<{ contentHash: string; pdfBase64: string }>("POST", "/compliance/w9/preview", data),
+  submitW9: (data: unknown) =>
+    request<{ document?: any; contentHash?: string; requiresW8?: boolean; errors?: any[] }>("POST", "/compliance/w9", data),
+  getCurrentW9: () => request<{ w9: any }>("GET", "/compliance/w9/current"),
+  openOwnW9: (documentId: string) =>
+    request<{ url: string; document: any }>("GET", `/compliance/w9/${documentId}/document`),
+  uploadCoi: (data: unknown) =>
+    request<{ documentId: string; status: string; expiresAt?: number }>("POST", "/compliance/coi", data),
+  uploadLetterOfAuthority: (data: unknown) =>
+    request<{ documentId: string; status: string }>("POST", "/compliance/loa", data),
+
+  // Shipper-facing: a hauler's public badges, and the gated packet + documents.
+  getHaulerComplianceBadges: (operatorId: string) =>
+    request<{ badges: any[] }>("GET", `/compliance/haulers/${operatorId}/badges`),
+  getHaulerCompliancePacket: (operatorId: string) =>
+    request<{ packet: any; basis: string }>("GET", `/compliance/haulers/${operatorId}/packet`),
+  openHaulerDocument: (operatorId: string, docType: "w9" | "coi" | "loa") =>
+    request<{ url: string; document?: any }>("GET", `/compliance/haulers/${operatorId}/${docType}/document`),
+
+  // Shipper policy authoring + load attachment / hauler signature.
+  saveShipperPolicy: (data: unknown) =>
+    request<{ policyVersionId: string; version: number }>("POST", "/compliance/shipper/policy", data),
+  getCurrentShipperPolicy: () =>
+    request<{ policy: any }>("GET", "/compliance/shipper/policy/current"),
+  getLoadPolicy: (loadId: string) =>
+    request<{ attachment: any; url?: string }>("GET", `/compliance/policy/load/${loadId}`),
+  signLoadPolicy: (loadId: string, data: unknown) =>
+    request<{ attachment: any }>("POST", `/compliance/policy/load/${loadId}/sign`, data),
   // Dashboard + settings - independent per persona, same canonical shape
   getCarrierDashboard: (orgId: string) =>
     request<any>("GET", `/org/${orgId}/dashboard`),

@@ -21,6 +21,8 @@ const DriverLoadDetail = lazy(() => import("./pages/driver/LoadDetail.tsx"));
 const ShipperDashboard = lazy(() => import("./pages/shipper/ShipperDashboard.tsx"));
 const ShipperPostLoad = lazy(() => import("./pages/shipper/PostLoad.tsx"));
 const ShipperLoadDetail = lazy(() => import("./pages/shipper/LoadDetail.tsx"));
+const ShipperPolicy = lazy(() => import("./pages/shipper/ShipperPolicy.tsx"));
+const ShipperCarrierCompliance = lazy(() => import("./pages/shipper/CarrierCompliance.tsx"));
 const ReceiverDashboard = lazy(() => import("./pages/receiver/ReceiverDashboard.tsx"));
 const ReceiverLoadDetail = lazy(() => import("./pages/receiver/LoadDetail.tsx"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.tsx"));
@@ -34,6 +36,7 @@ const OwnerOperatorSettings = lazy(() => import("./pages/owner-operator/OwnerOpe
 const OwnerOperatorHistory = lazy(() => import("./pages/owner-operator/OwnerOperatorHistory.tsx"));
 const OwnerOperatorLoadDetail = lazy(() => import("./pages/owner-operator/OwnerOperatorLoadDetail.tsx"));
 const OwnerOperatorAnalytics = lazy(() => import("./pages/owner-operator/OwnerOperatorAnalytics.tsx"));
+const OwnerOperatorCompliance = lazy(() => import("./pages/owner-operator/OwnerOperatorCompliance.tsx"));
 const FactoringWorkspace = lazy(() => import("./pages/factoring/FactoringWorkspace.tsx"));
 const DriverAnalytics = lazy(() => import("./pages/driver/DriverAnalytics.tsx"));
 const CarrierDashboard = lazy(() => import("./pages/carrier/CarrierDashboard.tsx"));
@@ -118,6 +121,8 @@ const App = () => (
               <Route path="/shipper"                  element={<RequireRole role="SHIPPER"><ShipperDashboard /></RequireRole>} />
               <Route path="/shipper/post"             element={<RequireRole role="SHIPPER"><ShipperPostLoad /></RequireRole>} />
               <Route path="/shipper/loads/:loadId"   element={<RequireRole role="SHIPPER"><ShipperLoadDetail /></RequireRole>} />
+              <Route path="/shipper/policy"           element={<RequireRole role="SHIPPER"><ShipperPolicy /></RequireRole>} />
+              <Route path="/shipper/carriers/:operatorId/compliance" element={<RequireRole role="SHIPPER"><ShipperCarrierCompliance /></RequireRole>} />
               <Route path="/receiver"            element={<RequireRole role="RECEIVER"><ReceiverDashboard /></RequireRole>} />
               <Route path="/receiver/loads/:loadId" element={<RequireRole role="RECEIVER"><ReceiverLoadDetail /></RequireRole>} />
               <Route path="/admin"        element={<RequireRole role="ADMIN"><AdminDashboard /></RequireRole>} />
@@ -125,6 +130,7 @@ const App = () => (
               <Route path="/owner-operator/history"  element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorHistory /></RequireRole>} />
               <Route path="/owner-operator/loads/:loadId" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorLoadDetail /></RequireRole>} />
               <Route path="/owner-operator/analytics" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorAnalytics /></RequireRole>} />
+              <Route path="/owner-operator/compliance" element={<RequireRole role="OWNER_OPERATOR"><OwnerOperatorCompliance /></RequireRole>} />
               <Route path="/owner-operator/factoring" element={<RequireRole role="OWNER_OPERATOR"><FactoringWorkspace /></RequireRole>} />
               {/* Same workspace for fleet-carrier org managers - the backend resolves the org as the carrier (resolveCarrierIdForUser). */}
               <Route path="/carrier/factoring" element={<RequireRole role="CARRIER_ADMIN"><FleetCarrierGate><FactoringWorkspace /></FleetCarrierGate></RequireRole>} />
