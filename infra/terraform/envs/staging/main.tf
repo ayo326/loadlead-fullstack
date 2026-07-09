@@ -62,6 +62,69 @@ resource "aws_s3_bucket_cors_configuration" "pod_uploads" {
   }
 }
 
+############################################################################
+# Carrier compliance documents — KMS + S3 (SCRUM-59)
+#
+# W9 TIN envelope-encryption key. Dedicated, symmetric, rotation ON, one per
+# env. The key policy grants ONLY the account root the ability to administer
+# (the AWS-standard delegation posture); day-to-day GenerateDataKey/Decrypt is
+# granted to the backend EB instance role via an IAM role policy in the
+# backend_eb module (w9_tin_kms_key_arn below) — so no OTHER principal or
+# service can use this key. Staging runs KMS_MODE=live (see env_vars) so this
+# key exercises the real envelope path pre-prod; the alias makes the key
+# rotatable/replaceable without re-wiring the env var.
+############################################################################
+resource "aws_kms_key" "w9_tin" {
+  description             = "LoadLead staging — W9 TIN envelope encryption (SCRUM-59)"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "EnableRootAccountAdmin"
+      Effect    = "Allow"
+      Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+      Action    = "kms:*"
+      Resource  = "*"
+    }]
+  })
+  tags = local.tags
+}
+
+resource "aws_kms_alias" "w9_tin" {
+  name          = "alias/loadlead-staging-w9-tin"
+  target_key_id = aws_kms_key.w9_tin.key_id
+}
+
+# Private compliance-documents bucket. Objects (W9/COI/LOA PDFs) are served only
+# via 300s presigned GET URLs from the backend. Staging data is disposable, so —
+# like the staging pod bucket — NO Object Lock here; SSE + versioning + full
+# public-access block match the prod bucket's baseline for behavioral parity.
+resource "aws_s3_bucket" "compliance_docs" {
+  bucket = "loadlead-staging-compliance-docs"
+  tags   = local.tags
+}
+
+resource "aws_s3_bucket_public_access_block" "compliance_docs" {
+  bucket                  = aws_s3_bucket.compliance_docs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "compliance_docs" {
+  bucket = aws_s3_bucket.compliance_docs.id
+  rule {
+    apply_server_side_encryption_by_default { sse_algorithm = "AES256" }
+  }
+}
+
+resource "aws_s3_bucket_versioning" "compliance_docs" {
+  bucket = aws_s3_bucket.compliance_docs.id
+  versioning_configuration { status = "Enabled" }
+}
+
 # ACM cert for the staging CloudFront alias — must be requested in us-east-1
 resource "aws_acm_certificate" "staging" {
   provider          = aws.us_east_1
@@ -131,6 +194,13 @@ module "backend" {
   enabled               = var.backend_enabled # pause switch: false → env torn down → $0
   cname_prefix          = local.backend_cname_prefix
   dynamodb_table_prefix = local.prefix
+  # SCRUM-59: least-privilege grants for the compliance-documents feature —
+  # s3:Get/PutObject on the staging compliance bucket, and kms:GenerateDataKey/
+  # Decrypt on the staging W9-TIN key ONLY.
+  compliance_s3_enabled    = true
+  compliance_s3_bucket_arn = aws_s3_bucket.compliance_docs.arn
+  w9_tin_kms_enabled       = true
+  w9_tin_kms_key_arn       = aws_kms_key.w9_tin.arn
   env_vars = merge(var.backend_env_vars, {
     NODE_ENV = "staging"
     # APP_ENV is the deliberate environment signal the boot guard, mode resolver
@@ -141,12 +211,19 @@ module "backend" {
     # Beta gate OFF in staging — it's our full-app pre-prod mirror where we
     # validate everything before prod. Only PROD runs the private-beta wall
     # (BETA_MODE defaults to on when unset, so prod needs no override).
-    BETA_MODE                        = "off"
+    BETA_MODE = "off"
     # Fleet-carrier persona ENABLED in staging. Prod defaults this off (the
     # persona is muted there); staging is the full-app pre-prod mirror, so we
     # run the persona ON to validate the enabled path. Flip to "false" to
     # mirror prod's muted state - no code change, just this env var + roll.
-    FLEET_CARRIER_PERSONA_ENABLED    = "true"
+    FLEET_CARRIER_PERSONA_ENABLED = "true"
+    # W9-TIN field crypto LIVE in staging (SCRUM-59). resolveMode('kms') defaults
+    # to the local stub outside production; KMS_MODE=live opts the real AWS KMS
+    # envelope path on so it's validated here before prod (same "run the real
+    # path in staging" posture as the persona flag above). W9_TIN_KMS_KEY_ID must
+    # be set whenever KMS is live or fieldCrypto fails closed (throws) on encrypt.
+    KMS_MODE                         = "live"
+    W9_TIN_KMS_KEY_ID                = aws_kms_key.w9_tin.key_id
     FRONTEND_URL                     = "https://${var.staging_domain}"
     DYNAMODB_USERS_TABLE             = "${local.prefix}Users"
     DYNAMODB_DRIVERS_TABLE           = "${local.prefix}Drivers"
@@ -207,7 +284,15 @@ module "backend" {
     DYNAMODB_SUPPORT_MESSAGES_TABLE = "${local.prefix}SupportMessages"
     DYNAMODB_SUPPORT_SETTINGS_TABLE = "${local.prefix}SupportSettings"
     DYNAMODB_SUPPORT_INBOUND_TABLE  = "${local.prefix}SupportInbound"
-    POD_S3_BUCKET                   = "loadlead-staging-pod-uploads"
+    # carrier compliance documents (SCRUM-59) — env-namespaced so staging never
+    # reads/writes the prod LoadLead_* compliance tables (parity check enforced).
+    DYNAMODB_COMPLIANCE_DOCUMENTS_TABLE           = "${local.prefix}ComplianceDocuments"
+    DYNAMODB_COMPLIANCE_VERIFICATION_EVENTS_TABLE = "${local.prefix}ComplianceVerificationEvents"
+    DYNAMODB_W9_ACCESS_LOG_TABLE                  = "${local.prefix}W9AccessLog"
+    DYNAMODB_SHIPPER_COMPLIANCE_POLICIES_TABLE    = "${local.prefix}ShipperCompliancePolicies"
+    DYNAMODB_SHIPPER_POLICY_ATTACHMENTS_TABLE     = "${local.prefix}ShipperPolicyAttachments"
+    COMPLIANCE_S3_BUCKET                          = aws_s3_bucket.compliance_docs.bucket
+    POD_S3_BUCKET                                 = "loadlead-staging-pod-uploads"
   })
   tags = local.tags
 }
