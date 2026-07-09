@@ -29,6 +29,7 @@ import { resolveMode } from '../services/integrations/modeResolver';
 
 const ALGO = 'aes-256-gcm';
 const IV_BYTES = 12; // GCM standard nonce length
+const AUTH_TAG_BYTES = 16; // GCM authentication tag length, pinned explicitly
 const b64 = (b: Buffer | Uint8Array) => Buffer.from(b).toString('base64url');
 const unb64 = (s: string) => Buffer.from(s, 'base64url');
 
@@ -45,14 +46,14 @@ function localKey(): Buffer {
 
 function sealWithKey(key: Buffer, plaintext: string): { iv: Buffer; tag: Buffer; ct: Buffer } {
   const iv = randomBytes(IV_BYTES);
-  const cipher = createCipheriv(ALGO, key, iv);
+  const cipher = createCipheriv(ALGO, key, iv, { authTagLength: AUTH_TAG_BYTES });
   const ct = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
   return { iv, tag, ct };
 }
 
 function openWithKey(key: Buffer, iv: Buffer, tag: Buffer, ct: Buffer): string {
-  const decipher = createDecipheriv(ALGO, key, iv);
+  const decipher = createDecipheriv(ALGO, key, iv, { authTagLength: AUTH_TAG_BYTES });
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8');
 }
