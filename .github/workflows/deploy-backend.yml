@@ -151,6 +151,11 @@ jobs:
         # and does not proxy /api.
         run: |
           curl -sf https://api-staging.loadleadapp.com/api/health || (echo "Staging health check failed" && exit 1)
+          # W-9 render self-check: proves the official W-9 template is packaged
+          # in the deploy artifact and renders. A route-mount 401 alone missed a
+          # missing-template packaging bug that 500'd every real W-9 (SCRUM-59).
+          curl -sf https://api-staging.loadleadapp.com/api/compliance/w9/render-check | grep -q '"ok":true' \
+            || (echo "Staging W-9 render self-check failed - template missing from artifact or render broke" && exit 1)
 
       # Security smoke (audit rec #4): an ADMIN with no enrolled MFA must be
       # refused at login. A real HTTP call catches what the mocked unit test
@@ -255,3 +260,7 @@ jobs:
       - name: Smoke test
         run: |
           curl -sf https://api.loadleadapp.com/api/health || (echo "Prod health check failed" && exit 1)
+          # W-9 render self-check (see staging step): fails the deploy if the
+          # official W-9 template didn't ship in the artifact or render broke.
+          curl -sf https://api.loadleadapp.com/api/compliance/w9/render-check | grep -q '"ok":true' \
+            || (echo "Prod W-9 render self-check failed - template missing from artifact or render broke" && exit 1)
