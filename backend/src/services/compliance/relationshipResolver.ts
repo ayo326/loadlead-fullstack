@@ -17,6 +17,7 @@
 import { Database } from '../../config/database';
 import config from '../../config/environment';
 import { Helpers } from '../../utils/helpers';
+import { queryIndexOrScan } from '../../utils/indexQuery';
 import { OwnerOperatorService } from '../ownerOperatorService';
 import { DriverService } from '../driverService';
 
@@ -67,7 +68,19 @@ export async function gatherFacts(shipperId: string, operatorId: string): Promis
     return { hasActiveNegotiation: false, hasAssignedLoad: false, mostRecentCompletedAt: null };
   }
 
-  const loads = await Database.scan<any>(config.dynamodb.loadsTable);
+  // Audit v4 H3a: this ran a FULL loads-table scan on every packet/document
+  // open. shipperId-index (already live in staging and prod) scopes the read
+  // to the one shipper's loads; the filtering below then works on a bounded
+  // set. Guarded fallback keeps correctness if the index is ever missing in
+  // an environment - loudly (see indexQuery.ts).
+  const loads = await queryIndexOrScan<any>(
+    config.dynamodb.loadsTable,
+    'shipperId-index',
+    'shipperId',
+    shipperId,
+    () => Database.scan<any>(config.dynamodb.loadsTable),
+    'relationshipResolver.gatherFacts',
+  );
   let hasActiveNegotiation = false;
   let hasAssignedLoad = false;
   let mostRecentCompletedAt: number | null = null;

@@ -22,6 +22,7 @@ import { Database } from '../config/database';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import { Logger } from '../utils/logger';
+import { queryIndexOrScan } from '../utils/indexQuery';
 
 // ── Enumerations ──────────────────────────────────────────────────────────────
 
@@ -268,12 +269,30 @@ export class ComplianceDocumentService {
     return Database.getItem<ComplianceDocument>(this.docsTable, { documentId });
   }
 
+  /**
+   * All rows for one owner via ownerId-index (audit v4 H3), scan fallback
+   * while an environment's index backfills. ownerType still filtered in
+   * memory (an ownerId is unique across types in practice; the filter keeps
+   * the contract exact).
+   */
+  private static async rowsForOwner(
+    ownerType: ComplianceOwnerType,
+    ownerId: string,
+  ): Promise<ComplianceDocument[]> {
+    const rows = await queryIndexOrScan<ComplianceDocument>(
+      this.docsTable,
+      'ownerId-index',
+      'ownerId',
+      ownerId,
+      () => Database.scan<ComplianceDocument>(this.docsTable),
+      'complianceDocument.rowsForOwner',
+    );
+    return rows.filter((d) => d.ownerType === ownerType && d.ownerId === ownerId);
+  }
+
   /** All versions for an owner (newest first), across document types. */
   static async listByOwner(ownerType: ComplianceOwnerType, ownerId: string): Promise<ComplianceDocument[]> {
-    const all = await Database.scan<ComplianceDocument>(this.docsTable);
-    return all
-      .filter((d) => d.ownerType === ownerType && d.ownerId === ownerId)
-      .sort((a, b) => b.createdAt - a.createdAt);
+    return (await this.rowsForOwner(ownerType, ownerId)).sort((a, b) => b.createdAt - a.createdAt);
   }
 
   /** The current version of one document type for an owner, or null. */
@@ -282,16 +301,9 @@ export class ComplianceDocumentService {
     ownerId: string,
     documentType: ComplianceDocumentType,
   ): Promise<ComplianceDocument | null> {
-    const all = await Database.scan<ComplianceDocument>(this.docsTable);
     return (
-      all
-        .filter(
-          (d) =>
-            d.ownerType === ownerType &&
-            d.ownerId === ownerId &&
-            d.documentType === documentType &&
-            d.isCurrentVersion,
-        )
+      (await this.rowsForOwner(ownerType, ownerId))
+        .filter((d) => d.documentType === documentType && d.isCurrentVersion)
         // Defensive: if more than one is flagged current (concurrent-submit race,
         // healed by healCurrentVersions), the same deterministic winner is chosen
         // here so reads and the heal always agree.
@@ -304,8 +316,7 @@ export class ComplianceDocumentService {
     ownerType: ComplianceOwnerType,
     ownerId: string,
   ): Promise<ComplianceDocument[]> {
-    const all = await Database.scan<ComplianceDocument>(this.docsTable);
-    return all.filter((d) => d.ownerType === ownerType && d.ownerId === ownerId && d.isCurrentVersion);
+    return (await this.rowsForOwner(ownerType, ownerId)).filter((d) => d.isCurrentVersion);
   }
 
   /** Every current-version document of a type across all owners (for jobs like COI expiry). */

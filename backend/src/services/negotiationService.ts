@@ -256,6 +256,10 @@ export class NegotiationService {
         if (!isMissingIndex(err)) throw err;
       }
     }
+    // Audit v4 H3c: this fallback runs under 1s long-polling - if it is ever
+    // hit in a real environment, that's an incident (missing/backfilling
+    // index), not a convenience. Boot also asserts the index in production.
+    Logger.error(`[scan-fallback] negotiation.negsForLoad: loadId-createdAt-index unavailable; full scan used for ${loadId}`);
     return (await this.scanNegs()).filter((n) => n.loadId === loadId);
   }
 
