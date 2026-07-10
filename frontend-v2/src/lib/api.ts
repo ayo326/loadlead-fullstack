@@ -159,7 +159,18 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json?.message ?? json?.error ?? `${method} ${path} failed (${res.status})`);
+  if (!res.ok) {
+    // Carry the HTTP status (and any structured code) on the thrown error so
+    // callers can branch on 401/404/409/410 instead of parsing message text
+    // (audit v4 M2/L6 - free-text matching is fragile).
+    const err = new Error(json?.message ?? json?.error ?? `${method} ${path} failed (${res.status})`) as Error & {
+      status?: number;
+      code?: string;
+    };
+    err.status = res.status;
+    if (typeof json?.code === "string") err.code = json.code;
+    throw err;
+  }
   return json as T;
 }
 

@@ -92,13 +92,17 @@ export default function OwnerOperatorCompliance() {
 
 // ── W-9 ───────────────────────────────────────────────────────────────────────
 
+// Pristine W-9 form state. A factory (not a constant) so each reset gets a
+// fresh signedDateISO and no shared object references.
+const emptyW9Form = () => ({
+  classification: "INDIVIDUAL_SOLE_PROPRIETOR",
+  tinType: "SSN",
+  isUsPerson: true,
+  signedDateISO: new Date().toISOString().slice(0, 10),
+});
+
 function W9Section({ onSaved }: { onSaved: () => void }) {
-  const [f, setF] = useState<any>({
-    classification: "INDIVIDUAL_SOLE_PROPRIETOR",
-    tinType: "SSN",
-    isUsPerson: true,
-    signedDateISO: new Date().toISOString().slice(0, 10),
-  });
+  const [f, setF] = useState<any>(emptyW9Form());
   const set = (k: string, v: unknown) => setF((p: any) => ({ ...p, [k]: v }));
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -130,6 +134,12 @@ function W9Section({ onSaved }: { onSaved: () => void }) {
         toast.error(r.errors.map((e: any) => e.message).join(" "));
       } else {
         toast.success("W-9 signed and submitted.");
+        // PII hygiene (audit v4 M1): never retain the TIN (SSN/EIN) in client
+        // state after a successful submit. Reset the form to pristine and drop
+        // the preview data-URL (the filled PDF embeds the full TIN too). The
+        // stored W-9 re-renders masked (last 4 only) via onSaved().
+        setF(emptyW9Form());
+        setPreviewUrl(null);
         onSaved();
       }
     } catch (e: any) {

@@ -57,6 +57,7 @@ import factoringRoutes from './routes/factoring';
 import accessorialRoutes from './routes/accessorials';
 import adminComplianceRoutes from './routes/adminCompliance';
 import complianceRoutes from './routes/compliance';
+import { expireDueCois } from './services/compliance/coiService';
 import negotiationRoutes from './routes/negotiations';
 import { NegotiationService } from './services/negotiationService';
 import referenceRoutes from './routes/reference';
@@ -266,6 +267,24 @@ setInterval(async () => {
   }
 }, 30_000);
 
+// COI expiry sweep (audit v4 M3): flip VERIFIED COIs whose expiry date has
+// passed to EXPIRED so a lapsed policy never keeps a stale VERIFIED badge.
+// The service existed but nothing invoked it - COIs never auto-expired.
+// Runs once shortly after boot (so a long-paused env catches up immediately)
+// then every 6 hours; the underlying update is idempotent, so overlapping
+// runs across instances are harmless. Same EventBridge/Lambda debt note as
+// the 30 s worker above.
+const runCoiExpirySweep = async () => {
+  try {
+    const expired = await expireDueCois();
+    if (expired.length) Logger.info(`[coi-expiry] expired ${expired.length} COI(s): ${expired.join(', ')}`);
+  } catch (e) {
+    console.error('[coi-expiry worker] error', e);
+  }
+};
+setTimeout(runCoiExpirySweep, 60_000);
+setInterval(runCoiExpirySweep, 6 * 60 * 60 * 1000);
+
 
 app.use('/api/maps', mapsRouter);
 app.use('/api/org', orgRoutes);
@@ -296,6 +315,13 @@ app.use('/api/reference', referenceRoutes);
 
 // Didit webhook - PUBLIC (no JWT); signature verified inside the handler
 app.post('/api/webhooks/didit', diditWebhookHandler);
+
+// JSON 404 for any unmatched /api/* path (audit v4 L2). Without this,
+// Express falls through to its default HTML "Cannot GET ..." page - a
+// framework fingerprint and a different error shape from every real API
+// error (which are JSON via errorHandler). Registered after every /api
+// mount and before errorHandler; /_test and non-API paths are unaffected.
+app.use('/api', (_req, res) => res.status(404).json({ message: 'Not found', statusCode: 404 }));
 
 // Error handler - registered AFTER all routes so AppError from any router
 // (incl. /api/org which is mounted below the line where this used to live)

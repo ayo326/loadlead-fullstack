@@ -47,7 +47,17 @@ export function LoadPolicySignCard({ loadId }: { loadId: string }) {
       toast.success("Policy signed.");
       refresh();
     } catch (e: any) {
-      toast.error(e.message);
+      // Distinguish business-state failures from network noise (audit v4 M2)
+      // by branching on the HTTP status the api client now attaches.
+      if (e.status === 409) {
+        toast.error("The shipper updated this policy after acceptance. Refreshing to show the latest version - please review and sign again.");
+        refresh();
+      } else if (e.status === 404 || e.status === 410) {
+        toast.error("This policy is no longer available to sign. Refreshing - if it does not reappear, contact the shipper.");
+        refresh();
+      } else {
+        toast.error(e.message);
+      }
     } finally {
       setBusy(false);
     }

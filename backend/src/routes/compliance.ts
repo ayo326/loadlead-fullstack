@@ -9,6 +9,7 @@
  * the relationship resolver (Phase 6).
  */
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { authenticate, requireOwnerOperator, requireShipper, requireAdmin, AuthRequest } from '../middleware/auth';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { OwnerOperatorService } from '../services/ownerOperatorService';
@@ -49,8 +50,22 @@ const router = express.Router();
 // smoke fails BEFORE a real hauler ever hits it - a route-mount 401 check does
 // not exercise this. Returns only a hash + byte length, never the PDF. MUST be
 // registered before router.use(authenticate) so it stays public.
+//
+// Rate-limited (audit v4 H4): the render is CPU-bound (pdf-lib fill+flatten)
+// and the route is public, so an unthrottled loop could pin the single-
+// instance backend. 10/min/IP is far above the deploy smoke's 1-2 calls while
+// making a render-loop DoS uneconomical. Trust-proxy is set in index.ts, so
+// the per-IP key is the real client IP behind CloudFront.
+const renderCheckLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many render-check requests. Try again shortly.', statusCode: 429 },
+});
 router.get(
   '/w9/render-check',
+  renderCheckLimiter,
   asyncHandler(async (_req, res) => {
     const rendered = await renderW9({
       line1Name: 'RENDER SMOKE',
