@@ -8,7 +8,7 @@ import helmet from 'helmet';
 import config from './config/environment';
 import { errorHandler } from './middleware/errorHandler';
 import Logger from './utils/logger';
-import { runBootGuards, assertProductionHardened, BootGuardError } from './services/integrations/bootGuard';
+import { runBootGuards, assertProductionHardened, assertRequiredIndexesActive, BootGuardError } from './services/integrations/bootGuard';
 
 // ── Boot guard - runs before anything else, including building the app.
 // Fail-closed: any violation here exits the process immediately. There is
@@ -351,6 +351,11 @@ async function start(): Promise<void> {
   // and the guarded-import pattern are supposed to already guarantee.
   // Refuses to boot rather than serve a single request if it fails.
   assertProductionHardened(app);
+
+  // Required-GSI assertion (audit v4 H3c): in production a missing
+  // negotiation index refuses boot instead of silently full-scanning under
+  // 1s long-polling; elsewhere it logs loudly. See bootGuard.ts.
+  await assertRequiredIndexesActive();
 
   app.listen(PORT, () => {
     Logger.info(`Server running on port ${PORT}`);

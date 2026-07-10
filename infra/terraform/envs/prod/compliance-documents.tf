@@ -51,10 +51,18 @@ resource "aws_kms_alias" "w9_tin" {
 
 # ── DynamoDB tables (append-only; deletion_protection + PITR via module) ────
 module "ddb_compliance_documents" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_ComplianceDocuments"
-  hash_key            = "documentId"
-  attributes          = [{ name = "documentId", type = "S" }]
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_ComplianceDocuments"
+  hash_key = "documentId"
+  attributes = [
+    { name = "documentId", type = "S" },
+    { name = "ownerId", type = "S" },
+  ]
+  # ownerId-index (audit v4 COA-3A): badge/current/version reads scanned the
+  # whole table; the service queries this index with a guarded scan fallback.
+  global_secondary_indexes = [
+    { name = "ownerId-index", hash_key = "ownerId", projection_type = "ALL" },
+  ]
   deletion_protection = true
   tags                = local.tags
 }

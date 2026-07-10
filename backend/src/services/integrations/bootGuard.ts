@@ -195,3 +195,60 @@ export function assertProductionHardened(app: { _router?: { stack: ExpressLayer[
     );
   }
 }
+
+/**
+ * Audit v4 H3c/COA-3A: required-GSI assertion. negsForLoad's silent scan
+ * fallback under 1-second long-polling turns a missing index into a
+ * self-DoS that "works" until the table grows. In production a missing
+ * REQUIRED index refuses boot (EB keeps the previous healthy version
+ * serving); everywhere else it logs loudly. EXPECTED indexes are the new
+ * COA-3A ones - warn-only until they are confirmed backfilled in every
+ * environment, then promote them to required.
+ */
+export async function assertRequiredIndexesActive(): Promise<void> {
+  // Lazy imports keep this file's top-level dependency-light (it runs at
+  // the very start of boot, before most modules are needed).
+  const { DescribeTableCommand } = await import('@aws-sdk/client-dynamodb');
+  const { dynamoClient } = await import('../../config/aws');
+  const config = (await import('../../config/environment')).default;
+
+  const REQUIRED = [
+    { table: config.dynamodb.loadNegotiationsTable, index: 'loadId-createdAt-index' },
+    { table: config.dynamodb.negotiationOffersTable, index: 'negotiationId-createdAt-index' },
+  ];
+  const EXPECTED = [
+    { table: config.dynamodb.loadsTable, index: 'shipperId-index' },
+    { table: config.dynamodb.accessorialChargesTable, index: 'loadId-index' },
+    { table: config.dynamodb.complianceDocumentsTable, index: 'ownerId-index' },
+  ];
+
+  const check = async (table: string, index: string): Promise<'ok' | string> => {
+    try {
+      const r = await dynamoClient.send(new DescribeTableCommand({ TableName: table }));
+      const gsi = (r.Table?.GlobalSecondaryIndexes ?? []).find((g) => g.IndexName === index);
+      if (!gsi) return `index ${index} missing on ${table}`;
+      if (gsi.IndexStatus !== 'ACTIVE') return `index ${index} on ${table} is ${gsi.IndexStatus} (backfilling)`;
+      return 'ok';
+    } catch (e: any) {
+      return `cannot describe ${table}: ${e?.name ?? e}`;
+    }
+  };
+
+  const requiredProblems: string[] = [];
+  for (const { table, index } of REQUIRED) {
+    const res = await check(table, index);
+    if (res !== 'ok') requiredProblems.push(res);
+  }
+  for (const { table, index } of EXPECTED) {
+    const res = await check(table, index);
+    if (res !== 'ok') console.error(`[index-check] EXPECTED (warn-only): ${res} - hot reads will [scan-fallback] until it is live`);
+  }
+
+  if (requiredProblems.length > 0) {
+    const detail = requiredProblems.join('; ');
+    if (process.env.APP_ENV === 'production') {
+      throw new BootGuardError(`Required DynamoDB indexes unavailable: ${detail}. Refusing to boot (long-poll scan fallback is a self-DoS at scale).`);
+    }
+    console.error(`[index-check] REQUIRED index problem (non-production, continuing): ${detail}`);
+  }
+}

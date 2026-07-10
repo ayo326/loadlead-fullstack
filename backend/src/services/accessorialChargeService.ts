@@ -21,6 +21,7 @@ import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import { Logger } from '../utils/logger';
 import { assertIntegerCents } from '../utils/money';
+import { queryIndexOrScan } from '../utils/indexQuery';
 import { AccessorialPolicyService, PolicySnapshot } from './accessorialPolicyService';
 import { StopEventService } from './stopEventService';
 import { BetaTrustEventService } from './betaTrustEventService';
@@ -107,9 +108,19 @@ export class AccessorialChargeService {
   }
 
   static async listForLoad(loadId: string): Promise<AccessorialCharge[]> {
+    // Audit v4 H3b: this scanned the whole charges table on every load-detail
+    // view. loadId-index scopes it to the one load; guarded fallback keeps
+    // correctness (loudly) while an environment's index backfills.
     let rows: AccessorialCharge[];
     try {
-      rows = await Database.scan<AccessorialCharge>(config.dynamodb.accessorialChargesTable);
+      rows = await queryIndexOrScan<AccessorialCharge>(
+        config.dynamodb.accessorialChargesTable,
+        'loadId-index',
+        'loadId',
+        loadId,
+        () => Database.scan<AccessorialCharge>(config.dynamodb.accessorialChargesTable),
+        'accessorialCharge.listForLoad',
+      );
     } catch (err: any) {
       if (err?.name === 'ResourceNotFoundException') return [];
       throw err;

@@ -28,7 +28,7 @@
 terraform {
   required_version = ">= 1.6.0"
   required_providers {
-    aws     = { source = "hashicorp/aws",     version = "~> 6.0" } # 6.x adds TLSv1.3_2025 to cloudfront min protocol
+    aws     = { source = "hashicorp/aws", version = "~> 6.0" }     # 6.x adds TLSv1.3_2025 to cloudfront min protocol
     archive = { source = "hashicorp/archive", version = "~> 2.0" } # used by lambda zip in worm-sink.tf
   }
 
@@ -81,9 +81,9 @@ module "github_deploy_role" {
   github_repo              = var.github_repo
   allowed_environment      = "production"
 
-  dynamodb_table_prefix    = "LoadLead_"
-  eb_application_name      = aws_elastic_beanstalk_application.backend.name
-  eb_environment_name      = aws_elastic_beanstalk_environment.backend_prod.name
+  dynamodb_table_prefix     = "LoadLead_"
+  eb_application_name       = aws_elastic_beanstalk_application.backend.name
+  eb_environment_name       = aws_elastic_beanstalk_environment.backend_prod.name
   frontend_bucket_arn       = aws_s3_bucket.frontend_customer.arn
   frontend_distribution_arn = aws_cloudfront_distribution.customer.arn
 
@@ -110,13 +110,13 @@ output "github_deploy_role_arn" {
 ############################################################################
 
 module "ddb_signatures" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_Signatures"
-  hash_key            = "signatureId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_Signatures"
+  hash_key = "signatureId"
   attributes = [
     { name = "signatureId", type = "S" },
-    { name = "loadId",      type = "S" },
-    { name = "signedAt",    type = "S" },
+    { name = "loadId", type = "S" },
+    { name = "signedAt", type = "S" },
   ]
   global_secondary_indexes = [
     { name = "loadId-signedAt-index", hash_key = "loadId", range_key = "signedAt", projection_type = "ALL" },
@@ -126,18 +126,18 @@ module "ddb_signatures" {
   # is enough — we ship every successful PutItem row in full; MODIFY/
   # REMOVE should never fire (IAM Deny) but the Lambda still alerts on
   # them as an integrity event.
-  stream_enabled      = true
-  stream_view_type    = "NEW_IMAGE"
-  tags                = local.tags
+  stream_enabled   = true
+  stream_view_type = "NEW_IMAGE"
+  tags             = local.tags
 }
 
 module "ddb_pod_photos" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_PodPhotos"
-  hash_key            = "photoId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_PodPhotos"
+  hash_key = "photoId"
   attributes = [
     { name = "photoId", type = "S" },
-    { name = "loadId",  type = "S" },
+    { name = "loadId", type = "S" },
   ]
   global_secondary_indexes = [
     { name = "loadId-index", hash_key = "loadId", projection_type = "ALL" },
@@ -153,9 +153,9 @@ module "ddb_pod_photos" {
 # tables (PITR on via the module, deletion protection on) since they are an
 # append-only trust signal.
 module "ddb_beta_trust_events" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_BetaTrustEvents"
-  hash_key            = "eventId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_BetaTrustEvents"
+  hash_key = "eventId"
   attributes = [
     { name = "eventId", type = "S" },
   ]
@@ -169,9 +169,9 @@ module "ddb_beta_trust_events" {
 # each change carries an actor and a timestamp. Same append-only trust posture
 # as the tables above (PITR on via the module, deletion protection on).
 module "ddb_platform_fee_policy" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_PlatformFeePolicy"
-  hash_key            = "changeId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_PlatformFeePolicy"
+  hash_key = "changeId"
   attributes = [
     { name = "changeId", type = "S" },
   ]
@@ -184,9 +184,9 @@ module "ddb_platform_fee_policy" {
 # Editable until a charge freezes a snapshot; references the load by id only and
 # never lives on the Load model.
 module "ddb_accessorial_policies" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_AccessorialPolicies"
-  hash_key            = "loadId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_AccessorialPolicies"
+  hash_key = "loadId"
   attributes = [
     { name = "loadId", type = "S" },
   ]
@@ -198,9 +198,9 @@ module "ddb_accessorial_policies" {
 # Append-only ESIGN/UETA acceptances of a load's accessorial policy. Pins the
 # accepted version + policy hash; rows are never updated or deleted.
 module "ddb_accessorial_policy_acceptances" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_AccessorialPolicyAcceptances"
-  hash_key            = "acceptanceId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_AccessorialPolicyAcceptances"
+  hash_key = "acceptanceId"
   attributes = [
     { name = "acceptanceId", type = "S" },
   ]
@@ -211,9 +211,9 @@ module "ddb_accessorial_policy_acceptances" {
 # ─── LoadLead_ShipperAgreements ─────────────────────────────────────────────
 # Append-only shipper agreements to a load's accessorial terms at posting.
 module "ddb_shipper_agreements" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_ShipperAgreements"
-  hash_key            = "agreementId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_ShipperAgreements"
+  hash_key = "agreementId"
   attributes = [
     { name = "agreementId", type = "S" },
   ]
@@ -285,9 +285,9 @@ module "ddb_payout_intercepts" {
 # Session rows, append-only offers, and the per-load exclusivity lock. The
 # Load model is never touched; sessions reference load + parties by id.
 module "ddb_load_negotiations" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_LoadNegotiations"
-  hash_key            = "negotiationId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_LoadNegotiations"
+  hash_key = "negotiationId"
   attributes = [
     { name = "negotiationId", type = "S" },
   ]
@@ -296,9 +296,9 @@ module "ddb_load_negotiations" {
 }
 
 module "ddb_negotiation_offers" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_NegotiationOffers"
-  hash_key            = "negOfferId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_NegotiationOffers"
+  hash_key = "negOfferId"
   attributes = [
     { name = "negOfferId", type = "S" },
   ]
@@ -307,9 +307,9 @@ module "ddb_negotiation_offers" {
 }
 
 module "ddb_negotiation_locks" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_NegotiationLocks"
-  hash_key            = "loadId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_NegotiationLocks"
+  hash_key = "loadId"
   attributes = [
     { name = "loadId", type = "S" },
   ]
@@ -322,9 +322,9 @@ module "ddb_negotiation_locks" {
 # layover compute from these immutable events; references load + stop by id
 # only. Same append-only posture as the trust tables.
 module "ddb_stop_events" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_StopEvents"
-  hash_key            = "eventId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_StopEvents"
+  hash_key = "eventId"
   attributes = [
     { name = "eventId", type = "S" },
   ]
@@ -337,11 +337,18 @@ module "ddb_stop_events" {
 # recompute updates in place; the live row carries status + amount and the
 # immutable trail lives in the status-history table below.
 module "ddb_accessorial_charges" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_AccessorialCharges"
-  hash_key            = "chargeId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_AccessorialCharges"
+  hash_key = "chargeId"
   attributes = [
     { name = "chargeId", type = "S" },
+    { name = "loadId", type = "S" },
+  ]
+  # loadId-index (audit v4 COA-3A): charge reads per load were full-table
+  # scans; the service now queries this index with a guarded scan fallback,
+  # so the apply order is safe either way (backfill is non-destructive).
+  global_secondary_indexes = [
+    { name = "loadId-index", hash_key = "loadId", projection_type = "ALL" },
   ]
   deletion_protection = true
   tags                = local.tags
@@ -350,9 +357,9 @@ module "ddb_accessorial_charges" {
 # ─── LoadLead_AccessorialChargeStatusHistory ────────────────────────────────
 # Append-only charge status transitions (original/new amounts on adjust).
 module "ddb_charge_status_history" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_AccessorialChargeStatusHistory"
-  hash_key            = "historyId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_AccessorialChargeStatusHistory"
+  hash_key = "historyId"
   attributes = [
     { name = "historyId", type = "S" },
   ]
@@ -364,9 +371,9 @@ module "ddb_charge_status_history" {
 # Append-only factoring assignment log. A release/change is a new row; the
 # active assignment resolves with invoice-level precedence over account-level.
 module "ddb_factoring_assignments" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_FactoringAssignments"
-  hash_key            = "assignmentId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_FactoringAssignments"
+  hash_key = "assignmentId"
   attributes = [
     { name = "assignmentId", type = "S" },
   ]
@@ -378,9 +385,9 @@ module "ddb_factoring_assignments" {
 # Append-only Notices of Assignment (legal redirection snapshots). References
 # the assignment, carrier, invoice, and debtor by id.
 module "ddb_notices_of_assignment" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_NoticesOfAssignment"
-  hash_key            = "noaId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_NoticesOfAssignment"
+  hash_key = "noaId"
   attributes = [
     { name = "noaId", type = "S" },
   ]
@@ -392,9 +399,9 @@ module "ddb_notices_of_assignment" {
 # Append-only funding advances. No advance against a non-APPROVED accessorial;
 # idempotent per (invoice, line). References invoice/carrier/charge by id.
 module "ddb_funding_advances" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_FundingAdvances"
-  hash_key            = "advanceId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_FundingAdvances"
+  hash_key = "advanceId"
   attributes = [
     { name = "advanceId", type = "S" },
   ]
@@ -406,9 +413,9 @@ module "ddb_funding_advances" {
 # Append-only reconciliation + recourse outcomes (payment routing, reserve
 # release, supplemental advance, recourse buyback, non-recourse loss).
 module "ddb_reconciliation_outcomes" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_ReconciliationOutcomes"
-  hash_key            = "outcomeId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_ReconciliationOutcomes"
+  hash_key = "outcomeId"
   attributes = [
     { name = "outcomeId", type = "S" },
   ]
@@ -419,9 +426,9 @@ module "ddb_reconciliation_outcomes" {
 # ─── LoadLead_FactorContacts ────────────────────────────────────────────────
 # Saved factor contact per carrier/owner-operator (pre-fills the send recipient).
 module "ddb_factor_contacts" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_FactorContacts"
-  hash_key            = "carrierId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_FactorContacts"
+  hash_key = "carrierId"
   attributes = [
     { name = "carrierId", type = "S" },
   ]
@@ -433,9 +440,9 @@ module "ddb_factor_contacts" {
 # Append-only factoring submission records: the disclosure trail of what
 # financial documents left the platform, to whom, and when.
 module "ddb_factoring_submissions" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_FactoringSubmissions"
-  hash_key            = "submissionId"
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_FactoringSubmissions"
+  hash_key = "submissionId"
   attributes = [
     { name = "submissionId", type = "S" },
   ]

@@ -20,8 +20,9 @@ const credentials =
           }
         : undefined);
 
-// DynamoDB Client
-const dynamoClient = new DynamoDBClient({
+// DynamoDB Client - exported for control-plane calls (DescribeTable in the
+// boot-time index assertion); data-plane access stays on docClient/Database.
+export const dynamoClient = new DynamoDBClient({
   region: config.aws.region,
   endpoint: config.dynamodb.endpoint || undefined,
   credentials,
