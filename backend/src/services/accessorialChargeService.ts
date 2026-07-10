@@ -236,7 +236,26 @@ export class AccessorialChargeService {
       reason: reason ?? 'shipper adjusted',
       actorId,
     });
+    await this.flagAdvancesAtRisk(chargeId, 'ADJUSTED');
     return updated;
+  }
+
+  /**
+   * Audit v4 M6: an advance may already have been issued against this charge
+   * while it was APPROVED. A regression to DISPUTED/ADJUSTED must surface the
+   * money-at-risk explicitly (append-only ADVANCE_AT_RISK outcome) instead of
+   * leaving reconciliation to discover it by accident. Best-effort: the
+   * shipper's action must not fail because the flag could not be written.
+   * Lazy import avoids a static charge->reconciliation->charge type cycle
+   * becoming a runtime one.
+   */
+  private static async flagAdvancesAtRisk(chargeId: string, statusNow: string): Promise<void> {
+    try {
+      const { ReconciliationService } = await import('./reconciliationService');
+      await ReconciliationService.flagAdvancesAtRiskForCharge(chargeId, statusNow);
+    } catch (err) {
+      Logger.error(`failed to flag advances at risk for charge ${chargeId}`, err);
+    }
   }
 
   /**
@@ -259,6 +278,7 @@ export class AccessorialChargeService {
     } catch (err) {
       Logger.error('failed to record trust event for accessorial dispute', err);
     }
+    await this.flagAdvancesAtRisk(chargeId, 'DISPUTED');
     return updated;
   }
 

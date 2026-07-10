@@ -41,7 +41,12 @@ export type ReconciliationOutcomeType =
   // Admin oversight: a compensating entry from an adjudication or a payout
   // intercept. Never edits an original; it is a new offsetting row.
   | 'ADJUDICATION_COMPENSATION'
-  | 'INTERCEPT_APPLIED';
+  | 'INTERCEPT_APPLIED'
+  // Audit v4 M6: an advance was issued against an APPROVED accessorial that
+  // later regressed (DISPUTED/ADJUSTED). Money is already out the door; this
+  // row makes the tension explicit for settlement to resolve (recourse
+  // buyback, offset, or re-approval) instead of discovering it by accident.
+  | 'ADVANCE_AT_RISK';
 
 export interface ReconciliationOutcome {
   outcomeId: string; // 'recon_...'
@@ -289,6 +294,39 @@ export class ReconciliationService {
    * key and written with `attribute_not_exists`, so two overlapping calls can
    * never both insert (a scan-then-put would). The loser reads back the winner.
    */
+  /**
+   * Flag every advance issued against a charge that regressed out of APPROVED
+   * (audit v4 M6). Called from the charge dispute/adjust transitions. Appends
+   * an idempotent ADVANCE_AT_RISK outcome per (advance, regressed status) -
+   * repeat transitions do not duplicate; a later different regression records
+   * its own row. Best-effort at the call site: the shipper's dispute/adjust
+   * must not fail because the risk flag could not be written.
+   */
+  static async flagAdvancesAtRiskForCharge(
+    chargeId: string,
+    chargeStatusNow: string,
+  ): Promise<ReconciliationOutcome[]> {
+    const advances = await FundingAdvanceService.listForCharge(chargeId);
+    const rows: ReconciliationOutcome[] = [];
+    for (const adv of advances) {
+      const row = await this.recordOutcome({
+        invoiceId: adv.invoiceId,
+        carrierId: adv.carrierId,
+        type: 'ADVANCE_AT_RISK',
+        amountCents: adv.amountCents,
+        chargeId,
+        advanceId: adv.advanceId,
+        note: `charge ${chargeId} moved to ${chargeStatusNow} after advance ${adv.advanceId} was issued`,
+        idempotencyKey: key('advance-at-risk', adv.advanceId, chargeStatusNow),
+      });
+      Logger.warn(
+        `[reconciliation] ADVANCE_AT_RISK: advance ${adv.advanceId} (${adv.amountCents}c) references charge ${chargeId}, now ${chargeStatusNow}`,
+      );
+      rows.push(row);
+    }
+    return rows;
+  }
+
   static async recordOutcome(
     input: Omit<ReconciliationOutcome, 'outcomeId' | 'recordedAt'>
   ): Promise<ReconciliationOutcome> {

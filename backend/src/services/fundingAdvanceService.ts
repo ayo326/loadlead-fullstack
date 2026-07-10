@@ -151,6 +151,11 @@ export class FundingAdvanceService {
     return Database.getItem<FundingAdvance>(config.dynamodb.fundingAdvancesTable, { advanceId: `advance_${key}` });
   }
 
+  /** Advances issued against a specific accessorial charge (audit v4 M6). */
+  static async listForCharge(chargeId: string): Promise<FundingAdvance[]> {
+    return (await this.scanAll()).filter((a) => a.chargeId === chargeId);
+  }
+
   private static async scanAll(): Promise<FundingAdvance[]> {
     try {
       return await Database.scan<FundingAdvance>(config.dynamodb.fundingAdvancesTable);
