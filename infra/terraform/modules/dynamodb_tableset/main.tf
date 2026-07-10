@@ -314,9 +314,11 @@ locals {
     # recompute updates in place; the live row carries status + amount and the
     # immutable trail lives in AccessorialChargeStatusHistory.
     AccessorialCharges = {
-      hash_key   = "chargeId"
-      attributes = [{ name = "chargeId", type = "S" }]
-      gsis       = []
+      hash_key = "chargeId"
+      # loadId-index (audit v4 COA-3A): every load-detail view listed charges
+      # via a full-table scan; this turns it into a per-load query.
+      attributes = [{ name = "chargeId", type = "S" }, { name = "loadId", type = "S" }]
+      gsis       = [{ name = "loadId-index", hash_key = "loadId" }]
     }
 
     # Append-only charge status transitions (original/new amounts on adjust).
@@ -472,9 +474,11 @@ locals {
     # never stored here in plaintext — it's KMS-envelope-encrypted (see the
     # per-env w9-tin KMS key) before the ciphertext lands on the document row.
     ComplianceDocuments = {
-      hash_key   = "documentId"
-      attributes = [{ name = "documentId", type = "S" }]
-      gsis       = []
+      hash_key = "documentId"
+      # ownerId-index (audit v4 COA-3A): badge/current/version reads scanned the
+      # whole table; this scopes them to one hauler's documents.
+      attributes = [{ name = "documentId", type = "S" }, { name = "ownerId", type = "S" }]
+      gsis       = [{ name = "ownerId-index", hash_key = "ownerId" }]
     }
     ComplianceVerificationEvents = {
       hash_key   = "eventId"

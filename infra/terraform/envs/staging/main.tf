@@ -32,6 +32,9 @@ module "network" {
   tags                  = local.tags
 }
 
+# Audit v4 COA-3A: staging's mirror of the new loadId-index (AccessorialCharges)
+# and ownerId-index (ComplianceDocuments) GSIs arrives through this shared
+# tableset module - see modules/dynamodb_tableset in the same change set.
 module "dynamodb" {
   source              = "../../modules/dynamodb_tableset"
   env                 = local.env
