@@ -230,6 +230,7 @@ module "backend" {
     DYNAMODB_W9_ACCESS_LOG_TABLE                  = "${local.prefix}W9AccessLog"
     DYNAMODB_SHIPPER_COMPLIANCE_POLICIES_TABLE    = "${local.prefix}ShipperCompliancePolicies"
     DYNAMODB_SHIPPER_POLICY_ATTACHMENTS_TABLE     = "${local.prefix}ShipperPolicyAttachments"
+    DYNAMODB_NOTIFICATION_OUTBOX_TABLE            = "${local.prefix}NotificationOutbox"
     COMPLIANCE_S3_BUCKET                          = aws_s3_bucket.compliance_docs.bucket
     POD_S3_BUCKET                                 = "loadlead-dev-pod-uploads"
   })

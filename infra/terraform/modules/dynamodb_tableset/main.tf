@@ -500,6 +500,14 @@ locals {
       attributes = [{ name = "attachmentId", type = "S" }]
       gsis       = []
     }
+    # Durable push-notification outbox (audit v4 M7/COA-3B): failed sends are
+    # retried by a sweeper; rows are small and pruned by TTL.
+    NotificationOutbox = {
+      hash_key   = "outboxId"
+      attributes = [{ name = "outboxId", type = "S" }]
+      gsis       = []
+      ttl        = "expiresAt"
+    }
   }
 }
 
