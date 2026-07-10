@@ -168,6 +168,10 @@ export const config = {
     // acceptance, plus the hauler's signature reference. References load by id.
     shipperPolicyAttachmentsTable:
       t('DYNAMODB_SHIPPER_POLICY_ATTACHMENTS_TABLE', 'LoadLead_ShipperPolicyAttachments'),
+    // Durable outbox for counterparty push notifications (audit v4 M7/COA-3B):
+    // a failed push is retried by the sweeper instead of silently vanishing.
+    notificationOutboxTable:
+      t('DYNAMODB_NOTIFICATION_OUTBOX_TABLE', 'LoadLead_NotificationOutbox'),
   },
 
   // KMS-backed envelope encryption for the W9 TIN (the most sensitive field on

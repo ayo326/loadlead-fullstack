@@ -37,6 +37,7 @@ import { ShipperService } from '../services/shipperService';
 import { resolveCarrierOfRecord } from '../services/carrierOfRecord';
 import { isFleetCarrierPersonaEnabled } from '../config/featureFlags';
 import { requireVerifiedCarrier } from '../services/verification';
+import { NotificationOutboxService } from '../services/notificationOutboxService';
 import { PushService } from '../services/pushService';
 import { LoadService } from '../services/loadService';
 import { OwnerOperatorService } from '../services/ownerOperatorService';
@@ -177,15 +178,17 @@ function fmtAgreed(neg: LoadNegotiation): string {
   return 'the posted rate';
 }
 
-/** Best-effort counterparty notification. Suppression seam applies inside send. */
+/**
+ * Counterparty notification via the durable outbox (audit v4 M7): a failed
+ * push is retried by the sweeper instead of silently vanishing. Still never
+ * blocks the negotiation action itself.
+ */
 async function notify(neg: LoadNegotiation, actedParty: NegotiationParty, title: string, bodyText: string) {
-  try {
-    const url = actedParty === 'HAULER'
-      ? `/shipper/loads/${neg.loadId}`
-      : `/driver/loads/${neg.loadId}`;
-    const toUserId = actedParty === 'HAULER' ? neg.shipperId : neg.haulerUserId;
-    await PushService.send(toUserId, title, bodyText, url);
-  } catch (_) { /* notification is best-effort */ }
+  const url = actedParty === 'HAULER'
+    ? `/shipper/loads/${neg.loadId}`
+    : `/driver/loads/${neg.loadId}`;
+  const toUserId = actedParty === 'HAULER' ? neg.shipperId : neg.haulerUserId;
+  await NotificationOutboxService.deliver(toUserId, title, bodyText, url);
 }
 
 /** Display status + available actions for the requesting viewer. */
