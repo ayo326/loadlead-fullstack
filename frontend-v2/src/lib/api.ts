@@ -146,6 +146,16 @@ export interface AdminAuditEntry {
   targetRefs?: string[]; reason?: string; authorityRef?: string; at: number;
 }
 
+// Session-expiry seam (audit v4 M4). AuthContext registers a handler that
+// clears the in-memory user whenever an authed call returns 401, so
+// RequireAuth redirects to /login instead of the expiry being silently
+// swallowed by a caller's catch. /auth/* paths are excluded - login, signup,
+// and the boot-time /auth/me probe produce 401s as part of their normal flow.
+let onUnauthorized: (() => void) | null = null;
+export function setOnUnauthorized(handler: (() => void) | null) {
+  onUnauthorized = handler;
+}
+
 // Auth uses httpOnly cookies - the browser sends ll_token automatically.
 // `credentials: 'include'` is required for cross-origin cookie delivery.
 // We no longer read from / write to localStorage for auth tokens.
@@ -160,6 +170,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith("/auth/")) onUnauthorized?.();
     // Carry the HTTP status (and any structured code) on the thrown error so
     // callers can branch on 401/404/409/410 instead of parsing message text
     // (audit v4 M2/L6 - free-text matching is fragile).

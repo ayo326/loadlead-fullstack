@@ -9,11 +9,18 @@ type AsyncFn = (req: Request, res: Response, next: NextFunction) => Promise<any>
 export class AppError extends Error {
   statusCode: number;
   errors?: any[];
+  /**
+   * Optional machine-readable code (e.g. 'RELATIONSHIP_REQUIRED'). Serialized
+   * by errorHandler so clients can branch on a stable identifier instead of
+   * parsing the human-facing message text (audit v4 L6).
+   */
+  code?: string;
 
-  constructor(message: string, statusCode = 500, errors?: any[]) {
+  constructor(message: string, statusCode = 500, errors?: any[], code?: string) {
     super(message);
     this.statusCode = statusCode;
     this.errors = errors;
+    this.code = code;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
@@ -48,6 +55,9 @@ export const errorHandler = (err: any, _req: Request, res: Response, _next: Next
   return res.status(statusCode).json({
     message: safeMessage,
     statusCode,
+    // Machine-readable code - only from our own AppError, so a third-party
+    // error's .code (e.g. an AWS SDK exception name) is never exposed.
+    ...(err instanceof AppError && typeof err.code === 'string' ? { code: err.code } : {}),
     ...(err?.errors ? { errors: err.errors } : {}),
     ...(exposeStack ? { stack: err?.stack } : {}),
   });

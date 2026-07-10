@@ -1,6 +1,7 @@
 'use client';
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, setOnUnauthorized } from "@/lib/api";
+import { toast } from "sonner";
 
 // Auth tokens are stored in httpOnly cookies set by the backend.
 // The browser sends the cookie automatically with every credentialed request
@@ -38,6 +39,21 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Session-expiry interceptor (audit v4 M4): when any authed call returns
+  // 401 mid-session, clear the in-memory user so RequireAuth redirects to
+  // /login, and say why. Only fires when a user WAS signed in - the anonymous
+  // boot probe and public pages are unaffected (and /auth/* is excluded at
+  // the api layer).
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      setUser((current) => {
+        if (current) toast.error("Your session has expired. Please sign in again.");
+        return null;
+      });
+    });
+    return () => setOnUnauthorized(null);
+  }, []);
 
   // On mount: check if the browser already holds a valid ll_token cookie.
   // If the cookie exists and is valid, /api/auth/me returns the user object.

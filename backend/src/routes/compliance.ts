@@ -276,7 +276,10 @@ router.get(
   asyncHandler(async (req: AuthRequest, res) => {
     const rel = await resolveShipperHaulerRelationship(req.user!.userId, req.params.operatorId);
     if (!rel.allowed) {
+      // `code` is the stable machine-readable field the FE branches on
+      // (audit v4 L6); `error` retained for back-compat with older clients.
       return res.status(403).json({
+        code: 'RELATIONSHIP_REQUIRED',
         error: 'RELATIONSHIP_REQUIRED',
         message:
           'The full compliance packet opens once you have an active negotiation, an assigned load, or a recently completed load with this carrier.',
@@ -297,7 +300,7 @@ router.get(
   asyncHandler(async (req: AuthRequest, res) => {
     const rel = await resolveShipperHaulerRelationship(req.user!.userId, req.params.operatorId);
     if (!rel.allowed) {
-      return res.status(403).json({ error: 'RELATIONSHIP_REQUIRED' });
+      return res.status(403).json({ code: 'RELATIONSHIP_REQUIRED', error: 'RELATIONSHIP_REQUIRED' });
     }
     const type = String(req.params.docType).toUpperCase();
     if (type === 'W9') {
