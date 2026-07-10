@@ -70,7 +70,7 @@ resource "aws_s3_bucket_policy" "signatures_worm_no_delete" {
       Sid       = "DenyAllDeletes"
       Effect    = "Deny"
       Principal = "*"
-      Action    = [
+      Action = [
         "s3:DeleteObject",
         "s3:DeleteObjectVersion",
         "s3:DeleteObjectTagging",
@@ -111,11 +111,26 @@ resource "aws_s3_bucket_object_lock_configuration" "signatures_worm" {
 }
 
 # ── Lambda zip ─────────────────────────────────────────────────────────────
+# Determinism note: the zip includes the VENDORED node_modules (gitignored;
+# run `npm install` in the lambda dir before applying from a fresh clone) so
+# the SDK version stays pinned for this security-critical function. npm
+# installs from the lockfile are byte-reproducible here, but macOS Finder
+# drops .DS_Store files into browsed folders, which silently changed the
+# source_code_hash and made every plan show a spurious in-place Lambda update
+# (diffed deployed-vs-rebuilt zips: .DS_Store was the ONLY difference). The
+# excludes below keep OS junk out of the archive so the hash is a pure
+# function of the real source. (Both imports are also bundled in the
+# nodejs20.x runtime, so a dep-less zip would still run - the vendoring is a
+# supply-chain pin, not a hard requirement.)
 data "archive_file" "signatures_worm_sink_zip" {
   type        = "zip"
   source_dir  = "${path.module}/lambda/signatures-worm-sink"
   output_path = "${path.module}/.build/signatures-worm-sink.zip"
-  excludes    = [".build"]
+  excludes = [
+    ".build",
+    ".DS_Store",
+    "**/.DS_Store",
+  ]
 }
 
 # ── IAM role for the Lambda ────────────────────────────────────────────────
@@ -123,7 +138,7 @@ resource "aws_iam_role" "signatures_worm_sink_lambda" {
   name = "loadlead-prod-signatures-worm-sink-lambda"
 
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
       Principal = { Service = "lambda.amazonaws.com" }
@@ -186,8 +201,8 @@ resource "aws_lambda_function" "signatures_worm_sink" {
 
   environment {
     variables = {
-      WORM_BUCKET  = aws_s3_bucket.signatures_worm.bucket
-      RETAIN_DAYS  = "2555"
+      WORM_BUCKET = aws_s3_bucket.signatures_worm.bucket
+      RETAIN_DAYS = "2555"
     }
   }
 
@@ -209,5 +224,5 @@ resource "aws_lambda_event_source_mapping" "signatures_stream" {
   maximum_retry_attempts = -1
 }
 
-output "signatures_worm_bucket"        { value = aws_s3_bucket.signatures_worm.bucket }
+output "signatures_worm_bucket" { value = aws_s3_bucket.signatures_worm.bucket }
 output "signatures_worm_sink_function" { value = aws_lambda_function.signatures_worm_sink.function_name }
