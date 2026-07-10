@@ -1,0 +1,131 @@
+<!doctype html><html><head><meta charset="utf-8"><style>@page{margin:18mm 16mm}body{font:13px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:800px;margin:0 auto;padding:8px}h1{font-size:23px;border-bottom:3px solid #1f6feb;padding-bottom:6px}h2{font-size:18px;border-bottom:1px solid #d0d7de;padding-bottom:4px;margin-top:26px}h3{font-size:14.5px;margin-top:20px}table{border-collapse:collapse;width:100%;margin:12px 0;font-size:12px}th,td{border:1px solid #d0d7de;padding:6px 9px;text-align:left;vertical-align:top}th{background:#f6f8fa}code{background:#f0f3f6;padding:1px 5px;border-radius:4px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}pre{background:#0d1117;color:#e6edf3;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:11px}pre code{background:none;color:inherit;padding:0}.hi{color:#b91c1c;font-weight:700}.med{color:#b45309;font-weight:700}.low{color:#57606a;font-weight:700}.ok{color:#1a7f37;font-weight:700}.tag{font-size:10px;border:1px solid #d0d7de;border-radius:10px;padding:0 6px;color:#57606a}</style></head><body>
+
+<h1>LoadLead — Platform-Wide E2E Audit (v4)</h1>
+<p><strong>Date:</strong> 2026-07-10 &nbsp; <strong>Auditor:</strong> Platform Engineering &nbsp; <strong>Scope:</strong> Full stack — backend business logic, frontend, live smoke, and cross-environment parity (dev / staging / prod). Ref commit <code>ee33702</code> (main). Prior rounds: v1 2026-06-25, v2/v3 2026-07-03/04.</p>
+<hr>
+
+<h2>1. Executive summary</h2>
+<p>This is the <strong>healthiest audit result of the three rounds</strong> — and the first with the SCRUM-59 compliance-documents surface (W-9/COI/LOA/shipper policy) in scope. All automated verification is green: <strong>698/698 backend tests</strong> (90 files, +68 tests vs v3), frontend typecheck/build clean, <strong>46/46 Playwright E2E</strong>, and — for the first time — <strong>zero Terraform drift in both staging and prod</strong>. The v3 HIGH env-parity defect (staging silently writing prod tables) is structurally closed: staging resolves all 49 config tables through one <code>DYNAMODB_TABLE_PREFIX</code>, the boot guard fails closed on any prod-name leak, and prod has <strong>zero missing tables</strong> (56 required, all present). The production frontend bundle is byte-identical to a fresh HEAD build, and the W-9 render self-check returns the <em>same content hash</em> on local, staging, and prod — deterministic renders across environments.</p>
+<p>The risk profile has therefore shifted from <em>configuration/parity defects</em> (v2/v3) to <strong>concurrency correctness and scale readiness</strong>. The four HIGH findings this round are: (H1) an ACCEPTED negotiation can permanently lack its pinned shipper-policy snapshot after a transient error, with no repair job; (H2) the compliance-document supersede is an unconditional read-then-flip, so concurrent W-9 submits can leave two "current" versions; (H3) a cluster of full-table scans on request-hot paths (relationship resolution scans the <em>loads table on every packet/document open</em>) that will not survive beta scale-up; and (H4) the public W-9 render self-check endpoint — added 2026-07-09 by our own deploy-smoke work — is CPU-bound and has no rate limiting (only <code>/api/auth</code> is limited), making it a low-effort DoS vector. All four have small, well-bounded fixes (Section 6).</p>
+<p>One process win worth institutionalizing: the authenticated staging W-9 E2E run on 2026-07-09 caught a template-packaging bug that route-mount smoke had passed over for both environments. The lesson — <em>smoke must exercise the real path, not just the mount</em> — is now encoded in the deploy pipeline (render self-check) and should be extended to a scheduled synthetic (Section 7).</p>
+
+<h2>2. Scorecard</h2>
+<table>
+<tr><th>Lane</th><th>Result</th><th>Detail</th></tr>
+<tr><td>Backend unit/integration</td><td class="ok">PASS</td><td>698/698, 90 files, 4.5s. One known-flaky test (fieldCrypto tamper — base64 padding-bit flip; passed this run; fix task open).</td></tr>
+<tr><td>Frontend typecheck + build</td><td class="ok">PASS</td><td><code>tsc</code> clean; Vite build clean; <strong>no react-vendor split</strong> (the prod blank-page gotcha); single 413&nbsp;KB vendor chunk.</td></tr>
+<tr><td>Frontend E2E (Playwright)</td><td class="ok">PASS</td><td>46/46 — hauler negotiation H1–H9 (incl. e-sign gate + window expiry), shipper S1–S5 (accept/counter/reject/live-update), public-route crawl, tour scoping.</td></tr>
+<tr><td>Prod FE = HEAD</td><td class="ok">PASS</td><td>Fresh build emits <code>index-CCIOeFp8.js</code> / <code>vendor-DfqDJZw7.js</code> — identical hashed names to the live prod bundle. No unshipped FE delta.</td></tr>
+<tr><td>Terraform drift — staging</td><td class="ok">CLEAN</td><td><code>tofu plan</code>: No changes.</td></tr>
+<tr><td>Terraform drift — prod</td><td class="ok">CLEAN</td><td><code>tofu plan</code>: No changes (first fully-clean prod plan; worm-sink .DS_Store drift fixed in PR #53).</td></tr>
+<tr><td>Terraform — dev</td><td class="low">N/A — never applied</td><td>Plan fails on unset required variables; <strong>0</strong> <code>LoadLead-Dev-*</code> tables and no dev EB env exist in AWS. Dev is local-DynamoDB in practice (L4).</td></tr>
+<tr><td>Table parity</td><td class="ok">PASS</td><td>Parity script green (staging via prefix + 10 service overrides; dev via explicit list). Prod: 56 required tables, <strong>0 missing</strong>, 1 true orphan (<code>LoadLead_AdminAudit</code>, L1).</td></tr>
+<tr><td>EB config parity</td><td class="ok">PASS</td><td>Only intentional diffs: prod <code>BETA_MODE=true</code> (private-beta wall) / staging <code>off</code>; staging opts in <code>KMS_MODE=live</code> + persona flag; prod forces KMS live via <code>APP_ENV</code> lock.</td></tr>
+<tr><td>Live smoke — prod + staging</td><td class="ok">PASS</td><td>Health + <code>productionHardened:true</code>; guards 401; beta gate 403 <code>BETA_REQUIRED</code> (structured, fail-closed); <code>/_test</code> absent in prod; SPA fallback 200 on deep routes; <code>index.html</code> no-cache / assets immutable; W-9 render-check hash identical across local/staging/prod.</td></tr>
+</table>
+
+<h2>3. Environment parity matrix</h2>
+<table>
+<tr><th>Dimension</th><th>Dev</th><th>Staging</th><th>Prod</th><th>Verdict</th></tr>
+<tr><td>Exists in AWS</td><td>No (paper stack)</td><td>Yes (pausable)</td><td>Yes</td><td class="low">L4: decide dev's fate</td></tr>
+<tr><td>Table namespace</td><td>local / <code>LoadLead-Dev-</code> (unapplied)</td><td><code>DYNAMODB_TABLE_PREFIX=LoadLead-Staging-</code> + 10 service overrides</td><td><code>LoadLead_*</code> defaults (no overrides)</td><td class="ok">Fail-closed via boot guard</td></tr>
+<tr><td>Env-var payload</td><td>—</td><td>1,511 chars (was &gt;4096 pre-fix)</td><td>well under cap</td><td class="ok">EB 4096 blocker closed</td></tr>
+<tr><td>KMS (W-9 TIN)</td><td>local stub</td><td>live, key <code>21e98dbe…</code></td><td>live (forced), key <code>ee357d04…</code></td><td class="ok">Per-env keys, least-privilege IAM</td></tr>
+<tr><td>Compliance S3</td><td>—</td><td>SSE+versioning+private</td><td>+ Object Lock + deny-deletes</td><td class="ok">Prod strictly stronger</td></tr>
+<tr><td>Beta gate</td><td>—</td><td>off (full-app mirror)</td><td>on (waitlist wall)</td><td class="ok">Intentional</td></tr>
+<tr><td>Fleet-carrier persona</td><td>—</td><td>enabled (validation)</td><td>muted (default)</td><td class="ok">Intentional</td></tr>
+<tr><td>W-9 render determinism</td><td rowspan="1" colspan="3" style="text-align:center"><code>contentHash f9e4c415…</code> identical on local, staging, prod (241,615 bytes)</td><td class="ok">Deterministic</td></tr>
+</table>
+
+<h2>4. Findings register</h2>
+<p>Each finding is tagged <span class="tag">verified</span> (reproduced/confirmed in code or live by the auditor) or <span class="tag">agent</span> (reported by a read-only audit agent with file:line evidence; spot-checks passed but not independently reproduced).</p>
+
+<h3 class="hi">HIGH</h3>
+<table>
+<tr><th style="width:56px">ID</th><th>Finding</th><th>Failure scenario</th></tr>
+<tr><td><b>H1</b> <span class="tag">verified</span></td><td><strong>ACCEPTED negotiation can permanently lack its policy snapshot.</strong> <code>negotiationService.ts:539–545</code>: after the terminal ACCEPTED transition, <code>snapshotPolicyOntoLoad()</code> failures that are not <code>AppError</code> are logged and swallowed; assignment proceeds. No retry, no repair sweeper.</td><td>DynamoDB throttle or network blip during accept → binding assignment exists with no pinned policy version; settlement/compliance review later finds no policy evidence for the load. Silent, permanent.</td></tr>
+<tr><td><b>H2</b> <span class="tag">verified</span></td><td><strong>Compliance supersede race — two "current" documents.</strong> <code>complianceDocumentService.ts</code> flips the prior current version with an unconditional read-then-update (zero <code>ConditionExpression</code>s in the file). Concurrent submits for the same owner+type can both land as <code>isCurrentVersion=true</code>.</td><td>Hauler double-clicks submit / retries during a slow response → two current W-9s. <code>getCurrent()</code> papers over it by newest-<code>createdAt</code> sort, so the corruption is invisible until an audit counts currents.</td></tr>
+<tr><td><b>H3</b> <span class="tag">verified</span></td><td><strong>Scan-at-scale cluster on request-hot paths.</strong> (a) <code>relationshipResolver.gatherFacts()</code> <em>scans the entire loads table on every compliance packet/document open</em>; (b) <code>accessorialChargeService.listForLoad()</code> scans the charges table per load-detail view; (c) <code>negotiationService.negsForLoad()</code> silently falls back to a full scan if its GSI is missing — under 1s long-polling. Repo convention (scan-all + filter) is fine at beta size, lethal at scale.</td><td>Loads table at 100k+: every packet open is a full scan; concurrent shipper traffic exhausts RCU → throttling cascades to unrelated endpoints. The GSI fallback turns an infra mistake into a self-DoS that "works" — nobody notices until the bill or the brownout.</td></tr>
+<tr><td><b>H4</b> <span class="tag">verified</span></td><td><strong>Public CPU-bound endpoint with no rate limit.</strong> <code>GET /api/compliance/w9/render-check</code> (added 2026-07-09 for deploy smoke — by us) renders a full PDF per request, unauthenticated. The only rate limiter in the app guards <code>/api/auth</code>.</td><td>A loop of cheap GETs pins the single-instance backend on pdf-lib renders; health checks slow; EB flaps. Trivial to script, no auth needed.</td></tr>
+</table>
+
+<h3 class="med">MEDIUM</h3>
+<table>
+<tr><th style="width:56px">ID</th><th>Finding</th><th>Failure scenario</th></tr>
+<tr><td><b>M1</b> <span class="tag">verified</span></td><td><strong>Full TIN retained in frontend state after W-9 submit.</strong> <code>OwnerOperatorCompliance.tsx</code>: on success the form state (incl. <code>f.tin</code>) is never cleared; the SSN/EIN stays in the input and React state.</td><td>Shoulder-surf / screen-share / screenshot after submit exposes the full SSN. Violates the platform's own "masked except gated view" rule on the client side.</td></tr>
+<tr><td><b>M2</b> <span class="tag">verified</span></td><td><strong>Policy-sign card has no 409/410 UX.</strong> <code>LoadPolicySignCard.tsx:39–54</code>: all errors collapse to <code>toast.error(e.message)</code> — version-conflict (policy updated) and gone (attachment removed) are indistinguishable from network noise.</td><td>Shipper edits policy mid-flight → hauler's sign 409s with a cryptic toast; hauler doesn't know a refresh shows v2; load sits unsigned.</td></tr>
+<tr><td><b>M3</b> <span class="tag">verified</span></td><td><strong>COIs never auto-expire.</strong> <code>coiService.expireDueCois()</code> exists and is tested, but nothing invokes it — no cron, route, or boot hook.</td><td>Insurance lapses; the VERIFIED badge persists indefinitely; a shipper books a hauler whose COI expired months ago. Trust-critical for a freight marketplace.</td></tr>
+<tr><td><b>M4</b> <span class="tag">verified</span></td><td><strong>No global 401 interceptor; widespread silent catches.</strong> <code>lib/api.ts</code> throws on !ok; many callers <code>.catch(() =&gt; {})</code>. Session expiry mid-action is swallowed.</td><td>Expired session + "Accept bid" → nothing happens, no toast, no redirect; user retries confused; state ambiguity on money-affecting actions.</td></tr>
+<tr><td><b>M5</b> <span class="tag">agent</span></td><td><strong>Stale load header after negotiation accept.</strong> <code>NegotiationPanel</code> fires <code>onAssigned()</code> but shipper <code>LoadDetail</code> doesn't refetch the load — header rate/status can contradict the panel.</td><td>Accepted at $2.50/mi; header still shows posted $3.00/mi until reload — conflicting money info on one screen.</td></tr>
+<tr><td><b>M6</b> <span class="tag">agent</span></td><td><strong>Funding advance not reconciled against later charge transitions.</strong> Advance pins <code>chargeStatus='APPROVED'</code> at issue; the charge can later become DISPUTED/ADJUSTED with no linkage or alert on the advance.</td><td>Charge disputed after funds advanced → reconciliation must catch it manually or funds leak on recourse.</td></tr>
+<tr><td><b>M7</b> <span class="tag">agent</span></td><td><strong>Counterparty notifications are fire-and-forget.</strong> <code>routes/negotiations.ts</code> <code>notify()</code> swallows all send failures — no retry, no dead-letter.</td><td>Push outage during assignment → driver never told; pickup window missed; no operational signal anything failed.</td></tr>
+<tr><td><b>M8</b> <span class="tag">agent</span></td><td><strong>Runtime-config gate is sticky on fetch failure.</strong> <code>RuntimeConfigContext</code> fails closed (persona off) but marks <code>loaded:true</code> with no retry — a transient failure pins a CARRIER_ADMIN on the "unavailable" page for the whole session.</td><td>One dropped request at app boot → legitimate carrier locked out until hard refresh.</td></tr>
+<tr><td><b>M9</b> <span class="tag">agent</span></td><td><strong>Charge history <code>amountCentsAfter</code> ambiguous under <code>preserveStatus</code> reuse</strong> (<code>accessorialChargeService.ts:193–204</code>) — recompute that reuses the reviewed amount writes a history row implying a fresh computation.</td><td>Audit trail reads "recomputed to $150" when $150 was carried over — ambiguity precisely where the ledger must be unambiguous.</td></tr>
+</table>
+
+<h3 class="low">LOW / informational</h3>
+<table>
+<tr><th style="width:56px">ID</th><th>Finding</th></tr>
+<tr><td><b>L1</b> <span class="tag">verified</span></td><td>Orphan prod table <code>LoadLead_AdminAudit</code> — zero code references (live table is <code>AdminAuditLog</code>). Review contents → archive/delete; it predates the TF-managed compliance layer.</td></tr>
+<tr><td><b>L2</b> <span class="tag">verified</span></td><td>Unknown <code>/api/*</code> paths return Express's default <em>HTML</em> 404 (framework fingerprint; inconsistent error shape). Add a JSON catch-all after the routers.</td></tr>
+<tr><td><b>L3</b> <span class="tag">verified</span></td><td>Known flaky test: fieldCrypto GCM tamper flips the last base64 char, which can land in padding bits (no byte change). Deterministic-tamper fix task already open.</td></tr>
+<tr><td><b>L4</b> <span class="tag">verified</span></td><td>The dev Terraform stack has never been applied (no dev EB, 0 dev tables) yet the parity script validates against it. Either apply it, or mark it explicitly as a template and exclude from parity, so the docs match reality.</td></tr>
+<tr><td><b>L5</b> <span class="tag">agent</span></td><td>Tour completion in <code>localStorage</code> isn't user-scoped — shared across users/roles on one browser. Prefix keys with <code>userId</code>; clear on logout.</td></tr>
+<tr><td><b>L6</b> <span class="tag">agent</span></td><td><code>CarrierComplianceView</code> detects the packet-unlock 403 by regex-matching the error <em>message</em>. Return a structured <code>{code:"RELATIONSHIP_REQUIRED"}</code> and match on code.</td></tr>
+<tr><td><b>L7</b> <span class="tag">informational</span></td><td>W-9 access log is written <em>before</em> the signed URL is issued — the correct fail-closed direction (an unconsumed log row is noise; an unlogged access would be the real defect). Accepted design; note the false-positive-log caveat for audit tooling.</td></tr>
+<tr><td><b>L8</b> <span class="tag">informational</span></td><td>FE dollars→cents uses <code>Math.round(parseFloat(x)*100)</code> — the standard conversion; sub-cent inputs are user error, not float corruption. Add 2-decimal input validation and move on.</td></tr>
+</table>
+
+<h2>5. What the prior rounds' defects look like now</h2>
+<table>
+<tr><th>v2/v3 defect</th><th>Status this round</th></tr>
+<tr><td>HIGH: staging env-var gaps → silent writes to prod tables</td><td class="ok">CLOSED — one-knob <code>DYNAMODB_TABLE_PREFIX</code> (49 tables derive), boot guard fails closed, parity script prefix-aware, EB payload 1,511/4096 chars.</td></tr>
+<tr><td>Missing prod tables for shipped features</td><td class="ok">CLOSED — 0 missing (56/56); compliance tables TF-provisioned with PITR + deletion protection.</td></tr>
+<tr><td>Prod TF drift (worm-sink Lambda hash)</td><td class="ok">CLOSED — .DS_Store packaging artifact; excludes added (PR #53); prod plan fully clean.</td></tr>
+<tr><td>Deploy smoke too shallow (route-mount only)</td><td class="ok">IMPROVED — W-9 render self-check now gates both deploys; found+fixed a real template-packaging bug that had reached prod.</td></tr>
+<tr><td>vendor-chunk split blank page (prod FE incident)</td><td class="ok">HOLDING — single vendor chunk verified in build and live.</td></tr>
+</table>
+
+<h2>6. Courses of action</h2>
+<h3>COA-1 — Close the cheap, sharp edges (this week; 4 small PRs, no migration risk)</h3>
+<table>
+<tr><th>Action</th><th>Fix sketch</th><th>Addresses</th></tr>
+<tr><td>Rate-limit <code>/w9/render-check</code></td><td>Reuse the existing <code>express-rate-limit</code> config (e.g. 10 req/min/IP) on the route; smoke unaffected.</td><td>H4</td></tr>
+<tr><td>Clear W-9 form state on success</td><td>Reset <code>f</code> (esp. <code>tin</code>) after the success toast; show a "submitted" summary card instead of the filled form.</td><td>M1</td></tr>
+<tr><td>Schedule COI expiry</td><td>Invoke <code>expireDueCois()</code> on a daily interval at boot (setInterval guarded to one leader) or EventBridge → an admin-token route. Emit count metric.</td><td>M3</td></tr>
+<tr><td>JSON 404 catch-all for <code>/api/*</code> + 409/410 handling on policy sign</td><td>Terminal <code>app.use('/api', …404 json)</code>; FE: branch on status for "policy updated — refresh to sign v2" / "no longer available".</td><td>L2, M2</td></tr>
+</table>
+<h3>COA-2 — Correctness under concurrency (next sprint)</h3>
+<table>
+<tr><th>Action</th><th>Fix sketch</th><th>Addresses</th></tr>
+<tr><td>Atomic supersede</td><td>Conditional flip (<code>ConditionExpression: isCurrentVersion = true</code>) + retry-on-condition-fail loop, or move "current" to a single pointer item per (owner,type) written with <code>attribute_not_exists</code>/version check.</td><td>H2</td></tr>
+<tr><td>Policy-snapshot repair</td><td>(a) bounded retry inside <code>finishAccepted</code>; (b) extend the existing negotiation sweeper to heal ACCEPTED loads missing a policy attachment; (c) metric+alert on snapshot failure.</td><td>H1</td></tr>
+<tr><td>Global 401 interceptor + structured error codes</td><td>One redirect-to-login on 401 in <code>lib/api.ts</code>; backend errors gain <code>{code}</code>; FE matches codes not messages.</td><td>M4, L6</td></tr>
+<tr><td>Advance↔charge linkage</td><td>On charge transition to DISPUTED/ADJUSTED, flag any advance referencing it (append an outcome row + notify ops).</td><td>M6</td></tr>
+<tr><td>Refetch-after-accept + config retry</td><td><code>onAssigned</code> → refetch load; RuntimeConfig retries with backoff before pinning <code>loaded</code>.</td><td>M5, M8</td></tr>
+</table>
+<h3>COA-3 — Scale readiness program (before beta scale-up; the big one)</h3>
+<table>
+<tr><th>Action</th><th>Fix sketch</th><th>Addresses</th></tr>
+<tr><td>GSI program for hot scans</td><td>Loads by <code>shipperId</code> / by <code>assignedOperatorId</code> (kills the relationship-resolver scan); charges by <code>loadId</code>; compliance docs by <code>ownerId+type</code>. Staging-first, backfill-free (new GSIs on existing keys).</td><td>H3a, H3b</td></tr>
+<tr><td>Make the negotiation GSI mandatory</td><td>Boot check: fail startup if the <code>loadId</code> GSI is missing (matches the boot-guard philosophy); alert (don't silently scan) on fallback.</td><td>H3c</td></tr>
+<tr><td>Notification outbox</td><td>Replace fire-and-forget with an outbox row + retry sweep; ops metric on failures.</td><td>M7</td></tr>
+<tr><td>Load test + alarms</td><td>k6/artillery against staging at 10× expected beta volume; CloudWatch alarms on DDB throttles + p95 latency before onboarding pushes.</td><td>H3, ops</td></tr>
+</table>
+<h3>COA-4 — Hygiene backlog (opportunistic)</h3>
+<p>Review + archive <code>LoadLead_AdminAudit</code> (L1) · decide the dev stack's fate (L4: apply or demote to documented template) · land the flaky-test fix (L3) · user-scope tour localStorage (L5) · history-row disambiguation for preserved amounts (M9) · 2-decimal money input validation (L8).</p>
+
+<h2>7. Recommendations (standing practice)</h2>
+<ol>
+<li><strong>Promote the staging W-9 E2E to a scheduled synthetic.</strong> The authed submit→mask→access-log flow found a prod-reaching bug the same day it first ran. Run it nightly against staging with a synthetic TIN; alert on failure. Never point it at prod (append-only store, real KMS).</li>
+<li><strong>Keep the "smoke must exercise the real path" bar.</strong> The render self-check pattern (public, canned, non-PII, asserts a hash) generalizes: candidates are policy-render and BOL-render if/when they gain server-side rendering.</li>
+<li><strong>Treat scan-fallbacks as incidents, not conveniences.</strong> Any query that can silently degrade to a full scan should fail loudly (boot check or alarm). H3c is the template.</li>
+<li><strong>Institutionalize the parity trio</strong> run this round — parity script + untargeted plans (staging/prod) + live mode-diff — as a monthly check or CI cron; all three are fast and already scripted.</li>
+<li><strong>Adopt structured error codes now</strong> (small backend change) — three findings this round (M2, M4, L6) trace to FE parsing free-text messages.</li>
+</ol>
+
+<h2>8. Method &amp; evidence</h2>
+<p>Backend: full vitest (90 files). Frontend: <code>tsc</code>, Vite production build, chunk audit, Playwright (46 specs, chromium). Infra: <code>check-table-env-parity.mjs</code>; untargeted <code>tofu plan</code> in staging/prod/dev; AWS live inventory (DynamoDB list-tables diff vs code-required names — 56 required / 60 present / 0 missing / 1 orphan; EB config-settings diff; KMS alias inventory; S3 head-bucket). Live smoke: health, auth guards, beta gate, render-check hash comparison, SPA fallback + cache headers, <code>/_test</code> absence. Business logic: two independent read-only audit passes (backend services; frontend guards/API), with every HIGH and headline MEDIUM independently re-verified against source (<code>negotiationService.ts:539</code>, zero <code>ConditionExpression</code>s in <code>complianceDocumentService.ts</code>, <code>expireDueCois</code> call-graph, rate-limiter coverage, FE form-state retention, policy-sign catch block). Findings not independently re-verified are tagged <em>agent</em>.</p>
+<p style="color:#57606a;font-size:11px">Throwaway staging test data from the 2026-07-09 E2E (account <code>oo-w9-e2e@loadlead.test</code>, one synthetic-TIN W-9 row, one access-log row) remains in staging by design; flag for cleanup if staging data hygiene matters.</p>
+
+</body></html>
