@@ -188,3 +188,45 @@ describe('only APPROVED/SETTLED affect money', () => {
     expect(isBillable({ status: 'ADJUSTED' })).toBe(false);
   });
 });
+
+// ── Audit v4 M6: advance issued against a charge that later regresses ────────
+describe('M6: advances flagged when a funded charge regresses', () => {
+  const ADVANCES = config.dynamodb.fundingAdvancesTable;
+  const OUTCOMES = config.dynamodb.reconciliationOutcomesTable;
+
+  it('dispute of a funded charge appends an ADVANCE_AT_RISK reconciliation outcome', async () => {
+    seedStop('load-1', 'OVER', 0, 5 * HOUR);
+    const c = await AccessorialChargeService.computeForStop(dryVan, 'OVER', 'sys');
+    await AccessorialChargeService.approve(c!.chargeId, 'shipper-1');
+    // An advance was already fronted against the APPROVED charge.
+    (tables[ADVANCES] ??= []).push({
+      advanceId: 'advance_abc123',
+      invoiceId: 'inv-1',
+      carrierId: 'carrier-9',
+      lineKind: 'ACCESSORIAL',
+      chargeId: c!.chargeId,
+      amountCents: 15000,
+      issuedAt: 1,
+    });
+
+    await AccessorialChargeService.dispute(c!.chargeId, 'shipper-1', 'carrier-9', 'service failure');
+
+    const atRisk = (tables[OUTCOMES] ?? []).filter((o: any) => o.type === 'ADVANCE_AT_RISK');
+    expect(atRisk.length).toBe(1);
+    expect(atRisk[0]).toMatchObject({
+      advanceId: 'advance_abc123',
+      chargeId: c!.chargeId,
+      invoiceId: 'inv-1',
+      carrierId: 'carrier-9',
+      amountCents: 15000,
+    });
+  });
+
+  it('dispute of an unfunded charge records no ADVANCE_AT_RISK row', async () => {
+    seedStop('load-1', 'OVER', 0, 5 * HOUR);
+    const c = await AccessorialChargeService.computeForStop(dryVan, 'OVER', 'sys');
+    await AccessorialChargeService.dispute(c!.chargeId, 'shipper-1', 'carrier-9');
+    const atRisk = (tables[OUTCOMES] ?? []).filter((o: any) => o.type === 'ADVANCE_AT_RISK');
+    expect(atRisk.length).toBe(0);
+  });
+});

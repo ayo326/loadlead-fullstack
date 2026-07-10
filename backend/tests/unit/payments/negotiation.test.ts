@@ -89,18 +89,28 @@ const H = vi.hoisted(() => {
     return [...tbl(table).values()].filter((it: any) => it[attr] === val);
   });
 
+  const updateItem = vi.fn(async (table: string, key: any, patch: any) => {
+    const k = keyOf(table, key);
+    const row = tbl(table).get(k);
+    if (row) tbl(table).set(k, { ...row, ...patch });
+  });
+
   const loads = new Map<string, any>();
   const assignDriver = vi.fn(async (loadId: string, driverId: string) => {
     const l = loads.get(loadId); if (l) { l.assignedDriverId = driverId; l.status = 'BOOKED'; }
   });
   const getLoadById = vi.fn(async (loadId: string) => loads.get(loadId) ?? null);
 
-  return { tables, tbl, send, putItem, getItem, scan, query, loads, assignDriver, getLoadById };
+  return { tables, tbl, send, putItem, getItem, scan, query, updateItem, loads, assignDriver, getLoadById };
 });
 
 vi.mock('../../../src/config/aws', () => ({ docClient: { send: H.send } }));
 vi.mock('../../../src/config/database', () => ({
-  Database: { putItem: H.putItem, getItem: H.getItem, scan: H.scan, query: H.query, updateItem: vi.fn(), deleteItem: vi.fn() },
+  Database: { putItem: H.putItem, getItem: H.getItem, scan: H.scan, query: H.query, updateItem: H.updateItem, deleteItem: vi.fn() },
+}));
+const snapshotPolicy = vi.hoisted(() => vi.fn(async () => null));
+vi.mock('../../../src/services/compliance/shipperPolicyService', () => ({
+  snapshotPolicyOntoLoad: snapshotPolicy,
 }));
 vi.mock('../../../src/services/loadService', () => ({
   LoadService: { getLoadById: H.getLoadById, assignDriver: H.assignDriver },
@@ -121,6 +131,8 @@ beforeEach(() => {
   H.loads.clear();
   H.loads.set('load-1', LOAD());
   vi.clearAllMocks();
+  snapshotPolicy.mockReset();
+  snapshotPolicy.mockImplementation(async () => null);
 });
 
 describe('engagement and the exclusive lock', () => {
@@ -452,5 +464,35 @@ describe('idempotency and validation', () => {
     await NegotiationService.bid(neg.negotiationId, 'drv-1', { ratePerMileCents: 300 });
     await NegotiationService.acceptOffer(neg.negotiationId, { party: 'SHIPPER', shipperId: 'ship-1' });
     expect(await NegotiationService.agreedLinehaulCentsFor('load-1')).toBe(120000);
+  });
+});
+
+// ── Audit v4 H1: policy snapshot retry + sweeper heal ───────────────────────
+describe('H1: policy snapshot survives transient failures', () => {
+  it('retries a transient snapshot failure inline; no pending flag on success', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    snapshotPolicy
+      .mockRejectedValueOnce(new Error('ddb throttle 1'))
+      .mockRejectedValueOnce(new Error('ddb throttle 2'));
+    const done = await NegotiationService.acceptLoad(neg.negotiationId, 'drv-1');
+    expect(done.status).toBe('ACCEPTED');
+    expect(snapshotPolicy).toHaveBeenCalledTimes(3); // 2 failures + the success
+    expect((await NegotiationService.getById(neg.negotiationId))!.policySnapshotPending).not.toBe(true);
+  });
+
+  it('flags policySnapshotPending after exhausted retries; the sweeper heals + clears it', async () => {
+    const neg = await NegotiationService.engage(HAULER);
+    snapshotPolicy.mockRejectedValue(new Error('persistent outage'));
+    // The acceptance itself is never blocked by the snapshot outage.
+    const done = await NegotiationService.acceptLoad(neg.negotiationId, 'drv-1');
+    expect(done.status).toBe('ACCEPTED');
+    expect((await NegotiationService.getById(neg.negotiationId))!.policySnapshotPending).toBe(true);
+
+    // Outage ends: the reconcile sweeper lands the snapshot and clears the flag.
+    snapshotPolicy.mockReset();
+    snapshotPolicy.mockImplementation(async () => null);
+    const healed = await NegotiationService.reconcileAcceptedAssignments();
+    expect(healed).toBeGreaterThanOrEqual(1);
+    expect((await NegotiationService.getById(neg.negotiationId))!.policySnapshotPending).toBe(false);
   });
 });

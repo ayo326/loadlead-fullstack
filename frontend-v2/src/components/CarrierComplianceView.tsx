@@ -56,9 +56,14 @@ export function CarrierComplianceView({ operatorId }: { operatorId: string }) {
       setPacket(r.packet);
       setBasis(r.basis);
     } catch (e: any) {
-      // The 403 carries the explanation of what unlocks access.
+      // Branch on the structured code the backend now sends (audit v4 L6);
+      // the message regex stays as a fallback for older backends only.
+      const relationshipRequired =
+        e.code === "RELATIONSHIP_REQUIRED" ||
+        e.message?.includes("RELATIONSHIP") ||
+        /negotiation|assigned|completed/i.test(e.message ?? "");
       setLocked(
-        e.message?.includes("RELATIONSHIP") || /negotiation|assigned|completed/i.test(e.message ?? "")
+        relationshipRequired
           ? "The full compliance packet opens once you have an active negotiation, an assigned load, or a recently completed load with this carrier."
           : e.message,
       );

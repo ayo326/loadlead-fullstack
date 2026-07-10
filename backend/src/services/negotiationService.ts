@@ -76,6 +76,13 @@ export interface LoadNegotiation {
   outcome?: NegotiationAction;
   agreedRatePerMileCents?: number | null;
   agreedLinehaulCents?: number;
+  /**
+   * Set when the shipper-policy snapshot could not be persisted at accept time
+   * (transient failure after retries; audit v4 H1). The reconcile sweeper
+   * retries the snapshot until it lands, then clears the flag - an ACCEPTED
+   * load can no longer silently end up without its pinned policy evidence.
+   */
+  policySnapshotPending?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -434,11 +441,47 @@ export class NegotiationService {
    * failed after the terminal transition, with no client retry. Idempotent; a
    * genuine "assigned to another driver" conflict is logged, not forced.
    */
+  /**
+   * Snapshot the shipper policy with a bounded inline retry (audit v4 H1).
+   * AppError (config errors like require-policy-but-none) rethrows immediately;
+   * transient errors back off briefly and retry. The underlying snapshot is
+   * idempotent per load, so a retry after a half-landed attempt is safe.
+   */
+  private static async snapshotPolicyWithRetry(loadId: string, shipperId: string, attempts = 3): Promise<void> {
+    let lastErr: unknown;
+    for (let i = 1; i <= attempts; i++) {
+      try {
+        await snapshotPolicyOntoLoad(loadId, shipperId);
+        return;
+      } catch (e) {
+        if (e instanceof AppError) throw e;
+        lastErr = e;
+        if (i < attempts) await new Promise((r) => setTimeout(r, 100 * i));
+      }
+    }
+    throw lastErr;
+  }
+
   static async reconcileAcceptedAssignments(): Promise<number> {
     const all = await this.scanNegs();
     let healed = 0;
+    let snapshotsHealed = 0;
     for (const neg of all) {
       if (neg.status !== 'ACCEPTED') continue;
+
+      // H1 heal: an accept whose policy snapshot failed (flagged at accept
+      // time) keeps retrying here until the evidence lands. Cheap: the flag
+      // is on the already-scanned row, so no extra reads for the common case.
+      if (neg.policySnapshotPending) {
+        try {
+          await snapshotPolicyOntoLoad(neg.loadId, neg.shipperId);
+          await Database.updateItem(T().neg, { negotiationId: neg.negotiationId }, { policySnapshotPending: false });
+          snapshotsHealed++;
+        } catch (err) {
+          Logger.error(`[negotiation reconcile] policy snapshot still failing for ${neg.negotiationId}`, err);
+        }
+      }
+
       const load = await LoadService.getLoadById(neg.loadId);
       if (load?.assignedDriverId === neg.haulerDriverId) continue; // already assigned to us
       try {
@@ -449,7 +492,8 @@ export class NegotiationService {
       }
     }
     if (healed > 0) Logger.info(`[negotiation reconcile] healed ${healed} accepted-but-unassigned load(s)`);
-    return healed;
+    if (snapshotsHealed > 0) Logger.info(`[negotiation reconcile] healed ${snapshotsHealed} pending policy snapshot(s)`);
+    return healed + snapshotsHealed;
   }
 
   // ── live-update seam (long poll) ──────────────────────────────────────────
@@ -534,13 +578,19 @@ export class NegotiationService {
     // Snapshot the shipper's current compliance policy onto the load at accept
     // (Phase 7), following the accessorial policy-snapshot pattern. Signing is
     // prompted post-acceptance so it adds no friction inside the window. A
-    // require-policy config error (AppError) propagates; transient errors do not
-    // block assignment.
+    // require-policy config error (AppError) propagates; transient errors do
+    // not block assignment - but they no longer vanish either (audit v4 H1):
+    // the snapshot is retried inline, and if it still fails the negotiation is
+    // flagged policySnapshotPending so the reconcile sweeper keeps retrying
+    // until the policy evidence lands. snapshotPolicyOntoLoad is idempotent
+    // per load, so overlapping retries are harmless.
     try {
-      await snapshotPolicyOntoLoad(neg.loadId, neg.shipperId);
+      await this.snapshotPolicyWithRetry(neg.loadId, neg.shipperId);
     } catch (e) {
       if (e instanceof AppError) throw e;
-      Logger.warn(`[negotiation] shipper policy snapshot failed for ${neg.loadId}: ${e}`);
+      Logger.error(`[negotiation] shipper policy snapshot failed for ${neg.loadId} after retries; flagging for sweeper heal: ${e}`);
+      await Database.updateItem(T().neg, { negotiationId: neg.negotiationId }, { policySnapshotPending: true })
+        .catch((flagErr) => Logger.error(`[negotiation] could not flag policySnapshotPending on ${neg.negotiationId}`, flagErr));
     }
 
     // 2. Assignment + lock release via the idempotent reconciler, so a failure

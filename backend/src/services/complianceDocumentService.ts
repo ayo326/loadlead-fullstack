@@ -192,9 +192,76 @@ export class ComplianceDocumentService {
       await this.recordVerificationEvent(prior.documentId, 'SUPERSEDED', 'system', `Superseded by ${documentId}`);
     }
 
+    // Self-heal the single-current invariant (audit v4 H2). The read-then-flip
+    // above is not atomic: two concurrent submits can both read the same prior
+    // (or null) and both land with isCurrentVersion=true. Rather than a
+    // conditional-write dance, converge after the write: every submit sweeps
+    // its (ownerType, ownerId, documentType) group and flips everything except
+    // the deterministic winner. Both racers run the same sweep and agree on
+    // the winner, so the terminal state is always exactly one current row.
+    await this.healCurrentVersions(input.ownerType, input.ownerId, input.documentType);
+
     await this.recordVerificationEvent(documentId, 'SUBMITTED', input.uploadedBy, input.submitDetail);
     Logger.info(`[compliance] ${input.documentType} submitted for ${input.ownerType}:${input.ownerId} (${documentId})`);
     return doc;
+  }
+
+  /**
+   * Deterministic winner ordering: newest createdAt, tiebroken by documentId
+   * so two rows created in the same millisecond still order stably (both
+   * concurrent healers must agree on the winner, or they would flip each
+   * other's rows back and forth).
+   */
+  private static newestFirst(a: ComplianceDocument, b: ComplianceDocument): number {
+    if (b.createdAt !== a.createdAt) return b.createdAt - a.createdAt;
+    return b.documentId.localeCompare(a.documentId);
+  }
+
+  /**
+   * Enforce exactly one isCurrentVersion=true row per (ownerType, ownerId,
+   * documentType). Idempotent and safe to run concurrently: the winner is
+   * deterministic, losers get flipped with a supersession stamp and an
+   * append-only SUPERSEDED event. A duplicate SUPERSEDED event from two
+   * simultaneous healers is acceptable noise; a corrupted current set is not.
+   */
+  static async healCurrentVersions(
+    ownerType: ComplianceOwnerType,
+    ownerId: string,
+    documentType: ComplianceDocumentType,
+  ): Promise<number> {
+    const all = await Database.scan<ComplianceDocument>(this.docsTable);
+    const currents = all
+      .filter(
+        (d) =>
+          d.ownerType === ownerType &&
+          d.ownerId === ownerId &&
+          d.documentType === documentType &&
+          d.isCurrentVersion,
+      )
+      .sort((a, b) => this.newestFirst(a, b));
+    if (currents.length <= 1) return 0;
+
+    const winner = currents[0];
+    const healedAt = Helpers.getCurrentTimestamp();
+    let flipped = 0;
+    for (const loser of currents.slice(1)) {
+      await Database.updateItem(this.docsTable, { documentId: loser.documentId }, {
+        isCurrentVersion: false,
+        supersededAt: healedAt,
+        supersededByDocumentId: winner.documentId,
+      });
+      await this.recordVerificationEvent(
+        loser.documentId,
+        'SUPERSEDED',
+        'system',
+        `Superseded by ${winner.documentId} (concurrent-submit heal)`,
+      );
+      flipped++;
+    }
+    Logger.warn(
+      `[compliance] healed ${flipped} duplicate current version(s) of ${documentType} for ${ownerType}:${ownerId} (winner ${winner.documentId})`,
+    );
+    return flipped;
   }
 
   static async getById(documentId: string): Promise<ComplianceDocument | null> {
@@ -225,8 +292,10 @@ export class ComplianceDocumentService {
             d.documentType === documentType &&
             d.isCurrentVersion,
         )
-        // Defensive: if more than one is flagged current (should not happen), newest wins.
-        .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null
+        // Defensive: if more than one is flagged current (concurrent-submit race,
+        // healed by healCurrentVersions), the same deterministic winner is chosen
+        // here so reads and the heal always agree.
+        .sort((a, b) => this.newestFirst(a, b))[0] ?? null
     );
   }
 
