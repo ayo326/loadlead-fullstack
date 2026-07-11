@@ -28,9 +28,13 @@ describe('fieldCrypto (local envelope mode)', () => {
   it('fails to decrypt tampered ciphertext (GCM auth tag)', async () => {
     const sealed = await encryptField('123-45-6789');
     const parts = sealed.split(':');
-    // Flip the last base64url char of the ciphertext segment.
-    const ct = parts[3];
-    parts[3] = ct.slice(0, -1) + (ct.endsWith('A') ? 'B' : 'A');
+    // Deterministically corrupt the ciphertext: decode, XOR a middle byte,
+    // re-encode. (The old version flipped the LAST base64url char, which can
+    // land entirely in padding bits and leave the decoded bytes unchanged -
+    // the GCM tag then still verified and the test flaked ~audit v4 L3.)
+    const buf = Buffer.from(parts[3], 'base64url');
+    buf[Math.floor(buf.length / 2)] ^= 0xff;
+    parts[3] = buf.toString('base64url');
     await expect(decryptField(parts.join(':'))).rejects.toThrow();
   });
 

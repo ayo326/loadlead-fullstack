@@ -102,6 +102,10 @@ export function AccessorialsPanel({ loadId, role }: { loadId: string; role: "SHI
                         placeholder="new amount" className="h-8 w-28" inputMode="decimal" />
                       <Button size="sm" variant="secondary" disabled={busy !== null}
                         onClick={() => {
+                          // Audit v4 L8: cap input at 2 decimal places so the
+                          // dollars->cents conversion is exact (sub-cent input
+                          // is user error, not a rounding surprise).
+                          if (!/^\d+(\.\d{1,2})?$/.test(adjustDollars.trim())) { toast.error("Enter a dollar amount with at most 2 decimal places."); return; }
                           const cents = Math.round(parseFloat(adjustDollars) * 100);
                           if (!Number.isFinite(cents) || cents < 0) { toast.error("Enter a valid amount"); return; }
                           run(`adj-${c.chargeId}`, () => api.accessorials.adjust(c.chargeId, cents), "Charge adjusted")

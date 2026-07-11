@@ -1,3 +1,13 @@
+############################################################################
+# DEV STACK STATUS (audit v4 L4, 2026-07-10): this stack has NEVER been
+# applied - no dev EB environment and zero LoadLead-Dev-* tables exist in
+# AWS. Day-to-day development runs against LOCAL DynamoDB (backend/.env
+# DYNAMODB_ENDPOINT). This configuration is kept deliberately as (a) the
+# documented template for standing dev up if a hosted dev env is ever
+# wanted, and (b) a parity target so check-table-env-parity keeps its table
+# map honest. If you apply it, budget for the same footprint as staging.
+############################################################################
+
 locals {
   env    = "dev"
   prefix = "LoadLead-Dev-"
