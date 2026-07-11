@@ -215,12 +215,14 @@ export async function assertRequiredIndexesActive(): Promise<void> {
   const REQUIRED = [
     { table: config.dynamodb.loadNegotiationsTable, index: 'loadId-createdAt-index' },
     { table: config.dynamodb.negotiationOffersTable, index: 'negotiationId-createdAt-index' },
-  ];
-  const EXPECTED = [
+    // Promoted from EXPECTED 2026-07-10 (audit v4 COA-4): confirmed ACTIVE in
+    // both staging and prod after the COA-3A backfill.
     { table: config.dynamodb.loadsTable, index: 'shipperId-index' },
     { table: config.dynamodb.accessorialChargesTable, index: 'loadId-index' },
     { table: config.dynamodb.complianceDocumentsTable, index: 'ownerId-index' },
   ];
+  // New indexes start here warn-only, then get promoted once ACTIVE everywhere.
+  const EXPECTED: { table: string; index: string }[] = [];
 
   const check = async (table: string, index: string): Promise<'ok' | string> => {
     try {

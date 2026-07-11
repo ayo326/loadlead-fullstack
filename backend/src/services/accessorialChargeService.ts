@@ -61,6 +61,14 @@ export interface AccessorialCharge {
   departureEventId?: string;
   /** true while the stop is still open (amount is provisional). */
   provisional: boolean;
+  /**
+   * Audit v4 M9: set when a recompute PRESERVED a human-reviewed amount
+   * instead of adopting the fresh computation - the audit trail can then
+   * distinguish "recomputed to X" from "X carried over".
+   */
+  amountPreserved?: boolean;
+  /** The fresh computation's amount at the preserved recompute, for the trail. */
+  freshComputedAmountCents?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -191,6 +199,9 @@ export class AccessorialChargeService {
       rateClass: comp.rateClass,
       rateCents: comp.rateCents,
       amountCents: preserveStatus ? existing!.amountCents : comp.amountCents,
+      // Audit v4 M9: a recompute that PRESERVES a reviewed amount must be
+      // distinguishable from a fresh computation in the audit trail.
+      ...(preserveStatus ? { amountPreserved: true, freshComputedAmountCents: comp.amountCents } : {}),
       policyVersion: snapshot.version,
       policyHash: snapshot.policyHash,
       policySnapshot: snapshot,
