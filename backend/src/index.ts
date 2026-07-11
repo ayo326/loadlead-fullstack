@@ -58,6 +58,7 @@ import accessorialRoutes from './routes/accessorials';
 import adminComplianceRoutes from './routes/adminCompliance';
 import complianceRoutes from './routes/compliance';
 import { expireDueCois } from './services/compliance/coiService';
+import { NotificationOutboxService } from './services/notificationOutboxService';
 import negotiationRoutes from './routes/negotiations';
 import { NegotiationService } from './services/negotiationService';
 import referenceRoutes from './routes/reference';
@@ -284,6 +285,17 @@ const runCoiExpirySweep = async () => {
 };
 setTimeout(runCoiExpirySweep, 60_000);
 setInterval(runCoiExpirySweep, 6 * 60 * 60 * 1000);
+
+// Notification-outbox sweep (audit v4 M7): retry PENDING pushes every 60 s so
+// a transient push outage delays a counterparty notification instead of
+// dropping it. Same EventBridge/Lambda debt note as the workers above.
+setInterval(async () => {
+  try {
+    await NotificationOutboxService.sweep();
+  } catch (e) {
+    console.error('[outbox worker] error', e);
+  }
+}, 60_000);
 
 
 app.use('/api/maps', mapsRouter);

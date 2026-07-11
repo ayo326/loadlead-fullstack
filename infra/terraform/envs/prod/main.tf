@@ -436,6 +436,35 @@ module "ddb_factor_contacts" {
   tags                = local.tags
 }
 
+# Platform alarms (audit v4 COA-3B) - see modules/monitoring.
+module "monitoring" {
+  source = "../../modules/monitoring"
+  env    = "prod"
+  tags   = local.tags
+  hot_tables = [
+    "LoadLead_Loads",
+    "LoadLead_LoadNegotiations",
+    "LoadLead_NegotiationOffers",
+    "LoadLead_AccessorialCharges",
+    "LoadLead_ComplianceDocuments",
+  ]
+  eb_environment_name = "loadlead-backend-prod"
+}
+
+# ─── LoadLead_NotificationOutbox ────────────────────────────────────────────
+# Durable push-notification outbox (audit v4 M7/COA-3B): a failed counterparty
+# push is retried by the backend sweeper instead of silently vanishing. Rows
+# expire via TTL; disposable delivery state, so no deletion protection.
+module "ddb_notification_outbox" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_NotificationOutbox"
+  hash_key            = "outboxId"
+  attributes          = [{ name = "outboxId", type = "S" }]
+  ttl_attribute       = "expiresAt"
+  deletion_protection = false
+  tags                = local.tags
+}
+
 # ─── LoadLead_FactoringSubmissions ──────────────────────────────────────────
 # Append-only factoring submission records: the disclosure trail of what
 # financial documents left the platform, to whom, and when.

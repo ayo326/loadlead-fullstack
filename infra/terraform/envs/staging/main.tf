@@ -43,6 +43,22 @@ module "dynamodb" {
   tags                = local.tags
 }
 
+# Platform alarms (audit v4 COA-3B): DDB throttles on the request-hot tables
+# + EB health -> SNS. Subscribe an email in the console (or set alert_email).
+module "monitoring" {
+  source = "../../modules/monitoring"
+  env    = local.env
+  tags   = local.tags
+  hot_tables = [
+    "${local.prefix}Loads",
+    "${local.prefix}LoadNegotiations",
+    "${local.prefix}NegotiationOffers",
+    "${local.prefix}AccessorialCharges",
+    "${local.prefix}ComplianceDocuments",
+  ]
+  eb_environment_name = local.backend_env_name
+}
+
 resource "aws_s3_bucket" "pod_uploads" {
   bucket = "loadlead-staging-pod-uploads"
   tags   = local.tags
