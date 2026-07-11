@@ -66,39 +66,60 @@ type TourVariant = "dashboard" | "settings";
 /* ─── helpers ───────────────────────────────────────────────────────────── */
 
 const STORAGE_PREFIX = "loadlead.tour.completed.";
-const storageKey = (persona: Persona, variant: TourVariant) =>
-  `${STORAGE_PREFIX}${persona}.${variant}`;
+// Audit v4 L5: completion keys are scoped per USER, not just per persona -
+// otherwise two people sharing a browser share tour state (user B never sees
+// onboarding because user A dismissed it).
+const storageKey = (userId: string, persona: Persona, variant: TourVariant) =>
+  `${STORAGE_PREFIX}${userId}.${persona}.${variant}`;
 
 const storage = {
-  get(persona: Persona, variant: TourVariant = "dashboard"): boolean {
+  get(userId: string, persona: Persona, variant: TourVariant = "dashboard"): boolean {
     try {
-      // Back-compat: the original key didn't include the variant suffix.
-      const legacy = localStorage.getItem(STORAGE_PREFIX + persona);
-      if (variant === "dashboard" && legacy === "1") return true;
-      return localStorage.getItem(storageKey(persona, variant)) === "1";
+      if (localStorage.getItem(storageKey(userId, persona, variant)) === "1") return true;
+      // Migrate-on-read for the two pre-L5 unscoped key shapes: the first
+      // authenticated reader claims the legacy completion as their own and
+      // the legacy key is deleted, so it can never leak to a later user on
+      // this browser. (In practice the claimer IS the original owner - they
+      // were the one logged in when the app upgraded.)
+      const legacyVariantKey = `${STORAGE_PREFIX}${persona}.${variant}`;
+      const legacyPersonaKey = STORAGE_PREFIX + persona; // oldest shape, dashboard only
+      const legacyHit =
+        localStorage.getItem(legacyVariantKey) === "1" ||
+        (variant === "dashboard" && localStorage.getItem(legacyPersonaKey) === "1");
+      if (legacyHit) {
+        localStorage.setItem(storageKey(userId, persona, variant), "1");
+        localStorage.removeItem(legacyVariantKey);
+        if (variant === "dashboard") localStorage.removeItem(legacyPersonaKey);
+        return true;
+      }
+      return false;
     } catch {
       return false;
     }
   },
-  set(persona: Persona, variant: TourVariant = "dashboard") {
+  set(userId: string, persona: Persona, variant: TourVariant = "dashboard") {
     try {
-      localStorage.setItem(storageKey(persona, variant), "1");
+      localStorage.setItem(storageKey(userId, persona, variant), "1");
     } catch {
       /* private mode etc. */
     }
   },
-  clear(persona: Persona, variant?: TourVariant) {
+  clear(userId: string, persona: Persona, variant?: TourVariant) {
     try {
+      // Clear the user-scoped keys AND any legacy unscoped leftovers so a
+      // Replay genuinely restarts for this persona.
       if (!variant) {
-        // Clear all variants for this persona, including the legacy key.
         localStorage.removeItem(STORAGE_PREFIX + persona);
-        localStorage.removeItem(storageKey(persona, "dashboard"));
-        localStorage.removeItem(storageKey(persona, "settings"));
+        localStorage.removeItem(storageKey(userId, persona, "dashboard"));
+        localStorage.removeItem(storageKey(userId, persona, "settings"));
+        localStorage.removeItem(`${STORAGE_PREFIX}${persona}.dashboard`);
+        localStorage.removeItem(`${STORAGE_PREFIX}${persona}.settings`);
       } else {
-        localStorage.removeItem(storageKey(persona, variant));
+        localStorage.removeItem(storageKey(userId, persona, variant));
+        localStorage.removeItem(`${STORAGE_PREFIX}${persona}.${variant}`);
       }
     } catch {
-      /* noop */
+      /* private mode etc. */
     }
   },
 };
@@ -606,7 +627,7 @@ function roleToPersona(role: string | undefined): Persona | null {
   }
 }
 
-function buildTour(personaTour: PersonaTour, variant: TourVariant = "dashboard"): Tour {
+function buildTour(personaTour: PersonaTour, variant: TourVariant = "dashboard", userId = ""): Tour {
   const tour: Tour = new Shepherd.Tour({
     useModalOverlay: true,
     defaultStepOptions,
@@ -666,8 +687,8 @@ function buildTour(personaTour: PersonaTour, variant: TourVariant = "dashboard")
     });
   });
 
-  tour.on("complete", () => storage.set(personaTour.persona, variant));
-  tour.on("cancel", () => storage.set(personaTour.persona, variant));
+  tour.on("complete", () => storage.set(userId, personaTour.persona, variant));
+  tour.on("cancel", () => storage.set(userId, personaTour.persona, variant));
 
   return tour;
 }
@@ -709,30 +730,31 @@ export function TourMount() {
     (opts?: { force?: boolean; variant?: TourVariant }) => {
       if (!persona) return;
       const variant = opts?.variant ?? "dashboard";
-      if (!opts?.force && storage.get(persona, variant)) return;
+      const userId = user?.userId ?? "";
+      if (!opts?.force && storage.get(userId, persona, variant)) return;
       // Late-bind: build a fresh tour each start so cancelled-then-replayed
       // tours don't reuse stale Shepherd state.
       const config = variant === "settings" ? settingsTours[persona] : TOURS[persona];
-      const t = buildTour(config, variant);
+      const t = buildTour(config, variant, userId);
       tourRef.current = t;
       t.start();
     },
-    [persona],
+    [persona, user?.userId],
   );
 
   const reset = useCallback(
     (variant?: TourVariant) => {
       if (!persona) return;
-      storage.clear(persona, variant);
+      storage.clear(user?.userId ?? "", persona, variant);
       tourRef.current?.cancel();
       tourRef.current = null;
     },
-    [persona],
+    [persona, user?.userId],
   );
 
   const hasCompleted = useCallback(
-    (variant?: TourVariant) => (persona ? storage.get(persona, variant ?? "dashboard") : false),
-    [persona],
+    (variant?: TourVariant) => (persona ? storage.get(user?.userId ?? "", persona, variant ?? "dashboard") : false),
+    [persona, user?.userId],
   );
 
   // Auto-start when the persona's home dashboard mounts and tour hasn't run.
