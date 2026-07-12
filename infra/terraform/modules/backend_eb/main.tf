@@ -101,7 +101,16 @@ resource "aws_iam_instance_profile" "eb" {
 
 locals {
   base_settings = [
-    { namespace = "aws:autoscaling:launchconfiguration", name = "InstanceType", value = var.instance_type },
+    # Instance type via aws:ec2:instances/InstanceTypes (launch TEMPLATE path), NOT
+    # aws:autoscaling:launchconfiguration/InstanceType: AWS retired EC2 launch
+    # CONFIGURATIONS (this account can no longer create them), so any env whose
+    # config forces a launch config fails to (re)create with "The Launch
+    # Configuration creation operation is not available in your account. Use launch
+    # templates." Setting InstanceType under the launchconfiguration namespace is
+    # the one option that forces a launch config; moving it here makes EB use a
+    # launch template. IamInstanceProfile + SecurityGroups stay under the
+    # launchconfiguration namespace - they are launch-template-compatible.
+    { namespace = "aws:ec2:instances", name = "InstanceTypes", value = var.instance_type },
     { namespace = "aws:autoscaling:launchconfiguration", name = "IamInstanceProfile", value = aws_iam_instance_profile.eb.name },
     { namespace = "aws:autoscaling:launchconfiguration", name = "SecurityGroups", value = var.security_group_id },
     { namespace = "aws:autoscaling:asg", name = "MinSize", value = tostring(var.min_instances) },
