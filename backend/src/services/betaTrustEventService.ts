@@ -19,25 +19,38 @@ import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import { Logger } from '../utils/logger';
 
-export type BetaTrustEventType = 'NO_SHOW' | 'TRUST_INCIDENT';
+// COI_DISCREPANCY is raised by the Canopy cross-reference engine (SCRUM-60) when
+// an uploaded certificate materially conflicts with the insurer-sourced data (a
+// forged-or-materially-stale signal). It references a cross-reference result, not
+// a load, so loadId is optional for it; NO_SHOW / TRUST_INCIDENT still require a
+// load. It is not counted in the two Lane Liquidity dials.
+export type BetaTrustEventType = 'NO_SHOW' | 'TRUST_INCIDENT' | 'COI_DISCREPANCY';
 
-export const BETA_TRUST_EVENT_TYPES: BetaTrustEventType[] = ['NO_SHOW', 'TRUST_INCIDENT'];
+export const BETA_TRUST_EVENT_TYPES: BetaTrustEventType[] = ['NO_SHOW', 'TRUST_INCIDENT', 'COI_DISCREPANCY'];
+
+/** Trust event types that must reference a load. */
+const LOAD_SCOPED_TYPES: BetaTrustEventType[] = ['NO_SHOW', 'TRUST_INCIDENT'];
 
 export interface BetaTrustEvent {
   eventId: string;
   eventType: BetaTrustEventType;
-  loadId: string; // reference to a load, by id only
+  /** Reference to a load, by id only. Optional for carrier-scoped events. */
+  loadId?: string;
   carrierId: string; // reference to a carrier, by id only
+  /** Admin id, or a system source string ('system') for auto-raised events. */
   recordedByAdminId: string;
   recordedAt: number; // epoch ms, the app's timestamp convention
+  /** For COI_DISCREPANCY: the cross-reference result this event references. */
+  crossReferenceResultId?: string;
   note?: string;
 }
 
 export interface RecordTrustEventInput {
   eventType: BetaTrustEventType;
-  loadId: string;
+  loadId?: string;
   carrierId: string;
   recordedByAdminId: string;
+  crossReferenceResultId?: string;
   note?: string;
 }
 
@@ -52,17 +65,21 @@ export class BetaTrustEventService {
     if (!BETA_TRUST_EVENT_TYPES.includes(input.eventType)) {
       throw new Error(`invalid eventType: ${input.eventType}`);
     }
-    if (!input.loadId || !input.carrierId) {
-      throw new Error('loadId and carrierId are required');
+    if (!input.carrierId) {
+      throw new Error('carrierId is required');
+    }
+    if (LOAD_SCOPED_TYPES.includes(input.eventType) && !input.loadId) {
+      throw new Error(`loadId is required for ${input.eventType}`);
     }
 
     const event: BetaTrustEvent = {
       eventId: Helpers.generateId('btrust'),
       eventType: input.eventType,
-      loadId: input.loadId,
+      ...(input.loadId ? { loadId: input.loadId } : {}),
       carrierId: input.carrierId,
       recordedByAdminId: input.recordedByAdminId,
       recordedAt: Helpers.getCurrentTimestamp(),
+      ...(input.crossReferenceResultId ? { crossReferenceResultId: input.crossReferenceResultId } : {}),
       ...(input.note ? { note: input.note } : {}),
     };
 

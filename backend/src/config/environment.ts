@@ -172,6 +172,21 @@ export const config = {
     // a failed push is retried by the sweeper instead of silently vanishing.
     notificationOutboxTable:
       t('DYNAMODB_NOTIFICATION_OUTBOX_TABLE', 'LoadLead_NotificationOutbox'),
+
+    // ── Canopy Connect insurance data (SCRUM-60) ────────────────────────────
+    // One row per carrier insurance connection: the Canopy pull id, monitoring
+    // id, status (CONNECTED/FAILED/DISCONNECTED), and the source mode
+    // (widget/components/agent). References the carrier by id only; the Load
+    // model is never touched. Live operational state is updated in place; the
+    // immutable trail lives in complianceVerificationEvents + the cross-ref store.
+    carrierInsuranceConnectionsTable:
+      t('DYNAMODB_CARRIER_INSURANCE_CONNECTIONS_TABLE', 'LoadLead_CarrierInsuranceConnections'),
+    // Append-only COI cross-reference results: per-field comparison of the
+    // uploaded COI against the Canopy insurer-sourced data, with an overall
+    // alignment (ALIGNED/MINOR_DISCREPANCY/CRITICAL_DISCREPANCY). A re-run
+    // writes a NEW row; prior rows are never mutated.
+    coiCrossReferenceResultsTable:
+      t('DYNAMODB_COI_CROSSREFERENCE_RESULTS_TABLE', 'LoadLead_CoiCrossReferenceResults'),
   },
 
   // KMS-backed envelope encryption for the W9 TIN (the most sensitive field on

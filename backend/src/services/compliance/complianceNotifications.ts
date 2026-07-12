@@ -22,6 +22,7 @@ const LABEL: Record<ComplianceDocumentType, string> = {
   W9: 'W-9',
   COI: 'Certificate of Insurance',
   LETTER_OF_AUTHORITY: 'Letter of Authority',
+  INSURER_POLICY: 'insurance connection',
 };
 
 /** Resolve the hauler entity's user id from an operatorId. */

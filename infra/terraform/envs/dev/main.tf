@@ -241,8 +241,12 @@ module "backend" {
     DYNAMODB_SHIPPER_COMPLIANCE_POLICIES_TABLE    = "${local.prefix}ShipperCompliancePolicies"
     DYNAMODB_SHIPPER_POLICY_ATTACHMENTS_TABLE     = "${local.prefix}ShipperPolicyAttachments"
     DYNAMODB_NOTIFICATION_OUTBOX_TABLE            = "${local.prefix}NotificationOutbox"
-    COMPLIANCE_S3_BUCKET                          = aws_s3_bucket.compliance_docs.bucket
-    POD_S3_BUCKET                                 = "loadlead-dev-pod-uploads"
+    # Canopy Connect (SCRUM-60) - env-namespaced so dev never touches the prod
+    # LoadLead_* Canopy tables.
+    DYNAMODB_CARRIER_INSURANCE_CONNECTIONS_TABLE = "${local.prefix}CarrierInsuranceConnections"
+    DYNAMODB_COI_CROSSREFERENCE_RESULTS_TABLE    = "${local.prefix}CoiCrossReferenceResults"
+    COMPLIANCE_S3_BUCKET                         = aws_s3_bucket.compliance_docs.bucket
+    POD_S3_BUCKET                                = "loadlead-dev-pod-uploads"
   })
   tags = local.tags
 }

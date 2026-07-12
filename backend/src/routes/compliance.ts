@@ -399,8 +399,13 @@ router.post(
       }
     } else if (doc.documentType === 'COI') {
       await decideCoi(doc.documentId, req.user!.userId, decision, req.body.reason);
-    } else {
+    } else if (doc.documentType === 'LETTER_OF_AUTHORITY') {
       await decideLetterOfAuthority(doc.documentId, req.user!.userId, decision, req.body.reason);
+    } else {
+      // INSURER_POLICY (Canopy) is auto-decided by the verification pipeline and,
+      // for a CRITICAL cross-reference, resolved through the cross-reference
+      // admin path - not this generic doc-decide route.
+      throw new AppError(`documents of type ${doc.documentType} are not decided here`, 400);
     }
     await notifyVerificationOutcome(doc.documentId);
     res.json({ ok: true });

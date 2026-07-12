@@ -28,7 +28,13 @@ import { queryIndexOrScan } from '../utils/indexQuery';
 
 export type ComplianceOwnerType = 'HAULER' | 'DRIVER';
 
-export type ComplianceDocumentType = 'W9' | 'COI' | 'LETTER_OF_AUTHORITY';
+// INSURER_POLICY is the Canopy insurer-sourced insurance record (SCRUM-60): the
+// primary evidence for a connected hauler, kept as its OWN document so the
+// uploaded COI is retained separately and can be cross-referenced against it.
+// It flows through the same five-state machine and append-only event log as the
+// others, so the packet, queue, and sweeps treat connected and fallback haulers
+// uniformly.
+export type ComplianceDocumentType = 'W9' | 'COI' | 'LETTER_OF_AUTHORITY' | 'INSURER_POLICY';
 
 /** The existing five-state verification machine, mirrored as a union (see idvStatus). */
 export type ComplianceVerificationStatus =
@@ -46,7 +52,13 @@ export type ComplianceVerificationEventType =
   | 'REJECTED'
   | 'EXPIRED'
   | 'SUPERSEDED'
-  | 'REFRESH_REQUIRED';
+  | 'REFRESH_REQUIRED'
+  // Canopy Connect (SCRUM-60), all append-only on the INSURER_POLICY document:
+  // a shadow-mode evaluator disagreement, a CRITICAL COI cross-reference flag,
+  // and an admin resolution of that flag. None mutate a prior row.
+  | 'EVALUATOR_DIVERGENCE'
+  | 'CROSS_REFERENCE_FLAGGED'
+  | 'CROSS_REFERENCE_RESOLVED';
 
 // ── Row shapes ────────────────────────────────────────────────────────────────
 

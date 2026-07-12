@@ -52,6 +52,8 @@ import adminLiquidityRoutes from './routes/adminLiquidity';
 import adminStaffRoutes, { acceptStaffInviteHandler, acceptStaffInviteValidators } from './routes/adminStaff';
 import { validate as validateBody } from './middleware/validation';
 import { tallyWebhookHandler } from './routes/tallyWebhook';
+import { canopyWebhookHandler } from './routes/canopyWebhook';
+import canopyRoutes from './routes/canopy';
 import { diditWebhookHandler } from './services/verification';
 import factoringRoutes from './routes/factoring';
 import accessorialRoutes from './routes/accessorials';
@@ -172,6 +174,15 @@ app.post(
   (req, res) => { void tallyWebhookHandler(req, res); },
 );
 
+// Canopy Connect webhook - same RAW-body discipline (SCRUM-60): the signature is
+// verified over the exact bytes Canopy sent, so it is mounted BEFORE express.json
+// and outside the authenticated routers. POST /api/webhooks/canopy.
+app.post(
+  '/api/webhooks/canopy',
+  express.raw({ type: '*/*', limit: '2mb' }),
+  (req, res) => { void canopyWebhookHandler(req, res); },
+);
+
 // Capture rawBody for Didit webhook signature verification (HMAC needs the exact bytes).
 app.use(express.json({
   verify: (req: any, _res, buf) => { req.rawBody = buf; },
@@ -238,6 +249,9 @@ app.use('/api/receiver', receiverRoutes);
 app.use('/api/bol', bolRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/owner-operator', ownerOperatorRoutes);
+// Canopy Connect insurance routes (SCRUM-60). Mounted before the generic
+// compliance router so /api/compliance/canopy/* resolves to this router.
+app.use('/api/compliance/canopy', canopyRoutes);
 app.use('/api/compliance', complianceRoutes);
 
 // Note: errorHandler must be registered AFTER all route mounts.

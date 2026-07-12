@@ -12,9 +12,9 @@
 // boot on a leaked/contaminated value; resolveMode() itself never lets a
 // stray env var override production.
 
-export type IntegrationName = 'didit' | 'fmcsa' | 'maps' | 'email' | 'push' | 'kms';
+export type IntegrationName = 'didit' | 'fmcsa' | 'maps' | 'email' | 'push' | 'kms' | 'canopy';
 
-export const INTEGRATIONS: IntegrationName[] = ['didit', 'fmcsa', 'maps', 'email', 'push', 'kms'];
+export const INTEGRATIONS: IntegrationName[] = ['didit', 'fmcsa', 'maps', 'email', 'push', 'kms', 'canopy'];
 
 /** The env var each integration's mode is read from outside production. */
 export const MODE_ENV_VAR: Record<IntegrationName, string> = {
@@ -24,6 +24,10 @@ export const MODE_ENV_VAR: Record<IntegrationName, string> = {
   email: 'EMAIL_MODE',
   push: 'PUSH_MODE',
   kms: 'KMS_MODE',
+  // Canopy Connect. Its single mode knob IS CANOPY_ENV (sandbox|production),
+  // so the whole boot-guard machinery (never-live-outside-prod, contamination,
+  // production self-check) covers Canopy with no second knob to keep in sync.
+  canopy: 'CANOPY_ENV',
 };
 
 /** The value that means "really call the real provider" for each integration. */
@@ -34,6 +38,9 @@ export const LIVE_MODE: Record<IntegrationName, string> = {
   email: 'live',
   push: 'live',
   kms: 'live',
+  // Canopy's live value is the string the API/docs use: 'production' (vs
+  // 'sandbox'). canopyConfig reads resolveMode('canopy') directly as its env.
+  canopy: 'production',
 };
 
 /** Default mode used outside production when the env var is unset. */
@@ -47,6 +54,9 @@ export const DEFAULT_NONPROD_MODE: Record<IntegrationName, string> = {
   // CI encrypt/decrypt the W9 TIN without calling AWS KMS. Production always
   // resolves to 'live' (real KMS envelope encryption), unconditionally.
   kms: 'local',
+  // Canopy is sandbox by default everywhere except production. The hauler's
+  // insurer login happens inside Canopy's flow, so sandbox is always safe here.
+  canopy: 'sandbox',
 };
 
 function isProduction(): boolean {
