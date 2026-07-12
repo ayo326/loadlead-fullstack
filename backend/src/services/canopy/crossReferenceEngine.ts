@@ -238,13 +238,10 @@ export async function runCrossReferenceForCarrier(
       await NotificationService.record({
         userId,
         kind: 'COMPLIANCE',
-        title: 'Certificate of insurance under review',
-        body: `Your certificate does not match your insurer records on: ${fieldList}. Our team is reviewing it. Your verification continues from your insurer connection.`,
+        title: 'Certificate of insurance flagged for review',
+        body: `Your certificate does not match your insurer records on: ${fieldList}. This has been flagged for review - please contact LoadLead for further information.`,
       }).catch(() => undefined);
     }
-
-    // A fresh CRITICAL must hold a previously-verified record back to PENDING.
-    await reevaluateCarrierInsurerPolicy(carrierId).catch(() => undefined);
   } else if (alignment === 'MINOR_DISCREPANCY') {
     // Nudge a re-upload; does not block (insurer data is authoritative).
     const userId = await haulerUserId(carrierId);
@@ -257,6 +254,11 @@ export async function runCrossReferenceForCarrier(
       }).catch(() => undefined);
     }
   }
+
+  // Re-run the verification decision after every cross-reference: uploading the
+  // (now mandatory) COI can flip a PENDING record to VERIFIED, and a fresh
+  // CRITICAL must hold a previously-verified record back to PENDING.
+  await reevaluateCarrierInsurerPolicy(carrierId).catch(() => undefined);
 
   Logger.info(`[canopy] cross-reference ${result.resultId} for ${carrierId}: ${alignment}${fieldList ? ` (${fieldList})` : ''}`);
   return result;

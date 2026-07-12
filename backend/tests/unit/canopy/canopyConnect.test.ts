@@ -47,9 +47,9 @@ vi.mock('../../../src/services/compliance/complianceStorage', () => ({ putObject
 const { getInsuranceFilings } = vi.hoisted(() => ({ getInsuranceFilings: vi.fn() }));
 vi.mock('../../../src/services/integrations/fmcsaInsurance', () => ({ getInsuranceFilings }));
 
-const { ooGetById, ooGetByUserId } = vi.hoisted(() => ({ ooGetById: vi.fn(), ooGetByUserId: vi.fn() }));
+const { ooGetById, ooGetByUserId, ooUpdateProfile } = vi.hoisted(() => ({ ooGetById: vi.fn(), ooGetByUserId: vi.fn(), ooUpdateProfile: vi.fn() }));
 vi.mock('../../../src/services/ownerOperatorService', () => ({
-  OwnerOperatorService: { getById: ooGetById, getByUserId: ooGetByUserId },
+  OwnerOperatorService: { getById: ooGetById, getByUserId: ooGetByUserId, updateProfile: ooUpdateProfile },
 }));
 
 import config from '../../../src/config/environment';
@@ -105,9 +105,20 @@ async function seedCoi(carrierId: string, fields: Record<string, unknown>) {
   });
 }
 
+const DAY = 24 * 60 * 60 * 1000;
+/** A COI matching a fixture pull (aligned), for the now-mandatory-COI flow. */
+const coiFor = (policyNumber: string) => ({
+  insurerName: 'Progressive Commercial',
+  policyNumber,
+  autoLiabilityCents: 100_000_000,
+  cargoCents: 10_000_000,
+  effectiveDate: NOW - 30 * DAY,
+  expiryDate: NOW + 335 * DAY,
+});
+
 beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
-  [putItem, getItem, updateItem, scan, putObject, signedGetUrl, getInsuranceFilings, ooGetById, ooGetByUserId].forEach((m) => m.mockClear());
+  [putItem, getItem, updateItem, scan, putObject, signedGetUrl, getInsuranceFilings, ooGetById, ooGetByUserId, ooUpdateProfile].forEach((m) => m.mockClear());
   resetFixtures();
   process.env.COMPLIANCE_EVALUATOR = 'local';
   // FMCSA corroborates by default: active, matching insurer, above minimum.
@@ -195,6 +206,7 @@ describe('cross-reference comparison (pure)', () => {
 describe('ingestion', () => {
   it('user_good_transportation auto-verifies with FMCSA recorded, in integer cents', async () => {
     const { pullId } = seedPull('user_good_transportation', 'oo_t');
+    await seedCoi('oo_t', coiFor('CA-88213')); // COI is mandatory to verify
     const res = await ingestPull({ pullId, source: 'widget' });
     expect(res.outcome).toBe('VERIFIED');
     const conn = await CanopyConnectionStore.currentForCarrier('oo_t');
@@ -211,17 +223,36 @@ describe('ingestion', () => {
 
   it('produces mode-invariant insurer artifacts for widget vs components', async () => {
     const a = seedPull('user_good_transportation', 'oo_w');
+    await seedCoi('oo_w', coiFor('CA-88213'));
     await ingestPull({ pullId: a.pullId, source: 'widget' });
     // components pull: identical data, different carrier + source.
     const meta = sandboxMetadata({ carrierId: 'oo_c', nonce: issueNonce('oo_c'), source: 'components' });
     const cPull = buildSandboxPull('user_good_transportation', { pullId: 'pull_c', metaData: meta, nowMs: NOW });
     registerFixturePull(cPull);
+    await seedCoi('oo_c', coiFor('CA-88213'));
     await ingestPull({ pullId: 'pull_c', source: 'components' });
 
     const w = (await currentInsurerDoc('oo_w'))!.meta as any;
     const c = (await currentInsurerDoc('oo_c'))!.meta as any;
     expect(c.insurance).toEqual(w.insurance); // byte-equivalent mapped artifact
     expect((await currentInsurerDoc('oo_c'))!.verificationStatus).toBe('VERIFIED');
+  });
+
+  it('holds PENDING without a COI (COI is mandatory) and names the certificate in the reason', async () => {
+    const { pullId } = seedPull('user_good_transportation', 'oo_nocoi'); // no COI seeded
+    const res = await ingestPull({ pullId, source: 'widget' });
+    expect(res.outcome).toBe('PENDING');
+    expect(res.reason).toMatch(/certificate of insurance/i);
+  });
+
+  it('auto-populates the owner-operator insurance amounts (whole dollars) on connect', async () => {
+    const { pullId } = seedPull('user_good_transportation', 'oo_pop');
+    await ingestPull({ pullId, source: 'widget' });
+    // 100_000_000 cents -> 1_000_000 dollars; 10_000_000 cents -> 100_000 dollars.
+    expect(ooUpdateProfile).toHaveBeenCalledWith('oo_pop', expect.objectContaining({
+      liabilityInsuranceAmount: 1_000_000,
+      cargoInsuranceAmount: 100_000,
+    }));
   });
 
   it('user_good_auto_noncompliant holds PENDING (below the minimum)', async () => {
@@ -276,7 +307,8 @@ describe('cross-reference engine', () => {
 
   it('CRITICAL holds the record, raises a trust event, and admin ACCEPT_INSURER re-verifies', async () => {
     await connect('oo_cr');
-    expect((await currentInsurerDoc('oo_cr'))!.verificationStatus).toBe('VERIFIED');
+    // No COI yet -> PENDING (COI is mandatory). Then a MISMATCHED COI arrives.
+    expect((await currentInsurerDoc('oo_cr'))!.verificationStatus).toBe('PENDING');
     await seedCoi('oo_cr', { insurerName: 'Progressive Commercial', policyNumber: 'FORGED-9', autoLiabilityCents: 100_000_000, effectiveDate: NOW - 30 * 86400000, expiryDate: NOW + 335 * 86400000 });
     const result = await runCrossReferenceForCarrier('oo_cr', NOW);
     expect(result?.alignment).toBe('CRITICAL_DISCREPANCY');
@@ -317,8 +349,9 @@ describe('cross-reference engine', () => {
 
 describe('monitoring', () => {
   it('user_good_diffs monitored flips the record to EXPIRED and is idempotent on replay', async () => {
-    // Initial connect.
+    // Initial connect (with the mandatory COI, matching -> VERIFIED).
     const init = seedPull('user_good_diffs', 'oo_mon', { pullId: 'pull_init', variant: 'initial' });
+    await seedCoi('oo_mon', coiFor('CA-DIFFS-1'));
     await ingestPull({ pullId: init.pullId, source: 'widget' });
     expect((await currentInsurerDoc('oo_mon'))!.verificationStatus).toBe('VERIFIED');
 

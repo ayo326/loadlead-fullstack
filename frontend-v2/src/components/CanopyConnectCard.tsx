@@ -9,7 +9,7 @@
  * touches LoadLead servers. Sentence case throughout; no em or en dashes.
  */
 import { useEffect, useRef, useState } from "react";
-import { Loader2, ShieldCheck, PlugZap, AlertTriangle } from "lucide-react";
+import { Loader2, ShieldCheck, PlugZap, AlertTriangle, CheckCircle2, FileWarning } from "lucide-react";
 import { toast } from "sonner";
 import { api, type CanopyConnectSession, type CanopyStatus } from "@/lib/api";
 
@@ -163,6 +163,23 @@ export function CanopyConnectCard({ onChooseManual, onVerified }: { onChooseManu
         and is never shared with LoadLead.
       </p>
 
+      {/* Clear success cue once the insurer connection is established. */}
+      {status?.badge.connected && (
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4">
+          <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
+          <div className="space-y-0.5">
+            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+              Insurance connected{status.connection?.insurerName ? ` - ${status.connection.insurerName}` : ""}
+            </p>
+            <p className="text-xs text-emerald-700/90 dark:text-emerald-300/80">
+              {status.badge.insurerVerified
+                ? "Your coverage was pulled from your insurer and verified."
+                : "Your coverage was pulled from your insurer and is being verified."}
+            </p>
+          </div>
+        </div>
+      )}
+
       {badgeLabels.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {badgeLabels.map((label) => (
@@ -174,10 +191,25 @@ export function CanopyConnectCard({ onChooseManual, onVerified }: { onChooseManu
         </div>
       )}
 
+      {/* COI is mandatory: prompt the upload when connected but no certificate on file. */}
+      {status?.badge.connected && !status.badge.coiPresent && (
+        <button
+          type="button"
+          onClick={onChooseManual}
+          className="flex w-full items-start gap-2 rounded-md border border-blue-500/40 bg-blue-500/5 p-3 text-left text-xs hover:bg-blue-500/10"
+        >
+          <FileWarning className="h-4 w-4 text-blue-600 mt-0.5" />
+          <span>
+            A certificate of insurance is still required. Upload it below to complete your verification. We cross-reference it
+            against your insurer records.
+          </span>
+        </button>
+      )}
+
       {status?.badge.crossReferenceUnderReview && (
         <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs">
           <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
-          <span>Your certificate does not match your insurer records and is under review. Your verification continues from your insurer connection.</span>
+          <span>Your certificate does not match your insurer records and has been flagged for review. Please contact LoadLead for further information.</span>
         </div>
       )}
 

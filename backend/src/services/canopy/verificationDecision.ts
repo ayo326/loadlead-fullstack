@@ -91,17 +91,33 @@ async function runFmcsaCheck(
 export async function decideCanopyInsurerPolicy(input: CanopyDecisionInput): Promise<CanopyDecision> {
   const { documentId, carrierId, data, pull } = input;
 
+  // Never resurrect or downgrade a terminal state. EXPIRED (a monitoring
+  // cancellation/lapse) and REJECTED (an admin decision) hold until a NEW
+  // insurer pull supersedes them; a later cross-reference re-run must not flip
+  // them back to PENDING/VERIFIED.
+  const existing = await ComplianceDocumentService.getById(documentId);
+  if (existing && (existing.verificationStatus === 'EXPIRED' || existing.verificationStatus === 'REJECTED')) {
+    return { verified: false, reason: `terminal:${existing.verificationStatus}` };
+  }
+
   const evaluation = await evaluateForDecision(data, pull, documentId);
   const evalPass = evaluation.deciding.pass;
   const fmcsaPass = await runFmcsaCheck(documentId, carrierId, data);
   const unresolvedCritical = await hasUnresolvedCriticalCrossReference(carrierId);
 
-  const verified = evalPass && fmcsaPass && !unresolvedCritical;
+  // Certificate of Insurance is MANDATORY for every hauler, including
+  // Canopy-connected ones: it is the artifact cross-referenced against the
+  // insurer-sourced data. Verification holds PENDING until a current COI exists.
+  const coiDoc = await ComplianceDocumentService.getCurrent('HAULER', carrierId, 'COI');
+  const coiPresent = Boolean(coiDoc);
+
+  const verified = evalPass && fmcsaPass && !unresolvedCritical && coiPresent;
 
   const reasons: string[] = [];
   if (!evalPass) reasons.push(...evaluation.deciding.reasons);
   if (!fmcsaPass) reasons.push('FMCSA liability filing check did not pass');
-  if (unresolvedCritical) reasons.push('a critical COI discrepancy is under review');
+  if (!coiPresent) reasons.push('a certificate of insurance is required');
+  if (unresolvedCritical) reasons.push('a critical COI discrepancy is under review; please contact LoadLead');
   const reason = reasons.length ? reasons.join('; ') : undefined;
 
   const current = await ComplianceDocumentService.getById(documentId);
