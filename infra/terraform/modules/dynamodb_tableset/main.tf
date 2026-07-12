@@ -508,6 +508,37 @@ locals {
       gsis       = []
       ttl        = "expiresAt"
     }
+
+    # ── Canopy Connect insurance data (SCRUM-60) ───────────────────────────────
+    # One row per carrier insurance connection (Canopy pull id, monitoring id,
+    # status, source mode). References the carrier by id only; never lives on the
+    # Load model. carrierId-index powers "this carrier's connection"; pullId-index
+    # powers the webhook path (resolve the connection a pull belongs to). The
+    # stores prefer these indexes and fall back to a guarded scan until live.
+    CarrierInsuranceConnections = {
+      hash_key = "connectionId"
+      attributes = [
+        { name = "connectionId", type = "S" },
+        { name = "carrierId", type = "S" },
+        { name = "pullId", type = "S" },
+      ]
+      gsis = [
+        { name = "carrierId-index", hash_key = "carrierId" },
+        { name = "pullId-index", hash_key = "pullId" },
+      ]
+    }
+
+    # Append-only COI cross-reference results (per-field COI-vs-insurer comparison
+    # + overall alignment). A re-run writes a NEW row; rows are never mutated.
+    # carrierId-index scopes reads to one carrier's results.
+    CoiCrossReferenceResults = {
+      hash_key = "resultId"
+      attributes = [
+        { name = "resultId", type = "S" },
+        { name = "carrierId", type = "S" },
+      ]
+      gsis = [{ name = "carrierId-index", hash_key = "carrierId" }]
+    }
   }
 }
 

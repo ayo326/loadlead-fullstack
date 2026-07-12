@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { CanopyConnectCard } from "@/components/CanopyConnectCard";
 
 // The seven official Line 3a federal tax classifications.
 const CLASSIFICATIONS: { value: string; label: string }[] = [
@@ -84,6 +85,12 @@ export default function OwnerOperatorCompliance() {
       </div>
 
       <W9Section onSaved={refresh} />
+      {/* Canopy Connect: primary path to verify insurance; the manual COI upload
+          below is the explicit alternative and always exists end to end. */}
+      <CanopyConnectCard
+        onChooseManual={() => document.getElementById("coi-upload")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        onVerified={refresh}
+      />
       <CoiSection onSaved={refresh} />
       <LoaSection onSaved={refresh} />
     </div>
@@ -315,7 +322,7 @@ function CoiSection({ onSaved }: { onSaved: () => void }) {
   };
 
   return (
-    <section className="rounded-xl border bg-card p-5 space-y-4">
+    <section id="coi-upload" className="rounded-xl border bg-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Upload className="h-4 w-4 text-primary" />
         <h2 className="font-semibold">Certificate of Insurance</h2>

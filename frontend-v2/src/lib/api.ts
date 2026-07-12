@@ -185,6 +185,44 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return json as T;
 }
 
+// ─── Canopy Connect types (mirror backend) ──────────────────────────────────
+export interface CanopyConnectSession {
+  connectEnabled: boolean;
+  uiMode: "widget" | "components";
+  env: "sandbox" | "production";
+  publicAlias: string;
+  carrierId: string;
+  nonce: string | null;
+  source: "widget" | "components";
+}
+export interface CanopyIngestionResult {
+  outcome: "VERIFIED" | "PENDING" | "NEEDS_FALLBACK";
+  reason?: string;
+  loginErrorMessage?: string;
+  pullId: string;
+  carrierId?: string;
+  connectionId?: string;
+  documentId?: string;
+  alreadyProcessed?: boolean;
+}
+export interface CanopyInsuranceBadge {
+  connected: boolean;
+  connectionStatus?: "CONNECTED" | "FAILED" | "DISCONNECTED";
+  insurerVerified: boolean;
+  liabilityConfirmed: boolean;
+  cargoConfirmedViaInsurer: boolean;
+  coiPresent: boolean;
+  crossReference: "ALIGNED" | "MINOR_DISCREPANCY" | "CRITICAL_DISCREPANCY" | "NONE";
+  crossReferenceUnderReview: boolean;
+  cargoPerCoi: boolean;
+  labels: string[];
+}
+export interface CanopyStatus {
+  badge: CanopyInsuranceBadge;
+  connection: { status: string; insurerName?: string; sourceMode: string } | null;
+  latestCrossReference: { alignment: string; createdAt: number } | null;
+}
+
 export const api = {
   // Auth
   // inviteToken is forwarded to the backend's requireBetaGate when the
@@ -759,6 +797,16 @@ export const api = {
     request<{ documentId: string; status: string; expiresAt?: number }>("POST", "/compliance/coi", data),
   uploadLetterOfAuthority: (data: unknown) =>
     request<{ documentId: string; status: string }>("POST", "/compliance/loa", data),
+
+  // Canopy Connect (SCRUM-60): start a connect session (browser-safe config +
+  // signed nonce), post the SDK/Components completion callback, and read the
+  // connect status. Secrets never reach the browser.
+  canopyConnectSession: () =>
+    request<CanopyConnectSession>("GET", "/compliance/canopy/connect-session"),
+  canopyCallback: (pullId: string) =>
+    request<CanopyIngestionResult>("POST", "/compliance/canopy/callback", { pullId }),
+  canopyStatus: () =>
+    request<CanopyStatus>("GET", "/compliance/canopy/status"),
 
   // Shipper-facing: a hauler's public badges, and the gated packet + documents.
   getHaulerComplianceBadges: (operatorId: string) =>

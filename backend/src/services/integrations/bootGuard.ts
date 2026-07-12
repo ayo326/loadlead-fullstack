@@ -64,7 +64,10 @@ export function assertProductionNotContaminated(): void {
  * allowed outside production (e.g. a deliberate staging smoke test against
  * the real FMCSA registry) but is loud about it every single boot.
  */
-const NEVER_LIVE_OUTSIDE_PROD: IntegrationName[] = ['didit', 'email', 'push'];
+// Canopy joins didit/email/push: 'production' mode pulls a real policyholder's
+// insurance data through a live consent flow, so it must be sandbox in every
+// environment except production. There is no warning-and-continuing path.
+const NEVER_LIVE_OUTSIDE_PROD: IntegrationName[] = ['didit', 'email', 'push', 'canopy'];
 const WARN_IF_LIVE_OUTSIDE_PROD: IntegrationName[] = ['fmcsa', 'maps'];
 
 export function assertNonProductionSafe(): void {
