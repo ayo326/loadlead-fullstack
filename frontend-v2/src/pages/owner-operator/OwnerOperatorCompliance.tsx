@@ -326,6 +326,9 @@ function CoiSection({ onSaved }: { onSaved: () => void }) {
       <div className="flex items-center gap-2">
         <Upload className="h-4 w-4 text-primary" />
         <h2 className="font-semibold">Certificate of Insurance</h2>
+        <span className="rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+          Required
+        </span>
       </div>
       <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

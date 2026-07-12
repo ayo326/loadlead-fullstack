@@ -94,6 +94,16 @@ export async function submitCoi(input: SubmitCoiInput, actorAccountId: string): 
   // Fire the FMCSA cross-check (best-effort corroboration).
   await runInsuranceAutoCheck(doc.documentId).catch(() => undefined);
 
+  // If this hauler has a Canopy insurer connection, cross-reference the new COI
+  // against the insurer-sourced data now (the mandatory-COI flow): an aligned
+  // COI can complete verification, a discrepancy is flagged for review. Lazy
+  // import keeps coiService free of a static Canopy dependency. Best-effort.
+  if (input.ownerType === 'HAULER') {
+    await import('../canopy/crossReferenceEngine')
+      .then((m) => m.runCrossReferenceForCarrier(input.ownerId))
+      .catch(() => undefined);
+  }
+
   return doc;
 }
 

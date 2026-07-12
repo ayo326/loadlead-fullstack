@@ -20,11 +20,12 @@
  */
 
 import { Logger } from '../../utils/logger';
+import { OwnerOperatorService } from '../ownerOperatorService';
 import { CanopyClient } from './canopyClient';
 import { CanopyConnectionSource, CanopyConnectionStore } from './canopyConnectionStore';
 import { CanopyPull, parsePullMetadata } from './canopyTypes';
 import { verifyNonce } from './canopyNonce';
-import { mapPullToInsuranceData } from './canopyMapper';
+import { CanopyInsuranceData, mapPullToInsuranceData } from './canopyMapper';
 import { decideCanopyInsurerPolicy } from './verificationDecision';
 import { runCrossReferenceForCarrier } from './crossReferenceEngine';
 import { createInsurerPolicyDocument } from './insurerPolicyDocument';
@@ -165,6 +166,10 @@ export async function ingestPullObject(
 
   const doc = await createInsurerPolicyDocument(carrierId, pullId, data);
 
+  // Auto-populate the owner-operator's insurance fields (shown in Settings ->
+  // Authority & Insurance) from the insurer-sourced data. Best-effort.
+  await applyInsurerDataToProfile(carrierId, data);
+
   // Verification decision (Phase 7): insurer liability + FMCSA + no unresolved
   // CRITICAL. Sets the document VERIFIED or leaves it PENDING with a reason.
   const decision = await decideCanopyInsurerPolicy({ documentId: doc.documentId, carrierId, data });
@@ -183,4 +188,27 @@ export async function ingestPullObject(
     connectionId: conn.connectionId,
     documentId: doc.documentId,
   };
+}
+
+/**
+ * Auto-populate the owner-operator's structured insurance fields from the
+ * insurer-sourced data so Settings -> Authority & Insurance reflects the
+ * connection. The OO profile stores amounts in whole dollars; the pull is in
+ * integer cents. Best-effort: never throws into the ingestion path.
+ */
+async function applyInsurerDataToProfile(carrierId: string, data: CanopyInsuranceData): Promise<void> {
+  const updates: Record<string, number> = {};
+  if (typeof data.autoLiabilityCents === 'number') {
+    updates.liabilityInsuranceAmount = Math.round(data.autoLiabilityCents / 100);
+  }
+  if (typeof data.cargoCents === 'number') {
+    updates.cargoInsuranceAmount = Math.round(data.cargoCents / 100);
+  }
+  if (Object.keys(updates).length === 0) return;
+  try {
+    await OwnerOperatorService.updateProfile(carrierId, updates);
+    Logger.info(`[canopy] auto-populated insurance amounts on owner-operator ${carrierId} from connection`);
+  } catch (e: any) {
+    Logger.warn(`[canopy] could not auto-populate profile for ${carrierId}: ${e?.message ?? e}`);
+  }
 }
