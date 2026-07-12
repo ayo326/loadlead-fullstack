@@ -127,14 +127,25 @@ describe('nonce', () => {
   });
 });
 
-describe('webhook signature', () => {
-  it('accepts a valid HMAC-SHA256 hex signature and rejects a bad one', () => {
-    const body = '{"pull_id":"p1"}';
-    const secret = 's3cr3t';
-    const sig = createHmac('sha256', secret).update(body).digest('hex');
-    expect(verifyCanopySignature({ rawBody: body, headers: { 'x-canopy-signature': sig }, secret }).ok).toBe(true);
-    expect(verifyCanopySignature({ rawBody: body, headers: { 'x-canopy-signature': 'deadbeef' }, secret }).ok).toBe(false);
+describe('webhook signature (canopy-signature t=,s= scheme)', () => {
+  const body = '{"pull_id":"p1"}';
+  const secret = 's3cr3t';
+  const sign = (t: string, b = body) => createHmac('sha256', secret).update(`${t}.${b}`).digest('hex');
+
+  it('accepts a valid t=,s= signature over `${t}.${body}`', () => {
+    const t = Math.floor(Date.now() / 1000).toString();
+    const h = { 'canopy-signature': `t=${t},s=${sign(t)}` };
+    expect(verifyCanopySignature({ rawBody: body, headers: h, secret }).ok).toBe(true);
+  });
+
+  it('rejects a wrong signature, a missing header, and a stale timestamp', () => {
+    const t = Math.floor(Date.now() / 1000).toString();
+    expect(verifyCanopySignature({ rawBody: body, headers: { 'canopy-signature': `t=${t},s=deadbeef` }, secret }).ok).toBe(false);
     expect(verifyCanopySignature({ rawBody: body, headers: {}, secret }).reason).toBe('no_signature_header');
+    const stale = (Math.floor(Date.now() / 1000) - 3600).toString();
+    expect(verifyCanopySignature({ rawBody: body, headers: { 'canopy-signature': `t=${stale},s=${sign(stale)}` }, secret }).reason).toBe('timestamp_out_of_window');
+    // tampered body under an otherwise-valid timestamp
+    expect(verifyCanopySignature({ rawBody: '{"pull_id":"EVIL"}', headers: { 'canopy-signature': `t=${t},s=${sign(t)}` }, secret }).ok).toBe(false);
   });
 });
 
