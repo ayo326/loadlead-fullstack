@@ -13,10 +13,11 @@ import { Loader2, ShieldCheck, PlugZap, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { api, type CanopyConnectSession, type CanopyStatus } from "@/lib/api";
 
-// The Canopy web SDK exposes a global `CanopyConnect`. The exact script URL is a
-// question for the Canopy contact (recon A2); it is overridable here and the
-// component degrades to the manual path if the script cannot load.
-const CANOPY_SDK_SRC = "https://cdn.usecanopy.com/v1/canopy-connect.js";
+// The Canopy web SDK exposes a global `CanopyConnect`. Loader confirmed from the
+// docs ("Using the SDK"): the v2 CDN script, loaded directly (no SRI, Canopy
+// ships frequent updates). The component degrades to the manual path if the
+// script cannot load.
+const CANOPY_SDK_SRC = "https://cdn.usecanopy.com/v2/canopy-connect.js";
 
 declare global {
   interface Window {
