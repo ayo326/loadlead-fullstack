@@ -201,11 +201,11 @@ module "backend" {
   # Attach to the existing EB application (created by the prod stack, lowercase);
   # one EB application holds many environments. The module default
   # "LoadLead-Backend" does not exist in this account.
-  application_name      = "loadlead-backend"
-  vpc_id                = module.network.vpc_id
-  subnet_ids            = module.network.public_subnet_ids # public subnet + public IP, no NAT cost
-  elb_subnet_ids        = module.network.public_subnet_ids
-  security_group_id     = module.network.eb_instance_sg_id
+  application_name  = "loadlead-backend"
+  vpc_id            = module.network.vpc_id
+  subnet_ids        = module.network.public_subnet_ids # public subnet + public IP, no NAT cost
+  elb_subnet_ids    = module.network.public_subnet_ids
+  security_group_id = module.network.eb_instance_sg_id
   # t3.small (2 GB) not t3.micro (1 GB): the Node/Express app + EB enhanced-health
   # agent + nginx + log/CW agents overrun 1 GB after warm-up on t3.micro, so ~5 min
   # after a healthy deploy the instance stops sending health data ("No Data" / 504)
@@ -249,6 +249,21 @@ module "backend" {
     KMS_MODE          = "live"
     W9_TIN_KMS_KEY_ID = aws_kms_key.w9_tin.key_id
     FRONTEND_URL      = "https://${var.staging_domain}"
+
+    # ── Canopy Connect (SCRUM-60) ───────────────────────────────────────────
+    # Non-secret, env-specific Canopy config is committed here so it is DURABLE
+    # across env recreates. The SECRETS - CANOPY_CLIENT_ID, CANOPY_CLIENT_SECRET,
+    # CANOPY_WEBHOOK_SECRET - go in backend_env_vars via the gitignored
+    # staging.auto.tfvars (same pattern as the other integration secrets), so
+    # tofu manages them and a launch-template -replace can never wipe them again.
+    # These three were previously set out-of-band on the EB env and were lost
+    # when the env was recreated for the t3.small / launch-template migration.
+    # connectEnabled (canopyConfig.ts) = Boolean(clientId && clientSecret &&
+    # publicAlias); the FE CanopyConnectCard renders only when it is true.
+    # CANOPY_ENV left unset = sandbox (bootGuard treats canopy like didit: never
+    # live outside prod). publicAlias is the browser-safe SDK slug, not a secret.
+    CANOPY_UI_MODE      = "widget"
+    CANOPY_PUBLIC_ALIAS = "loadlead"
 
     # ── DynamoDB table names ────────────────────────────────────────────────
     # ONE prefix knob instead of ~50 per-table overrides. environment.ts derives
