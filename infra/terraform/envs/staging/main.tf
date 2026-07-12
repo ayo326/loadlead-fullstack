@@ -206,7 +206,12 @@ module "backend" {
   subnet_ids            = module.network.public_subnet_ids # public subnet + public IP, no NAT cost
   elb_subnet_ids        = module.network.public_subnet_ids
   security_group_id     = module.network.eb_instance_sg_id
-  instance_type         = "t3.micro" # cheapest tier (~$7.50/mo running, $0 paused)
+  # t3.small (2 GB) not t3.micro (1 GB): the Node/Express app + EB enhanced-health
+  # agent + nginx + log/CW agents overrun 1 GB after warm-up on t3.micro, so ~5 min
+  # after a healthy deploy the instance stops sending health data ("No Data" / 504)
+  # and EB cycles it (the chronic staging Grey/504). 2 GB gives the headroom to
+  # stay Green. ~$15/mo running, still $0 when paused (var.backend_enabled=false).
+  instance_type         = "t3.small"
   min_instances         = 1
   max_instances         = 1
   environment_type      = "SingleInstance"    # no ALB — HTTPS is terminated at the API CloudFront below
