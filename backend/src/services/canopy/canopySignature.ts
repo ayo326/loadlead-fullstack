@@ -1,33 +1,26 @@
 /**
  * Canopy webhook signature verification (SCRUM-60).
  *
- * Canopy's exact signature scheme is not published (recon question A7), so this
- * verifier is defensive and CONFIG-DRIVEN: it tries the common header names and
- * both HMAC-SHA256 encodings (hex and base64), over the raw body and, when a
- * timestamp header is present, over `${timestamp}.${rawBody}`. The moment the
- * Canopy contact confirms the real scheme, this collapses to that one recipe
- * with zero change anywhere else in the pipeline.
+ * Scheme confirmed from Canopy's docs (recon A7 answered), a Stripe-style HMAC:
+ *   header:         canopy-signature: t=<unix-seconds>,s=<hex-hmac-sha256>
+ *   signed_payload: `${t}.${rawBody}`  (timestamp as string, a literal ".", the raw body)
+ *   signature:      HMAC-SHA256(signingSecret, signed_payload), hex-encoded, compared to s
+ *   replay:         reject if |now - t| exceeds the tolerance window
+ * See https://docs.usecanopy.com/reference/verifying-webhook-signatures
  *
- * The comparison is constant-time. The secret and the raw body are never logged.
+ * The comparison is constant-time. The secret and raw body are never logged.
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 type Headers = Record<string, string | string[] | undefined>;
 
-const SIGNATURE_HEADERS = [
-  'x-canopy-signature',
-  'x-canopy-signature-256',
-  'x-canopy-webhook-signature',
-  'x-webhook-signature',
-  'x-hub-signature-256',
-  'x-signature',
-];
+// Primary header is `canopy-signature`; accept an `x-` prefixed variant too in
+// case a proxy rewrites it. Both carry the same `t=,s=` structure.
+const HEADER_CANDIDATES = ['canopy-signature', 'x-canopy-signature'];
 
-const TIMESTAMP_HEADERS = ['x-canopy-timestamp', 'x-timestamp', 'x-canopy-request-timestamp'];
-
-/** Replays older than this (when a timestamp header is present) are rejected. */
-const REPLAY_WINDOW_MS = 10 * 60 * 1000;
+/** Reject events whose timestamp is more than this far from now (replay guard). */
+const REPLAY_WINDOW_MS = 5 * 60 * 1000;
 
 function header(headers: Headers, name: string): string | undefined {
   const v = headers[name.toLowerCase()];
@@ -35,18 +28,18 @@ function header(headers: Headers, name: string): string | undefined {
   return s?.trim() || undefined;
 }
 
-function stripPrefix(sig: string): string {
-  // Accept "sha256=<hex>" as well as a bare signature.
-  const eq = sig.indexOf('=');
-  if (eq > 0 && /^sha\d+$/i.test(sig.slice(0, eq))) return sig.slice(eq + 1);
-  return sig;
-}
-
-function equalStr(a: string, b: string): boolean {
-  const ba = Buffer.from(a, 'utf8');
-  const bb = Buffer.from(b, 'utf8');
-  if (ba.length !== bb.length) return false;
-  return timingSafeEqual(ba, bb);
+/** Parse `t=1645638136,s=abcd...` into its t (timestamp) and s (signature) parts. */
+export function parseCanopySignatureHeader(raw: string): { t?: string; s?: string } {
+  const out: { t?: string; s?: string } = {};
+  for (const element of raw.split(',')) {
+    const eq = element.indexOf('=');
+    if (eq <= 0) continue;
+    const key = element.slice(0, eq).trim();
+    const value = element.slice(eq + 1).trim();
+    if (key === 't') out.t = value;
+    else if (key === 's') out.s = value;
+  }
+  return out;
 }
 
 export interface CanopyVerifyInput {
@@ -59,7 +52,7 @@ export interface CanopyVerifyInput {
 export interface CanopyVerifyResult {
   ok: boolean;
   reason?: string;
-  /** Which header + encoding matched, for observability (never a secret). */
+  /** For observability (never a secret). */
   verifiedBy?: string;
 }
 
@@ -67,42 +60,37 @@ export function verifyCanopySignature(input: CanopyVerifyInput): CanopyVerifyRes
   const { rawBody, headers, secret } = input;
   if (!secret) return { ok: false, reason: 'no_secret' };
 
-  // Find the presented signature header.
-  let presented: string | undefined;
-  let presentedHeader = '';
-  for (const h of SIGNATURE_HEADERS) {
+  let rawHeader: string | undefined;
+  let headerName = '';
+  for (const h of HEADER_CANDIDATES) {
     const v = header(headers, h);
     if (v) {
-      presented = stripPrefix(v);
-      presentedHeader = h;
+      rawHeader = v;
+      headerName = h;
       break;
     }
   }
-  if (!presented) return { ok: false, reason: 'no_signature_header' };
+  if (!rawHeader) return { ok: false, reason: 'no_signature_header' };
 
-  // Optional timestamp (replay protection when Canopy sends one).
-  const tsRaw = TIMESTAMP_HEADERS.map((h) => header(headers, h)).find(Boolean);
-  if (tsRaw) {
-    const ts = Number(tsRaw);
-    if (Number.isFinite(ts)) {
-      const now = input.nowMs ?? Date.now();
-      // Accept both seconds and milliseconds epochs.
-      const tsMs = ts < 1e12 ? ts * 1000 : ts;
-      if (Math.abs(now - tsMs) > REPLAY_WINDOW_MS) {
-        return { ok: false, reason: 'timestamp_out_of_window' };
-      }
+  const { t, s } = parseCanopySignatureHeader(rawHeader);
+  if (!t || !s) return { ok: false, reason: 'malformed_signature_header' };
+
+  // Replay guard: t is unix seconds. Tolerate a seconds/millis mixup defensively.
+  const tsNum = Number(t);
+  if (Number.isFinite(tsNum)) {
+    const now = input.nowMs ?? Date.now();
+    const tsMs = tsNum < 1e12 ? tsNum * 1000 : tsNum;
+    if (Math.abs(now - tsMs) > REPLAY_WINDOW_MS) {
+      return { ok: false, reason: 'timestamp_out_of_window' };
     }
   }
 
-  // Candidate signed payloads: raw body, and (if a timestamp is present)
-  // `${ts}.${rawBody}` - the two common recipes.
-  const payloads = tsRaw ? [rawBody, `${tsRaw}.${rawBody}`] : [rawBody];
-  for (const payload of payloads) {
-    const hmac = createHmac('sha256', secret).update(payload, 'utf8');
-    const hex = hmac.digest('hex');
-    const b64 = createHmac('sha256', secret).update(payload, 'utf8').digest('base64');
-    if (equalStr(presented, hex)) return { ok: true, verifiedBy: `${presentedHeader}:hex` };
-    if (equalStr(presented, b64)) return { ok: true, verifiedBy: `${presentedHeader}:base64` };
-  }
-  return { ok: false, reason: 'signature_mismatch' };
+  const expected = createHmac('sha256', secret).update(`${t}.${rawBody}`, 'utf8').digest('hex');
+  const provided = s.toLowerCase();
+  const a = Buffer.from(provided, 'utf8');
+  const b = Buffer.from(expected, 'utf8');
+  if (a.length !== b.length) return { ok: false, reason: 'signature_mismatch' };
+  return timingSafeEqual(a, b)
+    ? { ok: true, verifiedBy: `${headerName}:t.s` }
+    : { ok: false, reason: 'signature_mismatch' };
 }
