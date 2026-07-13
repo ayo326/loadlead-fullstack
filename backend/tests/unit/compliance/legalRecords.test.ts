@@ -38,6 +38,9 @@ describe('legal hold registry', () => {
     await LegalHoldService.placeHold(hold);
     expect(await LegalHoldService.isOnHold('LOAD', 'load-1')).toBe(true);
     await expect(LegalHoldService.assertDeletable('LOAD', 'load-1')).rejects.toBeInstanceOf(LegalHoldError);
+    // SEC-5: the hold error is a controlled 423, not a masked 500, and the guard
+    // is now wired into the load-delete route (routes/shipper.ts).
+    await expect(LegalHoldService.assertDeletable('LOAD', 'load-1')).rejects.toMatchObject({ statusCode: 423 });
 
     await LegalHoldService.releaseHold({ ...hold, reason: 'matter closed' });
     expect(await LegalHoldService.isOnHold('LOAD', 'load-1')).toBe(false);

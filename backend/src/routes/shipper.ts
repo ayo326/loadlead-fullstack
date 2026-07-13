@@ -9,6 +9,7 @@ import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { shipperValidators, loadValidators } from '../utils/validators';
 import { validate } from '../middleware/validation';
 import { TrackingService } from '../services/trackingService';
+import { LegalHoldService } from '../services/legalHoldService';
 
 const router = express.Router();
 
@@ -269,6 +270,10 @@ router.put('/loads/:loadId', asyncHandler(async (req: AuthRequest, res) => {
 router.delete('/loads/:loadId', asyncHandler(async (req: AuthRequest, res) => {
   const { loadId } = req.params;
   await requireOwnLoad(req.user!.userId, loadId);   // ← ownership check
+  // SEC-5 (audit v5): a load under a legal hold (dispute, law-enforcement
+  // request) must not be deletable. LegalHoldService.assertDeletable existed but
+  // had ZERO callers; this is its first live enforcement point. Throws 423.
+  await LegalHoldService.assertDeletable('LOAD', loadId);
 
   await LoadService.cancelLoad(loadId);
   res.json({ message: 'Load cancelled successfully' });
