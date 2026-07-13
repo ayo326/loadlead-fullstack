@@ -253,11 +253,12 @@ module "backend" {
     # ── Canopy Connect (SCRUM-60) ───────────────────────────────────────────
     # Non-secret, env-specific Canopy config is committed here so it is DURABLE
     # across env recreates. The SECRETS - CANOPY_CLIENT_ID, CANOPY_CLIENT_SECRET,
-    # CANOPY_WEBHOOK_SECRET - go in backend_env_vars via the gitignored
-    # staging.auto.tfvars (same pattern as the other integration secrets), so
-    # tofu manages them and a launch-template -replace can never wipe them again.
-    # These three were previously set out-of-band on the EB env and were lost
-    # when the env was recreated for the t3.small / launch-template migration.
+    # CANOPY_WEBHOOK_SECRET - BELONG in backend_env_vars via the gitignored
+    # staging.auto.tfvars (same pattern as the other integration secrets).
+    # KNOWN GAP (audit v5 / EP-4, 2026-07-13): they are currently set OUT-OF-BAND
+    # directly on the EB env and are NOT yet in tfvars, so a full env recreate
+    # WILL wipe all three (it already happened once, for the t3.small /
+    # launch-template migration). TODO: move them into backend_env_vars + apply.
     # connectEnabled (canopyConfig.ts) = Boolean(clientId && clientSecret &&
     # publicAlias); the FE CanopyConnectCard renders only when it is true.
     # CANOPY_ENV left unset = sandbox (bootGuard treats canopy like didit: never
