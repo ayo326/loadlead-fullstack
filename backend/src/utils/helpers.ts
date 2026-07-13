@@ -21,7 +21,10 @@ export class Helpers {
   
   static generateToken(payload: { userId: string; email: string; role: UserRole }): string {
     const secret: jwt.Secret = config.jwt.secret as jwt.Secret;
-    return jwt.sign(payload, secret, { expiresIn: config.jwt.expiresIn as jwt.SignOptions['expiresIn'] });
+    return jwt.sign(payload, secret, {
+      expiresIn: config.jwt.expiresIn as jwt.SignOptions['expiresIn'],
+      algorithm: 'HS256', // pin; verify side only accepts HS256 (Audit v5 SEC-12)
+    });
   }
   
   static calculateMcMaturityDays(authorityStartDate: number): number {

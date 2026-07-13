@@ -142,11 +142,43 @@ export function assertTablesEnvIsolated(): void {
   }
 }
 
+/**
+ * Fail closed if a DEPLOYED environment is missing a real JWT signing secret.
+ * environment.ts falls back to 'dev-secret' so local dev + CI boot without a
+ * secret - but that default is a forge-anyone's-token landmine the moment it
+ * reaches a deployed env (this platform's recurring out-of-band-env failure
+ * mode). So outside development/test we refuse to boot unless JWT_SECRET is
+ * present and not the dev default. A present-but-short secret is a loud warning
+ * (never a hard fail) so this guard can never brick a real env whose generated
+ * secret happens to be short. (Audit v5 SEC-1.)
+ */
+const MIN_JWT_SECRET_LEN = 32;
+export function assertAuthSecretStrong(): void {
+  const appEnv = process.env.APP_ENV ?? 'development';
+  if (appEnv === 'development' || appEnv === 'test') return;
+  const secret = process.env.JWT_SECRET ?? '';
+  if (!secret || secret === 'dev-secret') {
+    throw new BootGuardError(
+      `Refusing to boot: JWT_SECRET is missing or the dev default while APP_ENV=${appEnv}. ` +
+        `A missing/default signing secret makes every auth token forgeable (ADMIN 2FA does not help - ` +
+        `forgery skips login). Set a strong JWT_SECRET for this environment.`,
+    );
+  }
+  if (secret.length < MIN_JWT_SECRET_LEN) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[bootGuard] JWT_SECRET is set but shorter than ${MIN_JWT_SECRET_LEN} chars in APP_ENV=${appEnv}; ` +
+        `rotate it to a longer random value.`,
+    );
+  }
+}
+
 /** Run every boot-time guard. Throws BootGuardError on the first violation. */
 export function runBootGuards(): void {
   assertProductionNotContaminated();
   assertNonProductionSafe();
   assertTablesEnvIsolated();
+  assertAuthSecretStrong();
 }
 
 /**

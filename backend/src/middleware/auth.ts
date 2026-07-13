@@ -29,7 +29,10 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, config.jwt.secret) as {
+    // Pin the algorithm: without this, jsonwebtoken accepts any alg the token
+    // declares, enabling alg-confusion and `alg:none` forgery. We only ever
+    // issue HS256 (see utils/helpers.generateToken). (Audit v5 SEC-12.)
+    const decoded = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] }) as {
       userId: string;
       email: string;
       role: UserRole;

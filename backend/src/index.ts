@@ -159,7 +159,11 @@ app.use(cors({
     // Allow requests with no origin (curl, Postman, server-to-server)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS: origin ${origin} not allowed`));
+    // A disallowed browser Origin must be a controlled 403, not an uncaught 500.
+    // A plain Error has no statusCode, so errorHandler defaulted it to 500 on
+    // EVERY route incl /api/health, making the error rate manipulable and health
+    // unreliable as a liveness signal. Tag it 403. (Audit v5 LS-1.)
+    callback(Object.assign(new Error(`CORS: origin ${origin} not allowed`), { statusCode: 403 }));
   },
   credentials: true,
 }));
