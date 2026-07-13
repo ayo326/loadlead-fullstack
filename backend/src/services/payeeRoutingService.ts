@@ -41,6 +41,15 @@ export interface PayeeResolution {
   assignmentId?: string;
   scope?: AssignmentScope;
   reason: string;
+  /**
+   * True when the mover has an ACTIVE payout intercept (garnishment/levy/lien)
+   * on this invoice. resolvePayee routes money, it does not move it, so it only
+   * SURFACES the intercept here; the actual amount reduction happens at
+   * settlement in reconciliationService.reconcileDebtorPayment. A live payout
+   * path MUST consult this flag and never pay a carrier net without routing
+   * through the intercept applier. (Audit v5 SEC-6.)
+   */
+  intercepted?: boolean;
 }
 
 export class PayeeRoutingService {
@@ -72,12 +81,22 @@ export class PayeeRoutingService {
       };
     }
 
-    // Default: the mover.
+    // Default: the mover. Surface any ACTIVE payout intercept so a downstream
+    // payout cannot silently ignore a court-ordered garnishment/levy/lien. The
+    // dynamic import avoids a static cycle (same pattern as reconcileDebtorPayment).
+    let intercepted = false;
+    if (input.invoiceId) {
+      const { PayoutInterceptService } = await import('./payoutInterceptService');
+      intercepted = (await PayoutInterceptService.activeFor(input.invoiceId, input.carrierId)).length > 0;
+    }
     return {
       type: 'CARRIER',
       carrierId: input.carrierId,
       destination: input.carrierPayoutDestination,
-      reason: 'no active assignment or partner funding',
+      reason: intercepted
+        ? 'no active assignment or partner funding; ACTIVE PAYOUT INTERCEPT - settle via reconcileDebtorPayment'
+        : 'no active assignment or partner funding',
+      ...(intercepted ? { intercepted: true } : {}),
     };
   }
 }
