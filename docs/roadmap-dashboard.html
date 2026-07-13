@@ -9,14 +9,14 @@
     --bg:#f5f7fa; --card:#ffffff; --ink:#16202e; --mute:#5b6673; --line:#dfe5ec;
     --platform:#2563eb; --marketplace:#059669; --identity:#7c3aed; --compliance:#dc2626;
     --settlements:#d97706; --mobile:#0891b2; --product:#475569;
-    --accent:#16202e;
+    --accent:#16202e; --ok:#059669; --warn:#d97706; --pending:#94a3b8; --teal:#0891b2;
   }
   *{box-sizing:border-box; margin:0}
   body{font:14px/1.5 -apple-system,"Helvetica Neue",Arial,sans-serif; background:var(--bg); color:var(--ink); padding:18px}
   h1{font-size:22px; letter-spacing:-.3px}
   h2{font-size:15px; margin:0 0 10px}
   h3{font-size:13px; margin:0 0 6px}
-  .sub{color:var(--mute); font-size:12.5px; margin-top:2px}
+  .sub{color:var(--mute); font-size:12.5px; margin-top:2px; max-width:1080px}
   .top{display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; justify-content:space-between; margin-bottom:14px}
   .legend{display:flex; gap:10px; flex-wrap:wrap; font-size:11.5px}
   .chip{display:inline-flex; align-items:center; gap:5px}
@@ -35,7 +35,7 @@
   /* gantt */
   .gwrap{overflow-x:auto}
   .gantt{min-width:860px}
-  .grow{display:grid; grid-template-columns:230px 1fr; align-items:center; border-top:1px solid #eef1f5}
+  .grow{display:grid; grid-template-columns:250px 1fr; align-items:center; border-top:1px solid #eef1f5}
   .grow:first-child{border-top:none}
   .glabel{padding:7px 8px 7px 2px; font-size:12px; cursor:pointer; display:flex; gap:6px; align-items:center}
   .glabel:hover{color:var(--platform)}
@@ -44,10 +44,16 @@
     repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), #e8edf3 calc(25% - 1px) 25%)}
   .gbar{position:absolute; top:6px; height:18px; border-radius:5px; cursor:pointer; opacity:.92; min-width:8px}
   .gbar:hover{opacity:1; outline:2px solid var(--ink)}
-  .ghead{display:grid; grid-template-columns:230px 1fr; font-size:11px; color:var(--mute); margin-bottom:4px}
+  .gbar.ship{background-image:repeating-linear-gradient(45deg, rgba(255,255,255,.4) 0 4px, transparent 4px 8px)}
+  .gbar.crit{outline:2px solid var(--compliance); outline-offset:1px}
+  .today{position:absolute; top:0; bottom:0; width:2px; background:rgba(220,38,38,.55); z-index:2; pointer-events:none}
+  .ghead{display:grid; grid-template-columns:250px 1fr; font-size:11px; color:var(--mute); margin-bottom:4px}
   .ghead .cols{display:grid; grid-template-columns:repeat(4,1fr)}
   .ghead .cols div{padding:2px 6px; border-left:1px solid var(--line)}
   .wsname{font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--mute); padding:10px 0 3px}
+  .stmark{font-size:11px; font-weight:700; flex:none}
+  .stmark.ship{color:var(--ok)}
+  .stmark.flight{color:var(--warn)}
   /* side panel */
   .side h2{display:flex; justify-content:space-between; align-items:center}
   .field{margin:8px 0}
@@ -73,6 +79,16 @@
   .hidden{display:none}
   .notewrap{margin-top:10px}
   .savemsg{font-size:11px; color:var(--marketplace); height:14px}
+  /* reconciliation */
+  .rsum{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
+  .rsum .box{border:1px solid var(--line); border-radius:9px; padding:7px 11px; background:#fbfcfe; font-size:12px}
+  .rsum .box b{display:block; font-size:15px}
+  .coacard{border:1px solid var(--line); border-radius:10px; padding:11px 12px; margin-bottom:11px}
+  .coahdr{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px}
+  .coahdr b{font-size:13.5px}
+  .spill{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:99px}
+  .you{background:#fff7ed; color:#9a3412; border:1px solid #fdba74; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:99px; white-space:nowrap}
+  .rtbl td:first-child{white-space:nowrap; font-weight:600}
 </style>
 </head>
 <body>
@@ -80,7 +96,7 @@
 <div class="top">
   <div>
     <h1>LoadLead - Quarterly Product Roadmap</h1>
-    <div class="sub">Compiled 2026-07-02 from 245 Jira issues (~187 open), docs/PendingRegister.md (zero go-live blockers), the platform reviews, and the live codebase. Edits persist in this browser (localStorage). <a class="jira" href="https://loadlleadllc.atlassian.net/jira/software/projects/SCRUM/boards/1" target="_blank">Open Jira board</a></div>
+    <div class="sub"><b>Refreshed 2026-07-13</b> (supersedes the 2026-07-02 baseline). Grounded in 249 Jira issues, the v5 platform audit (docs/platform-e2e-audit-v5-2026-07-13), docs/PendingRegister.md (zero go-live blockers), the telematics/SMS platform reviews, and the live codebase - now folding in Canopy Connect (SCRUM-60), compliance documents (SCRUM-59), and the audit reconciliation backlog. Edits persist in this browser (localStorage). <a class="jira" href="https://loadlleadllc.atlassian.net/jira/software/projects/SCRUM/boards/1" target="_blank" rel="noopener">Open Jira board</a></div>
   </div>
   <div class="legend" id="legend"></div>
 </div>
@@ -91,13 +107,13 @@
   <div>
     <!-- QUARTER CALENDAR -->
     <div class="card" style="margin-bottom:14px">
-      <h2>Quarter calendar <span class="meta" style="font-weight:400">- shift a start date and the Gantt re-flows</span></h2>
+      <h2>Quarter calendar <span class="meta" style="font-weight:400">- shift a start date and the Gantt re-flows. Red line on the Gantt = today.</span></h2>
       <div class="qgrid" id="qgrid"></div>
     </div>
 
     <!-- GANTT VIEW -->
     <div class="card view" id="view-gantt">
-      <h2>Editable Gantt <span class="meta" style="font-weight:400">- click any bar or label to edit it in the side panel</span></h2>
+      <h2>Editable Gantt <span class="meta" style="font-weight:400">- click any bar or label to edit it in the side panel. Hatched = shipped, red outline = critical path.</span></h2>
       <div class="gwrap">
         <div class="ghead"><div></div><div class="cols" id="gcols"></div></div>
         <div class="gantt" id="gantt"></div>
@@ -110,9 +126,16 @@
       <div class="qcol" id="breakdown"></div>
     </div>
 
+    <!-- RECONCILIATION VIEW -->
+    <div class="card view hidden" id="view-recon">
+      <h2>Reconciliation backlog <span class="meta" style="font-weight:400">- what's left to reconcile, from the v5 platform audit (2026-07-13)</span></h2>
+      <div class="rsum" id="rsum"></div>
+      <div id="recon"></div>
+    </div>
+
     <!-- COA VIEW -->
     <div class="card view hidden" id="view-coas">
-      <h2>Courses of action</h2>
+      <h2>Strategic courses of action</h2>
       <div id="coas"></div>
     </div>
 
@@ -132,7 +155,7 @@
   <!-- SIDE PANEL -->
   <div class="card side" id="side">
     <h2>Details &amp; notes</h2>
-    <div id="sidebody" class="meta">Click a roadmap item to inspect and edit it. Your quarter/duration edits re-draw the Gantt instantly; notes are saved per item.</div>
+    <div id="sidebody" class="meta">Click a roadmap item to inspect and edit it. Quarter/duration edits re-draw the Gantt instantly; notes are saved per item. See the <b>Reconciliation</b> tab for the audit backlog and the items that need your action (prod applies + secret values).</div>
     <hr style="border:none;border-top:1px solid var(--line);margin:12px 0">
     <h3>Roadmap notes (global)</h3>
     <div class="field"><textarea id="globalnotes" placeholder="Decisions, meeting notes, date rationale..."></textarea></div>
@@ -158,87 +181,143 @@ const TEAMS = {
 const JIRA = "https://loadlleadllc.atlassian.net/browse/";
 
 const DEFAULT_QUARTERS = [
-  {name:"Q3 2026", start:"2026-07-06", theme:"Prove the money loop, open the gates"},
+  {name:"Q3 2026", start:"2026-07-06", theme:"Prove the money loop, reconcile, open the gates"},
   {name:"Q4 2026", start:"2026-10-05", theme:"Live tracking + mobile foundation"},
   {name:"Q1 2027", start:"2027-01-04", theme:"Driver app launch + differentiation"},
   {name:"Q2 2027", start:"2027-04-05", theme:"Scale + intelligence"},
 ];
 
-// q: quarter index; off: offset weeks into quarter; dur: duration weeks
+// q: quarter index; off: offset weeks into quarter; dur: duration weeks; st: shipped|inflight|planned
 const DEFAULT_ITEMS = [
   // ── Q3 2026 ──
-  {id:"sms-now", ws:"SMS program", title:"SMS NOW tier: legal pages, consent store, opt-in UI", team:"identity", q:0, off:0, dur:3, jira:"SCRUM-233", deps:"", why:"Gates A2P campaign review; carrier acquisition channel. Consent record is the TCPA defense."},
-  {id:"sms-brand", ws:"SMS program", title:"10DLC brand + campaign registration (ops long pole)", team:"product", q:0, off:0, dur:8, jira:"SCRUM-239", deps:"sms-now", why:"2-6 weeks of vendor waiting. Start day 1 of the quarter; everything SMS gates on it."},
-  {id:"telem-now", ws:"Telematics", title:"Telematics NOW tier: KMS enabler, connection, roster, HOS", team:"platform", q:0, off:1, dur:6, jira:"SCRUM-218", deps:"", why:"Gateway for live tracking and HOS-safe matching. Staged-go verdict in the platform review."},
-  {id:"sec-high", ws:"Security & compliance", title:"STIG burn-down slice 1: all HIGH items (of 49 open)", team:"compliance", q:0, off:2, dur:8, jira:"SCRUM-8", deps:"", why:"49 open STIG items is the largest backlog block; HIGH slice first, feeds the SOC 2 story."},
-  {id:"e2e-beta", ws:"Quality", title:"E2E/UAT pass for the founding cohort flows", team:"marketplace", q:0, off:4, dur:5, jira:"SCRUM-7", deps:"", why:"7 e2e-uat + 38 test-matrix items open; certify the five personas end to end before cohort scale-up."},
-  {id:"cohort-1", ws:"Growth", title:"Texas founding cohort: admit, run real detention-to-factoring loops", team:"marketplace", q:0, off:2, dur:10, jira:"", deps:"", why:"The money loop (detention -> approve -> factor -> payout) is built and seeded; prove it with real freight."},
-  {id:"mob-m0", ws:"Mobile migration", title:"M0 PWA hardening: manifest, installable, offline shell, push deep links", team:"mobile", q:0, off:6, dur:5, jira:"", deps:"", why:"sw.js exists but no manifest - the app is not even installable today. Cheapest mobile win, ships in weeks."},
-  {id:"neg-shipped", ws:"Marketplace core", title:"Load negotiation (engage/bid/counter) - SHIPPED 2026-07-02", team:"marketplace", q:0, off:0, dur:1, jira:"", deps:"", why:"Shipped in commit 8a3849a: exclusive engage lock, 20-min window, agreed-rate settlement, both UIs. Residuals tracked in the negotiation epic."},
-  {id:"neg-residuals", ws:"Marketplace core", title:"Negotiation residuals: trust signals, lock-scan scale, shared-worker sweeper", team:"marketplace", q:0, off:2, dur:4, jira:"", deps:"neg-shipped", why:"Live updates (long-poll) and FLAT_RATE total bidding shipped 2026-07-02; remaining: trust signals, lock-scan scale, sweeper migration."},
+  {id:"brokerage", ws:"Business ops", title:"Brokerage authority: reinstate LLC + FMCSA MC authority + BMC-84 bond", team:"product", q:0, off:0, dur:9, st:"inflight", crit:true, jira:"SCRUM-166", deps:"", why:"TRUE REVENUE CRITICAL PATH. SCRUM-165 (reinstate LLC) and SCRUM-166 (MC authority + bond) are both Highest priority - operating a brokerage without authority is a federal violation and legally blocks taking tendered loads. Vendor/regulator clock, so front-load it. Non-engineering but gates everything commercial."},
+  {id:"sms-now", ws:"SMS program", title:"SMS NOW tier: legal pages, consent store, opt-in UI", team:"identity", q:0, off:0, dur:3, st:"planned", jira:"SCRUM-233", deps:"", why:"SCRUM-233 legal pages (MKT), SCRUM-234 append-only consent store (IAM), SCRUM-235 opt-in UI (MKT). Gates A2P campaign review; the consent record is the TCPA defense."},
+  {id:"sms-brand", ws:"SMS program", title:"10DLC brand + campaign registration (ops long pole)", team:"product", q:0, off:0, dur:8, st:"planned", jira:"SCRUM-239", deps:"sms-now", why:"SCRUM-239. 2-6 weeks of vendor waiting on brand->campaign->number. Start day 1 of the quarter; every SMS feature gates on it."},
+  {id:"telem-now", ws:"Telematics", title:"Telematics NOW tier: SNS subscriber enabler, KMS, connection, roster, HOS", team:"platform", q:0, off:1, dur:6, st:"planned", jira:"SCRUM-218", deps:"", why:"SCRUM-224 sns-subscriber is the enabler (alerting is theater until it lands), then SCRUM-217 KMS, SCRUM-218 connection + encrypted token store, SCRUM-225 connect-UI, SCRUM-219 roster, SCRUM-220 HOS. Staged-go verdict in the platform review."},
+  {id:"e2e-unblock", ws:"Quality", title:"Unblock E2E: aux DDB tables + RBAC-under-concurrency + shipper-form a11y", team:"platform", q:0, off:0, dur:3, st:"planned", crit:true, jira:"SCRUM-184", deps:"", why:"Four Highest/BLOCKER audit tasks gate the whole E2E/UAT epic. ONE fix (missing aux tables in createTables.mjs - SCRUM-184/192/195) clears accept-offer, carrier-signup and receiver/incoming 500s. Plus SCRUM-185 (admin RBAC 88.3% under concurrency) and SCRUM-198 (16 critical WCAG-AA violations on the shipper post-load form - the primary shipper action is unusable on assistive tech)."},
+  {id:"sec-high", ws:"Security & compliance", title:"STIG burn-down slice 1: CAT-I + all HIGH controls", team:"compliance", q:0, off:2, dur:8, st:"planned", jira:"SCRUM-8", deps:"", why:"SCRUM-8 epic. CAT-I go-live gates (SCRUM-124/131-136/141) first, then the HIGH slice. Compliance CI is green; the gap is the 38/38 human STIG-checklist sign-off (PendingRegister #2). Feeds the SOC 2 story."},
+  {id:"e2e-beta", ws:"Quality", title:"E2E/UAT pass for the founding-cohort flows (5 personas)", team:"marketplace", q:0, off:4, dur:5, st:"planned", jira:"SCRUM-7", deps:"e2e-unblock", why:"SCRUM-7 epic + SCRUM-6 test matrix. Certify the five personas end to end before cohort scale-up. Blocked until e2e-unblock clears the createTables aux-table root cause; UAT-CT sign-offs (SCRUM-209..215) are still blank."},
+  {id:"cohort-1", ws:"Growth", title:"Texas founding cohort: run real detention-to-factoring loops", team:"marketplace", q:0, off:2, dur:10, st:"inflight", jira:"", deps:"", why:"The money loop (detention -> approve -> factor -> payout) is built and seeded; prove it with real freight. Cohort quality beats cohort size through Q4."},
+  {id:"canopy-prod", ws:"Compliance & insurance", title:"Canopy Connect prod enablement: apply insurer tables, redeploy backend, turn on connect", team:"compliance", q:0, off:1, dur:4, st:"inflight", jira:"SCRUM-60", deps:"", why:"SCRUM-60 MERGED to main (sandbox-first, 15 checks green). Remaining to go live in prod: apply the 2 Canopy tables (audit EP-2), redeploy prod backend so /api/webhooks/canopy stops 404ing (LS-3), and set the prod Canopy secrets. Powers Instant Insurance Verification (bet 7)."},
+  {id:"compliance-docs", ws:"Compliance & insurance", title:"Compliance documents (W9/COI/LOA/shipper-policy): KMS provisioning + FE + phases 4-9", team:"compliance", q:0, off:2, dur:9, st:"inflight", jira:"SCRUM-59", deps:"", why:"SCRUM-59. W9 backend done (KMS envelope crypto, official-form fill); infra PR #49 adds the per-env TIN KMS key + 5 DDB tables + private S3. Remaining: TF provisioning wire-up, the frontend, and phases 4-9 (COI/LOA/shipper policy)."},
+  {id:"audit-coa12", ws:"Reconciliation & hardening", title:"v5 audit COA-1/COA-2: authz-gate bypasses + unwired controls (MERGED)", team:"compliance", q:0, off:0, dur:2, st:"shipped", jira:"SCRUM-59", deps:"", why:"SHIPPED this arc, staging-first, each with a bypass (negative) test. COA-1 closed BL-1 (expired-COI gate), BL-2 (e-sign driver binding), FE-2 (beta wall fail-closed), LS-1 (CORS 403), SEC-1 (JWT boot guard), SEC-2/3/4/8/9 (IDOR ownership). COA-2 wired SEC-5 (legal holds), SEC-6 (payout intercepts), FE-3 (de-spoofed verification tab), SEC-7 (IAM append-only Deny). See the Reconciliation tab."},
+  {id:"recon-coa3", ws:"Reconciliation & hardening", title:"v5 audit COA-3: prod runtime config -> IaC + environment parity", team:"platform", q:0, off:1, dur:6, st:"inflight", jira:"SCRUM-59", deps:"", why:"EP-1 codify prod config in Terraform (biggest structural/DR gap - prod runtime config is 100% out-of-band today), EP-2 apply Canopy prod tables, EP-3 staging Offers loadId-index, EP-4 Canopy secrets -> tfvars, EP-7 isolation-guard both-prefix, LS-2/LS-4 staging FE security headers + noindex. Two items need your secret values + a deliberate prod apply."},
+  {id:"neg-shipped", ws:"Marketplace core", title:"Load negotiation (engage/bid/counter) - SHIPPED", team:"marketplace", q:0, off:0, dur:1, st:"shipped", jira:"SCRUM-247", deps:"", why:"SCRUM-247/248/249 shipped: exclusive engage lock, 20-min window, agreed-rate settlement, long-poll live updates, FLAT_RATE total bidding, both UIs. Plus the e-sign-at-assign gate shipped to prod."},
+  {id:"neg-residuals", ws:"Marketplace core", title:"Negotiation residuals: trust signals, lock-scan GSI, shared-worker sweeper", team:"marketplace", q:0, off:2, dur:4, st:"planned", jira:"SCRUM-251", deps:"neg-shipped", why:"SCRUM-250 lock-scan needs a GSI at scale, SCRUM-251 trust signals, SCRUM-252 sweeper -> shared worker (PLT override; waits on SCRUM-221)."},
+  {id:"mob-m0", ws:"Mobile migration", title:"M0 PWA hardening: manifest, installable, offline shell, push deep links", team:"mobile", q:0, off:6, dur:5, st:"planned", jira:"", deps:"", why:"sw.js exists but there is no web manifest today - the app is not even installable. Cheapest mobile win, ships in weeks, de-risks the native bet."},
   // ── Q4 2026 ──
-  {id:"telem-next", ws:"Telematics", title:"Tracking tier: scheduled worker, ingestion, geofenced stop events", team:"settlements", q:1, off:0, dur:9, jira:"SCRUM-221", deps:"telem-now", why:"The money feature: hardware-attested detention. Needs the worker enabler + settlements sign-off on the stop-events seam."},
-  {id:"sms-next", ws:"SMS program", title:"SMS NEXT tier: adapter, SNS ingress, chokepoint, go-live", team:"platform", q:1, off:0, dur:6, jira:"SCRUM-236", deps:"sms-brand", why:"Go-live gated on campaign approval + counsel sign-off; alerts become the carrier engagement loop."},
-  {id:"analytics-t1", ws:"Analytics", title:"Analytics Tier 1: PostGIS replica + shipper lane dashboards", team:"platform", q:1, off:2, dur:9, jira:"SCRUM-161", deps:"", why:"14 open items, spec complete (docs/database-analytics). Feeds lane-liquidity and pricing intelligence."},
-  {id:"mob-m1", ws:"Mobile migration", title:"M1 Expo driver app shell: auth, loadboard, offers, stop check-in", team:"mobile", q:1, off:1, dur:10, jira:"", deps:"mob-m0", why:"Driver-first per COA-M: the driver lives in the truck. Reuses the TS API client and React skills."},
-  {id:"ga-flip", ws:"Growth", title:"GA decision: BETA_MODE off, apex marketing surface", team:"product", q:1, off:8, dur:3, jira:"", deps:"e2e-beta,sec-high", why:"Flip after the E2E pass + HIGH security slice; beta.loadleadapp.com stays as the staging surface."},
-  {id:"admin-ops", ws:"Business ops", title:"Administrative backlog: brokerage license, GTM, legal-compliance items", team:"product", q:1, off:0, dur:11, jira:"SCRUM-162", deps:"", why:"9 open admin items incl. broker authority - some gate revenue mechanics; run in parallel."},
+  {id:"telem-next", ws:"Telematics", title:"Tracking tier: scheduled worker, ingestion, geofenced stop events", team:"settlements", q:1, off:0, dur:9, st:"planned", jira:"SCRUM-221", deps:"telem-now", why:"SCRUM-221 polling worker (EventBridge->Lambda) is a HIDDEN DEPENDENCY HUB - it also retires the in-process setInterval rebroadcast debt the negotiation sweeper waits on. SCRUM-223 geofence-stop-events writes money-bearing detention (SET seam). The money feature: hardware-attested detention."},
+  {id:"sms-next", ws:"SMS program", title:"SMS NEXT tier: adapter, SNS ingress, send chokepoint, go-live", team:"platform", q:1, off:0, dur:6, st:"planned", jira:"SCRUM-236", deps:"sms-brand", why:"SCRUM-236 adapter, SCRUM-237 ingress (STOP/HELP), SCRUM-238 send-chokepoint (reuses the notification-suppression seam; TRC consulted), SCRUM-243 go-live gated on campaign approval + counsel sign-off."},
+  {id:"analytics-t1", ws:"Analytics", title:"Analytics Tier 1: PostGIS replica + shipper lane dashboards", team:"platform", q:1, off:2, dur:9, st:"planned", jira:"SCRUM-173", deps:"", why:"SCRUM-173 RDS PG16+PostGIS, SCRUM-177 DynamoDB Streams on 8 tables, SCRUM-179 schema + consumer Lambda + backfill. Spec complete. Feeds lane-liquidity and pricing intelligence (bet 5)."},
+  {id:"mob-m1", ws:"Mobile migration", title:"M1 Expo driver app shell: auth, loadboard, offers, stop check-in", team:"mobile", q:1, off:1, dur:10, st:"planned", jira:"", deps:"mob-m0", why:"Driver-first per COA-M: the driver lives in the truck. React Native (Expo) reuses the TS types + zod schemas + TanStack Query + api client from frontend-v2; only the Radix/shadcn UI layer is rebuilt."},
+  {id:"ga-flip", ws:"Growth", title:"GA decision: BETA_MODE off, apex marketing surface", team:"product", q:1, off:8, dur:3, st:"planned", jira:"", deps:"e2e-beta,sec-high", why:"Flip after the E2E pass + HIGH security slice + brokerage authority; beta.loadleadapp.com stays as the staging surface. GA is a one-way door for reputation."},
+  {id:"admin-ops", ws:"Business ops", title:"Business backlog: legal-compliance, pricing, factoring partner, GTM", team:"product", q:1, off:0, dur:11, st:"planned", jira:"SCRUM-162", deps:"brokerage", why:"SCRUM-167 legal-compliance (High), SCRUM-169 pricing, SCRUM-170 factoring partner agreement, SCRUM-168 GTM. Runs after the brokerage-authority gate."},
+  {id:"node22", ws:"Reconciliation & hardening", title:"Node 22 platform migration (AWS SDK v3 clock)", team:"platform", q:1, off:4, dur:6, st:"planned", jira:"", deps:"", why:"Audit BE-1, highest-value LOW. AWS SDK v3 requires Node >=22 for releases after early Jan 2027; repo is on node 20.20.0. Bump the EB platform + CI + .nvmrc before Q1 2027 so it's a scheduled change, not a forced one."},
   // ── Q1 2027 ──
-  {id:"mob-m2", ws:"Mobile migration", title:"M2 Store launch: background GPS, offline POD, App/Play review", team:"mobile", q:2, off:0, dur:10, jira:"", deps:"mob-m1", why:"Store review cycles + background-location entitlements have lead time; GPS ties into telematics fallback."},
-  {id:"bet-instantpay", ws:"Competitive bets", title:"Bet 1 - Instant Pay: same-day factoring-backed payout on POD", team:"settlements", q:2, off:0, dur:8, jira:"", deps:"telem-next", why:"The factoring rails exist. Same-day pay is the #1 carrier switching trigger vs DAT/Truckstop."},
-  {id:"bet-detention", ws:"Competitive bets", title:"Bet 2 - Zero-Dispute Detention: geofence-attested, auto-computed, pre-agreed", team:"settlements", q:2, off:4, dur:7, jira:"", deps:"telem-next", why:"80% built (policy freeze + calc + geofence events). Productize the industry's #1 pain as a headline feature."},
-  {id:"bet-shield", ws:"Competitive bets", title:"Bet 3 - Double-Broker Shield: IDV + carrier-of-record + WORM chain, marketed", team:"identity", q:2, off:2, dur:8, jira:"", deps:"", why:"Double brokering is freight's biggest fraud wave; LoadLead already has the primitives competitors bolt on."},
-  {id:"sec-med", ws:"Security & compliance", title:"STIG slice 2 (MEDIUM) + SOC 2 Type I readiness kickoff", team:"compliance", q:2, off:0, dur:12, jira:"", deps:"sec-high", why:"SOC 2 unlocks enterprise shippers; the compliance layer + WORM sink are strong evidence already."},
+  {id:"mob-m2", ws:"Mobile migration", title:"M2 Store launch: background GPS, offline POD, App/Play review", team:"mobile", q:2, off:0, dur:10, st:"planned", jira:"", deps:"mob-m1", why:"Store review cycles + background-location entitlements have lead time. The GPS work double-serves the telematics tracking tier as the no-ELD fallback."},
+  {id:"bet-instantpay", ws:"Competitive bets", title:"Bet 1 - Instant Pay: same-day factoring-backed payout on POD", team:"settlements", q:2, off:0, dur:8, st:"planned", jira:"", deps:"telem-next", why:"The factoring rails, payee routing, and reconciliation already exist (payments pipeline v3). Same-day pay is the #1 carrier switching trigger vs DAT/Truckstop's 30-90 day waits."},
+  {id:"bet-detention", ws:"Competitive bets", title:"Bet 2 - Zero-Dispute Detention: geofence-attested, auto-computed, pre-agreed", team:"settlements", q:2, off:4, dur:7, st:"planned", jira:"", deps:"telem-next", why:"80% built (policy freeze + both-side e-sign + calc + geofence stop events). Productize the industry's #1 fight as a headline feature."},
+  {id:"bet-shield", ws:"Competitive bets", title:"Bet 3 - Double-Broker Shield: IDV + carrier-of-record + WORM chain, marketed", team:"identity", q:2, off:2, dur:8, st:"planned", jira:"", deps:"", why:"Double brokering is freight's biggest fraud wave; LoadLead already has the primitives (carrier-of-record, IDV, FMCSA, WORM signature chain) competitors bolt on after the fact."},
+  {id:"sec-med", ws:"Security & compliance", title:"STIG slice 2 (MEDIUM) + SOC 2 Type I readiness kickoff", team:"compliance", q:2, off:0, dur:12, st:"planned", jira:"", deps:"sec-high", why:"SOC 2 unlocks enterprise shippers; the compliance layer + WORM sink + append-only audit are strong evidence already."},
   // ── Q2 2027 ──
-  {id:"bet-hos", ws:"Competitive bets", title:"Bet 4 - HOS-aware matching: only show loads a driver can legally run", team:"marketplace", q:3, off:0, dur:8, jira:"SCRUM-220", deps:"telem-now", why:"Safety as a feature: fewer violations, better on-time. Needs telematics HOS + the consolidated matching rule."},
-  {id:"bet-backhaul", ws:"Competitive bets", title:"Bet 5 - Backhaul optimizer + lane-liquidity heatmap for shippers", team:"marketplace", q:3, off:2, dur:9, jira:"", deps:"analytics-t1", why:"Deadhead is carriers' hidden cost; liquidity heatmaps are the shipper-side hook. Built on Analytics Tier 1."},
-  {id:"mob-m3", ws:"Mobile migration", title:"M3 Fleet mode + shipper companion (or full responsive parity)", team:"mobile", q:3, off:0, dur:10, jira:"", deps:"mob-m2", why:"Extend mobile beyond drivers once the driver app proves retention."},
-  {id:"soc2-audit", ws:"Security & compliance", title:"SOC 2 Type I audit window", team:"compliance", q:3, off:4, dur:8, jira:"", deps:"sec-med", why:"Timed after two STIG slices; the enterprise-shipper unlock."},
-  {id:"cohort-2", ws:"Growth", title:"Cohort 2: expand beyond Texas, referral loop", team:"marketplace", q:3, off:0, dur:12, jira:"", deps:"ga-flip", why:"Scale the marketplace once GA + SMS + mobile retention are in place."},
+  {id:"bet-hos", ws:"Competitive bets", title:"Bet 4 - HOS-aware matching: only show loads a driver can legally run", team:"marketplace", q:3, off:0, dur:8, st:"planned", jira:"SCRUM-220", deps:"telem-now", why:"Safety as a feature: fewer violations, better on-time. Needs telematics HOS (SCRUM-220) + the consolidated matching rule."},
+  {id:"bet-backhaul", ws:"Competitive bets", title:"Bet 5 - Backhaul optimizer + lane-liquidity heatmap for shippers", team:"marketplace", q:3, off:2, dur:9, st:"planned", jira:"", deps:"analytics-t1", why:"Deadhead is carriers' hidden cost; liquidity heatmaps are the shipper-side hook. Built on Analytics Tier 1."},
+  {id:"mob-m3", ws:"Mobile migration", title:"M3 Fleet mode + shipper companion (or full responsive parity)", team:"mobile", q:3, off:0, dur:10, st:"planned", jira:"", deps:"mob-m2", why:"Extend mobile beyond drivers once the driver app proves retention. Decide fleet-mode vs responsive parity on M2 data."},
+  {id:"soc2-audit", ws:"Security & compliance", title:"SOC 2 Type I audit window", team:"compliance", q:3, off:4, dur:8, st:"planned", jira:"", deps:"sec-med", why:"Timed after two STIG slices; the enterprise-shipper unlock."},
+  {id:"cohort-2", ws:"Growth", title:"Cohort 2: expand beyond Texas, referral loop", team:"marketplace", q:3, off:0, dur:12, st:"planned", jira:"", deps:"ga-flip", why:"Scale the marketplace once GA + SMS + mobile retention are in place."},
 ];
+
+// ── v5 audit reconciliation backlog ──
+const RSTAT = {
+  merged:["Merged","#059669"], staging:["Staging only","#0891b2"], code:["Code ready","#2563eb"],
+  partial:["Partial","#d97706"], pending:["Pending","#94a3b8"], planned:["Backlog","#94a3b8"],
+};
+const RECON = [
+  {coa:"COA-1", title:"Close the HIGH authz / gate bypasses", status:"merged",
+   note:"Shipped this arc - small PRs, staging-first, each with a bypass (negative) test. CORS->403 and boot-green live-validated on staging.",
+   items:[
+    {id:"BL-1", sev:"HIGH", s:"merged", t:"Mandatory-COI gate accepted an EXPIRED/REJECTED certificate; now gates on validity + re-evaluates on expiry."},
+    {id:"BL-2", sev:"HIGH", s:"merged", t:"E-sign-at-assign now asserts sig.assignedDriverId === the driver being committed (was: any CARRIER_ACCEPT sig)."},
+    {id:"FE-2", sev:"HIGH", s:"merged", t:"Private-beta wall now fails CLOSED on login/signup (was: a single slow /beta/status exposed the public form)."},
+    {id:"LS-1", sev:"HIGH", s:"merged", t:"Rejected CORS origin returns a controlled 403, not 500 (health is a reliable liveness signal again)."},
+    {id:"SEC-1", sev:"HIGH", s:"merged", t:"Removed the dev-secret JWT fallback + fail-closed boot guard + pinned HS256 (SEC-12)."},
+    {id:"SEC-2/3/4/8/9", sev:"HIGH", s:"merged", t:"IDOR: carrier-of-record / party ownership checks on factoring release, opt-in, reads, BOL mutations, and OO fleet delete."},
+   ]},
+  {coa:"COA-2", title:"Wire the unwired controls", status:"merged",
+   note:"Shipped this arc. One prod tail remains: the SEC-7 IAM append-only Deny is applied to staging but still needs a prod tofu apply.",
+   items:[
+    {id:"SEC-5", sev:"HIGH", s:"merged", t:"Legal holds now enforced on delete paths (controlled 423 when on hold) - was zero production callers."},
+    {id:"SEC-6", sev:"HIGH", s:"merged", t:"Payout intercepts now surface on the live payee-resolution path (both CARRIER and FACTOR branches)."},
+    {id:"FE-3", sev:"HIGH", s:"merged", t:"Settings verification tab de-spoofed - no more client-side localStorage 'verified' state."},
+    {id:"SEC-7", sev:"HIGH", s:"staging", you:"Run: tofu apply -target=module.backend.aws_iam_role_policy.app_data_access in envs/prod", t:"IAM append-only Deny (UpdateItem/DeleteItem) on 7 compliance/audit tables. Applied live to staging; needs the same prod apply."},
+   ]},
+  {coa:"COA-3", title:"Environment reconciliation & IaC source-of-truth", status:"partial",
+   note:"In progress. The two prod items are gated on YOU - they need secret values I don't handle and a deliberate prod apply.",
+   items:[
+    {id:"EP-4", sev:"HIGH", s:"partial", you:"Add the 3 Canopy secret VALUES to gitignored staging.auto.tfvars, then tofu apply", t:"Canopy secrets are non-durable (on-EB only); a recreate wipes them (already happened once). The false main.tf comment is corrected; the durability move to tfvars is pending your values."},
+    {id:"EP-3", sev:"HIGH", s:"code", you:"tofu apply staging to create the GSI", t:"Staging Offers is missing loadId-index -> getOffersByLoad 500s. loadId-index added to the shared dynamodb_tableset module this session; needs the staging apply."},
+    {id:"EP-7", sev:"MED", s:"pending", t:"Isolation guard (bootGuard prodFormTableNames) only flags the LoadLead_ underscore prefix; normalize it to also catch the dash-named prod table without false-positiving LoadLead-Staging-*."},
+    {id:"EP-1", sev:"HIGH", s:"pending", you:"Provide prod secret values (gitignored prod.auto.tfvars) + prod apply", t:"Prod's entire runtime config is out-of-band (no IaC) - a recreate/DR loses it and the env won't boot. Biggest structural gap. Codify it in eb-imported.tf, matching the staging pattern."},
+    {id:"EP-2", sev:"HIGH", s:"pending", you:"tofu apply envs/prod (2 empty tables)", t:"Canopy prod tables are declared but unapplied; the day Canopy is enabled in prod the first write 500s. Apply now so enabling it later is config-only."},
+    {id:"LS-2", sev:"MED", s:"pending", t:"Staging FE serves zero security headers (no CSP/HSTS/X-Frame-Options); attach the prod CloudFront Response Headers Policy."},
+    {id:"LS-4", sev:"MED", s:"pending", t:"Staging is fully crawlable while hosting the muted pre-release persona; add X-Robots-Tag noindex / robots disallow."},
+    {id:"EP-5/EP-6", sev:"MED", s:"pending", t:"Perpetual EB plan diff (43 settings rewritten each plan - largely closes with EP-4) + Loads status-createdAt-index drift prod vs staging."},
+   ]},
+  {coa:"COA-4", title:"Hygiene backlog (opportunistic)", status:"planned",
+   note:"Not started. BE-1 (Node 22) is the highest-value LOW and also sits on the roadmap as a Q4 platform item with a hard Q1-2027 clock.",
+   items:[
+    {id:"BE-1", sev:"LOW", s:"planned", t:"Node 22 migration before Q1 2027 (AWS SDK v3 clock). On the roadmap as a Q4 bar."},
+    {id:"LS-3", sev:"LOW", s:"planned", you:"Redeploy prod backend from main (folds into Canopy prod-enable)", t:"Prod /api/webhooks/canopy 404s - prod backend is a few commits behind main/staging. Deploy-parity signal (fails safe today)."},
+    {id:"FE-1", sev:"MED", s:"pending", t:"No FE unit-test CI gate: vitest globs the Playwright specs and exits 1; add test.exclude + a CI job."},
+    {id:"+15 more", sev:"LOW", s:"planned", t:"BE-2/3/4, FE-4/5/6, BL-3/5/7/8/9, SEC-10/12/13/14, EP-8 - rolled up; individually low-risk."},
+   ]},
+];
+// Standing security backlog (PendingRegister HIGHs, not in the v5 audit) that feeds the STIG slice:
+const RECON_STANDING = "Standing security backlog (docs/PendingRegister.md, zero go-live blockers): /api/maps/* 3 public routes need authenticate (cost-DoS); bcrypt cost 10 -> 12 (STIG LL-IA-001); infra/terraform/_bootstrap/ needs a .gitignore; 38/38 STIG controls need human sign-off; MFA enforcement decision beyond admin TOTP; Pact provider verification vs a real Express + DDB-Local. These feed the STIG slice (sec-high / sec-med).";
 
 const COAS = [
   {id:"COA-M", title:"Mobile strategy", options:[
     {name:"A. PWA-only", pros:"Days-weeks; no store friction; one codebase", cons:"No reliable background GPS on iOS; weak store presence; push limits on iOS", rec:false},
-    {name:"B. PWA now, Expo/React Native driver app next (staged)", pros:"M0 ships value in weeks; RN reuses the TS/React skillset and API client; background location + store presence where they matter (drivers)", cons:"Two surfaces to maintain during transition", rec:true},
+    {name:"B. PWA now, Expo/React Native driver app next (staged)", pros:"M0 ships value in weeks; RN reuses the TS types/zod/TanStack Query/api client and the team's React skills; background location + store presence where they matter (drivers)", cons:"Two surfaces to maintain during transition", rec:true},
     {name:"C. Full native Swift/Kotlin", pros:"Best platform integration", cons:"Two new codebases and skillsets for a small team; slowest", rec:false},
     {name:"D. Capacitor wrapper of the SPA", pros:"Fast store presence", cons:"Wrapped-web UX for drivers with gloves in trucks; background services still need native work", rec:false},
-  ], why:"The driver persona decides mobile. Drivers need install-and-forget, offline POD, and background location. B gets there without betting the company on new skillsets, and M0 (PWA) de-risks it by shipping installability first."},
+  ], why:"The driver persona decides mobile. Drivers need install-and-forget, offline POD, and background location. The stack (Vite + React 18 + shadcn/Radix + Tailwind + TanStack Query) means B reuses the logic layer and rebuilds only the Radix/shadcn UI, which is web-DOM-only anyway. M0 (PWA) de-risks it by shipping installability first."},
   {id:"COA-G", title:"GA timing", options:[
-    {name:"A. Flip GA end of Q3", pros:"Faster growth", cons:"Ahead of the E2E pass and security slice; support load hits early", rec:false},
-    {name:"B. Flip GA mid-Q4 after E2E + HIGH security slice", pros:"Certified flows; SMS acquisition live to catch the demand", cons:"One quarter slower", rec:true},
+    {name:"A. Flip GA end of Q3", pros:"Faster growth", cons:"Ahead of the E2E pass, security slice, and brokerage authority; support load hits early", rec:false},
+    {name:"B. Flip GA mid-Q4 after E2E + HIGH security + authority", pros:"Certified flows; legal to take tendered loads; SMS acquisition live to catch the demand", cons:"One quarter slower", rec:true},
     {name:"C. Stay beta through 2026", pros:"Maximum polish", cons:"Wastes the SMS/telematics differentiation window", rec:false},
-  ], why:"GA is a one-way door for reputation. B times it right after quality gates and right before the mobile push."},
-  {id:"COA-S", title:"Security debt (49 STIG items)", options:[
-    {name:"A. Stop-the-line: burn all 49 first", pros:"Clean slate", cons:"Freezes product two quarters; most items are MEDIUM/LOW", rec:false},
-    {name:"B. Sliced: HIGH in Q3, MEDIUM+SOC2 prep in Q1, audit Q2", pros:"Risk-ranked; keeps roadmap moving; builds the SOC 2 narrative on real evidence", cons:"Carries known MEDIUMs for two quarters", rec:true},
-    {name:"C. Defer until an enterprise deal demands it", pros:"Max feature velocity", cons:"Retrofitting under deal pressure is the most expensive way; contradicts the compliance posture already built", rec:false},
-  ], why:"The compliance layer, WORM sink, and audit trails are genuine differentiators - the sliced plan converts the backlog into a sales asset (SOC 2) instead of a tax."},
+  ], why:"GA is a one-way door for reputation. B times it right after the quality + authority gates and right before the mobile push. Brokerage authority (SCRUM-166) is a hard legal precondition, not a nicety."},
+  {id:"COA-S", title:"Security & reconciliation debt", options:[
+    {name:"A. Stop-the-line: burn everything first", pros:"Clean slate", cons:"Freezes product two quarters; most STIG items are MEDIUM/LOW", rec:false},
+    {name:"B. Sliced: audit COA-1/2 done now, COA-3 reconcile this quarter, STIG HIGH in Q3 / MEDIUM+SOC2 in Q1", pros:"Risk-ranked; keeps the roadmap moving; builds the SOC 2 narrative on real evidence; the authz/IDOR class (COA-1) is already closed", cons:"Carries known MEDIUMs for two quarters", rec:true},
+    {name:"C. Defer until an enterprise deal demands it", pros:"Max feature velocity", cons:"Retrofitting under deal pressure is the most expensive path; contradicts the compliance posture already built", rec:false},
+  ], why:"The v5 audit's HIGH authz/gate bypasses (COA-1) and unwired controls (COA-2) are already merged. What remains is COA-3 environment reconciliation (prod IaC is the structural one) plus the STIG slice - all convertible into a SOC 2 sales asset instead of a tax."},
   {id:"COA-D", title:"Differentiation focus", options:[
-    {name:"A. Money-loop bets first (Instant Pay, Zero-Dispute Detention, Double-Broker Shield)", pros:"Leverages what is uniquely already built (factoring rails, geofence detention, IDV/WORM); direct carrier switching triggers", cons:"Settlement-heavy quarters", rec:true},
-    {name:"B. Matching intelligence first (HOS-aware, backhaul)", pros:"Strong long-term moat", cons:"Depends on telematics volume that does not exist yet", rec:false},
+    {name:"A. Money-loop bets first (Instant Pay, Zero-Dispute Detention, Double-Broker Shield, Canopy insurance)", pros:"Leverages what is uniquely already built (factoring rails, geofence detention, IDV/WORM, insurer connect); direct carrier switching triggers", cons:"Settlement/compliance-heavy quarters", rec:true},
+    {name:"B. Matching intelligence first (HOS-aware, backhaul)", pros:"Strong long-term moat", cons:"Depends on telematics + analytics volume that does not exist yet", rec:false},
     {name:"C. Growth marketing first", pros:"Top-line now", cons:"Without differentiation, LoadLead is a smaller DAT; churn risk", rec:false},
-  ], why:"Sequence bets behind their enablers: money-loop bets ride Q4 telematics; intelligence bets ride the data those features generate. A then B is one roadmap, not a choice."},
+  ], why:"Sequence bets behind their enablers: money-loop + trust bets ride machinery already in prod; intelligence bets ride the data the Q3-Q4 telematics/analytics enablers generate. A then B is one roadmap, not a choice."},
 ];
 
 const BETS = [
   {n:1, name:"Instant Pay", vs:"DAT/Truckstop pay in 30-90 days via external factors", edge:"Factoring rails, payee routing, and reconciliation are ALREADY BUILT (payments pipeline v3). Same-day payout on attested POD is a switching trigger, not a feature.", team:"settlements"},
   {n:2, name:"Zero-Dispute Detention", vs:"Industry norm: detention is a fight carriers usually lose", edge:"Policy frozen at posting + both-sides e-sign + geofence-attested stop events + auto-computed charges = detention that pays itself. 80% of the machinery is live today.", team:"settlements"},
   {n:3, name:"Double-Broker Shield", vs:"Load boards bolt on fraud tools after the fact", edge:"Carrier-of-record resolution, IDV, FMCSA verification, and a WORM-backed signature chain are native primitives. Market the trust, not just the tech.", team:"identity"},
-  {n:4, name:"HOS-Aware Matching", vs:"Boards show loads drivers cannot legally run", edge:"Telematics HOS + the consolidated matching rule = only legal, feasible loads. Safety as product.", team:"marketplace"},
-  {n:5, name:"Backhaul Optimizer + Liquidity Heatmap", vs:"Deadhead miles are the industry's silent margin killer", edge:"PostGIS analytics tier + lane liquidity metrics (already prototyped in the admin console) turned carrier-facing and shipper-facing.", team:"marketplace"},
+  {n:4, name:"HOS-Aware Matching", vs:"Boards show loads drivers cannot legally run", edge:"Telematics HOS (SCRUM-220) + the consolidated matching rule = only legal, feasible loads. Safety as product.", team:"marketplace"},
+  {n:5, name:"Backhaul Optimizer + Liquidity Heatmap", vs:"Deadhead miles are the industry's silent margin killer", edge:"PostGIS analytics tier + lane-liquidity metrics (already prototyped in the admin console) turned carrier-facing and shipper-facing.", team:"marketplace"},
   {n:6, name:"SMS Claim-by-Reply", vs:"App-only claiming loses drivers mid-route", edge:"The SMS program's two-way SNS ingress makes 'reply 1 to claim' a small extension with outsized driver love.", team:"marketplace"},
+  {n:7, name:"Instant Insurance Verification (Canopy)", vs:"Competitors make carriers upload COI PDFs that go stale the day after", edge:"Insurer-direct connection (Canopy Connect, SCRUM-60) auto-verifies COI + authority, cross-references discrepancies, and drops the hauler to PENDING the moment a certificate lapses. Trust that updates itself.", team:"compliance"},
 ];
 
 const MOBILE = [
   {m:"M0 - PWA hardening", when:"Q3 2026", what:"Web manifest, installable prompt, offline app shell, push deep links, icon set. Fixes: sw.js exists but there is no manifest today.", exit:"Lighthouse PWA pass; installed-user push reopens the app to the right load."},
-  {m:"M1 - Expo driver app shell", when:"Q4 2026", what:"React Native (Expo) app: auth (httpOnly-cookie bridge or token exchange), driver loadboard, offer accept, stop check-in/out reusing the accessorials API. Shares the TS types and API client shapes from frontend-v2/src/lib/api.ts.", exit:"Internal TestFlight/Play internal track build a beta driver uses for a full load."},
-  {m:"M2 - Store launch", when:"Q1 2027", what:"Background location (ties into telematics fallback when a carrier has no ELD), offline POD photo capture + queued upload, push notifications, App Store / Play review (allow 2-4 weeks incl. background-location entitlement review).", exit:"Public store listings; >=60% of active drivers on the app."},
+  {m:"M1 - Expo driver app shell", when:"Q4 2026", what:"React Native (Expo) app: auth (httpOnly-cookie bridge or token exchange), driver loadboard, offer accept, stop check-in/out reusing the accessorials API. Shares the TS types, zod schemas, TanStack Query, and api-client shapes from frontend-v2/src/lib/api.ts. Only the Radix/shadcn UI (web-DOM-only) is rebuilt.", exit:"Internal TestFlight/Play internal-track build a beta driver uses for a full load."},
+  {m:"M2 - Store launch", when:"Q1 2027", what:"Background location (ties into the telematics fallback when a carrier has no ELD), offline POD photo capture + queued upload, push notifications, App Store / Play review (allow 2-4 weeks incl. background-location entitlement review).", exit:"Public store listings; >=60% of active drivers on the app."},
   {m:"M3 - Beyond drivers", when:"Q2 2027", what:"Fleet-manager mode (carrier org), shipper companion (track + approve charges), or invest the same effort in full responsive parity - decide on M2 retention data.", exit:"Second-persona weekly active on mobile."},
 ];
 
 // ───────────────────────── state ─────────────────────────
-const LS_KEY = "loadlead-roadmap-v3";
+const LS_KEY = "loadlead-roadmap-v4";
 let state = load();
 function load(){
   try{
@@ -267,13 +346,16 @@ function timelineEnd(){ return new Date(qStart(3).getTime() + 13*WEEK); }
 function itemStart(it){ return new Date(qStart(it.q).getTime() + it.off*WEEK); }
 function itemEnd(it){ return new Date(itemStart(it).getTime() + it.dur*WEEK); }
 function pct(d){ const a=timelineStart().getTime(), b=timelineEnd().getTime(); return Math.max(0,Math.min(100,(d.getTime()-a)/(b-a)*100)); }
+function pctRaw(d){ const a=timelineStart().getTime(), b=timelineEnd().getTime(); return (d.getTime()-a)/(b-a)*100; }
 function fmt(d){ return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"2-digit"}); }
+const STMARK = { shipped:'<span class="stmark ship" title="Shipped">&#10003;</span>', inflight:'<span class="stmark flight" title="In flight">&#9680;</span>', planned:'' };
+const STPILL = { shipped:["Shipped","var(--ok)"], inflight:["In flight","var(--warn)"], planned:["Planned","var(--pending)"] };
 
 // ───────────────────────── render: legend, tabs, calendar ─────────────────────────
 document.getElementById("legend").innerHTML = Object.entries(TEAMS)
   .map(([k,t])=>`<span class="chip"><span class="dot" style="background:${t.c}"></span>${t.label}</span>`).join("");
 
-const VIEWS = [["gantt","Gantt"],["breakdown","Breakdown"],["coas","COAs"],["bets","Competitive bets"],["mobile","Mobile track"]];
+const VIEWS = [["gantt","Gantt"],["breakdown","Breakdown"],["recon","Reconciliation"],["coas","Strategic COAs"],["bets","Competitive bets"],["mobile","Mobile track"]];
 const tabsEl = document.getElementById("tabs");
 VIEWS.forEach(([id,label],i)=>{
   const b=document.createElement("button");
@@ -291,7 +373,7 @@ function renderCalendar(){
       <input type="date" value="${q.start}" onchange="setQuarterStart(${i}, this.value)">
       <div class="qtheme">${q.theme}</div>
     </div>`).join("");
-  document.getElementById("gcols").innerHTML = state.quarters.map(q=>`<div>${q.name} - ${fmt(qStart(state.quarters.indexOf(q)))}</div>`).join("");
+  document.getElementById("gcols").innerHTML = state.quarters.map((q,i)=>`<div>${q.name} - ${fmt(qStart(i))}</div>`).join("");
 }
 window.setQuarterStart = (i,v)=>{ if(!v) return; state.quarters[i].start=v; save("Quarter shifted"); renderAll(); };
 
@@ -299,14 +381,17 @@ window.setQuarterStart = (i,v)=>{ if(!v) return; state.quarters[i].start=v; save
 function renderGantt(){
   const byWs = {};
   state.items.forEach(it=>{ (byWs[it.ws] ??= []).push(it); });
+  const tL = pctRaw(new Date());
+  const todayLine = (tL>0 && tL<100) ? `<div class="today" style="left:${tL}%"></div>` : "";
   let html = "";
   for(const [ws,items] of Object.entries(byWs)){
     html += `<div class="wsname">${ws}</div>`;
     for(const it of items){
       const l = pct(itemStart(it)), r = pct(itemEnd(it));
+      const cls = "gbar"+(it.st==="shipped"?" ship":"")+(it.crit?" crit":"");
       html += `<div class="grow">
-        <div class="glabel" onclick="openItem('${it.id}')"><span class="dot" style="background:${TEAMS[it.team].c}"></span>${it.title.split(":")[0]}</div>
-        <div class="gtrack"><div class="gbar" onclick="openItem('${it.id}')" title="${it.title} (${fmt(itemStart(it))} - ${fmt(itemEnd(it))})" style="left:${l}%;width:${Math.max(1,r-l)}%;background:${TEAMS[it.team].c}"></div></div>
+        <div class="glabel" onclick="openItem('${it.id}')"><span class="dot" style="background:${TEAMS[it.team].c}"></span>${STMARK[it.st||'planned']||''}${it.title.split(":")[0]}</div>
+        <div class="gtrack">${todayLine}<div class="${cls}" onclick="openItem('${it.id}')" title="${it.title} (${fmt(itemStart(it))} - ${fmt(itemEnd(it))})" style="left:${l}%;width:${Math.max(1,r-l)}%;background:${TEAMS[it.team].c}"></div></div>
       </div>`;
     }
   }
@@ -319,20 +404,47 @@ function renderBreakdown(){
     const items = state.items.filter(i=>i.q===qi);
     return `<div>
       <h3>${q.name} <span class="meta">- ${q.theme}</span></h3>
-      ${items.map(it=>`<div class="item" onclick="openItem('${it.id}')">
+      ${items.map(it=>{ const sp=STPILL[it.st||'planned']; return `<div class="item" onclick="openItem('${it.id}')">
          <span class="pill" style="background:${TEAMS[it.team].c}">${TEAMS[it.team].label}</span>
+         <span class="pill" style="background:${sp[1]}">${sp[0]}</span>
          <b> ${it.title}</b>
-         <div class="meta">${fmt(itemStart(it))} - ${fmt(itemEnd(it))} (${it.dur}w)${it.jira?` · <a class="jira" href="${JIRA+it.jira}" target="_blank" onclick="event.stopPropagation()">${it.jira}</a>`:""}</div>
-       </div>`).join("") || '<div class="meta">No items scheduled.</div>'}
+         <div class="meta">${fmt(itemStart(it))} - ${fmt(itemEnd(it))} (${it.dur}w)${it.jira?` &middot; <a class="jira" href="${JIRA+it.jira}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${it.jira}</a>`:""}</div>
+       </div>`; }).join("") || '<div class="meta">No items scheduled.</div>'}
     </div>`;
   }).join("");
+}
+
+// ───────────────────────── render: reconciliation ─────────────────────────
+function renderRecon(){
+  const allItems = RECON.flatMap(c=>c.items);
+  const youCount = allItems.filter(i=>i.you).length;
+  document.getElementById("rsum").innerHTML = `
+    <div class="box"><b style="color:var(--ok)">COA-1 &#10003;</b>authz/gate bypasses - merged</div>
+    <div class="box"><b style="color:var(--ok)">COA-2 &#10003;</b>unwired controls - merged</div>
+    <div class="box"><b style="color:var(--warn)">COA-3 &#9680;</b>env reconciliation - in progress</div>
+    <div class="box"><b style="color:var(--pending)">COA-4 &#8230;</b>hygiene - backlog</div>
+    <div class="box"><b style="color:#9a3412">${youCount} items</b>need your action (prod applies + secrets)</div>`;
+  document.getElementById("recon").innerHTML = RECON.map(c=>{
+    const st = RSTAT[c.status];
+    return `<div class="coacard">
+      <div class="coahdr"><b>${c.coa} &middot; ${c.title}</b>
+        <span class="spill" style="background:${st[1]}22;color:${st[1]}">${st[0]}</span></div>
+      <div class="meta" style="margin-bottom:7px">${c.note}</div>
+      <table class="rtbl"><tr><th style="width:12%">ID</th><th style="width:7%">Sev</th><th>Item</th><th style="width:12%">Status</th></tr>
+      ${c.items.map(i=>{ const s=RSTAT[i.s]; return `<tr>
+        <td>${i.id}</td><td>${i.sev}</td>
+        <td>${i.t}${i.you?` <span class="you">&#9888; needs you: ${i.you}</span>`:""}</td>
+        <td><span class="spill" style="background:${s[1]}22;color:${s[1]}">${s[0]}</span></td>
+      </tr>`; }).join("")}
+      </table></div>`;
+  }).join("") + `<div class="meta" style="margin-top:6px">${RECON_STANDING}</div>`;
 }
 
 // ───────────────────────── render: COAs / bets / mobile ─────────────────────────
 document.getElementById("coas").innerHTML = COAS.map(c=>`
   <h3 style="margin-top:14px">${c.id}: ${c.title}</h3>
   <table><tr><th style="width:26%">Option</th><th>Pros</th><th>Cons</th></tr>
-  ${c.options.map(o=>`<tr class="${o.rec?"rec":""}"><td><b>${o.name}</b>${o.rec?" ✅ recommended":""}</td><td>${o.pros}</td><td>${o.cons}</td></tr>`).join("")}
+  ${c.options.map(o=>`<tr class="${o.rec?"rec":""}"><td><b>${o.name}</b>${o.rec?" &#9989; recommended":""}</td><td>${o.pros}</td><td>${o.cons}</td></tr>`).join("")}
   </table><div class="meta" style="margin-top:5px"><b>Why:</b> ${c.why}</div>`).join("");
 
 document.getElementById("bets").innerHTML = `<table>
@@ -340,7 +452,7 @@ document.getElementById("bets").innerHTML = `<table>
   ${BETS.map(b=>`<tr><td>${b.n}</td><td><b>${b.name}</b></td><td>${b.vs}</td><td>${b.edge}</td>
     <td><span class="pill" style="background:${TEAMS[b.team].c}">${TEAMS[b.team].label}</span></td></tr>`).join("")}
   </table>
-  <div class="meta" style="margin-top:8px">Bets 1-3 leverage machinery that already exists in prod (payments pipeline, geofence detention design, IDV/WORM chain) - they are productization, not greenfield. Bets 4-6 ride the telematics, analytics, and SMS enablers landing in Q3-Q4.</div>`;
+  <div class="meta" style="margin-top:8px">Bets 1-3 and 7 leverage machinery that already exists in prod (payments pipeline, geofence detention design, IDV/WORM chain, Canopy insurer connect) - they are productization, not greenfield. Bets 4-6 ride the telematics, analytics, and SMS enablers landing in Q3-Q4.</div>`;
 
 document.getElementById("mobiletrack").innerHTML = `<table>
   <tr><th style="width:18%">Milestone</th><th style="width:10%">Target</th><th>Scope</th><th style="width:24%">Exit criteria</th></tr>
@@ -351,13 +463,13 @@ document.getElementById("mobiletrack").innerHTML = `<table>
 // ───────────────────────── side panel ─────────────────────────
 window.openItem = (id)=>{
   const it = state.items.find(i=>i.id===id); if(!it) return;
-  const t = TEAMS[it.team];
+  const t = TEAMS[it.team]; const sp = STPILL[it.st||'planned'];
   document.getElementById("sidebody").innerHTML = `
-    <div><span class="pill" style="background:${t.c}">${t.label}</span></div>
+    <div><span class="pill" style="background:${t.c}">${t.label}</span> <span class="pill" style="background:${sp[1]}">${sp[0]}</span>${it.crit?' <span class="pill" style="background:var(--compliance)">Critical path</span>':''}</div>
     <h3 style="margin-top:8px">${it.title}</h3>
     <div class="meta">${it.why}</div>
     <div class="meta" style="margin-top:6px">
-      ${it.jira?`Jira: <a class="jira" href="${JIRA+it.jira}" target="_blank">${it.jira}</a> · `:""}
+      ${it.jira?`Jira: <a class="jira" href="${JIRA+it.jira}" target="_blank" rel="noopener">${it.jira}</a> &middot; `:""}
       ${it.deps?`Depends on: ${it.deps}`:"No upstream dependency"}
     </div>
     <div class="field"><label>Quarter</label>
@@ -388,7 +500,7 @@ document.getElementById("resetBtn").onclick = ()=>{
   if(confirm("Reset all edits and notes back to the committed plan?")){ state=fresh(); save(); renderAll(); document.getElementById("sidebody").innerHTML="Reset done."; gn.value=""; }
 };
 
-function renderAll(){ renderCalendar(); renderGantt(); renderBreakdown(); }
+function renderAll(){ renderCalendar(); renderGantt(); renderBreakdown(); renderRecon(); }
 renderAll();
 </script>
 </body>
