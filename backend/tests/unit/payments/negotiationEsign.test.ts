@@ -76,8 +76,10 @@ const NEG = {
   agreedRatePerMileCents: 250, agreedLinehaulCents: 60_000,
 };
 
-const chainWith = (signerRole: string) => [{
-  action: 'CARRIER_ACCEPT', signatureId: 'sig-ca', signerRole, signedAt: new Date().toISOString(),
+const chainWith = (signerRole: string, assignedDriverId: string = 'drv-1') => [{
+  // assignedDriverId defaults to the negotiation's haulerDriverId (drv-1) so the
+  // BL-2 binding check passes; override it to prove the stale-signature bypass.
+  action: 'CARRIER_ACCEPT', signatureId: 'sig-ca', signerRole, assignedDriverId, signedAt: new Date().toISOString(),
 }];
 
 const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -112,6 +114,13 @@ describe('e-sign gate at the negotiated accept/assign step', () => {
 
   it('a CARRIER_ACCEPT signed by a non-carrier role is rejected (409)', async () => {
     m.getChain.mockResolvedValue(chainWith('DRIVER'));
+    const res = await request(app()).post('/api/negotiations/neg-1/accept-load').set(bearer(haulerToken));
+    expect(res.status).toBe(409);
+    expect(m.acceptLoad).not.toHaveBeenCalled();
+  });
+
+  it('BL-2: a CARRIER_ACCEPT bound to a DIFFERENT driver is rejected (stale-signature bypass blocked)', async () => {
+    m.getChain.mockResolvedValue(chainWith('OWNER_OPERATOR', 'drv-someone-else'));
     const res = await request(app()).post('/api/negotiations/neg-1/accept-load').set(bearer(haulerToken));
     expect(res.status).toBe(409);
     expect(m.acceptLoad).not.toHaveBeenCalled();

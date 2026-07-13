@@ -153,13 +153,24 @@ async function shipperActor(req: AuthRequest, neg: LoadNegotiation): Promise<{ p
  * hauler accept-load, hauler accept-counter, and shipper accept-bid (where the
  * carrier signed earlier, when placing the bid the shipper is now accepting).
  */
-async function requireCarrierAcceptForAssignment(loadId: string): Promise<void> {
+async function requireCarrierAcceptForAssignment(loadId: string, expectedDriverId: string | undefined): Promise<void> {
   const { requireSignature } = await import('../services/attestation/requireSignature');
   const sig = await requireSignature(loadId, 'CARRIER_ACCEPT');
   if (sig.signerRole !== 'CARRIER_ADMIN' && sig.signerRole !== 'OWNER_OPERATOR') {
     throw new AppError(JSON.stringify({
       error: 'CARRIER_ACCEPT signature was signed by a non-carrier role',
       code:  'CARRIER_ACCEPT_SIGNER_INVALID',
+    }), 409);
+  }
+  // BL-2: the signature BINDS assignedDriverId - it must match the driver actually
+  // being assigned. Signatures are per-load and not cleared on reject/expire, so
+  // without this check a re-broadcast load could be assigned to a DIFFERENT hauler
+  // on the PRIOR hauler's stale CARRIER_ACCEPT signature (no attestation from the
+  // assigned party).
+  if (!expectedDriverId || sig.assignedDriverId !== expectedDriverId) {
+    throw new AppError(JSON.stringify({
+      error: 'The carrier-accept signature is not bound to the driver being assigned; re-sign to assign this driver',
+      code:  'CARRIER_ACCEPT_DRIVER_MISMATCH',
     }), 409);
   }
 }
@@ -286,7 +297,7 @@ router.post('/:id/accept-load', asyncHandler(async (req: AuthRequest, res) => {
   const actor = await haulerActor(req);
   const pending = await NegotiationService.getById(req.params.id);
   if (!pending) throw new AppError('Negotiation not found', 404);
-  await requireCarrierAcceptForAssignment(pending.loadId);
+  await requireCarrierAcceptForAssignment(pending.loadId, actor.driverId); // BL-2: bind to assigned driver
   const neg = await NegotiationService.acceptLoad(req.params.id, actor.driverId);
   await notify(neg, 'HAULER', 'Load accepted', `Your load was accepted at the posted rate (${fmtRate(neg.agreedRatePerMileCents)}).`);
   res.json({ negotiation: viewFor(neg, 'HAULER') });
@@ -310,7 +321,7 @@ router.post('/:id/accept', asyncHandler(async (req: AuthRequest, res) => {
   const actor = await haulerActor(req);
   const pending = await NegotiationService.getById(req.params.id);
   if (!pending) throw new AppError('Negotiation not found', 404);
-  await requireCarrierAcceptForAssignment(pending.loadId);
+  await requireCarrierAcceptForAssignment(pending.loadId, actor.driverId); // BL-2: bind to assigned driver
   const neg = await NegotiationService.acceptOffer(req.params.id, actor);
   await notify(neg, 'HAULER', 'Counter accepted - load assigned', `The hauler accepted your counter at ${fmtAgreed(neg)}.`);
   res.json({ negotiation: viewFor(neg, 'HAULER') });
@@ -342,7 +353,7 @@ router.post('/:id/shipper/accept', asyncHandler(async (req: AuthRequest, res) =>
   // assignment the moment the shipper accepts it - so the CARRIER_ACCEPT
   // attestation the hauler signed for that bid must be present, or there is
   // no assignment to make. 412s until the carrier has signed.
-  await requireCarrierAcceptForAssignment(existing.loadId);
+  await requireCarrierAcceptForAssignment(existing.loadId, existing.haulerDriverId); // BL-2: bind to the hauler who bid
   const neg = await NegotiationService.acceptOffer(req.params.id, actor);
   await notify(neg, 'SHIPPER', 'Bid accepted - load is yours', `The shipper accepted your offer of ${fmtAgreed(neg)}. The load is assigned to you.`);
   res.json({ negotiation: viewFor(neg, 'SHIPPER') });
