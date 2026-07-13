@@ -323,6 +323,20 @@ epics:
     labels: [telematics, integration]
     status: To Do
 
+  - ext_id: epic:audit-recon-v5
+    title: Platform Audit v5 Reconciliation & Hardening
+    description: |
+      Remediation backlog from the 2026-07-13 platform-wide E2E audit
+      (docs/platform-e2e-audit-v5-2026-07-13). COA-1 (HIGH authz/gate bypasses)
+      and COA-2 (unwired controls) shipped this cycle under SCRUM-59 (PRs
+      #70-#75). This epic tracks the remaining COA-3 environment-reconciliation /
+      IaC-source-of-truth work and the COA-4 hygiene backlog. The prod-config and
+      Canopy-secret items are gated on operator-supplied secret values and a
+      deliberate prod apply - they are the "what's left to reconcile" surface on
+      the quarterly roadmap dashboard.
+    labels: [platform, audit-v5, reconciliation]
+    status: To Do
+
   - ext_id: epic:carrier-refactor
     title: Carrier-of-record Refactor
     description: |
@@ -1530,3 +1544,17 @@ items:
   - { ext_id: "negot:lock-scale",      parent_ext_id: "epic:negotiation", type: Task,  title: "Residual: loadboard lock exclusion is a read-time scan - fine at beta volume, needs a GSI or cached set at scale", status_source: manifest, status: "To Do", labels: [negotiation, residual, scale], priority_hint: Low }
   - { ext_id: "negot:trust-signals",   parent_ext_id: "epic:negotiation", type: Task,  title: "Residual: feed negotiation behavior (expiry-by-hauler, serial lock-and-walk) into the trust-events store", status_source: manifest, status: "To Do", labels: [negotiation, residual, trust], priority_hint: Low }
   - { ext_id: "negot:sweeper-worker",  parent_ext_id: "epic:negotiation", type: Task,  title: "Residual: negotiation sweeper rides the flagged in-process interval - migrate with the shared EventBridge/Lambda worker (see SCRUM-221)", status_source: manifest, status: "To Do", labels: [negotiation, residual, infra], priority_hint: Low, links: ["telem:polling-worker"] }
+
+  # ── EPIC: Platform Audit v5 Reconciliation (2026-07-13; COA-1/COA-2 shipped under SCRUM-59) ──
+  - { ext_id: "recon:coa1-coa2-shipped",  parent_ext_id: "epic:audit-recon-v5", type: Story, title: "COA-1 + COA-2 shipped: HIGH authz/gate bypasses (BL-1/BL-2/FE-2/LS-1/SEC-1/SEC-2/3/4/8/9) + unwired controls (SEC-5/SEC-6/FE-3/SEC-7), each with a bypass (negative) test (PRs #70-#75)", status_source: manifest, status: "Done", labels: [audit-v5, security, shipped], priority_hint: High }
+  - { ext_id: "recon:prod-config-iac",     parent_ext_id: "epic:audit-recon-v5", type: Story, title: "EP-1: codify prod runtime config in Terraform (eb-imported.tf) - non-secrets inline, secrets via gitignored prod.auto.tfvars. Biggest structural/DR gap; prod config is 100% out-of-band today. GATED on operator secret values + prod apply", status_source: manifest, status: "To Do", labels: [audit-v5, platform, iac, gated-prod], priority_hint: High }
+  - { ext_id: "recon:canopy-prod-tables",  parent_ext_id: "epic:audit-recon-v5", type: Task,  title: "EP-2: tofu apply the 2 Canopy prod tables (LoadLead_CarrierInsuranceConnections, LoadLead_CoiCrossReferenceResults) so enabling Canopy in prod is config-only; add to the boot-required-table check. GATED on prod apply", status_source: manifest, status: "To Do", labels: [audit-v5, platform, canopy, gated-prod], priority_hint: High }
+  - { ext_id: "recon:offers-loadid-index", parent_ext_id: "epic:audit-recon-v5", type: Story, title: "EP-3: add loadId-index to the shared dynamodb_tableset Offers table + tofu apply staging (getOffersByLoad 500s); reconcile prod imported-tables.tf onto the shared module so schemas cannot drift. Module change in PR; staging apply pending", status_source: manifest, status: "To Do", labels: [audit-v5, platform, dynamodb], priority_hint: High }
+  - { ext_id: "recon:canopy-secrets-tfvars", parent_ext_id: "epic:audit-recon-v5", type: Task, title: "EP-4: move the 3 Canopy secrets into staging.auto.tfvars backend_env_vars so a recreate cannot wipe them; false main.tf comment already corrected. GATED on operator secret values + apply", status_source: manifest, status: "To Do", labels: [audit-v5, platform, canopy, gated-prod], priority_hint: High }
+  - { ext_id: "recon:isolation-guard-prefix", parent_ext_id: "epic:audit-recon-v5", type: Task, title: "EP-7: normalize bootGuard.prodFormTableNames to flag the dash-named prod table (LoadLead-MembershipAuditLogs) without false-positiving LoadLead-Staging-*/Dev-*. Fix + negative test in PR", status_source: manifest, status: "To Do", labels: [audit-v5, platform, security], priority_hint: Medium }
+  - { ext_id: "recon:staging-fe-headers",  parent_ext_id: "epic:audit-recon-v5", type: Task,  title: "LS-2: attach the prod CloudFront Response Headers Policy (CSP/HSTS/X-Frame-Options/X-Content-Type-Options/Referrer-Policy) to the staging FE distribution (staging serves none today)", status_source: manifest, status: "To Do", labels: [audit-v5, platform, security, frontend], priority_hint: Medium }
+  - { ext_id: "recon:staging-noindex",     parent_ext_id: "epic:audit-recon-v5", type: Task,  title: "LS-4: add X-Robots-Tag noindex / robots disallow to the staging FE distribution - the muted pre-release persona is fully crawlable today", status_source: manifest, status: "To Do", labels: [audit-v5, platform, frontend], priority_hint: Medium }
+  - { ext_id: "recon:fe-unit-ci",          parent_ext_id: "epic:audit-recon-v5", type: Task,  title: "FE-1: add test.exclude for e2e specs in vite.config + a CI job running FE unit tests (vitest currently exits 1 by globbing the Playwright specs, so FE unit tests are ungated)", status_source: manifest, status: "To Do", labels: [audit-v5, marketplace, tests, ci], priority_hint: Medium }
+  - { ext_id: "recon:eb-plan-drift",       parent_ext_id: "epic:audit-recon-v5", type: Task,  title: "EP-5/EP-6: reconcile the perpetual staging EB settings plan diff (43 settings rewritten each plan; largely closes with EP-4) + Loads status-createdAt-index drift prod vs staging", status_source: manifest, status: "To Do", labels: [audit-v5, platform, iac], priority_hint: Medium, links: ["recon:canopy-secrets-tfvars"] }
+  - { ext_id: "recon:node22",              parent_ext_id: "epic:audit-recon-v5", type: Task,  title: "BE-1: Node 22 migration - bump the EB platform + CI + .nvmrc before AWS SDK v3's Node>=22 cutoff (releases after early Jan 2027); repo on node 20.20.0. Highest-value LOW", status_source: manifest, status: "To Do", labels: [audit-v5, platform, runtime], priority_hint: Low }
+  - { ext_id: "recon:prod-deploy-parity",  parent_ext_id: "epic:audit-recon-v5", type: Task,  title: "LS-3: redeploy prod backend from main so /api/webhooks/canopy stops 404ing; keep prod <=1 deploy behind main. GATED on prod deploy (folds into Canopy prod-enable)", status_source: manifest, status: "To Do", labels: [audit-v5, platform, deploy, gated-prod], priority_hint: Low, links: ["recon:canopy-prod-tables"] }
