@@ -161,15 +161,18 @@ export default function Signup() {
 
   // Private-beta wall: while BETA_MODE is on, public account creation is
   // closed - visitors go to the waitlist, not the signup wizard. Invited
-  // users (?invite=1) and the beta subdomain bypass it. Fail-open if the
-  // status check is unreachable.
-  const [betaWall, setBetaWall] = useState(false);
+  // users (?invite=1) and the beta subdomain bypass it.
+  // FE-2 (audit v5): fail CLOSED. Default the wall UP on the apex (non-invited)
+  // so a transient /beta/status failure never exposes the public signup wizard
+  // during the private beta. Only a successful read that says beta is off, or
+  // the beta subdomain / an invite, takes it down.
+  const [betaWall, setBetaWall] = useState(() => !isBetaHost() && !inviteMode);
   useEffect(() => {
     if (isBetaHost() || inviteMode) return;
     let active = true;
     api.beta.status()
       .then((s) => { if (active) setBetaWall(!!s.betaMode); })
-      .catch(() => { if (active) setBetaWall(false); });
+      .catch(() => { if (active) setBetaWall(true); });
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
