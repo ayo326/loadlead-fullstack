@@ -42,6 +42,24 @@ resource "aws_iam_role_policy" "app_data_access" {
         ]
       },
       {
+        # SEC-7 (audit v5): enforce append-only immutability at the IAM layer for
+        # the compliance/audit tables. The app only ever PutItem-appends to these
+        # (verified: zero UpdateItem/DeleteItem callers in src/services), so
+        # denying mutation makes a bug OR a compromised instance role unable to
+        # rewrite or erase an audit-log entry, legal hold, adjudication,
+        # disclosure, payout intercept, verification event, or signature. An
+        # explicit Deny overrides the broad Allow above.
+        Sid    = "DenyMutateAppendOnlyComplianceTables"
+        Effect = "Deny"
+        Action = ["dynamodb:UpdateItem", "dynamodb:DeleteItem"]
+        Resource = [
+          for stem in [
+            "AdminAuditLog", "LegalHolds", "Adjudications", "Disclosures",
+            "PayoutIntercepts", "ComplianceVerificationEvents", "Signatures",
+          ] : "arn:aws:dynamodb:*:*:table/${var.dynamodb_table_prefix}${stem}"
+        ]
+      },
+      {
         Sid      = "S3PodUploadsEnvScoped"
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:PutObject"]
