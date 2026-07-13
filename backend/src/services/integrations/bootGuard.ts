@@ -99,16 +99,31 @@ export function assertNonProductionSafe(): void {
  * Table-isolation guard, defense layer 3 (the H1 fix). Production owns the
  * canonical `LoadLead_*` (underscore) table names; every OTHER environment must
  * namespace its tables (`LoadLead-Staging-*`, `LoadLead-Dev-*`). If a non-prod
- * environment resolves ANY table name to the production `LoadLead_` form it
- * means an override was never set and this process would read and write
- * PRODUCTION data - a silent cross-environment contamination. Fail closed.
+ * environment resolves ANY table name to a production form it means an override
+ * was never set and this process would read and write PRODUCTION data - a
+ * silent cross-environment contamination. Fail closed.
+ *
+ * "Production form" is BOTH shapes prod actually uses (audit v5 EP-7):
+ *   - the canonical underscore names (`LoadLead_*`), and
+ *   - the one dash-named prod outlier (`LoadLead-MembershipAuditLogs`) and any
+ *     future `LoadLead-<Name>` that is NOT an environment namespace.
+ * Matching only the underscore prefix let the dash-named prod table slip the
+ * guard. We therefore flag every `LoadLead-*` name EXCEPT the known non-prod
+ * env namespaces, so `LoadLead-Staging-*` / `LoadLead-Dev-*` stay legitimate.
  *
  * Pure so it can be unit-tested without touching global env: given the resolved
  * table names, return the ones in production form.
  */
+const NONPROD_DASH_PREFIXES = ['LoadLead-Staging-', 'LoadLead-Dev-'];
 export function prodFormTableNames(names: Record<string, string | undefined>): string[] {
   return Object.entries(names)
-    .filter(([, v]) => typeof v === 'string' && v.startsWith('LoadLead_'))
+    .filter(([, v]) => {
+      if (typeof v !== 'string') return false;
+      if (v.startsWith('LoadLead_')) return true; // canonical prod underscore form
+      if (!v.startsWith('LoadLead-')) return false; // not a LoadLead table at all
+      // Dash-named: a prod table unless it carries a non-prod env namespace.
+      return !NONPROD_DASH_PREFIXES.some((p) => v.startsWith(p));
+    })
     .map(([k, v]) => `${k}=${v}`);
 }
 
