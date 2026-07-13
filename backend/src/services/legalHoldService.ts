@@ -38,6 +38,9 @@ export interface LegalHoldEvent {
 }
 
 export class LegalHoldError extends Error {
+  // 423 Locked - a controlled 4xx so the errorHandler returns the informative
+  // message (not a masked 500). SEC-5: the guard is now enforced at delete time.
+  readonly statusCode = 423;
   constructor(entityType: string, entityId: string) {
     super(`LEGAL_HOLD: ${entityType} ${entityId} is under legal hold and cannot be deleted`);
     this.name = 'LegalHoldError';
