@@ -146,131 +146,28 @@ function MultiCheckbox({
 
 // ─── ID Verification ───────────────────────────────────────────────────────
 
-function IDVerification({ userId }: { userId: string }) {
-  const key = `ll_id_verif_${userId}`;
-  const [status, setStatus] = useState<"NONE" | "PENDING" | "APPROVED">(
-    () => (localStorage.getItem(key) as "NONE" | "PENDING" | "APPROVED" | null) ?? "NONE"
-  );
-  const [step, setStep] = useState(1);
-  const [idFile, setIdFile] = useState<File | null>(null);
-  const [selfieFile, setSelfieFile] = useState<File | null>(null);
-
-  const submitId = () => {
-    if (!idFile) { toast.error("Please upload an ID document."); return; }
-    setStep(2);
-  };
-
-  const submitSelfie = () => {
-    if (!selfieFile) { toast.error("Please upload a selfie."); return; }
-    setStep(3);
-    setStatus("PENDING");
-    localStorage.setItem(key, "PENDING");
-  };
-
-  if (status === "PENDING") {
-    return (
-      <SectionCard>
-        <div className="flex flex-col items-center gap-4 py-8 text-center">
-          <Clock className="h-10 w-10 text-blue-500" />
-          <div>
-            <p className="font-semibold">Your ID is under review</p>
-            <p className="text-sm text-muted-foreground mt-1">You'll be notified within 24 hours.</p>
-          </div>
-        </div>
-      </SectionCard>
-    );
-  }
-
-  if (status === "APPROVED") {
-    return (
-      <SectionCard>
-        <div className="flex flex-col items-center gap-4 py-8 text-center">
-          <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-xl">✓</div>
-          <p className="font-semibold text-green-700">ID Verified</p>
-        </div>
-      </SectionCard>
-    );
-  }
-
+function IDVerification(_props: { userId: string }) {
+  // FE-3 (audit v5): this was a client-side MOCK - it captured an ID + selfie
+  // that were silently discarded, and wrote a spoofable "APPROVED"/"PENDING"
+  // status to localStorage (ll_id_verif_<userId>) that anyone could set from
+  // devtools. Identity verification is actually performed and tracked
+  // SERVER-SIDE by our verification partner (Didit); the real driver flow lives
+  // at /driver/verification. This tab no longer fakes it or stores any
+  // client-side status. (Wiring it to READ the real per-persona status/flow is
+  // a tracked product follow-up.)
   return (
     <SectionCard>
-      {/* Stepper */}
-      <div className="flex items-center gap-3 mb-4">
-        {["Upload ID", "Selfie check", "Review"].map((label, i) => {
-          const n = i + 1;
-          const active = step === n;
-          const done = step > n;
-          return (
-            <div key={label} className="flex items-center gap-2">
-              <div
-                className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold border-2 ${
-                  done
-                    ? "border-green-500 bg-green-500 text-white"
-                    : active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-secondary text-muted-foreground"
-                }`}
-              >
-                {done ? "✓" : n}
-              </div>
-              <span className={`text-sm ${active ? "font-semibold" : "text-muted-foreground"}`}>{label}</span>
-              {i < 2 && <div className="h-px w-6 bg-border" />}
-            </div>
-          );
-        })}
+      <div className="flex flex-col items-center gap-4 py-8 text-center">
+        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">🛡️</div>
+        <div>
+          <p className="font-semibold">Identity verification</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+            Identity checks are completed securely with our verification partner and your
+            status is tracked on your account server-side - not stored in this browser.
+            If you still need to verify, complete it during onboarding or contact support.
+          </p>
+        </div>
       </div>
-
-      {step === 1 && (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Upload a government-issued photo ID (driver's license, passport).</p>
-          <label className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-secondary/40 p-10 cursor-pointer hover:bg-secondary/60 transition-colors">
-            <Upload className="h-8 w-8 text-muted-foreground" />
-            {idFile ? (
-              <span className="text-sm font-medium">{idFile.name}</span>
-            ) : (
-              <span className="text-sm text-muted-foreground">Click to upload ID (image or PDF)</span>
-            )}
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              className="sr-only"
-              onChange={(e) => setIdFile(e.target.files?.[0] ?? null)}
-            />
-          </label>
-          <Button onClick={submitId}>Submit for review</Button>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Take a selfie or upload a recent photo of yourself to confirm your identity.</p>
-          <label className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-secondary/40 p-10 cursor-pointer hover:bg-secondary/60 transition-colors">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-2xl">📷</div>
-            {selfieFile ? (
-              <span className="text-sm font-medium">{selfieFile.name}</span>
-            ) : (
-              <span className="text-sm text-muted-foreground">Take a selfie or upload a photo</span>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={(e) => setSelfieFile(e.target.files?.[0] ?? null)}
-            />
-          </label>
-          <Button onClick={submitSelfie}>Continue</Button>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="flex flex-col items-center gap-4 py-8 text-center">
-          <Clock className="h-10 w-10 text-blue-500" />
-          <div>
-            <p className="font-semibold">Your ID is under review</p>
-            <p className="text-sm text-muted-foreground mt-1">You'll be notified within 24 hours.</p>
-          </div>
-        </div>
-      )}
     </SectionCard>
   );
 }
@@ -278,7 +175,6 @@ function IDVerification({ userId }: { userId: string }) {
 // ─── Business Verification ─────────────────────────────────────────────────
 
 function BusinessVerification({
-  userId,
   role,
   mcNumber,
   dotNumber,
@@ -288,10 +184,11 @@ function BusinessVerification({
   mcNumber?: string;
   dotNumber?: string;
 }) {
-  const key = `ll_biz_verif_${userId}`;
-  const [status, setStatus] = useState<"NONE" | "PENDING">(
-    () => (localStorage.getItem(key) as "NONE" | "PENDING" | null) ?? "NONE"
-  );
+  // FE-3 (audit v5): no spoofable client-side verification status (was persisted
+  // to localStorage ll_biz_verif_<userId>, which anyone could set from devtools).
+  // Business verification is tracked server-side; this in-session flag only
+  // drives the local form UX and does not survive a reload.
+  const [status, setStatus] = useState<"NONE" | "PENDING">("NONE");
   const [form, setForm] = useState({
     legalBizName: "",
     ein: "",
@@ -314,9 +211,8 @@ function BusinessVerification({
     if (!form.yearFounded) missing.push("Year Founded");
     if (!file) missing.push("Business document");
     if (missing.length) { toast.error(`Required: ${missing.join(", ")}`); return; }
-    localStorage.setItem(key, "PENDING");
     setStatus("PENDING");
-    toast.success("Business verification submitted!");
+    toast.success("Business verification submitted for review.");
   };
 
   if (status === "PENDING") {
