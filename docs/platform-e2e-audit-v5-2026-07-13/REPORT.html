@@ -1,0 +1,329 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #1a1f2b; max-width: 100%; margin: 0; }
+h1 { font-size: 23px; color: #0f172a; border-bottom: 3px solid #2563eb; padding-bottom: 8px; margin: 0 0 4px; }
+h2 { font-size: 16px; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin: 22px 0 8px; page-break-after: avoid; }
+h3 { font-size: 13px; color: #1e293b; margin: 14px 0 6px; page-break-after: avoid; }
+h4 { font-size: 11.5px; color: #334155; margin: 10px 0 4px; }
+p, li { font-size: 11px; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 10px; page-break-inside: avoid; }
+th, td { border: 1px solid #cbd5e1; padding: 5px 7px; text-align: left; vertical-align: top; }
+th { background: #f1f5f9; font-weight: 600; }
+tr:nth-child(even) td { background: #f8fafc; }
+code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-family: "SF Mono", Menlo, monospace; font-size: 9.5px; }
+pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 6px; overflow-x: auto; font-size: 9px; line-height: 1.45; page-break-inside: avoid; }
+pre code { background: none; color: inherit; padding: 0; }
+blockquote { border-left: 3px solid #2563eb; margin: 8px 0; padding: 2px 12px; color: #475569; background: #f8fafc; }
+hr { border: none; border-top: 1px solid #e2e8f0; margin: 18px 0; }
+a { color: #2563eb; text-decoration: none; }
+strong { color: #0f172a; }
+/* severity chips */
+td:first-child, .sev { white-space: nowrap; }
+h2 { page-break-before: auto; }
+</style></head><body>
+<h1>LoadLead — Platform-Wide E2E Audit &amp; Environment Reconciliation (v5)</h1>
+<p><strong>Date:</strong> 2026-07-13 · <strong>Scope:</strong> backend, frontend-v2, infra (dev/staging/prod), live prod + staging · <strong>Method:</strong> 6 parallel audit dimensions (backend suite, frontend, environment parity, business-logic correctness, live black-box smoke, security/IAM/compliance) run against the codebase and live AWS account 552011299815. HIGH findings independently re-verified at the source.</p>
+<hr>
+<h2>1. Executive summary</h2>
+<p>The platform is <strong>fundamentally sound and ships-ready on its core</strong>: the backend suite is fully green (93 files / 739 tests, 0 flaky), the money layer&#39;s integer-cents discipline is genuinely strong, the negotiation state machine and Canopy webhook signature/replay are correct, no authentication bypass was found on 14 unauthenticated probes across both live environments, and prod is correctly muted (persona off, private-beta wall on). <strong>No CRITICAL issue is active</strong> — most importantly, prod&#39;s <code>JWT_SECRET</code> <strong>is</strong> set, so the one potentially-critical finding (an insecure default) is a latent landmine, not a live breach.</p>
+<p>However, this round surfaced a consistent, higher-value theme than prior rounds: <strong>controls that exist in code but are not wired to their enforcement point, and object-level authorization gaps.</strong> Several shipped &quot;gates&quot; the platform believes it enforces are bypassable — an expired insurance certificate still reads as VERIFIED; the e-sign-at-assign attestation isn&#39;t bound to the driver being assigned; the private-beta wall fails <em>open</em> on the login page; legal holds and payout intercepts have <strong>zero</strong> production callers; and three factoring/BOL endpoints act on an object id without checking who owns it. Separately, <strong>prod&#39;s entire runtime configuration is out-of-band</strong> (no IaC source of truth), which is both a disaster-recovery risk and the root of the recurring &quot;config got wiped/drifted&quot; failures.</p>
+<p><strong>Tally:</strong> 16 HIGH, ~13 MEDIUM, ~16 LOW/informational. None block the current beta, but the HIGH authz/gate items should be closed before onboarding real carriers with money movement.</p>
+<h3>Severity counts by dimension</h3>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>CRIT</th>
+<th>HIGH</th>
+<th>MED</th>
+<th>LOW</th>
+<th>Health</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Backend suite + build</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>4</td>
+<td><strong>Green</strong> — 739 tests pass, tsc clean</td>
+</tr>
+<tr>
+<td>Frontend build/type/test</td>
+<td>0</td>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+<td>Green build/E2E; 2 gate/trust defects</td>
+</tr>
+<tr>
+<td>Environment parity</td>
+<td>0</td>
+<td>4</td>
+<td>3</td>
+<td>2</td>
+<td><strong>Amber</strong> — prod config unmanaged; table drift</td>
+</tr>
+<tr>
+<td>Business-logic correctness</td>
+<td>0</td>
+<td>2</td>
+<td>2</td>
+<td>5</td>
+<td>Amber — 2 gate bypasses; cents solid</td>
+</tr>
+<tr>
+<td>Live smoke (prod+staging)</td>
+<td>0</td>
+<td>1</td>
+<td>2</td>
+<td>1</td>
+<td>Green core; CORS→500; staging hardening</td>
+</tr>
+<tr>
+<td>Security / IAM / compliance</td>
+<td>0</td>
+<td>7</td>
+<td>4</td>
+<td>3</td>
+<td><strong>Amber</strong> — IDOR + unwired controls</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>2. Environment parity matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>dev</th>
+<th>staging</th>
+<th>prod</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Provisioned</td>
+<td>No (code/config only)</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>dev intentionally unprovisioned</td>
+</tr>
+<tr>
+<td><code>APP_ENV</code> signal</td>
+<td>n/a</td>
+<td><code>staging</code></td>
+<td><code>production</code></td>
+<td>✅ correct lockdown key</td>
+</tr>
+<tr>
+<td>Table prefix</td>
+<td><code>LoadLead-Dev-</code> (unused)</td>
+<td><code>LoadLead-Staging-</code></td>
+<td><code>LoadLead_</code> (+1 dash outlier)</td>
+<td>⚠️ prefix scheme differs prod vs staging</td>
+</tr>
+<tr>
+<td>Boot-required GSIs</td>
+<td>n/a</td>
+<td>all ACTIVE</td>
+<td>all ACTIVE</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>Offers</code> <code>loadId-index</code></td>
+<td>n/a</td>
+<td><strong>MISSING</strong> (500s)</td>
+<td>present (separate def)</td>
+<td>❌ EP-3</td>
+</tr>
+<tr>
+<td>Canopy tables</td>
+<td>n/a</td>
+<td>present (2)</td>
+<td><strong>MISSING</strong> (unapplied)</td>
+<td>❌ EP-2</td>
+</tr>
+<tr>
+<td>Runtime config source</td>
+<td>n/a</td>
+<td>tfvars + main.tf (partial)</td>
+<td><strong>100% out-of-band</strong></td>
+<td>❌ EP-1</td>
+</tr>
+<tr>
+<td>Canopy secrets durable</td>
+<td>n/a</td>
+<td><strong>No</strong> (on-EB only)</td>
+<td>n/a (unset)</td>
+<td>❌ EP-4</td>
+</tr>
+<tr>
+<td>Feature flags (beta/persona/kms)</td>
+<td>n/a</td>
+<td>full-app mirror</td>
+<td>muted</td>
+<td>✅ intentional</td>
+</tr>
+<tr>
+<td>Security headers (FE)</td>
+<td>n/a</td>
+<td><strong>none</strong></td>
+<td>full set</td>
+<td>❌ LS-2</td>
+</tr>
+<tr>
+<td>Canopy webhook route</td>
+<td>n/a</td>
+<td>mounted (401)</td>
+<td><strong>404</strong> (build behind)</td>
+<td>⚠️ LS-3 deploy drift</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>3. Findings register</h2>
+<p>Legend: <strong>✓</strong> = independently re-verified at source during this audit. Others are agent-reported with cited file:line evidence.</p>
+<h3>HIGH</h3>
+<p><strong>BL-1 ✓ — Mandatory-COI gate accepts an EXPIRED/REJECTED certificate.</strong>
+<code>services/canopy/verificationDecision.ts:111-114</code> computes <code>coiPresent = Boolean(getCurrent(&#39;HAULER&#39;, carrierId, &#39;COI&#39;))</code>. <code>getCurrent</code> returns the <em>current-version</em> doc; COI expiry (<code>expireDueCois</code>) flips <code>verificationStatus</code> to EXPIRED but not <code>isCurrentVersion</code>, so a lapsed COI still counts as &quot;present&quot; and the hauler stays insurance-VERIFIED. Violates the stated rule &quot;holds PENDING until a <em>current</em> COI exists&quot; — it checks existence, not validity.
+<strong>Impact:</strong> a Canopy-connected hauler with a lapsed/rejected certificate transacts as fully insured.
+<strong>COA:</strong> gate on validity — <code>coiPresent = coiDoc &amp;&amp; coiDoc.verificationStatus !== &#39;EXPIRED&#39; &amp;&amp; coiDoc.verificationStatus !== &#39;REJECTED&#39;</code>; and have <code>expireDueCois</code> re-run <code>reevaluateCarrierInsurerPolicy</code>. Add a test that expires a COI and asserts the policy drops to PENDING.</p>
+<p><strong>BL-2 ✓ — E-sign-at-assign gate ignores the signature&#39;s bound driver.</strong>
+<code>routes/negotiations.ts:156-165</code> <code>requireCarrierAcceptForAssignment(loadId)</code> verifies only that <em>a</em> <code>CARRIER_ACCEPT</code> signature exists and its signer role — it never asserts <code>sig.assignedDriverId</code> equals the driver being committed (the doc comment says the sig &quot;binds assignedDriverId,&quot; but the code doesn&#39;t check it). Signatures are per-load and not cleared on reject/expire.
+<strong>Impact:</strong> on a re-broadcast load, a different hauler can be assigned on a prior hauler&#39;s stale attestation — assignment completes with no attestation from the assigned party, defeating a shipped legal gate.
+<strong>COA:</strong> pass the assigned driver id and assert <code>sig.assignedDriverId === neg.haulerDriverId</code>; <code>requireSignature</code> already returns the sig.</p>
+<p><strong>FE-2 ✓ — Private-beta wall fails OPEN on login/signup.</strong>
+<code>pages/Login.tsx:170-179</code> and <code>pages/Signup.tsx:162-175</code> each re-implement their own non-retrying <code>/beta/status</code> fetch with <code>.catch(() =&gt; setBetaMode(false))</code> and the explicit comment &quot;Fail-open to the normal login if /beta/status is unreachable.&quot; The shared <code>RuntimeConfigContext</code> correctly fails <em>closed</em>, but these pages bypass it.
+<strong>Impact:</strong> a single failed/slow <code>/beta/status</code> request exposes the public sign-in/sign-up form on the apex during the private beta.
+<strong>COA:</strong> delete the per-page fetch; consume <code>betaMode</code> from <code>RuntimeConfigContext</code> (fail-closed, retrying), or default <code>betaMode=true</code> on error.</p>
+<p><strong>FE-3 — Settings → Verification tab is a client-side mock.</strong>
+<code>pages/settings/SettingsPage.tsx:149-388</code> (Driver/Shipper/Receiver settings): zero backend calls; uploaded ID/selfie/business files are captured and silently discarded; &quot;verified&quot; status is written to <code>localStorage</code> (<code>ll_id_verif_&lt;userId&gt;</code>) and is trivially spoofable from devtools. It is disconnected from — and can contradict — the real Didit-backed flow at <code>pages/driver/DriverVerification.tsx</code>.
+<strong>Impact:</strong> users can believe they are verified when no verification occurred; support/trust confusion; a spoofable &quot;verified&quot; surface.
+<strong>COA:</strong> wire the tab to the real <code>/driver/verification/idv</code> flow, or remove it and route these personas to <code>DriverVerification</code>. Never persist verification state client-side.</p>
+<p><strong>LS-1 ✓ — Any non-allowlisted <code>Origin</code> header → 500 on every route (incl. <code>/api/health</code>).</strong>
+<code>index.ts:159</code> throws a plain <code>Error</code> for a rejected CORS origin; it has no <code>.statusCode</code>, so <code>middleware/errorHandler.ts:41</code> (<code>Number(err?.statusCode || err?.status || 500)</code>) defaults it to 500 instead of a controlled 403. Confirmed live on both environments.
+<strong>Impact:</strong> fails safe (no data leak) but every route&#39;s error rate is trivially manipulable and <code>/api/health</code> is unreliable as a liveness signal when an Origin header is present.
+<strong>COA:</strong> <code>callback(null, false)</code> (lets <code>cors</code> send a clean response) or throw <code>new AppError(&#39;origin not allowed&#39;, 403)</code>; one-line fix, deploy once.</p>
+<p><strong>SEC-1 ✓ (prod safe) — <code>JWT_SECRET</code> insecure default with no boot guard.</strong>
+<code>config/environment.ts:201</code> <code>secret: process.env.JWT_SECRET || &#39;dev-secret&#39;</code>; <code>bootGuard.ts</code> guards integration modes and table isolation but never <code>JWT_SECRET</code>. <strong>Prod currently HAS <code>JWT_SECRET</code> set</strong> (verified on <code>loadlead-backend-prod</code>), so this is latent — but given the platform&#39;s recurring out-of-band-env failure mode, an unset var in any deployed env silently makes every token forgeable (ADMIN 2FA does not help — forgery skips login).
+<strong>Impact:</strong> would be CRITICAL (ADMIN impersonation) the moment <code>JWT_SECRET</code> is missing on a live env. Fail-open by default is the wrong posture for the auth root of trust.
+<strong>COA:</strong> remove the <code>|| &#39;dev-secret&#39;</code> fallback; add a fail-closed boot guard that refuses to start in staging/prod without a strong <code>JWT_SECRET</code> (mirror the never-live guard). Pin <code>algorithms: [&#39;HS256&#39;]</code> on verify (SEC-12).</p>
+<p><strong>SEC-2 ✓ — Factoring <code>release</code> is an IDOR write.</strong>
+<code>routes/factoring.ts:341</code> → <code>services/factoringAssignmentService.ts:89</code> <code>release(assignmentId, actorId)</code> looks up the assignment by id and releases it with no check that <code>actorId</code> owns <code>target.carrierId</code>.
+<strong>Impact:</strong> any authenticated user releases any carrier&#39;s factoring assignment, flipping payee routing FACTOR→CARRIER (redirects who gets paid).
+<strong>COA:</strong> resolve the caller&#39;s carrier-of-record and assert <code>actor.carrierId === target.carrierId</code> (or platform-admin) before release.</p>
+<p><strong>SEC-3 — Factoring per-load opt-in is an IDOR.</strong>
+<code>services/factoring.ts:80</code> opt-in never checks carrier-of-record for the load.
+<strong>Impact:</strong> a carrier factors another carrier&#39;s delivered load; that load&#39;s BOL/POD are handed to the attacker&#39;s factor.
+<strong>COA:</strong> assert the caller is the load&#39;s carrier-of-record before creating the opt-in.</p>
+<p><strong>SEC-4 ✓ — BOL mutations are unguarded.</strong>
+<code>routes/bol.ts</code>: <code>requireBOLAccess</code> (party check) is applied to the GETs but not to <code>POST /:bolId/sign</code> / update / wms / dispute. The sign handler checks <em>role</em> (Driver/Receiver) but not that the caller is a party on <em>this</em> BOL&#39;s load.
+<strong>Impact:</strong> any DRIVER can sign any BOL → false PICKED_UP/DELIVERED attestations that drive factoring and settlement.
+<strong>COA:</strong> call <code>requireBOLAccess(req, bol)</code> at the top of every BOL mutation, not just reads.</p>
+<p><strong>SEC-5 — Legal holds are never enforced.</strong>
+<code>assertDeletable</code> / <code>isOnHold</code> have <strong>zero</strong> production callers; load/org/driver delete paths and the payout path never consult holds.
+<strong>Impact:</strong> a legal hold (compliance/counsel control) has no effect on live behavior — records/payouts under hold are not actually blocked.
+<strong>COA:</strong> invoke <code>assertDeletable</code> in every delete path and <code>isOnHold</code> at the payout seam; add integration tests that a held entity&#39;s delete/payout is rejected.</p>
+<p><strong>SEC-6 — Payout intercepts are bypassable (also BL-4).</strong>
+The live settlement seam <code>payeeRoutingService.resolvePayee</code> ignores intercepts; the only applier (<code>applyAtSettlement</code>) is reachable solely via <code>reconcileDebtorPayment</code>, which has <strong>no callers</strong>, and even then only when payee==CARRIER — a carrier under a factoring assignment routes to FACTOR and escapes the intercept (garnishment/levy/lien).
+<strong>Impact:</strong> court-ordered payout intercepts do not fire on the real settlement path.
+<strong>COA:</strong> apply intercepts inside <code>resolvePayee</code> (or a mandatory wrapper) for <em>all</em> payee branches; wire <code>reconcileDebtorPayment</code> or fold its logic into the live path; add a test that an intercepted carrier&#39;s payout is withheld on both CARRIER and FACTOR branches.</p>
+<p><strong>SEC-7 — Audit-log immutability is app-convention only.</strong>
+Only the Signatures table has an IAM-Deny + WORM S3 sink (and the DDB Deny is out-of-band; the <code>iam_signatures</code> module is unwired). <code>AdminAuditLog</code> / <code>LegalHolds</code> / <code>Adjudications</code> / <code>Disclosures</code> / <code>PayoutIntercepts</code> have no item-level Deny and no WORM, and the EB instance role holds <code>UpdateItem</code>/<code>DeleteItem</code> on all prefix tables.
+<strong>Impact:</strong> &quot;append-only/immutable&quot; compliance records are only immutable by convention; a bug or a compromised instance role can rewrite them.
+<strong>COA:</strong> add condition-expression guards (attribute_not_exists on update) at minimum; ideally an IAM Deny on UpdateItem/DeleteItem for the audit/compliance tables and a WORM export for the legally-sensitive ones. Wire the <code>iam_signatures</code> module.</p>
+<p><strong>EP-1 — Prod&#39;s entire runtime config is out-of-band (no IaC).</strong>
+<code>envs/prod/eb-imported.tf:57-67</code> sets <code>lifecycle { ignore_changes = [setting] }</code> with no <code>setting{}</code> blocks, so prod&#39;s APP_ENV, KMS key id, table overrides and all secrets have no Terraform source of truth and no drift detection.
+<strong>Impact:</strong> a recreate/DR loses the entire prod config and the env won&#39;t boot (fail-closed); no way to review or reproduce prod config from code.
+<strong>COA:</strong> codify prod env-vars in <code>eb-imported.tf</code> (non-secrets inline, secrets via a gitignored <code>prod.auto.tfvars</code>), matching the staging pattern; then a recreate is safe and config is reviewable.</p>
+<p><strong>EP-2 — Canopy prod tables are defined but unapplied.</strong>
+<code>envs/prod/canopy.tf</code> declares <code>LoadLead_CarrierInsuranceConnections</code> + <code>LoadLead_CoiCrossReferenceResults</code>; neither exists in prod AWS.
+<strong>Impact:</strong> inert today (prod has no Canopy secrets), but the day Canopy is enabled in prod the first write 500s — and prod force-locks Canopy to <code>production</code> with no sandbox fallback.
+<strong>COA:</strong> <code>tofu apply</code> the two tables in prod now (harmless empty tables) so enabling Canopy later is config-only; add them to the boot-required-GSI/table check.</p>
+<p><strong>EP-3 — Staging <code>Offers</code> is missing <code>loadId-index</code> → 500s.</strong>
+The shared <code>modules/dynamodb_tableset</code> omits it; <code>offerService.getOffersByLoad</code> queries it with no fallback. Prod has the index via a <em>separate</em> definition (<code>imported-tables.tf</code>), so the two schemas drift by construction.
+<strong>Impact:</strong> <code>getOffersByLoad</code> 500s on staging; latent divergence risk anywhere the two table definitions differ.
+<strong>COA:</strong> add <code>loadId-index</code> to the shared module and <code>tofu apply</code> staging; reconcile prod&#39;s <code>imported-tables.tf</code> to reference the same module so the schemas can&#39;t drift.</p>
+<p><strong>EP-4 ✓ — Canopy secrets are non-durable, and the code comment claims otherwise.</strong>
+<code>CANOPY_CLIENT_ID/SECRET/WEBHOOK_SECRET</code> live only on the staging EB env; <code>staging.auto.tfvars</code> has no Canopy keys (TF desires 32 env vars vs 35 live = exactly the 3 secrets). <code>envs/staging/main.tf:255-260</code> (committed earlier today, PR #66) states they are in tfvars &quot;so a recreate can never wipe them again&quot; — <strong>the durability fix was documented but not actually done.</strong>
+<strong>Impact:</strong> a full env recreate wipes all three (it already happened once); the misleading comment could cause a future engineer to skip the real fix.
+<strong>COA:</strong> move the 3 secrets into <code>backend_env_vars</code> in <code>staging.auto.tfvars</code>, <code>tofu apply</code>, and correct the <code>main.tf</code> comment. <em>(This is the platform team&#39;s own item — fixing the comment immediately.)</em></p>
+<h3>MEDIUM</h3>
+<ul>
+<li><strong>BL-3 — Accessorial charge double-bill risk.</strong> Charge id keyed on <code>policyHash</code> (<code>accessorialChargeService.ts:96,161</code>); a policy-hash change between two <code>computeForStop</code> calls mints a second billable charge (and supplemental advance) for the same stop. Latent today (only <code>freezeAndAgreeAtPosting</code> changes the hash, at posting) — gated by workflow ordering, not by code. <strong>COA:</strong> key the charge id on <code>(loadId, stopId, chargeType)</code> independent of policy hash.</li>
+<li><strong>BL-4 — Payout-intercept escape on the FACTOR branch</strong> (see SEC-6). May be accepted legal behavior once the receivable is sold — confirm with counsel and document.</li>
+<li><strong>FE-1 — No frontend unit-test CI gate.</strong> <code>npm test</code> (vitest) exits 1 because it also globs the 5 Playwright specs (no <code>test.exclude</code> in <code>vite.config.ts</code>); the 21 real unit tests pass. No workflow runs the unscoped command, so FE unit tests aren&#39;t gated. <strong>COA:</strong> add <code>test.exclude: [&#39;e2e/**&#39;]</code>; add a CI job running FE unit tests.</li>
+<li><strong>FE-4 — <code>tour-vendor</code> (shepherd.js) eager-loaded on every route</strong> via <code>modulepreload</code> because <code>AppLayout</code>/<code>App.tsx</code> import it statically, contradicting its &quot;lazy-route-only&quot; comment. Bytes, not a crash. <strong>COA:</strong> lazy-import the tour.</li>
+<li><strong>LS-2 — Staging FE serves zero security headers</strong> (no CSP/HSTS/X-Frame-Options/X-Content-Type-Options/Referrer-Policy); prod FE has the full set. <strong>COA:</strong> attach the prod CloudFront Response Headers Policy to the staging distribution.</li>
+<li><strong>LS-4 — Staging is fully crawlable/indexable</strong> (no robots disallow, no noindex, no <code>X-Robots-Tag</code>) while hosting the deliberately-muted pre-release persona. <strong>COA:</strong> add <code>X-Robots-Tag: noindex</code> (or a robots.txt disallow) on the staging distribution.</li>
+<li><strong>EP-5 — Staging <code>tofu plan</code> is not clean:</strong> <code>0 add, 1 change, 0 destroy</code> (EB env, 43 settings rewritten each plan). <strong>COA:</strong> reconcile the perpetual EB settings diff (the out-of-band vars are the cause — closing EP-4 largely closes this).</li>
+<li><strong>EP-6 — <code>Loads status-createdAt-index</code></strong> present in staging/module, absent in prod (unused by code; drift only). <strong>COA:</strong> reconcile definitions.</li>
+<li><strong>EP-7 — Isolation-guard blind spot:</strong> <code>prodFormTableNames</code> (<code>bootGuard.ts:111</code>) only flags the <code>LoadLead_</code> underscore prefix, so the dash-named prod table <code>LoadLead-MembershipAuditLogs</code> would slip past the runtime guard (masked today by the wired CI parity check). <strong>COA:</strong> normalize the guard to catch both prefixes.</li>
+<li><strong>SEC-8 — Factoring read leaks:</strong> factoring payee/package reads expose any load&#39;s net pay + debtor to a non-owner. <strong>COA:</strong> ownership-gate the reads (same fix family as SEC-2/3).</li>
+<li><strong>SEC-9 — OO <code>DELETE /fleet/:driverId</code> orphans another operator&#39;s driver:</strong> nulls <code>ownedByOperatorId</code> on an unvalidated driverId. <strong>COA:</strong> assert the driver&#39;s <code>ownedByOperatorId === caller</code>.</li>
+<li><strong>SEC-10 — Shared <code>github_oidc_role</code> module = prod deploy-role blast radius.</strong> Per-env instances are correctly scoped today, but any module edit changes the prod deploy identity. <strong>COA:</strong> standing caution + a review gate on module edits (documented; not an active vuln).</li>
+</ul>
+<h3>LOW / informational</h3>
+<ul>
+<li><strong>BE-1 — Node 22 runway:</strong> AWS SDK v3 will require Node ≥22 for releases after early Jan 2027; repo on node 20.20.0. Schedule the EB-platform + CI + <code>.nvmrc</code> bump before Q1 2027 (highest-value LOW).</li>
+<li><strong>BE-2</strong> — add a dedicated <code>accessorialCalc</code> unit test for cap/boundary edges (currently covered only transitively).</li>
+<li><strong>BE-3</strong> — Pact provider verification is excluded from <code>npm test</code>; ensure the dedicated CI step runs it.</li>
+<li><strong>BE-4</strong> — <code>npm warn ... ignoring workspace config at backend/.npmrc</code>; confirm <code>.npmrc</code> isn&#39;t load-bearing.</li>
+<li><strong>FE-5</strong> — <code>PrivateBetaLanding.tsx</code> is both static- and dynamic-imported; its <code>lazy()</code> is a no-op.</li>
+<li><strong>FE-6</strong> — <code>playwright.config.ts:9</code> hardcodes an absolute single-dev report path inside the tracked <code>docs/overnight-2026-07-03</code> folder; running E2E left two files locally modified (visible in <code>git status</code>). Revert those and relocate the report path.</li>
+<li><strong>LS-3 — Prod <code>/api/webhooks/canopy</code> 404s</strong> (route not registered) while staging serves it (401, signature enforced) → prod backend is a few commits behind <code>main</code>/staging on the Canopy handler. Fails safe (prod connect-disabled), but is a real deploy-parity signal. <strong>COA:</strong> redeploy prod backend from <code>main</code> so prod ≤ 1 deploy behind.</li>
+<li><strong>BL-5</strong> — <code>setVerificationStatus</code> has no transition guard (terminal protection is ad-hoc per caller; the accessorial ledger&#39;s <code>assertTransition</code> is the model to copy).</li>
+<li><strong>BL-6</strong> — narrow terminal-resurrection race in the Canopy decision (read-once terminal check before async work).</li>
+<li><strong>BL-7</strong> — <code>resolveInvoicePayee</code> routes to FACTOR only on <code>&#39;SUBMITTED&#39;</code>; a <code>&#39;FUNDED&#39;</code> opt-in falls through to CARRIER. Confirm intended.</li>
+<li><strong>BL-8</strong> — DynamoDB TTL unit inconsistency (org invite/token <code>expiresAt</code> in ms vs outbox in seconds); verify which tables actually enable TTL.</li>
+<li><strong>BL-9</strong> — Canopy auto-populate rounds cents→dollars for display only (no decision impact).</li>
+<li><strong>SEC-12/13/14</strong> — pin <code>jwt.verify</code> algorithms; stop logging invitation tokens + factoring payloads; add a party check to <code>GET /compliance/policy/load/:loadId</code>.</li>
+<li><strong>EP-8</strong> — never-live guard omits <code>kms</code> (staging runs <code>KMS_MODE=live</code> intentionally); fmcsa/maps warn-only by design.</li>
+</ul>
+<hr>
+<h2>4. Courses of action (COAs)</h2>
+<h3>COA-1 — Close the HIGH authz/gate bypasses (this week; small PRs, no migration)</h3>
+<p>The cheap, sharp, high-value fixes. Each is a localized code change with a bypass-test:</p>
+<ol>
+<li><strong>BL-1</strong> COI validity gate + re-evaluate on expiry.</li>
+<li><strong>BL-2</strong> assert <code>sig.assignedDriverId</code> at assign.</li>
+<li><strong>FE-2</strong> beta wall consumes the fail-closed RuntimeConfig.</li>
+<li><strong>LS-1</strong> CORS reject → 403 not 500.</li>
+<li><strong>SEC-1</strong> remove <code>dev-secret</code> fallback + JWT boot guard + pin algorithms.</li>
+<li><strong>SEC-2/3/4/8/9</strong> add carrier-of-record / party ownership checks to factoring release, factoring opt-in, BOL mutations, factoring reads, OO fleet delete.</li>
+</ol>
+<p><em>Each fix must land with a test that proves the NEGATIVE (bypass attempt → rejected).</em></p>
+<h3>COA-2 — Wire the unwired controls (next sprint)</h3>
+<p>The &quot;control exists but isn&#39;t called&quot; class — needs integration + tests at the seam:</p>
+<ol>
+<li><strong>SEC-5</strong> call <code>assertDeletable</code>/<code>isOnHold</code> on all delete + payout paths.</li>
+<li><strong>SEC-6</strong> apply payout intercepts in <code>resolvePayee</code> for all payee branches; wire <code>reconcileDebtorPayment</code>.</li>
+<li><strong>FE-3</strong> wire (or remove) the mock verification tab to the real Didit flow.</li>
+<li><strong>SEC-7</strong> condition-expression guards + IAM-Deny/WORM on compliance/audit tables; wire <code>iam_signatures</code>.</li>
+</ol>
+<h3>COA-3 — Environment reconciliation &amp; IaC source-of-truth (platform; before beta scale-up)</h3>
+<ol>
+<li><strong>EP-1</strong> codify prod runtime config in IaC (biggest structural gap).</li>
+<li><strong>EP-4</strong> move Canopy secrets to <code>staging.auto.tfvars</code>; fix the false <code>main.tf</code> comment <em>(done this session)</em>.</li>
+<li><strong>EP-3/EP-6</strong> unify staging + prod table definitions on the shared module; add <code>Offers loadId-index</code> to staging.</li>
+<li><strong>EP-2</strong> apply the 2 Canopy prod tables.</li>
+<li><strong>LS-2/LS-4</strong> staging FE: security-headers policy + noindex.</li>
+<li><strong>EP-5/EP-7</strong> reconcile the perpetual EB plan diff; normalize the isolation guard for both prefixes.</li>
+</ol>
+<h3>COA-4 — Hygiene backlog (opportunistic)</h3>
+<p>BE-1 (Node 22 before Q1 2027), BE-2/3/4, FE-1/4/5/6, BL-3/5/7/8/9, SEC-10/12/13/14, EP-8, LS-3 (redeploy prod from main).</p>
+<hr>
+<h2>5. Recommendations (standing practice)</h2>
+<ol>
+<li><strong>Every gate needs a negative test.</strong> The recurring pattern (BL-1, BL-2, FE-2, SEC-5/6) is a gate that passes its happy-path test but was never tested for the <em>bypass</em>. Adopt: for each security/compliance gate, a test that asserts the rejected case.</li>
+<li><strong>Authorization ≠ authentication.</strong> SEC-2/3/4/8/9 are all &quot;authenticated but not authorized for <em>this</em> object.&quot; Add an IDOR checklist to review: every <code>get/mutate-by-id</code> must assert ownership. Consider a shared <code>assertOwnsResource</code> helper used uniformly.</li>
+<li><strong>IaC is the only source of truth for env config.</strong> The out-of-band pattern (Canopy secrets, prod config EP-1/EP-4) has now caused multiple incidents. No env var should exist on an EB env that isn&#39;t in Terraform. Add a CI check comparing deployed EB settings to TF-desired.</li>
+<li><strong>&quot;Wired&quot; is part of &quot;done.&quot;</strong> A control (legal hold, intercept) is not shipped until an integration test proves it is <em>invoked</em> at the seam, not merely that the helper works in isolation.</li>
+<li><strong>Deploy parity.</strong> Keep prod ≤ 1 deploy behind <code>main</code> (LS-3 shows prod drift). Consider auto-deploying prod backend on merge behind the existing gates.</li>
+<li><strong>Fail closed on trust boundaries.</strong> Auth secret (SEC-1) and the beta wall (FE-2) both currently fail open; every trust-boundary default should fail closed.</li>
+</ol>
+<hr>
+<h2>6. Method &amp; evidence</h2>
+<p>Six independent audit agents ran in parallel against the live repo and AWS account 552011299815 (us-east-1): backend suite (<code>vitest run</code> + <code>tsc</code>), frontend (<code>tsc</code>/<code>vite build</code>/<code>vitest</code>/Playwright), environment parity (live <code>aws dynamodb</code>/<code>elasticbeanstalk describe*</code> + <code>tofu plan</code> across staging &amp; prod), business-logic trace (8 critical paths), live black-box smoke (curl vs prod + staging, 14 unauth probes + gate behavior), and security/IAM/compliance (auth middleware, all sensitive routers/services, IaC). Staging was resumed for live smoke and re-paused after. All HIGH findings were re-verified at the cited source before inclusion. Per-dimension evidence files (<code>01</code>–<code>06</code>) and raw command logs are retained in the audit workspace.</p>
+<p><em>Prepared by Platform Engineering · Audit v5 · 2026-07-13.</em></p>
+
+</body></html>
