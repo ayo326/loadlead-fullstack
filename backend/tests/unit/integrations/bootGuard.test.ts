@@ -4,11 +4,12 @@ import {
   assertNonProductionSafe,
   assertProductionHardened,
   assertTablesEnvIsolated,
+  assertAuthSecretStrong,
   prodFormTableNames,
   BootGuardError,
 } from '../../../src/services/integrations/bootGuard';
 
-const ENV_VARS = ['APP_ENV', 'DIDIT_ENV', 'FMCSA_MODE', 'MAPS_MODE', 'EMAIL_MODE', 'PUSH_MODE'];
+const ENV_VARS = ['APP_ENV', 'DIDIT_ENV', 'FMCSA_MODE', 'MAPS_MODE', 'EMAIL_MODE', 'PUSH_MODE', 'JWT_SECRET'];
 let saved: Record<string, string | undefined> = {};
 
 beforeEach(() => {
@@ -20,6 +21,36 @@ afterEach(() => {
     if (saved[k] === undefined) delete process.env[k];
     else process.env[k] = saved[k];
   }
+});
+
+describe('assertAuthSecretStrong (SEC-1: JWT secret fails closed in deployed envs)', () => {
+  const STRONG = 'k'.repeat(48);
+
+  it('refuses to boot in production when JWT_SECRET is missing', () => {
+    process.env.APP_ENV = 'production';
+    delete process.env.JWT_SECRET;
+    expect(() => assertAuthSecretStrong()).toThrowError(BootGuardError);
+  });
+
+  it('refuses to boot in staging when JWT_SECRET is the dev default', () => {
+    process.env.APP_ENV = 'staging';
+    process.env.JWT_SECRET = 'dev-secret';
+    expect(() => assertAuthSecretStrong()).toThrowError(/forgeable/);
+  });
+
+  it('boots in production with a strong JWT_SECRET', () => {
+    process.env.APP_ENV = 'production';
+    process.env.JWT_SECRET = STRONG;
+    expect(() => assertAuthSecretStrong()).not.toThrow();
+  });
+
+  it('is a no-op in development / test even without a secret (local ergonomics)', () => {
+    process.env.APP_ENV = 'development';
+    delete process.env.JWT_SECRET;
+    expect(() => assertAuthSecretStrong()).not.toThrow();
+    process.env.APP_ENV = 'test';
+    expect(() => assertAuthSecretStrong()).not.toThrow();
+  });
 });
 
 describe('assertProductionNotContaminated', () => {
