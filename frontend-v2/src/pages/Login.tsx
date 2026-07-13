@@ -168,12 +168,17 @@ export default function Login() {
   // beta subdomain (beta.loadleadapp.com) always shows the real login. Gated
   // on the live betaMode flag so flipping BETA_MODE=false reverts with no
   // redeploy. Fail-open to the normal login if /beta/status is unreachable.
-  const [betaMode, setBetaMode] = useState(false);
+  // FE-2 (audit v5): fail CLOSED. During the private beta a single transient
+  // /beta/status failure must NOT drop the wall and expose the public sign-in
+  // form on the apex. Start with the wall UP and keep it up on error; only a
+  // successful read that says beta is off takes it down. isBetaHost() still
+  // shows the real login on the beta subdomain regardless.
+  const [betaMode, setBetaMode] = useState(true);
   useEffect(() => {
     let active = true;
     api.beta.status()
       .then((s) => { if (active) setBetaMode(!!s.betaMode); })
-      .catch(() => { if (active) setBetaMode(false); });
+      .catch(() => { if (active) setBetaMode(true); });
     return () => { active = false; };
   }, []);
   const betaWall = betaMode && !isBetaHost();
