@@ -97,6 +97,9 @@ router.post('/', asyncHandler(async (req: AuthRequest, res) => {
 // ─── PUT /api/bol/:bolId ──────────────────────────────────────────────────────
 // Shipper updates BOL fields (before carrier signs)
 router.put('/:bolId', asyncHandler(async (req: AuthRequest, res) => {
+  const existing = await BOLService.getBOLById(req.params.bolId);
+  if (!existing) return res.status(404).json({ error: 'BOL not found' });
+  await requireBOLAccess(req, existing); // SEC-4: party-bind mutations, not just reads
   const bol = await BOLService.updateBOL(req.params.bolId, req.body, req.user!.userId);
   res.json({ bol });
 }));
@@ -116,6 +119,10 @@ router.post('/:bolId/sign', asyncHandler(async (req: AuthRequest, res) => {
   else if (role === 'RECEIVER') sigRole = 'RECEIVER';
   else return res.status(403).json({ error: 'Only Driver or Receiver can sign a BOL' });
 
+  const existing = await BOLService.getBOLById(req.params.bolId);
+  if (!existing) return res.status(404).json({ error: 'BOL not found' });
+  await requireBOLAccess(req, existing); // SEC-4: signer must be a party on THIS bol's load
+
   const signature: BOLSignature = {
     signedBy,
     signatureData,
@@ -134,6 +141,10 @@ router.post('/:bolId/dispute', asyncHandler(async (req: AuthRequest, res) => {
   const { reason } = req.body;
   if (!reason) return res.status(400).json({ error: 'reason is required' });
 
+  const existing = await BOLService.getBOLById(req.params.bolId);
+  if (!existing) return res.status(404).json({ error: 'BOL not found' });
+  await requireBOLAccess(req, existing); // SEC-4: only a party may dispute this bol
+
   const bol = await BOLService.disputeBOL(
     req.params.bolId,
     reason,
@@ -146,6 +157,9 @@ router.post('/:bolId/dispute', asyncHandler(async (req: AuthRequest, res) => {
 // ─── PUT /api/bol/:bolId/wms ──────────────────────────────────────────────────
 // Update WMS integration fields (receiver or admin)
 router.put('/:bolId/wms', asyncHandler(async (req: AuthRequest, res) => {
+  const existing = await BOLService.getBOLById(req.params.bolId);
+  if (!existing) return res.status(404).json({ error: 'BOL not found' });
+  await requireBOLAccess(req, existing); // SEC-4: only a party may touch WMS fields
   const bol = await BOLService.updateWMS(req.params.bolId, req.body, req.user!.userId);
   res.json({ bol });
 }));

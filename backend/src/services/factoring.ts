@@ -182,3 +182,18 @@ export async function resolveInvoicePayee(
 
   return { payee: 'CARRIER', ...(carrier && { carrier }) };
 }
+
+/**
+ * The carrier-of-record id for a load, or null if the load has no resolvable
+ * carrier yet. Used to authorize load-scoped factoring actions: only the load's
+ * own carrier (or ADMIN) may opt it into factoring or read its payee/POD, so a
+ * carrier cannot factor or inspect another carrier's load. (Audit v5 SEC-3/SEC-8.)
+ */
+export async function resolveLoadCarrierId(loadId: string): Promise<string | null> {
+  const load = await LoadService.getLoadById(loadId);
+  const driver = load?.assignedDriverId ? await DriverService.getProfileById(load.assignedDriverId) : null;
+  const carrier = driver ? await resolveCarrierOfRecord(driver) : null;
+  // entityId is the operatorId|orgId - the same identifier resolveCarrierIdForUser
+  // returns, so route guards can compare them directly.
+  return carrier?.entityId ?? null;
+}

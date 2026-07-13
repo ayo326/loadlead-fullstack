@@ -22,7 +22,7 @@ import {
   selectIntegratedPartner,
   releaseCurrentFactor,
 } from '../services/factoringProfile';
-import { optInToFactoring, resolveInvoicePayee } from '../services/factoring';
+import { optInToFactoring, resolveInvoicePayee, resolveLoadCarrierId } from '../services/factoring';
 import { assertPodComplete } from '../services/pod';
 import { body, param } from 'express-validator';
 import { validate } from '../middleware/validation';
@@ -85,6 +85,23 @@ export async function resolveCarrierIdForUser(userId: string): Promise<string> {
 
 async function resolveCarrierId(req: AuthRequest): Promise<string> {
   return resolveCarrierIdForUser(req.user!.userId);
+}
+
+/**
+ * Authorize a load-scoped factoring action: the caller's carrier must be the
+ * load's carrier-of-record (ADMIN bypasses for support). Without this, any
+ * authenticated carrier could opt another carrier's load into factoring or read
+ * its payee/POD. (Audit v5 SEC-3 / SEC-8.)
+ */
+async function assertCallerActsForLoad(req: AuthRequest, loadId: string): Promise<void> {
+  if (req.user!.role === 'ADMIN') return;
+  const [callerCarrierId, loadCarrierId] = await Promise.all([
+    resolveCarrierId(req),
+    resolveLoadCarrierId(loadId),
+  ]);
+  if (!loadCarrierId || loadCarrierId !== callerCarrierId) {
+    throw new AppError('Not authorized for this load', 403);
+  }
 }
 
 // ── Profile (account-level mode) ─────────────────────────────────────────────
@@ -150,6 +167,7 @@ router.post('/release', asyncHandler(async (req: AuthRequest, res) => {
 
 // POST /api/factoring/loads/:loadId/opt-in - opt a delivered load into integrated factoring
 router.post('/loads/:loadId/opt-in', asyncHandler(async (req: AuthRequest, res) => {
+  await assertCallerActsForLoad(req, req.params.loadId); // SEC-3: only the load's carrier
   const carrierId = await resolveCarrierId(req);
   const optIn     = await optInToFactoring(req.params.loadId, carrierId);
   res.status(201).json({ optIn });
@@ -157,12 +175,14 @@ router.post('/loads/:loadId/opt-in', asyncHandler(async (req: AuthRequest, res) 
 
 // GET /api/factoring/loads/:loadId/payee - who receives the invoice payment?
 router.get('/loads/:loadId/payee', asyncHandler(async (req: AuthRequest, res) => {
+  await assertCallerActsForLoad(req, req.params.loadId); // SEC-8: no cross-carrier payee read
   const result = await resolveInvoicePayee(req.params.loadId);
   res.json(result);
 }));
 
 // GET /api/factoring/loads/:loadId/pod - check POD completeness for a load
 router.get('/loads/:loadId/pod', asyncHandler(async (req: AuthRequest, res) => {
+  await assertCallerActsForLoad(req, req.params.loadId); // SEC-8: no cross-carrier POD read
   const result = await assertPodComplete(req.params.loadId);
   res.json(result);
 }));
@@ -342,6 +362,15 @@ router.post(
   '/assignments/:assignmentId/release',
   validate([param('assignmentId').isString().isLength({ min: 1, max: 200 })]),
   asyncHandler(async (req: AuthRequest, res) => {
+    // SEC-2: only the assignment's own carrier (or ADMIN) may release it -
+    // otherwise any authed user could flip another carrier's payee FACTOR->CARRIER.
+    if (req.user!.role !== 'ADMIN') {
+      const carrierId = await resolveCarrierId(req);
+      const owned = await FactoringAssignmentService.listForCarrier(carrierId);
+      if (!owned.some((a) => a.assignmentId === req.params.assignmentId)) {
+        throw new AppError('Not authorized for this assignment', 403);
+      }
+    }
     const released = await FactoringAssignmentService.release(req.params.assignmentId, req.user!.userId);
     res.json({ released });
   })

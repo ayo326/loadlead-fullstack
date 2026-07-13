@@ -34,6 +34,7 @@ const m = vi.hoisted(() => ({
   resolveRecipient: vi.fn(async (): Promise<any> => 'factor@example.com'),
   submit: vi.fn(async (): Promise<any> => ({ submissionId: 'sub_1' })),
   getForAssignment: vi.fn(async (): Promise<any> => null),
+  resolveLoadCarrierId: vi.fn(async (): Promise<string | null> => null),
 }));
 
 vi.mock('../../../src/services/ownerOperatorService', () => ({ OwnerOperatorService: { getByUserId: m.getByUserId } }));
@@ -67,7 +68,7 @@ vi.mock('../../../src/services/factoringSubmissionService', () => ({
 vi.mock('../../../src/services/noticeOfAssignmentService', () => ({ NoticeOfAssignmentService: { getForAssignment: m.getForAssignment } }));
 vi.mock('../../../src/services/factorContactService', () => ({ FactorContactService: { get: vi.fn(async () => null), save: vi.fn() } }));
 vi.mock('../../../src/services/payeeRoutingService', () => ({ PayeeRoutingService: { resolvePayee: vi.fn(async () => ({ type: 'CARRIER' })) } }));
-vi.mock('../../../src/services/factoring', () => ({ optInToFactoring: vi.fn(), resolveInvoicePayee: vi.fn() }));
+vi.mock('../../../src/services/factoring', () => ({ optInToFactoring: vi.fn(), resolveInvoicePayee: vi.fn(), resolveLoadCarrierId: m.resolveLoadCarrierId }));
 vi.mock('../../../src/services/pod', () => ({ assertPodComplete: vi.fn() }));
 vi.mock('../../../src/utils/logger', () => ({ Logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() }, default: { info: vi.fn(), error: vi.fn(), warn: vi.fn() } }));
 
@@ -214,5 +215,33 @@ describe('factoring routes: export flow', () => {
     m.listShipperAgreements.mockResolvedValue([]);
     await exportReq({ invoiceId: 'load-1' });
     expect(m.assemble.mock.calls[0][0].rateConfRef).toBeUndefined();
+  });
+});
+
+// Audit v5 SEC-3 / SEC-8: a load-scoped factoring action must be authorized -
+// the caller's carrier must be the load's carrier-of-record.
+describe('load-scoped factoring ownership (SEC-3 / SEC-8)', () => {
+  const optIn = (loadId: string, token: string) =>
+    request(app()).post(`/api/factoring/loads/${loadId}/opt-in`).set('Authorization', `Bearer ${token}`).send({});
+
+  it('403 when the caller is NOT the load\'s carrier-of-record (bypass blocked)', async () => {
+    asOO(); // caller resolves to operatorId oo-9
+    m.resolveLoadCarrierId.mockResolvedValue('some-other-carrier');
+    const res = await optIn('load-1', ooToken);
+    expect(res.status).toBe(403);
+  });
+
+  it('403 when the load has no resolvable carrier', async () => {
+    asOO();
+    m.resolveLoadCarrierId.mockResolvedValue(null);
+    const res = await optIn('load-1', ooToken);
+    expect(res.status).toBe(403);
+  });
+
+  it('proceeds (201) when the caller IS the load\'s carrier-of-record', async () => {
+    asOO();
+    m.resolveLoadCarrierId.mockResolvedValue('oo-9'); // matches the caller
+    const res = await optIn('load-1', ooToken);
+    expect(res.status).toBe(201);
   });
 });
