@@ -89,6 +89,11 @@ locals {
         # (HASH driverId + RANGE status). Prod's LoadLead_Offers carries this
         # index; added out-of-band to staging earlier — reconciled here.
         { name = "driverId-status-index", hash_key = "driverId", range_key = "status" },
+        # EP-3 (audit v5): offerService.getOffersByLoad queries "loadId-index"
+        # (HASH loadId only) with no fallback. Prod's LoadLead_Offers has it via
+        # envs/prod/imported-tables.tf, but this shared module omitted it, so the
+        # call 500s on staging. Reconcile staging/dev to prod here.
+        { name = "loadId-index", hash_key = "loadId" },
       ]
     }
     FactoringOptIns = {

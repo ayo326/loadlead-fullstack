@@ -212,6 +212,32 @@ describe('assertTablesEnvIsolated (H1 table isolation)', () => {
     expect(prodFormTableNames({ a: 'LoadLead-Dev-Users', c: undefined })).toEqual([]);
   });
 
+  it('EP-7: also flags the dash-named prod table without false-positiving env-namespaced dash tables', () => {
+    // The prod outlier LoadLead-MembershipAuditLogs used to slip the underscore-only guard.
+    expect(prodFormTableNames({ x: 'LoadLead-MembershipAuditLogs' })).toEqual([
+      'x=LoadLead-MembershipAuditLogs',
+    ]);
+    // Non-prod env namespaces stay legitimate, even for that same table stem.
+    expect(
+      prodFormTableNames({ s: 'LoadLead-Staging-MembershipAuditLogs', d: 'LoadLead-Dev-Loads' }),
+    ).toEqual([]);
+    // Mixed set: only the underscore + bare-dash prod names come back.
+    expect(
+      prodFormTableNames({
+        a: 'LoadLead-Staging-Loads',
+        b: 'LoadLead_Loads',
+        c: 'LoadLead-MembershipAuditLogs',
+      }),
+    ).toEqual(['b=LoadLead_Loads', 'c=LoadLead-MembershipAuditLogs']);
+  });
+
+  it('assertTablesEnvIsolated throws outside prod when a table resolves to the dash-named prod outlier', () => {
+    process.env.APP_ENV = 'staging';
+    delete process.env.DYNAMODB_ENDPOINT;
+    process.env[PROBE] = 'LoadLead-MembershipAuditLogs';
+    expect(() => assertTablesEnvIsolated()).toThrowError(/PRODUCTION data/);
+  });
+
   it('is a no-op in production — production owns the LoadLead_ names', () => {
     process.env.APP_ENV = 'production';
     delete process.env.DYNAMODB_ENDPOINT;
