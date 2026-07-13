@@ -245,6 +245,12 @@ router.delete('/fleet/:driverId', asyncHandler(async (req: AuthRequest, res) => 
   if (target?.isSelf) {
     throw new AppError('Cannot remove an Owner Operator\'s self-driver', 409);
   }
+  // SEC-9: only the driver's OWN operator may remove it. Without this, operator A
+  // could pass operator B's driverId and null out B's driver's ownedByOperatorId
+  // link below, orphaning another operator's driver.
+  if (target && target.ownedByOperatorId && target.ownedByOperatorId !== profile.operatorId) {
+    throw new AppError('This driver belongs to a different operator', 403);
+  }
 
   await OwnerOperatorService.removeFleetDriver(profile.operatorId, driverId);
 
