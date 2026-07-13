@@ -109,14 +109,25 @@ export async function decideCanopyInsurerPolicy(input: CanopyDecisionInput): Pro
   // Canopy-connected ones: it is the artifact cross-referenced against the
   // insurer-sourced data. Verification holds PENDING until a current COI exists.
   const coiDoc = await ComplianceDocumentService.getCurrent('HAULER', carrierId, 'COI');
-  const coiPresent = Boolean(coiDoc);
+  // BL-1: existence alone is not enough - an EXPIRED/REJECTED COI must NOT satisfy
+  // the mandatory-COI gate. Expiry flips verificationStatus but not isCurrentVersion,
+  // so getCurrent still returns the lapsed cert; check validity, not just presence.
+  const coiValid = Boolean(
+    coiDoc && coiDoc.verificationStatus !== 'EXPIRED' && coiDoc.verificationStatus !== 'REJECTED',
+  );
 
-  const verified = evalPass && fmcsaPass && !unresolvedCritical && coiPresent;
+  const verified = evalPass && fmcsaPass && !unresolvedCritical && coiValid;
 
   const reasons: string[] = [];
   if (!evalPass) reasons.push(...evaluation.deciding.reasons);
   if (!fmcsaPass) reasons.push('FMCSA liability filing check did not pass');
-  if (!coiPresent) reasons.push('a certificate of insurance is required');
+  if (!coiValid) {
+    reasons.push(
+      coiDoc
+        ? 'your certificate of insurance is expired or was rejected; upload a current one'
+        : 'a certificate of insurance is required',
+    );
+  }
   if (unresolvedCritical) reasons.push('a critical COI discrepancy is under review; please contact LoadLead');
   const reason = reasons.length ? reasons.join('; ') : undefined;
 
