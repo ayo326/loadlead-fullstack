@@ -179,6 +179,11 @@
     "key": "SCRUM-161",
     "priority_set_by_sync": "Medium"
   },
+  "epic:audit-recon-v5": {
+    "description_hash": "b50c41fc5d0255eb3c4316f2dbe8fa6e10a9c00dec5ea6b099f59a1783b7d999",
+    "key": "SCRUM-255",
+    "priority_set_by_sync": "Medium"
+  },
   "epic:carrier-refactor": {
     "description_hash": "e2c33f17e23cd39c4673e3ca02aeac49756b4e6bce9f25a6ce2e766770b5ade5",
     "key": "SCRUM-5",
@@ -348,6 +353,66 @@
     "description_hash": "8e48abf7cf3a8fb0a23fdcc82865f6a0a71264adfbbee2fb0ab19bd171adb204",
     "key": "SCRUM-251",
     "priority_set_by_sync": "Low"
+  },
+  "recon:canopy-prod-tables": {
+    "description_hash": "8d263682515043e2bf688aa6be0f3f60562b964fd414a264a39c1c6d501b14d6",
+    "key": "SCRUM-257",
+    "priority_set_by_sync": "High"
+  },
+  "recon:canopy-secrets-tfvars": {
+    "description_hash": "925ae2a29ef7a5747ee46b1512eab42c468e5ea3db4711dfd8016f2651d07c25",
+    "key": "SCRUM-258",
+    "priority_set_by_sync": "High"
+  },
+  "recon:coa1-coa2-shipped": {
+    "description_hash": "bf819f89d821806041dcc6e8d759171a7ea1485774f063128d86f15d463adc33",
+    "key": "SCRUM-256",
+    "priority_set_by_sync": "High"
+  },
+  "recon:eb-plan-drift": {
+    "description_hash": "966fc1b272a1fb3f9b148045a98d7530113118a9603ce7543bfce3f3cffb0010",
+    "key": "SCRUM-263",
+    "priority_set_by_sync": "Medium"
+  },
+  "recon:fe-unit-ci": {
+    "description_hash": "b25acba8f60cb8abf26a480cb306c9f69a768cfe023b078e62727e223dacaf01",
+    "key": "SCRUM-262",
+    "priority_set_by_sync": "Medium"
+  },
+  "recon:isolation-guard-prefix": {
+    "description_hash": "b2bc0deef9c171bd21344a3bff9bc59a5d626bb1c162aedbcef0aae04526bd83",
+    "key": "SCRUM-259",
+    "priority_set_by_sync": "Medium"
+  },
+  "recon:node22": {
+    "description_hash": "65a326a4ea334f006a5f59276a5be0f354ec0b1490da8052f4b1378ff1bb29b4",
+    "key": "SCRUM-264",
+    "priority_set_by_sync": "Low"
+  },
+  "recon:offers-loadid-index": {
+    "description_hash": "fb570e1d7a7726ffb61803c83037d670b9394159dd62c51ee6f573d14af5db0e",
+    "key": "SCRUM-267",
+    "priority_set_by_sync": "High"
+  },
+  "recon:prod-config-iac": {
+    "description_hash": "d16439c1f2ce27954b5a26364a7d1c95b1f971185fadb574aa17f5edb0dd01c2",
+    "key": "SCRUM-266",
+    "priority_set_by_sync": "High"
+  },
+  "recon:prod-deploy-parity": {
+    "description_hash": "3e7cd282d955ccb44784463ffda500570a7d4d218d8d636a0e231579f2b99b9a",
+    "key": "SCRUM-265",
+    "priority_set_by_sync": "Low"
+  },
+  "recon:staging-fe-headers": {
+    "description_hash": "21f660f1aa040b67c9c22cc5a847780ce40a67405653c85e53eaa15802c34301",
+    "key": "SCRUM-260",
+    "priority_set_by_sync": "Medium"
+  },
+  "recon:staging-noindex": {
+    "description_hash": "7617ad6a96fed7dd0bab8e10bc407192eab58529deccb4af294cca62803b1624",
+    "key": "SCRUM-261",
+    "priority_set_by_sync": "Medium"
   },
   "refactor:capabilities": {
     "description_hash": "366d0a65ec46068bf0d8409393d1e785c9907e4a2b55df5b7f4b46132d98c6a4",
