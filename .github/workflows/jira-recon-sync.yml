@@ -40,6 +40,19 @@ jobs:
       - name: Install deps
         run: python -m pip install --quiet -r jira/requirements.txt
 
+      - name: Diagnose Jira auth (no secret values printed)
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          set -uo pipefail
+          echo "myself HTTP: $(curl -s -o /dev/null -w '%{http_code}' -u "$JIRA_EMAIL:$JIRA_API_TOKEN" "$JIRA_BASE_URL/rest/api/3/myself")"
+          curl -s -u "$JIRA_EMAIL:$JIRA_API_TOKEN" "$JIRA_BASE_URL/rest/api/3/issue/createmeta/SCRUM/issuetypes" -o ct.json -w "createmeta HTTP: %{http_code}\n" || true
+          python -c "import json; d=json.load(open('ct.json')); print('createmeta issuetypes count:', len(d['issueTypes'])) if isinstance(d,dict) and 'issueTypes' in d else print('createmeta body:', str(d)[:180])" || echo "createmeta parse-fail"
+          curl -s -u "$JIRA_EMAIL:$JIRA_API_TOKEN" "$JIRA_BASE_URL/rest/api/3/mypermissions?projectKey=SCRUM&permissions=CREATE_ISSUES" -o mp.json -w "mypermissions HTTP: %{http_code}\n" || true
+          python -c "import json; d=json.load(open('mp.json')); print('CREATE_ISSUES havePermission:', d['permissions']['CREATE_ISSUES']['havePermission']) if isinstance(d,dict) and 'permissions' in d else print('mypermissions body:', str(d)[:180])" || echo "mypermissions parse-fail"
+
       - name: Run sync (${{ inputs.mode }})
         env:
           MODE: ${{ inputs.mode }}
