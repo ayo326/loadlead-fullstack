@@ -1,4 +1,4 @@
-import { User, UserRole, UserStatus, OrgCapability, OrgRole, Organization, OrgMembership } from '../types';
+import { User, UserRole, SELF_SIGNUP_ROLES, UserStatus, OrgCapability, OrgRole, Organization, OrgMembership } from '../types';
 import { OrgService, assertCapabilities } from './orgService';
 import { Database } from '../config/database';
 import { docClient } from '../config/aws';
@@ -64,6 +64,13 @@ export class AuthService {
     },
   ): Promise<{ user: User; token: string; orgId?: string }> {
     try {
+      // SEC-C1: hard server-side allowlist. Even if the route validator were
+      // bypassed, self-signup must never mint a privileged (ADMIN/CARRIER_ADMIN)
+      // account. Carrier admins come through the dedicated /signup/carrier path.
+      if (!SELF_SIGNUP_ROLES.includes(role)) {
+        throw new AppError('Invalid role', 400);
+      }
+
       const existingUsers = await Database.query<StoredUser>(
         config.dynamodb.usersTable,
         'email-index',

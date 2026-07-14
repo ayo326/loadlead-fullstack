@@ -120,3 +120,55 @@ describe('OrgMembershipService.updateMemberRole guards', () => {
     ).rejects.toMatchObject({ message: expect.stringContaining('last Owner') });
   });
 });
+
+// SEC-C2 (audit v6): cross-tenant membership isolation. The routes bind
+// :membershipId to the path :orgId and pass it as expectedOrgId; without it a
+// caller who is OWNER of their OWN org could mutate another org's membership
+// (promote a colluder to OWNER, or remove the victim org's owner). The tenant
+// check runs immediately after the fetch, before any role/last-owner guard, so
+// it fires regardless of the actor's role.
+describe('SEC-C2: expectedOrgId tenant isolation', () => {
+  // `driver` lives in org-1; the attacker supplies expectedOrgId 'org-2'.
+  it('removeMember 404s when the target belongs to a different org', async () => {
+    vi.spyOn(OrgMembershipService, 'getMembershipById').mockResolvedValueOnce(driver as any);
+    await expect(
+      OrgMembershipService.removeMember(driver.membershipId, 'attacker', OrgRole.OWNER, 'org-2')
+    ).rejects.toMatchObject({ message: expect.stringContaining('not found') });
+  });
+
+  it('updateMemberRole 404s when the target belongs to a different org', async () => {
+    vi.spyOn(OrgMembershipService, 'getMembershipById').mockResolvedValueOnce(driver as any);
+    await expect(
+      OrgMembershipService.updateMemberRole(
+        driver.membershipId, OrgRole.OWNER, 'attacker', OrgRole.OWNER, OrgRole.ORG_DRIVER, 'org-2')
+    ).rejects.toMatchObject({ message: expect.stringContaining('not found') });
+  });
+
+  it('suspendMember 404s when the target belongs to a different org', async () => {
+    vi.spyOn(OrgMembershipService, 'getMembershipById').mockResolvedValueOnce(driver as any);
+    await expect(
+      OrgMembershipService.suspendMember(driver.membershipId, 'attacker', OrgRole.OWNER, 'org-2')
+    ).rejects.toMatchObject({ message: expect.stringContaining('not found') });
+  });
+
+  it('reinstateMember 404s when the target belongs to a different org', async () => {
+    vi.spyOn(OrgMembershipService, 'getMembershipById').mockResolvedValueOnce(driver as any);
+    await expect(
+      OrgMembershipService.reinstateMember(driver.membershipId, 'attacker', OrgRole.OWNER, 'org-2')
+    ).rejects.toMatchObject({ message: expect.stringContaining('not found') });
+  });
+
+  it('still allows the operation when expectedOrgId matches the target org', async () => {
+    vi.spyOn(OrgMembershipService, 'getMembershipById').mockResolvedValueOnce(driver as any);
+    await expect(
+      OrgMembershipService.removeMember(driver.membershipId, manager.userId, OrgRole.MANAGER, 'org-1')
+    ).resolves.toBeUndefined();
+  });
+
+  it('is backward-compatible: no expectedOrgId skips the tenant check (internal callers)', async () => {
+    vi.spyOn(OrgMembershipService, 'getMembershipById').mockResolvedValueOnce(driver as any);
+    await expect(
+      OrgMembershipService.removeMember(driver.membershipId, manager.userId, OrgRole.MANAGER)
+    ).resolves.toBeUndefined();
+  });
+});

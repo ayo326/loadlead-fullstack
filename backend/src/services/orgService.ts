@@ -306,9 +306,14 @@ export class OrgMembershipService {
     actorUserId: string,
     actorRole: string,
     oldRole: string,
+    expectedOrgId?: string,
   ): Promise<void> {
     const target = await this.getMembershipById(membershipId);
     if (!target) throw new AppError('Membership not found', 404);
+    // SEC-C2: tenant isolation. When the caller supplies the path org, the
+    // target membership MUST belong to it, else a member authorized in their
+    // own org could mutate another org's membership (cross-tenant takeover).
+    if (expectedOrgId && target.orgId !== expectedOrgId) throw new AppError('Membership not found', 404);
 
     // Self-edit guard. You cannot change your own role; that path goes
     // through Transfer Ownership (OWNER-only) or removeMember.
@@ -355,9 +360,12 @@ export class OrgMembershipService {
     membershipId: string,
     actorUserId: string,
     actorRole: string,
+    expectedOrgId?: string,
   ): Promise<void> {
     const membership = await this.getMembershipById(membershipId);
     if (!membership) throw new AppError('Membership not found', 404);
+    // SEC-C2: target membership must belong to the caller's path org.
+    if (expectedOrgId && membership.orgId !== expectedOrgId) throw new AppError('Membership not found', 404);
 
     // Self-removal guard. A member cannot kick themselves; if they want
     // to leave they must use a separate Leave Org flow, or have someone
@@ -414,9 +422,12 @@ export class OrgMembershipService {
     membershipId: string,
     actorUserId: string,
     actorRole: string,
+    expectedOrgId?: string,
   ): Promise<void> {
     const membership = await this.getMembershipById(membershipId);
     if (!membership) throw new AppError('Membership not found', 404);
+    // SEC-C2: target membership must belong to the caller's path org.
+    if (expectedOrgId && membership.orgId !== expectedOrgId) throw new AppError('Membership not found', 404);
 
     // Cannot suspend the last OWNER
     if (membership.orgRole === OrgRole.OWNER) {
@@ -473,9 +484,12 @@ export class OrgMembershipService {
     membershipId: string,
     actorUserId: string,
     actorRole: string,
+    expectedOrgId?: string,
   ): Promise<void> {
     const membership = await this.getMembershipById(membershipId);
     if (!membership) throw new AppError('Membership not found', 404);
+    // SEC-C2: target membership must belong to the caller's path org.
+    if (expectedOrgId && membership.orgId !== expectedOrgId) throw new AppError('Membership not found', 404);
 
     await Database.updateItem(config.dynamodb.membershipsTable, { membershipId }, {
       status: 'ACTIVE',

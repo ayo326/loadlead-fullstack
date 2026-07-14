@@ -1,5 +1,5 @@
 import { body, param } from 'express-validator';
-import { UserRole, TrailerType, CDLClass } from '../types';
+import { UserRole, SELF_SIGNUP_ROLES, TrailerType, CDLClass } from '../types';
 
 // ── HTML sanitizer ─────────────────────────────────────────────────────────────
 // Strips all HTML/SVG tags from a value before it is stored in DynamoDB.
@@ -13,7 +13,9 @@ export const authValidators = {
   signup: [
     body('email').isEmail().withMessage('Valid email is required'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-    body('role').isIn(Object.values(UserRole)).withMessage('Invalid role'),
+    // SEC-C1: only non-privileged roles may self-register. ADMIN / CARRIER_ADMIN
+    // are provisioned server-side (bootstrap / dedicated carrier signup) only.
+    body('role').isIn(SELF_SIGNUP_ROLES).withMessage('Invalid role'),
   ],
 
   login: [

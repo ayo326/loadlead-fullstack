@@ -385,8 +385,15 @@ export async function diditWebhookHandler(req: Request, res: Response) {
     if (!verifyDiditSignature(req, secret)) {
       return res.status(401).json({ error: 'invalid_signature' });
     }
+  } else if (process.env.APP_ENV === 'production') {
+    // SEC-H7: fail closed in production. This is a public, state-mutating
+    // webhook that writes idvStatus/kybStatus/amlStatus keyed on the request
+    // body; without a secret we cannot verify the sender, so an unsigned event
+    // could forge a VERIFIED entity. Mirror the Canopy webhook and reject.
+    console.warn('[verification] Didit webhook rejected: DIDIT_WEBHOOK_SECRET not set in production');
+    return res.status(401).json({ error: 'webhook_not_configured' });
   } else {
-    console.warn('[verification] DIDIT_WEBHOOK_SECRET not set - skipping signature check');
+    console.warn('[verification] DIDIT_WEBHOOK_SECRET not set - skipping signature check (non-production)');
   }
 
   // Didit v3 payload shape (confirmed from test webhook):

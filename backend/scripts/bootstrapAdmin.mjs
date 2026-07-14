@@ -113,6 +113,12 @@ await ddb.send(new PutCommand({
     displayName:  args.name ?? 'Admin',
     passwordHash,
     role:         'ADMIN',
+    // SEC-C1 follow-up: stamp the platform tier explicitly so a bootstrapped
+    // admin does not depend on resolvePlatformRole's null -> STAFF_ADMIN
+    // back-compat (the amplifier that turned a forged role=ADMIN into full
+    // staff powers). Lets that back-compat be retired once existing admins are
+    // migrated via setPlatformRole.mjs.
+    platformRole: 'STAFF_ADMIN',
     status:       'ACTIVE',
     createdAt:    now,
     updatedAt:    now,
