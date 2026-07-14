@@ -20,6 +20,20 @@ export enum UserRole {
   CARRIER_ADMIN  = 'CARRIER_ADMIN',
 }
 
+/**
+ * Roles a user may self-select at public POST /api/auth/signup. Excludes ADMIN
+ * and CARRIER_ADMIN (and any future privileged role): platform admins are
+ * provisioned out-of-band (bootstrapAdmin.mjs / setPlatformRole.mjs) and
+ * CARRIER_ADMIN only via the dedicated atomic /signup/carrier path. This is the
+ * server-side allowlist that closes self-registration as ADMIN (audit v6 SEC-C1).
+ */
+export const SELF_SIGNUP_ROLES: UserRole[] = [
+  UserRole.SHIPPER,
+  UserRole.DRIVER,
+  UserRole.RECEIVER,
+  UserRole.OWNER_OPERATOR,
+];
+
 export enum UserStatus {
   ACTIVE = 'ACTIVE',
   SUSPENDED = 'SUSPENDED',

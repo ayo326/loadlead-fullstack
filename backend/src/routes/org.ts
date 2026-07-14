@@ -302,6 +302,21 @@ router.get(
 );
 
 /**
+ * SEC-C2: bind a :membershipId to the path :orgId. getMembershipById resolves
+ * globally, so without this a caller authorized in their OWN org (or a platform
+ * ADMIN using the wrong path) could act on another org's membership - a
+ * cross-tenant takeover. A missing or cross-org membership is a 404 so
+ * membership existence in other orgs is not revealed.
+ */
+async function resolveMembershipInOrg(orgId: string, membershipId: string) {
+  const target = await OrgMembershipService.getMembershipById(membershipId);
+  if (!target || target.orgId !== orgId) {
+    throw new AppError('Membership not found', 404);
+  }
+  return target;
+}
+
+/**
  * PATCH /api/org/:orgId/members/:membershipId
  * Change a member's org role. Only OWNER can promote to OWNER; OWNER/ORG_ADMIN can do the rest.
  */
@@ -325,8 +340,7 @@ router.patch(
       throw new AppError('Only an OWNER can transfer ownership', 403);
     }
 
-    const target = await OrgMembershipService.getMembershipById(membershipId);
-    if (!target) throw new AppError('Membership not found', 404);
+    const target = await resolveMembershipInOrg(orgId, membershipId);
 
     await OrgMembershipService.updateMemberRole(
       membershipId,
@@ -334,6 +348,7 @@ router.patch(
       req.user!.userId,
       callerMembership?.orgRole ?? req.user!.role,
       target.orgRole,
+      orgId,
     );
     res.json({ ok: true });
   })
@@ -353,10 +368,13 @@ router.delete(
       || (callerMembership && ADMIN_ORG_ROLES.includes(callerMembership.orgRole));
     if (!canEdit) throw new AppError('Forbidden', 403);
 
+    await resolveMembershipInOrg(orgId, membershipId); // SEC-C2: target must belong to this org
+
     await OrgMembershipService.removeMember(
       membershipId,
       req.user!.userId,
       callerMembership?.orgRole ?? req.user!.role,
+      orgId,
     );
     res.json({ ok: true });
   })
@@ -375,10 +393,13 @@ router.post(
       || (callerMembership && ADMIN_ORG_ROLES.includes(callerMembership.orgRole));
     if (!canEdit) throw new AppError('Forbidden', 403);
 
+    await resolveMembershipInOrg(orgId, membershipId); // SEC-C2: target must belong to this org
+
     await OrgMembershipService.suspendMember(
       membershipId,
       req.user!.userId,
       callerMembership?.orgRole ?? req.user!.role,
+      orgId,
     );
     res.json({ ok: true });
   })
@@ -397,10 +418,13 @@ router.post(
       || (callerMembership && ADMIN_ORG_ROLES.includes(callerMembership.orgRole));
     if (!canEdit) throw new AppError('Forbidden', 403);
 
+    await resolveMembershipInOrg(orgId, membershipId); // SEC-C2: target must belong to this org
+
     await OrgMembershipService.reinstateMember(
       membershipId,
       req.user!.userId,
       callerMembership?.orgRole ?? req.user!.role,
+      orgId,
     );
     res.json({ ok: true });
   })
