@@ -71,11 +71,17 @@ router.post('/', asyncHandler(async (req: AuthRequest, res) => {
   const shipper = await ShipperService.getProfileByUserId(req.user!.userId);
   if (!shipper) return res.status(404).json({ error: 'Shipper profile not found' });
 
+  // SEC-H5: a shipper may only create a BOL on their OWN load. Without this any
+  // shipper could stamp/hijack a BOL on any load and harvest its facility details.
+  if (req.user!.role !== 'ADMIN' && load.shipperId !== shipper.shipperId) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   // Try to get driver and receiver profiles if load is assigned
   let driver = null;
   let receiver = null;
-  if ((load as any).driverId) {
-    driver = await DriverService.getProfileById((load as any).driverId).catch(() => null);
+  if ((load as any).assignedDriverId) {
+    driver = await DriverService.getProfileById((load as any).assignedDriverId).catch(() => null);
   }
   if ((load as any).receiverId) {
     receiver = await ReceiverService.getProfileById((load as any).receiverId).catch(() => null);

@@ -7,13 +7,15 @@ import { describe, it, expect, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 
-const { checkIn, checkOut, listStop, approve, getCharge, getLoadById } = vi.hoisted(() => ({
+const { checkIn, checkOut, listStop, approve, getCharge, getLoadById, getShipperByUserId } = vi.hoisted(() => ({
   checkIn: vi.fn(async (input: any) => ({ eventId: 'stopevt_1', ...input })),
   checkOut: vi.fn(async (input: any) => ({ eventId: 'stopevt_2', ...input })),
   listStop: vi.fn(async () => []),
   approve: vi.fn(async (chargeId: string) => ({ chargeId, status: 'APPROVED' })),
   getCharge: vi.fn(async (chargeId: string) => ({ chargeId, loadId: 'load-1', status: 'PENDING_REVIEW' })),
   getLoadById: vi.fn(async () => ({ loadId: 'load-1', hazmat: false, equipmentType: 'DRY_VAN', assignedDriverId: 'd1', shipperId: 's1' })),
+  // SEC-H2: the caller's shipper profile; shipperId matches the load's by default.
+  getShipperByUserId: vi.fn(async () => ({ shipperId: 's1', userId: 's1' })),
 }));
 
 vi.mock('../../../src/services/stopEventService', () => ({
@@ -27,6 +29,7 @@ vi.mock('../../../src/services/accessorialPolicyService', () => ({
 }));
 vi.mock('../../../src/services/loadService', () => ({ LoadService: { getLoadById } }));
 vi.mock('../../../src/services/driverService', () => ({ DriverService: { getProfileById: vi.fn(async () => null) } }));
+vi.mock('../../../src/services/shipperService', () => ({ ShipperService: { getProfileByUserId: getShipperByUserId } }));
 vi.mock('../../../src/services/carrierOfRecord', () => ({ resolveCarrierOfRecord: vi.fn(async () => ({ entityId: 'carrier-1' })) }));
 vi.mock('../../../src/utils/logger', () => ({ Logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() } }));
 
@@ -71,11 +74,19 @@ describe('charge lifecycle is shipper-only', () => {
       .set('Authorization', `Bearer ${driverToken}`).send({});
     expect(r.status).toBe(403);
   });
-  it('200 for a shipper approving a charge', async () => {
+  it('200 for a shipper approving their OWN load\'s charge', async () => {
     const r = await request(app())
       .post('/api/accessorials/charges/charge-1/approve')
       .set('Authorization', `Bearer ${shipperToken}`).send({});
     expect(r.status).toBe(200);
     expect(approve).toHaveBeenCalledWith('charge-1', 's1');
+  });
+  // SEC-H2: a shipper may only act on charges for loads they own.
+  it('403 for a shipper approving a charge on ANOTHER shipper\'s load', async () => {
+    getLoadById.mockResolvedValueOnce({ loadId: 'load-1', shipperId: 's2' }); // load belongs to s2, caller is s1
+    const r = await request(app())
+      .post('/api/accessorials/charges/charge-1/approve')
+      .set('Authorization', `Bearer ${shipperToken}`).send({});
+    expect(r.status).toBe(403); // guard throws before approve() is reached
   });
 });

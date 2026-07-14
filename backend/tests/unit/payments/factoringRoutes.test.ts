@@ -115,6 +115,10 @@ beforeEach(() => {
   m.resolveRecipient.mockResolvedValue('factor@example.com');
   m.submit.mockResolvedValue({ submissionId: 'sub_1' });
   m.getForAssignment.mockResolvedValue(null);
+  // SEC-H3: the package/export routes now require carrier-of-record. Default the
+  // load's carrier to the OO caller (oo-9) so happy-path tests are authorized;
+  // cross-tenant tests override this.
+  m.resolveLoadCarrierId.mockResolvedValue('oo-9');
 });
 
 describe('factoring routes: auth + carrier resolution at the HTTP layer', () => {
@@ -243,5 +247,24 @@ describe('load-scoped factoring ownership (SEC-3 / SEC-8)', () => {
     m.resolveLoadCarrierId.mockResolvedValue('oo-9'); // matches the caller
     const res = await optIn('load-1', ooToken);
     expect(res.status).toBe(201);
+  });
+});
+
+// Audit v6 SEC-H3: the invoice package + export are also load-scoped - only the
+// load's carrier-of-record may read or exfiltrate the factoring packet (linehaul
+// net, debtor identity, POD, NOA).
+describe('invoice package/export ownership (SEC-H3)', () => {
+  it('package 403 when the caller is NOT the load\'s carrier-of-record', async () => {
+    asOO();
+    m.resolveLoadCarrierId.mockResolvedValue('some-other-carrier');
+    const r = await request(app()).get('/api/factoring/invoices/load-1/package').set('Authorization', `Bearer ${ooToken}`);
+    expect(r.status).toBe(403);
+  });
+  it('export 403 when the caller is NOT the load\'s carrier-of-record', async () => {
+    asOO();
+    m.resolveLoadCarrierId.mockResolvedValue('some-other-carrier');
+    const r = await request(app()).post('/api/factoring/export').set('Authorization', `Bearer ${ooToken}`).send({ invoiceId: 'load-1' });
+    expect(r.status).toBe(403);
+    expect(m.submit).not.toHaveBeenCalled();
   });
 });
