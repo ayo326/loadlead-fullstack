@@ -442,7 +442,12 @@ export const api = {
       status: "AFFILIATED" | "UNAFFILIATED" | "NO_PROFILE";
       carrier: { entityType: string; entityId: string; name?: string } | null;
     }>("GET", "/driver/affiliation"),
-  getDriverLoadboard: () => request<{ loads: any[] }>("GET", "/driver/loadboard"),
+  getDriverLoadboard: () => request<{ loads: any[]; capacity?: any }>("GET", "/driver/loadboard"),
+
+  // Hauler on-board capacity: one snapshot every surface reads; declare never blocks.
+  getCapacity: () => request<{ capacity: any }>("GET", "/capacity/me"),
+  declareCapacity: (body: { state: "EMPTY" | "LOADED"; weightLbs?: number; source?: "REGISTRATION" | "LOGIN_PROMPT" | "DASHBOARD" }) =>
+    request<{ capacity: any }>("POST", "/capacity/declare", body),
   getDriverHistory: () => request<{ loads: any[] }>("GET", "/driver/history"),
   getDriverOffer: (loadId: string) => request<{ offer: any; load: any }>("GET", `/driver/offers/${loadId}`),
   acceptOffer: (loadId: string) => request<{ message: string }>("POST", `/driver/offers/${loadId}/accept`),

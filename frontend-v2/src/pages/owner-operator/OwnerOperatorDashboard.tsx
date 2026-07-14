@@ -5,6 +5,7 @@ import { LoadRoutePanel } from "@/components/LoadRoutePanel";
 import { StatCard } from "@/components/PageHeader";
 import { PushSubscriptionPrompt } from "@/components/PushSubscriptionPrompt";
 import { OwnerOperatorDashboardView } from "@/components/dashboard/OwnerOperatorDashboardView";
+import { CapacityChip, CapacityLoginPrompt, useCapacity } from "@/components/capacity/CapacityChip";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +14,7 @@ import { toast } from "sonner";
 export default function OwnerOperatorDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { capacity, setCapacity } = useCapacity();
   const [profile, setProfile] = useState<any>(null);
   const [loads, setLoads] = useState<any[]>([]);
   const [fleet, setFleet] = useState<any[]>([]);
@@ -78,6 +80,8 @@ export default function OwnerOperatorDashboard() {
         <p className="text-sm text-muted-foreground">Owner Operator Dashboard</p>
       </div>
 
+      <CapacityLoginPrompt />
+
       <div className="space-y-4">
         {/* P1 (above the fold): the actionable loadboard + route map + key
             stats come first. The blended secondary view (my haul, verification,
@@ -101,6 +105,9 @@ export default function OwnerOperatorDashboard() {
             icon={<Truck className="h-5 w-5 text-primary" />}
           />
         </div>
+
+        {/* Capacity chip: remaining prominent, rated secondary, tap to update. */}
+        <CapacityChip capacity={capacity} onChanged={setCapacity} />
 
         {/* Single column: Available Loads, then a horizontal Route preview, then
             Your Fleet. Clicking "Route" on a load updates the preview map. */}

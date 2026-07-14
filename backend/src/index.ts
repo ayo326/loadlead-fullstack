@@ -31,6 +31,7 @@ try {
 import authRoutes from './routes/auth';
 import attestationRoutes from './routes/attestation';
 import driverRoutes from './routes/driver';
+import capacityRoutes from './routes/capacity';
 import shipperRoutes from './routes/shipper';
 import adminRoutes from './routes/admin';
 import receiverRoutes from './routes/receiver';
@@ -247,6 +248,7 @@ const authRateLimiter = rateLimit({
 app.use('/api/auth', authRateLimiter, authRoutes);
 app.use('/api/attestation', attestationRoutes);
 app.use('/api/driver', driverRoutes);
+app.use('/api/capacity', capacityRoutes);
 app.use('/api/shipper', shipperRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/receiver', receiverRoutes);

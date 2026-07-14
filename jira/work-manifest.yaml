@@ -415,10 +415,33 @@ epics:
       contract, plan doc) attached.
     labels: [admin, business]
 
+  - ext_id: epic:hauler-capacity
+    title: Hauler Equipment Capacity Tracking
+    description: |
+      Rated, on-board, and remaining payload for haulers, so the loadboard only
+      surfaces loads a truck can actually carry. Rated capacity reuses the existing
+      Driver.maxCapacityLbs (prefilled by equipment type). On-board is an append-only
+      capacity_state_events log folded into one snapshot: platform-active load weight
+      (from Load.totalWeightLbs) plus declared external freight. Remaining is
+      max(0, rated minus on-board), in whole pounds. Capacity is informational and
+      never blocks registration, login, or claiming a load. Persona-gated to haulers
+      (owner-operator and fleet drivers). Delivered on branch feat/hauler-capacity.
+    labels: [feature, capacity, marketplace, owner-operator]
+    status: To Do
+
 # =====================================================================
 # STORIES + TASKS
 # =====================================================================
 items:
+
+  # ── EPIC: Hauler Equipment Capacity Tracking ───────────────────────
+  - { ext_id: capacity:data-model,     parent_ext_id: epic:hauler-capacity, type: Story, title: "Data model + getCapacity resolver (append-only capacity_state_events; rated/onboard/remaining fold, floored integers, staleness)", status_source: git, git_marker: "feat(capacity)", labels: [feature, backend, capacity] }
+  - { ext_id: capacity:registration,   parent_ext_id: epic:hauler-capacity, type: Story, title: "Registration capacity capture (rated prefill by equipment type + declare empty or loaded)",                                       status_source: git, git_marker: "feat(capacity)", labels: [feature, frontend, capacity, owner-operator] }
+  - { ext_id: capacity:login-prompt,   parent_ext_id: epic:hauler-capacity, type: Story, title: "Smart login prompt when capacity is unknown or stale (dismissable, never blocks)",                                                  status_source: git, git_marker: "feat(capacity)", labels: [feature, frontend, capacity] }
+  - { ext_id: capacity:deduct-restore, parent_ext_id: epic:hauler-capacity, type: Story, title: "Platform deduct/restore hooks in loadService.updateLoad (deduct on BOOKED+assign, restore on DELIVERED or CANCELLED; idempotent)",   status_source: git, git_marker: "feat(capacity)", labels: [feature, backend, capacity] }
+  - { ext_id: capacity:matching,       parent_ext_id: epic:hauler-capacity, type: Story, title: "Capacity-aware matching on GET /driver/loadboard (soft filter plus snapshot; unknown or stale treated as full rated)",             status_source: git, git_marker: "feat(capacity)", labels: [feature, backend, marketplace, capacity] }
+  - { ext_id: capacity:chip-ui,        parent_ext_id: epic:hauler-capacity, type: Story, title: "Capacity chip + declare controls on owner-operator and fleet-driver dashboards + OO load-detail fit line",                          status_source: git, git_marker: "feat(capacity)", labels: [feature, frontend, capacity] }
+  - { ext_id: capacity:tests,          parent_ext_id: epic:hauler-capacity, type: Story, title: "Unit tests + definition of done (20 tests: fold, idempotent deduct/restore, floor-at-zero, staleness, filter modes)",             status_source: git, git_marker: "feat(capacity)", labels: [tests, capacity] }
 
   # ── EPIC: Carrier-of-record Refactor ────────────────────────────────
   - { ext_id: refactor:types,        parent_ext_id: epic:carrier-refactor, type: Story, title: "Types & enums for VerificationEntityType, CarrierOfRecord, idvStatus, isSelf", status_source: git, git_marker: "carrier-of-record refactor", labels: [refactor, types] }

@@ -7,6 +7,7 @@ import { AccessorialsPanel } from "@/components/AccessorialsPanel";
 import { NegotiationPanel } from "@/components/NegotiationPanel";
 import { api } from "@/lib/api";
 import { LoadPolicySignCard } from "@/components/LoadPolicySignCard";
+import { CapacityChip, useCapacity } from "@/components/capacity/CapacityChip";
 import { toast } from "sonner";
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -55,6 +56,7 @@ export default function OwnerOperatorLoadDetail() {
   const [offer, setOffer] = useState<any>(null);
   const [driverId, setDriverId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
+  const { capacity } = useCapacity();
 
   const loadOffer = useCallback(() => {
     if (!loadId) return;
@@ -109,6 +111,19 @@ export default function OwnerOperatorLoadDetail() {
             <span className="text-xs text-muted-foreground">Accepted {fmtDate(offer.acceptedAt)}</span>
           )}
         </div>
+
+        {capacity && (
+          <>
+            <CapacityChip capacity={capacity} />
+            {load.totalWeightLbs != null && (
+              <p className="text-xs text-muted-foreground">
+                {load.totalWeightLbs <= capacity.remainingWeightLbs
+                  ? `Fits: ${fmt(load.totalWeightLbs)} lbs of your ${fmt(capacity.remainingWeightLbs)} available.`
+                  : `Over your available capacity: this load is ${fmt(load.totalWeightLbs)} lbs and you have ${fmt(capacity.remainingWeightLbs)} available. You can still open and haul it.`}
+              </p>
+            )}
+          </>
+        )}
 
         {loadId && <LoadPolicySignCard loadId={loadId} />}
 
