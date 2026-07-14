@@ -215,6 +215,13 @@ export function CapacityChip({
   );
 }
 
+/** Self-fetching chip: drop it anywhere for a hauler with no parent wiring. */
+export function CapacityChipSelf({ className }: { className?: string }) {
+  const { capacity, setCapacity } = useCapacity();
+  if (!capacity) return null;
+  return <CapacityChip capacity={capacity} onChanged={setCapacity} className={className} />;
+}
+
 /**
  * Smart login prompt (Phase 4). Lightweight, not a blocking wall. Shows only when
  * the snapshot needs it (unknown or stale, no active platform load). Dismiss leaves

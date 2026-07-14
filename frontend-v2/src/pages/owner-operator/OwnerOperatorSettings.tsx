@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CapacityChipSelf } from "@/components/capacity/CapacityChip";
 import { useSearchParams } from "react-router-dom";
 import { Truck, Users, Loader2, Send, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -164,6 +165,9 @@ function EquipmentSection({ profile, set, inp }: {
   return (
     <div className="rounded-xl border bg-card p-5 space-y-4">
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Equipment (if you drive)</p>
+      {/* Capacity capture at equipment entry: shows remaining and lets you declare
+          what's on your truck. Rated payload is the Max Capacity field below. */}
+      <CapacityChipSelf />
       <div className="grid sm:grid-cols-2 gap-4">
         {inp("cdlClass", "CDL Class")}
         {inp("truckYear", "Truck Year", false, "number")}

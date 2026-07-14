@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Countdown } from "@/components/Countdown";
 import { AccountHold } from "@/components/AccountHold";
+import { CapacityChipSelf, CapacityLoginPrompt } from "@/components/capacity/CapacityChip";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { registerPush } from "@/lib/pushNotifications";
@@ -138,6 +139,12 @@ export default function DriverDashboard() {
           </Button>
         </div>
       )}
+
+      {/* Hauler capacity: smart prompt on unknown/stale, then the available-capacity chip. */}
+      <div className="mb-4 space-y-4">
+        <CapacityLoginPrompt />
+        <CapacityChipSelf />
+      </div>
       <PushSubscriptionPrompt />
       <PageHeader
         eyebrow={`Driver · ${displayName}`}
