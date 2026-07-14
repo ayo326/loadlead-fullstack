@@ -99,15 +99,25 @@ export class Database {
     expressionAttributeValues: Record<string, any>
   ): Promise<T[]> {
     try {
-      const result = await docClient.send(new QueryCommand({
-        TableName: tableName,
-        IndexName: indexName,
-        KeyConditionExpression: keyCondition,
-        ExpressionAttributeNames: expressionAttributeNames,
-        ExpressionAttributeValues: expressionAttributeValues,
-      }));
-      
-      return (result.Items as T[]) || [];
+      // Paginate across LastEvaluatedKey. DynamoDB caps each page at 1 MB and
+      // returns LastEvaluatedKey when more rows remain; returning only the first
+      // page silently drops data once a table exceeds 1 MB (audit v6 BL-C1 -
+      // this fed factoring payee routing, payout intercepts and legal holds).
+      const items: T[] = [];
+      let exclusiveStartKey: Record<string, any> | undefined;
+      do {
+        const result = await docClient.send(new QueryCommand({
+          TableName: tableName,
+          IndexName: indexName,
+          KeyConditionExpression: keyCondition,
+          ExpressionAttributeNames: expressionAttributeNames,
+          ExpressionAttributeValues: expressionAttributeValues,
+          ExclusiveStartKey: exclusiveStartKey,
+        }));
+        if (result.Items) items.push(...(result.Items as T[]));
+        exclusiveStartKey = result.LastEvaluatedKey;
+      } while (exclusiveStartKey);
+      return items;
     } catch (error) {
       console.error('DynamoDB query error:', error);
       throw error;
@@ -128,8 +138,18 @@ export class Database {
         }
       }
       
-      const result = await docClient.send(new ScanCommand(params));
-      return (result.Items as T[]) || [];
+      // Paginate across LastEvaluatedKey (see query() above). A single Scan
+      // returns at most 1 MB, and any FilterExpression is applied AFTER that
+      // page read - so without this loop a matching row beyond the first page
+      // is silently missed (audit v6 BL-C1 / H2).
+      const items: T[] = [];
+      let exclusiveStartKey: Record<string, any> | undefined;
+      do {
+        const result = await docClient.send(new ScanCommand({ ...params, ExclusiveStartKey: exclusiveStartKey }));
+        if (result.Items) items.push(...(result.Items as T[]));
+        exclusiveStartKey = result.LastEvaluatedKey;
+      } while (exclusiveStartKey);
+      return items;
     } catch (error) {
       console.error('DynamoDB scan error:', error);
       throw error;
