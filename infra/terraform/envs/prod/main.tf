@@ -332,6 +332,26 @@ module "ddb_stop_events" {
   tags                = local.tags
 }
 
+# ─── LoadLead_CapacityStateEvents ───────────────────────────────────────────
+# Append-only hauler on-board capacity log (declared empty/loaded, platform
+# deduct/restore, rated changes). Current remaining capacity is a derived fold
+# of these immutable events; equipmentId-index queries one hauler's history
+# without a scan. Same append-only posture as StopEvents.
+module "ddb_capacity_state_events" {
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_CapacityStateEvents"
+  hash_key = "eventId"
+  attributes = [
+    { name = "eventId", type = "S" },
+    { name = "equipmentId", type = "S" },
+  ]
+  global_secondary_indexes = [
+    { name = "equipmentId-index", hash_key = "equipmentId", projection_type = "ALL" },
+  ]
+  deletion_protection = true
+  tags                = local.tags
+}
+
 # ─── LoadLead_AccessorialCharges ────────────────────────────────────────────
 # Accessorial charge ledger (DETENTION/LAYOVER). Deterministic chargeId so a
 # recompute updates in place; the live row carries status + amount and the
