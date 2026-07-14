@@ -6,7 +6,7 @@ import { DriverService } from '../services/driverService';
 import { OfferService } from '../services/offerService';
 import { LoadService } from '../services/loadService';
 import { CapacityService, calcUsableVolume } from '../services/capacityService';
-import { HaulerCapacityService } from '../services/haulerCapacityService';
+import { HaulerCapacityService, applyCapacityFilter } from '../services/haulerCapacityService';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { UserRole } from '../types';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
@@ -154,7 +154,18 @@ router.get(
       visible.map(async (offer) => ({ load: await LoadService.getLoadById(offer.loadId), offer }))
     );
 
-    res.json({ loads: loadsWithOffers });
+    // Capacity-aware board (Phase 6): annotate each load with fit, and sort/exclude
+    // per capacityFilterMode. Unknown/stale state is treated as full rated capacity,
+    // so the board is never wrongly emptied. The snapshot also feeds the capacity chip.
+    const capacity = await HaulerCapacityService.getCapacity(
+      driver.driverId,
+      driver.maxCapacityLbs ?? 0,
+      driver.carrierId,
+    );
+    const withWeight = loadsWithOffers.map((x) => ({ ...x, totalWeightLbs: x.load?.totalWeightLbs ?? 0 }));
+    const loads = applyCapacityFilter(withWeight, capacity);
+
+    res.json({ loads, capacity });
   })
 );
 

@@ -26,7 +26,7 @@ import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import { Logger } from '../utils/logger';
 import { AppError } from '../middleware/errorHandler';
-import { CAPACITY_POLICY } from '../config/capacityPolicy';
+import { CAPACITY_POLICY, CapacityFilterMode } from '../config/capacityPolicy';
 
 const STALE_MS = CAPACITY_POLICY.staleAfterHours * 60 * 60 * 1000;
 
@@ -118,6 +118,53 @@ export function needsCapacityPrompt(snap: CapacitySnapshot): boolean {
   return snap.declState === 'UNKNOWN' || snap.stale;
 }
 
+/**
+ * Effective remaining for matching. Unknown or stale state (with no active
+ * platform load) is treated per policy - default "rated", so a hauler who
+ * ignored the prompt sees a full board rather than an empty one.
+ */
+export function effectiveRemainingForMatching(snap: CapacitySnapshot): number {
+  const treatAsUnknown = !snap.hasActivePlatformLoad && (snap.declState === 'UNKNOWN' || snap.stale);
+  if (treatAsUnknown) return CAPACITY_POLICY.unknownTreatedAs === 'zero' ? 0 : snap.ratedWeightLbs;
+  return snap.remainingWeightLbs;
+}
+
+export interface CapacityAnnotated {
+  capacityFits: boolean;
+  /** Set only when the load is over the hauler's available capacity (soft mode). */
+  capacityBadge: string | null;
+}
+
+/**
+ * Apply capacityFilterMode to a hauler's board (Phase 6). Pure + testable.
+ *   off  - unchanged, everything fits.
+ *   soft - keep all, badge oversized ("Over your available capacity"), sort them
+ *          below fitting loads (stable).
+ *   hard - exclude loads whose weight exceeds remaining.
+ * Only ever shapes the hauler's board, never the shipper's view.
+ */
+export function applyCapacityFilter<T extends { totalWeightLbs?: number }>(
+  loads: T[],
+  snap: CapacitySnapshot,
+  mode: CapacityFilterMode = CAPACITY_POLICY.capacityFilterMode,
+): Array<T & CapacityAnnotated> {
+  const remaining = effectiveRemainingForMatching(snap);
+  const annotated = loads.map((l) => {
+    const fits = mode === 'off' ? true : (l.totalWeightLbs ?? 0) <= remaining;
+    return {
+      ...l,
+      capacityFits: fits,
+      capacityBadge: !fits && mode !== 'off' ? 'Over your available capacity' : null,
+    };
+  });
+  if (mode === 'hard') return annotated.filter((l) => l.capacityFits);
+  if (mode === 'soft') {
+    // Node's sort is stable: fitting loads first, oversized below, order otherwise kept.
+    return [...annotated].sort((a, b) => (a.capacityFits === b.capacityFits ? 0 : a.capacityFits ? -1 : 1));
+  }
+  return annotated;
+}
+
 export class HaulerCapacityService {
   private static table(): string {
     return config.dynamodb.capacityStateEventsTable;
@@ -191,7 +238,7 @@ export class HaulerCapacityService {
     return this.append(equipmentId, carrierId, 'DECLARED_EMPTY', source);
   }
 
-  static declareLoaded(
+  static async declareLoaded(
     equipmentId: string,
     carrierId: string,
     weightLbs: number,
@@ -210,7 +257,7 @@ export class HaulerCapacityService {
   }
 
   /** Record a rated-capacity change for the audit trail (rated itself lives on the Driver). */
-  static recordRatedChange(
+  static async recordRatedChange(
     equipmentId: string,
     carrierId: string,
     newRatedLbs: number,

@@ -176,11 +176,47 @@ export class LoadService {
       };
       
       await Database.updateItem(config.dynamodb.loadsTable, { loadId }, updateData);
-      
+
       Logger.info(`Load updated: ${loadId}`);
+      // Phase 5: mirror assignment/delivery into hauler on-board capacity events
+      // at the single load-mutation chokepoint. Best-effort; never blocks the update.
+      await this.syncCapacityOnStatusChange(loadId, updates);
     } catch (error) {
       Logger.error('Update load error', error);
       throw error;
+    }
+  }
+
+  /**
+   * Keep hauler on-board capacity (services/haulerCapacityService) in sync with a
+   * load's lifecycle: deduct the load's weight when it is assigned (BOOKED +
+   * assignedDriverId), restore it when the load is delivered or cancelled.
+   * Idempotent per loadId (the capacity service dedupes) and fully best-effort -
+   * a capacity failure never affects the load update. The Load model is read only;
+   * capacity lives in its own append-only store. Lazy requires avoid a module cycle.
+   */
+  private static async syncCapacityOnStatusChange(loadId: string, updates: Partial<Load>): Promise<void> {
+    try {
+      const status = updates.status;
+      if (status !== LoadStatus.BOOKED && status !== LoadStatus.DELIVERED && status !== LoadStatus.CANCELLED) {
+        return;
+      }
+      const { HaulerCapacityService } = require('./haulerCapacityService') as typeof import('./haulerCapacityService');
+      const { DriverService } = require('./driverService') as typeof import('./driverService');
+      const load = await this.getLoadById(loadId);
+      const driverId = updates.assignedDriverId ?? load?.assignedDriverId;
+      if (!driverId) return;
+      const driver = await DriverService.getProfileById(driverId).catch(() => null);
+      const carrierId = driver?.carrierId ?? driverId;
+
+      if (status === LoadStatus.BOOKED && updates.assignedDriverId) {
+        const weight = load?.totalWeightLbs ?? 0;
+        if (weight > 0) await HaulerCapacityService.platformDeduct(driverId, carrierId, loadId, weight);
+      } else if (status === LoadStatus.DELIVERED || status === LoadStatus.CANCELLED) {
+        await HaulerCapacityService.platformRestore(driverId, carrierId, loadId);
+      }
+    } catch (err) {
+      Logger.warn(`Capacity sync skipped for load ${loadId}: ${(err as Error)?.message ?? err}`);
     }
   }
   
