@@ -880,17 +880,29 @@ def discover_meta(jira: JiraClient) -> Tuple[Dict[str, str], Dict[str, str]]:
     which returns `{ issueTypes: [...] }`. Try both.
     """
     types: Dict[str, str] = {}
-    # Try the new per-project endpoint first (works on team-managed projects)
+    # Try the modern per-project endpoint first. Jira Cloud returns the issue
+    # types under `values` (paged); some older responses use `issueTypes`.
     r = jira._req("GET", f"/rest/api/3/issue/createmeta/{PROJECT_KEY}/issuetypes")
     if r.ok:
-        for it in r.json().get("issueTypes", []):
+        data = r.json()
+        for it in (data.get("values") or data.get("issueTypes") or []):
             types[it["name"]] = it["id"]
-    # Fall back to the legacy endpoint (still works on company-managed projects)
+    # Fall back to the legacy createmeta endpoint. Atlassian has REMOVED this on
+    # many Cloud instances (404), so treat it as best-effort rather than fatal:
+    # issue-type IDs are only needed to CREATE issues, so a transition/update-only
+    # run must still proceed when discovery fails.
     if not types:
-        meta = jira.get_create_meta(PROJECT_KEY)
-        for p in (meta.get("projects") or []):
-            for it in p.get("issuetypes", []):
-                types[it["name"]] = it["id"]
+        try:
+            meta = jira.get_create_meta(PROJECT_KEY)
+            for p in (meta.get("projects") or []):
+                for it in p.get("issuetypes", []):
+                    types[it["name"]] = it["id"]
+        except Exception as e:
+            print(
+                f"  warning: issue-type discovery failed ({e}); proceeding without "
+                f"create-meta (fine unless the plan creates issues)",
+                file=sys.stderr,
+            )
     priorities = jira.get_priorities()
     return types, priorities
 
