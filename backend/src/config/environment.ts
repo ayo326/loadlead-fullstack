@@ -64,6 +64,11 @@ export const config = {
     // Beta-admin trust/operational events (no-show, trust incident). Intentionally
     // separate from the Load model; records reference a load and carrier by id only.
     betaTrustEventsTable: t('DYNAMODB_BETA_TRUST_EVENTS_TABLE', 'LoadLead_BetaTrustEvents'),
+    // Append-only hauler on-board capacity events (declared empty/loaded, platform
+    // deduct on assign, restore on delivery, rated change). Current on-board state is
+    // derived from these; the Load model is never touched. References carrier +
+    // equipment (driver) + load by id only. Queried by equipmentId GSI, not scanned.
+    capacityStateEventsTable: t('DYNAMODB_CAPACITY_STATE_EVENTS_TABLE', 'LoadLead_CapacityStateEvents'),
     // ── Support / helpdesk ──────────────────────────────────────────────────
     // Routed through config (not inline in supportTicket.ts) so the boot guard
     // and check-table-env-parity cover them like every other table. Default is

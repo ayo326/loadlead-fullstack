@@ -315,6 +315,22 @@ locals {
       gsis       = []
     }
 
+    # Hauler on-board capacity events (append-only). Declared empty/loaded,
+    # platform deduct on assign, restore on POD delivery, rated change. Current
+    # on-board state is folded from these (services/haulerCapacityService); the
+    # Load model is never touched. Read per equipment (driver) id, so it carries
+    # an equipmentId GSI rather than a scan.
+    CapacityStateEvents = {
+      hash_key = "eventId"
+      attributes = [
+        { name = "eventId", type = "S" },
+        { name = "equipmentId", type = "S" },
+      ]
+      gsis = [
+        { name = "equipmentId-index", hash_key = "equipmentId" },
+      ]
+    }
+
     # Accessorial charge ledger (DETENTION/LAYOVER). Deterministic chargeId so a
     # recompute updates in place; the live row carries status + amount and the
     # immutable trail lives in AccessorialChargeStatusHistory.

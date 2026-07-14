@@ -6,6 +6,7 @@ import { DriverService } from '../services/driverService';
 import { OfferService } from '../services/offerService';
 import { LoadService } from '../services/loadService';
 import { CapacityService, calcUsableVolume } from '../services/capacityService';
+import { HaulerCapacityService } from '../services/haulerCapacityService';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 import { UserRole } from '../types';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
@@ -89,7 +90,19 @@ router.put(
     const driver = await DriverService.getProfileByUserId(req.user!.userId);
     if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
 
+    const prevRated = driver.maxCapacityLbs;
     await DriverService.updateProfile(driver.driverId, req.body);
+
+    // Record a rated-capacity change as an append-only event (audit trail). The
+    // rated value itself lives on the Driver; this never blocks the profile save.
+    const newRated = req.body?.maxCapacityLbs;
+    if (typeof newRated === 'number' && Number.isInteger(newRated) && newRated !== prevRated) {
+      try {
+        const carrier = await resolveCarrierOfRecord(driver);
+        const carrierId = carrier?.entityId ?? driver.carrierId ?? driver.driverId;
+        await HaulerCapacityService.recordRatedChange(driver.driverId, carrierId, newRated, 'DASHBOARD');
+      } catch { /* capacity audit is best-effort; profile update already succeeded */ }
+    }
     res.json({ message: 'Profile updated successfully' });
   })
 );

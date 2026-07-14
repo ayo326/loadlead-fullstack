@@ -230,6 +230,24 @@ const TABLES = [
     BillingMode: "PAY_PER_REQUEST",
   },
   {
+    // Append-only hauler on-board capacity events; folded into a derived snapshot
+    // per equipment (driver) id, so it carries an equipmentId GSI.
+    TableName: process.env.DYNAMODB_CAPACITY_STATE_EVENTS_TABLE || "LoadLead_CapacityStateEvents",
+    AttributeDefinitions: [
+      { AttributeName: "eventId", AttributeType: "S" },
+      { AttributeName: "equipmentId", AttributeType: "S" },
+    ],
+    KeySchema: [{ AttributeName: "eventId", KeyType: "HASH" }],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "equipmentId-index",
+        KeySchema: [{ AttributeName: "equipmentId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
+    BillingMode: "PAY_PER_REQUEST",
+  },
+  {
     // Accessorial charge ledger (DETENTION/LAYOVER), deterministic chargeId.
     TableName: process.env.DYNAMODB_ACCESSORIAL_CHARGES_TABLE || "LoadLead_AccessorialCharges",
     AttributeDefinitions: [{ AttributeName: "chargeId", AttributeType: "S" }],

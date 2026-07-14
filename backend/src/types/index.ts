@@ -499,6 +499,56 @@ export interface BufferAuditLog {
   timestamp: number;
 }
 
+// ─── Hauler on-board capacity: append-only event log + derived snapshot ────────
+// Rated lives on Driver.maxCapacityLbs. On-board state (what is on the truck now)
+// is sourced from these append-only events, never a mutable field; the current
+// state is a derived snapshot (see services/haulerCapacityService.getCapacity).
+
+export type CapacityEventType =
+  | 'DECLARED_EMPTY'    // hauler says the truck is empty (clears the external component)
+  | 'DECLARED_LOADED'   // hauler declares external freight weight on board
+  | 'PLATFORM_DEDUCT'   // a LoadLead load was assigned; its weight is on board
+  | 'PLATFORM_RESTORE'  // a LoadLead load was delivered (POD); its weight comes off
+  | 'RATED_CHANGED';    // the equipment's rated payload was changed (audit trail)
+
+export type CapacityEventSource = 'REGISTRATION' | 'LOGIN_PROMPT' | 'DASHBOARD' | 'SYSTEM';
+
+export interface CapacityStateEvent {
+  eventId: string;        // 'capevt_...'
+  carrierId: string;      // carrier-of-record id (operator / org), by id only
+  equipmentId: string;    // Driver.driverId - the equipment profile, by id only
+  eventType: CapacityEventType;
+  weightLbs?: number;     // whole pounds; set on DECLARED_LOADED / PLATFORM_DEDUCT / RATED_CHANGED
+  loadId?: string;        // set on PLATFORM_DEDUCT / PLATFORM_RESTORE, by id only
+  source: CapacityEventSource;
+  createdAt: number;      // epoch ms, server-set
+  note?: string;
+}
+
+export type CapacityDeclState = 'EMPTY' | 'LOADED' | 'UNKNOWN';
+
+export interface CapacitySnapshot {
+  equipmentId: string;
+  carrierId?: string;
+  ratedWeightLbs: number;
+  /** Sum of assigned, undelivered LoadLead load weights (platform-known). */
+  platformActiveWeightLbs: number;
+  /** Hauler-declared external freight weight (from the latest DECLARED_* event). */
+  declaredExternalWeightLbs: number;
+  /** platformActive + declaredExternal. */
+  onboardWeightLbs: number;
+  /** max(0, rated - onboard). Always computed, never typed. */
+  remainingWeightLbs: number;
+  /** Declared external state; UNKNOWN when the hauler never declared. */
+  declState: CapacityDeclState;
+  /** When the external state was last declared (epoch ms). */
+  declaredAt?: number;
+  /** True when a LoadLead load is currently on board. */
+  hasActivePlatformLoad: boolean;
+  /** Declared state older than staleAfterHours AND no active platform load. */
+  stale: boolean;
+}
+
 export interface Driver {
   driverId: string;
   userId: string;
