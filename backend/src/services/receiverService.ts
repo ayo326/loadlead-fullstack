@@ -1,5 +1,6 @@
 import { Receiver } from '../types';
 import { Database } from '../config/database';
+import { queryIndexOrScan } from '../utils/indexQuery';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import Logger from '../utils/logger';
@@ -41,10 +42,15 @@ export class ReceiverService {
 
   static async getProfileByUserId(userId: string): Promise<Receiver | null> {
     try {
-      const receivers = await Database.scan<Receiver>(
+      // COA-3 / audit v6 H8: query the existing userId-index instead of a
+      // full-table scan on this hot auth path. Guarded fallback to the scan.
+      const receivers = await queryIndexOrScan<Receiver>(
         config.dynamodb.receiversTable,
-        'userId = :userId',
-        { ':userId': userId }
+        'userId-index',
+        'userId',
+        userId,
+        () => Database.scan<Receiver>(config.dynamodb.receiversTable, 'userId = :userId', { ':userId': userId }),
+        'ReceiverService.getProfileByUserId',
       );
 
       return receivers.length > 0 ? receivers[0] : null;

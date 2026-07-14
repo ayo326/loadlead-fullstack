@@ -1,5 +1,6 @@
 import { Shipper } from '../types';
 import { Database } from '../config/database';
+import { queryIndexOrScan } from '../utils/indexQuery';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import Logger from '../utils/logger';
@@ -70,10 +71,15 @@ export class ShipperService {
 
   static async getProfileByUserId(userId: string): Promise<Shipper | null> {
     try {
-      const shippers = await Database.scan<Shipper>(
+      // COA-3 / audit v6 H8: query the existing userId-index instead of a
+      // full-table scan on this hot auth path. Guarded fallback to the scan.
+      const shippers = await queryIndexOrScan<Shipper>(
         config.dynamodb.shippersTable,
-        'userId = :userId',
-        { ':userId': userId }
+        'userId-index',
+        'userId',
+        userId,
+        () => Database.scan<Shipper>(config.dynamodb.shippersTable, 'userId = :userId', { ':userId': userId }),
+        'ShipperService.getProfileByUserId',
       );
 
       return shippers.length > 0 ? shippers[0] : null;

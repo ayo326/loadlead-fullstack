@@ -42,6 +42,7 @@ const TABLES = [
       { AttributeName: "driverId", AttributeType: "S" },
       { AttributeName: "status", AttributeType: "S" },
       { AttributeName: "createdAt", AttributeType: "N" },
+      { AttributeName: "userId", AttributeType: "S" },
     ],
     KeySchema: [{ AttributeName: "driverId", KeyType: "HASH" }],
     GlobalSecondaryIndexes: [
@@ -53,19 +54,47 @@ const TABLES = [
         ],
         Projection: { ProjectionType: "ALL" },
       },
+      // COA-3 / H8: getProfileByUserId queries this index (hot auth path).
+      {
+        IndexName: "userId-index",
+        KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
     ],
     BillingMode: "PAY_PER_REQUEST",
   },
   {
     TableName: process.env.DYNAMODB_SHIPPERS_TABLE || "LoadLead_Shippers",
-    AttributeDefinitions: [{ AttributeName: "shipperId", AttributeType: "S" }],
+    AttributeDefinitions: [
+      { AttributeName: "shipperId", AttributeType: "S" },
+      { AttributeName: "userId", AttributeType: "S" },
+    ],
     KeySchema: [{ AttributeName: "shipperId", KeyType: "HASH" }],
+    // COA-3 / H8: getProfileByUserId queries this index (hot auth path).
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "userId-index",
+        KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
     BillingMode: "PAY_PER_REQUEST",
   },
   {
     TableName: process.env.DYNAMODB_RECEIVERS_TABLE || "LoadLead_Receivers",
-    AttributeDefinitions: [{ AttributeName: "receiverId", AttributeType: "S" }],
+    AttributeDefinitions: [
+      { AttributeName: "receiverId", AttributeType: "S" },
+      { AttributeName: "userId", AttributeType: "S" },
+    ],
     KeySchema: [{ AttributeName: "receiverId", KeyType: "HASH" }],
+    // COA-3 / H8: getProfileByUserId queries this index (hot auth path).
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "userId-index",
+        KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
     BillingMode: "PAY_PER_REQUEST",
   },
   {
