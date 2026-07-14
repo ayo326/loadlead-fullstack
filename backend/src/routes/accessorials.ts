@@ -18,6 +18,7 @@ import { validate } from '../middleware/validation';
 import { UserRole } from '../types';
 import { LoadService } from '../services/loadService';
 import { DriverService } from '../services/driverService';
+import { ShipperService } from '../services/shipperService';
 import { resolveCarrierOfRecord } from '../services/carrierOfRecord';
 import { StopEventService } from '../services/stopEventService';
 import { AccessorialPolicyService } from '../services/accessorialPolicyService';
@@ -201,12 +202,33 @@ router.get(
   })
 );
 
+/**
+ * SEC-H2: approve/adjust/dispute may only be done by the shipper that owns the
+ * charge's load (ADMIN bypasses for support). requireRole only proves the caller
+ * is *a* shipper - without this, any shipper could approve any load's charge to
+ * billable, set an arbitrary amount, or raise a TRUST_INCIDENT against an
+ * arbitrary carrier.
+ */
+async function assertCallerIsLoadShipper(req: AuthRequest, loadId: string): Promise<void> {
+  if (req.user!.role === UserRole.ADMIN) return;
+  const [load, shipper] = await Promise.all([
+    LoadService.getLoadById(loadId),
+    ShipperService.getProfileByUserId(req.user!.userId).catch(() => null),
+  ]);
+  if (!load || !shipper || load.shipperId !== shipper.shipperId) {
+    throw new AppError('Not authorized for this charge', 403);
+  }
+}
+
 /** POST /api/accessorials/charges/:chargeId/approve  (shipper) */
 router.post(
   '/charges/:chargeId/approve',
   requireRole(...shipperRoles),
   validate([param('chargeId').isString().isLength({ min: 1, max: 200 })]),
   asyncHandler(async (req: AuthRequest, res) => {
+    const existing = await AccessorialChargeService.getCharge(req.params.chargeId);
+    if (!existing) throw new AppError(`Charge ${req.params.chargeId} not found`, 404);
+    await assertCallerIsLoadShipper(req, existing.loadId);
     const charge = await AccessorialChargeService.approve(req.params.chargeId, req.user!.userId);
     res.json({ charge });
   })
@@ -222,6 +244,9 @@ router.post(
     body('reason').optional().isString().isLength({ max: 2000 }),
   ]),
   asyncHandler(async (req: AuthRequest, res) => {
+    const existing = await AccessorialChargeService.getCharge(req.params.chargeId);
+    if (!existing) throw new AppError(`Charge ${req.params.chargeId} not found`, 404);
+    await assertCallerIsLoadShipper(req, existing.loadId);
     const charge = await AccessorialChargeService.adjust(
       req.params.chargeId,
       parseInt(String(req.body.newAmountCents), 10),
@@ -243,6 +268,7 @@ router.post(
   asyncHandler(async (req: AuthRequest, res) => {
     const existing = await AccessorialChargeService.getCharge(req.params.chargeId);
     if (!existing) throw new AppError(`Charge ${req.params.chargeId} not found`, 404);
+    await assertCallerIsLoadShipper(req, existing.loadId);
     const load = await LoadService.getLoadById(existing.loadId);
     const carrierId = load ? await resolveMoverId(load) : 'unassigned';
     const charge = await AccessorialChargeService.dispute(req.params.chargeId, req.user!.userId, carrierId, req.body.reason);

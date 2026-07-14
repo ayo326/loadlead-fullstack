@@ -244,6 +244,16 @@ const authRateLimiter = rateLimit({
     process.env.NODE_ENV !== 'production',
 });
 
+// SEC-H6: cap the billed Google Maps proxy per IP. Generous enough for real
+// address-autocomplete typing bursts, but bounds an abuse loop's Google spend.
+const mapsRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 200,            // per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many map requests. Please slow down.' },
+});
+
 // API Routes
 app.use('/api/auth', authRateLimiter, authRoutes);
 app.use('/api/attestation', attestationRoutes);
@@ -318,7 +328,7 @@ setInterval(async () => {
 }, 60_000);
 
 
-app.use('/api/maps', mapsRouter);
+app.use('/api/maps', mapsRateLimiter, mapsRouter);
 app.use('/api/org', orgRoutes);
 app.use('/api/support', require('./routes/support').default);
 app.use('/api/setup', setupRoutes);

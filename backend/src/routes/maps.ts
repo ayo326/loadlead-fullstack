@@ -1,8 +1,16 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { authenticate } from '../middleware/auth';
 import { GoogleMapsService } from '../services/googleMapsService';
 
 const router = Router();
+
+// SEC-H6: this proxy hits PAID Google Maps APIs (geocode/autocomplete/place;
+// /estimate makes 3 calls). It was mounted with no auth, so an anonymous loop
+// could run up an unbounded bill and exhaust the daily quota (breaking maps for
+// real users). Every caller (load posting, fleet/route maps) is an authenticated
+// surface, so require auth here; a per-IP rate limit is also applied at the mount.
+router.use(authenticate);
 
 type LatLng = { lat: number; lng: number };
 

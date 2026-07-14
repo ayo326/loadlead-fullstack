@@ -40,6 +40,12 @@ router.get('/loads/:loadId', asyncHandler(async (req: AuthRequest, res) => {
   const { loadId } = req.params;
   const load = await LoadService.getLoadById(loadId);
   if (!load) return res.status(404).json({ error: 'Load not found' });
+  // SEC-H4: a receiver may only read loads addressed to them (404 on mismatch
+  // so load existence in other tenants is not revealed).
+  const receiver = await ReceiverService.getProfileByUserId(req.user!.userId).catch(() => null);
+  if (!receiver || load.receiverId !== receiver.receiverId) {
+    return res.status(404).json({ error: 'Load not found' });
+  }
   res.json({ load });
 }));
 

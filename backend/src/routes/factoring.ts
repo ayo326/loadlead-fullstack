@@ -397,6 +397,9 @@ router.get(
   validate([param('invoiceId').isString().isLength({ min: 1, max: 200 })]),
   asyncHandler(async (req: AuthRequest, res) => {
     const carrierId = await resolveCarrierId(req);
+    // SEC-H3: invoiceId is the loadId; only the load's carrier-of-record may
+    // read its factoring packet (linehaul net, debtor, POD, NOA).
+    await assertCallerActsForLoad(req, req.params.invoiceId);
     const { pkg } = await buildPackageForInvoice(req.params.invoiceId, carrierId);
     res.json({ package: pkg });
   })
@@ -419,6 +422,8 @@ router.post(
   asyncHandler(async (req: AuthRequest, res) => {
     const carrierId = await resolveCarrierId(req);
     const invoiceId = req.body.invoiceId;
+    // SEC-H3: only the load's carrier-of-record may export/exfiltrate its packet.
+    await assertCallerActsForLoad(req, invoiceId);
     const { pkg, podRef, activeAssignment } = await buildPackageForInvoice(invoiceId, carrierId);
     const notice = activeAssignment
       ? await NoticeOfAssignmentService.getForAssignment(activeAssignment.assignmentId)
