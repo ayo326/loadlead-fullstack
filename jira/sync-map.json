@@ -104,6 +104,41 @@
     "key": "SCRUM-175",
     "priority_set_by_sync": "High"
   },
+  "capacity:chip-ui": {
+    "description_hash": "87066ad3ff3528cb33bc73e60502e32958628b97ea2e3339faef8da83ed7b973",
+    "key": "SCRUM-274",
+    "priority_set_by_sync": "Medium"
+  },
+  "capacity:data-model": {
+    "description_hash": "e5b74f6070e48aec04b6962ff08fc432bb653ece1fc920112e2a61e1a0a7051d",
+    "key": "SCRUM-269",
+    "priority_set_by_sync": "Medium"
+  },
+  "capacity:deduct-restore": {
+    "description_hash": "cce96e373881eee5290b1b38529ac6132cb384e901569cfc8d21c2e26195b9db",
+    "key": "SCRUM-272",
+    "priority_set_by_sync": "Medium"
+  },
+  "capacity:login-prompt": {
+    "description_hash": "9c548105b80972e19326b130a98a7a4ce87d7eed6ad72ea85378f658556d3ba8",
+    "key": "SCRUM-271",
+    "priority_set_by_sync": "Medium"
+  },
+  "capacity:matching": {
+    "description_hash": "2864ab9c20008db731d5b2aa04daabcede2d212fd71deb92beeacb64241a16fa",
+    "key": "SCRUM-273",
+    "priority_set_by_sync": "Medium"
+  },
+  "capacity:registration": {
+    "description_hash": "b5d3e8fb335a5b67def2161f08a857cdef33307373a2afa27d5f4a359cf36eba",
+    "key": "SCRUM-270",
+    "priority_set_by_sync": "Medium"
+  },
+  "capacity:tests": {
+    "description_hash": "0293eaaf385e8aeea0b2f6acdd9cc853144050f5c0b6d8266b16abc9ef1d0f35",
+    "key": "SCRUM-275",
+    "priority_set_by_sync": "Medium"
+  },
   "dash:calc-service": {
     "description_hash": "e24f3d78306cbea1b0f3c9c86dc46874525a683596304592e5c17da9a7024214",
     "key": "SCRUM-44",
@@ -203,6 +238,11 @@
     "description_hash": "7d403b97045d54a92963c80925bfc3166a67bb0355352be97f5c914489a21655",
     "key": "SCRUM-10",
     "priority_set_by_sync": ""
+  },
+  "epic:hauler-capacity": {
+    "description_hash": "8bb800c764d0839bc64ca4ff1bf39ae0f847086f1abc0765aa6e9a9dfb2d90e8",
+    "key": "SCRUM-268",
+    "priority_set_by_sync": "Medium"
   },
   "epic:jira-automation": {
     "description_hash": "9d0fca2313010f0f61ce6ede5baed61b52f4a1000c2a6196dc0f2a519df3f7a1",
