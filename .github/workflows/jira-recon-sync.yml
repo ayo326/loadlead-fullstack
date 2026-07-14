@@ -1,0 +1,87 @@
+# SCRUM-59: Manual Jira sync for the audit-v5 reconciliation backlog.
+#
+# Why this exists: `sync.py --apply` needs a Jira API token that authenticates
+# against the SCRUM project. That token already lives in this repo's Actions
+# secrets (it is what jira/post-deploy.py uses), so this workflow lets us create
+# the reconciliation epic + stories from CI instead of wrestling a local token.
+#
+# Scoped on purpose: it only touches epic:audit-recon-v5 and the recon:* stories
+# (via --only), so it does NOT re-assert priorities/links across the other ~240
+# existing issues. Dry-run by default; you must pick mode=apply to write.
+name: Jira reconciliation sync (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run prints the plan only; apply creates the issues on the live board"
+        type: choice
+        options:
+          - dry-run
+          - apply
+        default: dry-run
+
+permissions:
+  contents: write        # push the sync-map branch
+  pull-requests: write   # open the sync-map PR
+
+concurrency: jira-recon-sync   # never let two of these race the same board
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: python -m pip install --quiet -r jira/requirements.txt
+
+      - name: Run sync (${{ inputs.mode }})
+        env:
+          MODE: ${{ inputs.mode }}
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+        run: |
+          set -euo pipefail
+          FLAG=""
+          if [ "$MODE" = "apply" ]; then FLAG="--apply"; fi
+          echo "mode=$MODE  flag='$FLAG'"
+          echo "== epic (parent must exist before the stories) =="
+          python jira/sync.py $FLAG --only epic:audit-recon-v5
+          echo "== recon stories =="
+          python jira/sync.py $FLAG --only recon
+
+      - name: Upload updated sync-map (apply only)
+        if: ${{ inputs.mode == 'apply' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: jira-sync-map
+          path: jira/sync-map.json
+          if-no-files-found: warn
+
+      - name: Open PR with the updated sync-map (apply only)
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- jira/sync-map.json; then
+            echo "sync-map.json unchanged (nothing new created, or already mapped) — no PR needed."
+            exit 0
+          fi
+          BRANCH="chore/jira-recon-syncmap-${{ github.run_id }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add jira/sync-map.json
+          git commit -m "SCRUM-59: chore(jira): sync-map after creating audit-recon-v5 epic + stories"
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" \
+            --title "SCRUM-59: chore(jira): sync-map for audit-recon-v5 reconciliation issues" \
+            --body "Idempotency map updated after the manual Jira reconciliation sync (run ${{ github.run_id }}) created \`epic:audit-recon-v5\` + the \`recon:*\` stories. Data file only; merge to keep future syncs from re-creating them."
