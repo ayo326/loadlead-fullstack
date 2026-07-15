@@ -30,6 +30,8 @@ const REQUIRED_BY_TABLE: Record<string, string> = {
   [config.dynamodb.driversTable]: 'userId-index',
   [config.dynamodb.shippersTable]: 'userId-index',
   [config.dynamodb.receiversTable]: 'userId-index',
+  [config.dynamodb.factoringAssignmentsTable]: 'carrierId-index',
+  [config.dynamodb.legalHoldsTable]: 'entityId-index',
 };
 
 const healthy = (tableName: string) => {
@@ -82,5 +84,26 @@ describe('assertRequiredIndexesActive - userId-index promoted to REQUIRED (COA-3
         : healthy(cmd.input.TableName),
     );
     await expect(assertRequiredIndexesActive()).resolves.toBeUndefined();
+  });
+
+  // COA-3 phase 2 promotions.
+  it('refuses to boot in production when the factoring carrierId-index is missing', async () => {
+    process.env.APP_ENV = 'production';
+    H.send.mockImplementation(async (cmd: any) =>
+      cmd.input.TableName === config.dynamodb.factoringAssignmentsTable
+        ? { Table: { GlobalSecondaryIndexes: [] } }
+        : healthy(cmd.input.TableName),
+    );
+    await expect(assertRequiredIndexesActive()).rejects.toThrow(/carrierId-index/);
+  });
+
+  it('refuses to boot in production when the legal-hold entityId-index is missing', async () => {
+    process.env.APP_ENV = 'production';
+    H.send.mockImplementation(async (cmd: any) =>
+      cmd.input.TableName === config.dynamodb.legalHoldsTable
+        ? { Table: { GlobalSecondaryIndexes: [] } }
+        : healthy(cmd.input.TableName),
+    );
+    await expect(assertRequiredIndexesActive()).rejects.toThrow(/entityId-index/);
   });
 });

@@ -277,6 +277,12 @@ export async function assertRequiredIndexesActive(): Promise<void> {
     { table: config.dynamodb.driversTable, index: 'userId-index' },
     { table: config.dynamodb.shippersTable, index: 'userId-index' },
     { table: config.dynamodb.receiversTable, index: 'userId-index' },
+    // Promoted 2026-07-14 (audit v6 COA-3 phase 2): the money/legal read hot paths.
+    // FactoringAssignment active/list resolves per carrier; LegalHold.isOnHold runs
+    // on every delete/purge. A missing index self-DoSes these as the logs grow.
+    // Confirmed ACTIVE in staging and prod before promotion.
+    { table: config.dynamodb.factoringAssignmentsTable, index: 'carrierId-index' },
+    { table: config.dynamodb.legalHoldsTable, index: 'entityId-index' },
   ];
   // New indexes start here warn-only, then get promoted once ACTIVE everywhere.
   const EXPECTED: { table: string; index: string }[] = [];
