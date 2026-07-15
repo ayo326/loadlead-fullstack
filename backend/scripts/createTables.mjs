@@ -104,6 +104,7 @@ const TABLES = [
       { AttributeName: "shipperId", AttributeType: "S" },
       { AttributeName: "status", AttributeType: "S" },
       { AttributeName: "createdAt", AttributeType: "N" },
+      { AttributeName: "assignedDriverId", AttributeType: "S" },
     ],
     KeySchema: [{ AttributeName: "loadId", KeyType: "HASH" }],
     GlobalSecondaryIndexes: [
@@ -121,6 +122,12 @@ const TABLES = [
           { AttributeName: "status", KeyType: "HASH" },
           { AttributeName: "createdAt", KeyType: "RANGE" },
         ],
+        Projection: { ProjectionType: "ALL" },
+      },
+      {
+        // M6: getLoadsByAssignedDriver queries this index (dashboard fan-out).
+        IndexName: "assignedDriverId-index",
+        KeySchema: [{ AttributeName: "assignedDriverId", KeyType: "HASH" }],
         Projection: { ProjectionType: "ALL" },
       },
     ],

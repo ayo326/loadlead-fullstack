@@ -6,6 +6,7 @@ import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import { AppError } from '../middleware/errorHandler';
 import Logger from '../utils/logger';
+import { queryIndexOrScan } from '../utils/indexQuery';
 import { BroadcastService } from './broadcastService';
 import { RoutingService } from './routingService';
 
@@ -312,10 +313,16 @@ export class LoadService {
   }
 
   static async getLoadsByAssignedDriver(driverId: string): Promise<Load[]> {
-    const loads = await Database.scan<Load>(
+    // M6 (audit v6): dashboards fan this out once per fleet driver (N calls), and this
+    // was a full-table Loads scan each time. Query assignedDriverId-index instead; the
+    // guarded scan fallback keeps it correct if the index is unavailable.
+    const loads = await queryIndexOrScan<Load>(
       config.dynamodb.loadsTable,
-      'assignedDriverId = :d',
-      { ':d': driverId }
+      'assignedDriverId-index',
+      'assignedDriverId',
+      driverId,
+      () => Database.scan<Load>(config.dynamodb.loadsTable, 'assignedDriverId = :d', { ':d': driverId }),
+      'LoadService.getLoadsByAssignedDriver',
     );
 
     // Treat BOOKED (and optionally IN_TRANSIT) as "active"

@@ -65,10 +65,14 @@ locals {
       attributes = [
         { name = "loadId", type = "S" }, { name = "status", type = "S" },
         { name = "createdAt", type = "N" }, { name = "shipperId", type = "S" },
+        # assignedDriverId-index (audit v6 M6): dashboards fan out getLoadsByAssignedDriver
+        # once per fleet driver; this turns each from a full-table scan into a query.
+        { name = "assignedDriverId", type = "S" },
       ]
       gsis = [
         { name = "status-createdAt-index", hash_key = "status", range_key = "createdAt" },
         { name = "shipperId-index", hash_key = "shipperId" },
+        { name = "assignedDriverId-index", hash_key = "assignedDriverId" },
         # loadService.getLoadsByStatus queries "status-index" (HASH status, no
         # range). Prod's LoadLead_Loads carries exactly this index; without it
         # the OO loadboard 500s (ValidationException: index does not exist).
