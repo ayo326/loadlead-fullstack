@@ -27,6 +27,7 @@ const m = vi.hoisted(() => ({
   getShipperProfile:  vi.fn(async (): Promise<any> => null),
   getChain:           vi.fn(async (): Promise<any[]> => []),
   send:               vi.fn(async () => undefined),
+  deliver:            vi.fn(async () => undefined),
 }));
 
 vi.mock('../../../src/services/negotiationService', () => ({
@@ -46,6 +47,8 @@ vi.mock('../../../src/services/carrierOfRecord', () => ({ resolveCarrierOfRecord
 vi.mock('../../../src/services/shipperService', () => ({ ShipperService: { getProfileByUserId: m.getShipperProfile } }));
 vi.mock('../../../src/services/attestation/signatureService', () => ({ getChain: m.getChain }));
 vi.mock('../../../src/services/pushService', () => ({ PushService: { send: m.send } }));
+// M15 (audit v6): mock the outbox so notify() no longer issues a live Database.putItem.
+vi.mock('../../../src/services/notificationOutboxService', () => ({ NotificationOutboxService: { deliver: m.deliver } }));
 vi.mock('../../../src/services/loadService', () => ({ LoadService: { getLoadById: vi.fn(async () => null) } }));
 // requireVerifiedCarrier gates /engage only (not the accept routes under test);
 // stub it to a pass-through so importing the router never pulls the real one.
