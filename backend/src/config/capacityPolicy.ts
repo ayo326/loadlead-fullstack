@@ -29,6 +29,12 @@ export const CAPACITY_POLICY = {
   // When capacity state is unknown, matching treats remaining as the full rated
   // capacity, so a hauler who ignored the prompt sees a full board, not an empty one.
   unknownTreatedAs: 'rated' as 'rated' | 'zero',
+  // Upper bound on rated payload (whole pounds). The heaviest legitimate single
+  // vehicle - multi-axle heavy-haul / oversize permit loads - stays well under
+  // 100 tons; 200000 leaves generous headroom while rejecting the nonsense
+  // values (negatives, fractions, unbounded ints) that would otherwise break the
+  // whole-pounds invariant and hand a hauler an effectively unlimited board.
+  maxRatedLbs: 200000,
   // Prefill at registration, editable, whole pounds. Keys are equipment + trailer
   // length as the product spec defines them; the TrailerType mapping below bridges
   // to the codebase enum (which is length-agnostic).
@@ -42,6 +48,20 @@ export const CAPACITY_POLICY = {
 } as const;
 
 export type CapacityFilterMode = typeof CAPACITY_POLICY.capacityFilterMode;
+
+/**
+ * A rated capacity is valid only as a whole number of pounds in [0, maxRatedLbs].
+ * Rejects floats, negatives, NaN/Infinity, and absurdly large values so the
+ * capacity board and matching math keep the integer-whole-pounds invariant.
+ */
+export function isValidRatedCapacity(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= CAPACITY_POLICY.maxRatedLbs
+  );
+}
 
 /**
  * Prefill rated payload for a trailer type (whole pounds), or undefined when we

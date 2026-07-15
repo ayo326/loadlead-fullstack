@@ -4,6 +4,8 @@ import { queryIndexOrScan } from '../utils/indexQuery';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import Logger from '../utils/logger';
+import { AppError } from '../middleware/errorHandler';
+import { CAPACITY_POLICY, isValidRatedCapacity } from '../config/capacityPolicy';
 
 export class DriverService {
   private static toTimestamp(value?: number | string): number | undefined {
@@ -149,6 +151,19 @@ export class DriverService {
   }
 
   static async updateProfile(driverId: string, updates: Partial<Driver>): Promise<void> {
+    // Audit v6 M2: rated capacity is a whole number of pounds. Guard it here
+    // (authoritative for every caller, including PUT /driver/profile which has no
+    // request-schema validation) so a negative, fractional, or unbounded value
+    // can never reach the equipment profile and break matching or hand a hauler
+    // an unlimited board. Thrown before the try so a client 400 is not logged as
+    // a server error.
+    if (updates.maxCapacityLbs !== undefined && !isValidRatedCapacity(updates.maxCapacityLbs)) {
+      throw new AppError(
+        `maxCapacityLbs must be a whole number of pounds between 0 and ${CAPACITY_POLICY.maxRatedLbs}`,
+        400,
+      );
+    }
+
     try {
       const updateData: any = {
         ...updates,

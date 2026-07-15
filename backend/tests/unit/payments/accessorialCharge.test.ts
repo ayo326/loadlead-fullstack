@@ -45,6 +45,7 @@ vi.mock('../../../src/utils/logger', () => ({ Logger: { info: vi.fn(), error: vi
 import config from '../../../src/config/environment';
 import { TrailerType } from '../../../src/types';
 import { AccessorialChargeService, isBillable } from '../../../src/services/accessorialChargeService';
+import { AccessorialPolicyService } from '../../../src/services/accessorialPolicyService';
 
 const CHARGES = config.dynamodb.accessorialChargesTable;
 const HISTORY = config.dynamodb.chargeStatusHistoryTable;
@@ -228,5 +229,53 @@ describe('M6: advances flagged when a funded charge regresses', () => {
     await AccessorialChargeService.dispute(c!.chargeId, 'shipper-1', 'carrier-9');
     const atRisk = (tables[OUTCOMES] ?? []).filter((o: any) => o.type === 'ADVANCE_AT_RISK');
     expect(atRisk.length).toBe(0);
+  });
+});
+
+// ── Audit v6 M3: a policy edit must never double-charge a stop ───────────────
+// The deterministic chargeId hashes the policy snapshot, so editing the load's
+// accessorial policy re-hashes it. Before the fix, a recompute after an edit
+// found no charge at the new id and wrote a SECOND billable row for the same
+// physical stop - the shipper was billed twice for one detention event.
+describe('M3: a policy edit does not fork a second charge for a stop', () => {
+  it('recompute after a policy edit returns the committed charge, not a duplicate', async () => {
+    // Stop closes with a billable, auto-approved detention charge under policy v1.
+    seedStop('load-1', 'DOCK', 0, 3.5 * HOUR); // 1.5h detained -> $75, auto-APPROVED
+    const first = await AccessorialChargeService.computeForStop(dryVan, 'DOCK', 'sys');
+    expect(first!.status).toBe('APPROVED');
+    const firstId = first!.chargeId;
+    const firstAmount = first!.amountCents;
+    expect(firstAmount).toBe(7500);
+
+    // Shipper edits the load's accessorial policy after the charge is computed:
+    // version bumps, policy hash changes, so the deterministic chargeId differs.
+    await AccessorialPolicyService.updatePolicy(dryVan, { freeTimeMinutes: 30 });
+
+    // A recompute (late stop-event correction, settlement pass, etc.) must NOT
+    // fork a second charge for the same physical stop.
+    const second = await AccessorialChargeService.computeForStop(dryVan, 'DOCK', 'sys');
+    expect(second!.chargeId).toBe(firstId); // same charge, not a fork
+    expect(second!.amountCents).toBe(firstAmount); // frozen against the closing policy
+
+    const forStop = (await AccessorialChargeService.listForLoad('load-1')).filter((c) => c.stopId === 'DOCK');
+    expect(forStop.length).toBe(1); // exactly one charge per stop
+    const billableTotal = forStop.filter(isBillable).reduce((s, c) => s + c.amountCents, 0);
+    expect(billableTotal).toBe(firstAmount); // no double-bill
+  });
+
+  it('a still-accruing charge keeps one identity across a mid-dwell policy edit', async () => {
+    // Open stop (no departure) -> provisional ACCRUING charge under policy v1.
+    seedStop('load-1', 'OPEN', Date.now() - 3 * HOUR);
+    const a = await AccessorialChargeService.computeForStop(dryVan, 'OPEN', 'sys');
+    expect(a!.status).toBe('ACCRUING');
+    const accruingId = a!.chargeId;
+
+    // Policy edited mid-dwell, then recomputed while the stop is still open.
+    await AccessorialPolicyService.updatePolicy(dryVan, { freeTimeMinutes: 45 });
+    const b = await AccessorialChargeService.computeForStop(dryVan, 'OPEN', 'sys');
+
+    expect(b!.chargeId).toBe(accruingId); // same row, updated in place
+    const forStop = (await AccessorialChargeService.listForLoad('load-1')).filter((c) => c.stopId === 'OPEN');
+    expect(forStop.length).toBe(1); // not forked into two provisional rows
   });
 });
