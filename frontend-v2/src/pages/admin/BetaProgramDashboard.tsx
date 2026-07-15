@@ -195,12 +195,17 @@ function PipelineTab() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     setLoading(true);
+    setLoadErr(null);
     api.adminBeta
       .listApplications(statusFilter ? { status: statusFilter } : undefined)
       .then((r) => setApps(r.applications))
+      // Audit v6 M4: a failed load must not read as an empty pipeline. Surface
+      // the error instead of silently rendering "No applications yet".
+      .catch((e) => setLoadErr(e?.message ?? "Failed to load applications"))
       .finally(() => setLoading(false));
   }, [statusFilter]);
 
@@ -228,6 +233,10 @@ function PipelineTab() {
 
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading applications…</div>
+      ) : loadErr ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-8 text-center text-sm text-rose-700">
+          Could not load applications: {loadErr}
+        </div>
       ) : apps.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
           No applications yet. When the Tally form is connected and submissions
@@ -296,12 +305,16 @@ function ApplicationDetail({
   const [overlaps, setOverlaps] = useState<LaneOverlap[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [loadErr, setLoadErr] = useState<string | null>(null);
 
   const load = useCallback(() => {
+    setLoadErr(null);
     api.adminBeta.getApplication(applicationId).then((r) => {
       setApp(r.application);
       setOverlaps(r.laneOverlaps);
-    });
+    // Audit v6 M4: a failed load left the drawer blank (return null), so an
+    // error was indistinguishable from a slow open. Surface it instead.
+    }).catch((e) => setLoadErr(e?.message ?? "Failed to load application"));
   }, [applicationId]);
   useEffect(() => { load(); }, [load]);
 
@@ -332,6 +345,23 @@ function ApplicationDetail({
       await api.adminBeta.waitlistApplication(applicationId);
       load(); onChanged();
     } finally { setBusy(false); }
+  }
+
+  if (loadErr) {
+    return (
+      <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={onClose}>
+        <div className="w-full max-w-lg bg-background h-full overflow-y-auto shadow-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-start justify-between">
+            <h2 className="text-lg font-semibold text-foreground">Application</h2>
+            <button onClick={onClose} className="text-sm text-muted-foreground hover:underline">Close</button>
+          </div>
+          <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            Could not load this application: {loadErr}
+          </div>
+          <button onClick={load} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted">Retry</button>
+        </div>
+      </div>
+    );
   }
 
   if (!app) return null;
@@ -592,9 +622,14 @@ function AllowlistTab() {
   const [value, setValue] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
 
   const reload = useCallback(() => {
-    api.adminBeta.listAllowlist().then((r) => setEntries(r.entries));
+    setLoadErr(null);
+    // Audit v6 M4: on failure, don't fall through to "No allowlist entries yet".
+    api.adminBeta.listAllowlist()
+      .then((r) => setEntries(r.entries))
+      .catch((e) => setLoadErr(e?.message ?? "Failed to load allowlist"));
   }, []);
   useEffect(() => { reload(); }, [reload]);
 
@@ -668,7 +703,11 @@ function AllowlistTab() {
               </tr>
             ))}
             {entries.length === 0 && (
-              <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-muted-foreground">No allowlist entries yet.</td></tr>
+              loadErr ? (
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-rose-700">Could not load allowlist: {loadErr}</td></tr>
+              ) : (
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-muted-foreground">No allowlist entries yet.</td></tr>
+              )
             )}
           </tbody>
         </table>
@@ -683,7 +722,14 @@ function AllowlistTab() {
 function WaitlistTab() {
   const [drawerEmail, setDrawerEmail] = useState<string | null>(null);
   const [entries, setEntries] = useState<WaitlistRow[]>([]);
-  const reload = useCallback(() => { api.adminBeta.listWaitlist().then((r) => setEntries(r.entries)); }, []);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const reload = useCallback(() => {
+    setLoadErr(null);
+    // Audit v6 M4: a failed load must not read as "Waitlist is empty".
+    api.adminBeta.listWaitlist()
+      .then((r) => setEntries(r.entries))
+      .catch((e) => setLoadErr(e?.message ?? "Failed to load waitlist"));
+  }, []);
   useEffect(() => { reload(); }, [reload]);
 
   async function promote(w: WaitlistRow) {
@@ -730,7 +776,11 @@ function WaitlistTab() {
             </tr>
           ))}
           {entries.length === 0 && (
-            <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-muted-foreground">Waitlist is empty.</td></tr>
+            loadErr ? (
+              <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-rose-700">Could not load waitlist: {loadErr}</td></tr>
+            ) : (
+              <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-muted-foreground">Waitlist is empty.</td></tr>
+            )
           )}
         </tbody>
       </table>

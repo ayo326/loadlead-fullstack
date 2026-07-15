@@ -1,5 +1,6 @@
 import { body, param } from 'express-validator';
 import { UserRole, SELF_SIGNUP_ROLES, TrailerType, CDLClass } from '../types';
+import { CAPACITY_POLICY } from '../config/capacityPolicy';
 
 // ── HTML sanitizer ─────────────────────────────────────────────────────────────
 // Strips all HTML/SVG tags from a value before it is stored in DynamoDB.
@@ -44,7 +45,7 @@ export const driverValidators = {
     body('truckYear').optional({ checkFalsy: true }).isInt({ min: 1900, max: new Date().getFullYear() + 1 }).withMessage('Valid truck year required'),
     body('truckVIN').optional({ checkFalsy: true }).isLength({ min: 17, max: 17 }).withMessage('VIN must be 17 characters'),
     body('trailerType').optional({ checkFalsy: true }).isIn(Object.values(TrailerType)).withMessage('Valid trailer type required'),
-    body('maxCapacityLbs').optional({ checkFalsy: true }).isInt({ min: 0 }),
+    body('maxCapacityLbs').optional({ checkFalsy: true }).isInt({ min: 0, max: CAPACITY_POLICY.maxRatedLbs }).withMessage(`maxCapacityLbs must be a whole number of pounds between 0 and ${CAPACITY_POLICY.maxRatedLbs}`),
     // Loading capability attributes (spec §11.1)
     body('dockHeightCompatible').optional().isBoolean(),
     body('liftgateEquipped').optional().isBoolean(),

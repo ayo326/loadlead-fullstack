@@ -158,8 +158,33 @@ export class AccessorialChargeService {
     const pair = await StopEventService.effectivePair(load.loadId, stopId);
     if (!pair.arrival) return null;
 
-    const chargeId = deterministicChargeId(load.loadId, stopId, snapshot.policyHash);
-    const existing = await this.getCharge(chargeId);
+    // Deterministic id for THIS policy snapshot. Same stop + same frozen policy
+    // always addresses the same charge, so a recompute updates it in place.
+    let chargeId = deterministicChargeId(load.loadId, stopId, snapshot.policyHash);
+    let existing = await this.getCharge(chargeId);
+
+    // Audit v6 M3: a stop is charged at most once, regardless of policy edits.
+    // Editing the load's accessorial policy re-hashes the deterministic id, so
+    // when no charge exists for the current snapshot we must check whether one
+    // already exists for this stop under a PRIOR snapshot before creating a new
+    // one - otherwise the same physical stop gets a second (double-billed) row.
+    if (!existing) {
+      const priorForStop = (await this.listForLoad(load.loadId))
+        .filter((c) => c.stopId === stopId)
+        .sort((a, b) => a.createdAt - b.createdAt);
+      const prior = priorForStop[0];
+      if (prior) {
+        // Committed (closed and past provisional accrual): frozen against the
+        // policy in effect when it closed. A later policy edit never
+        // retroactively re-charges - return it untouched; use adjust() to change
+        // a reviewed amount.
+        if (prior.status !== 'ACCRUING') return prior;
+        // Still accruing: adopt the stop's existing charge identity so the close
+        // updates it in place under the new snapshot rather than forking a row.
+        chargeId = prior.chargeId;
+        existing = prior;
+      }
+    }
 
     const open = !pair.departure;
     // Never regress an already-closed charge back to ACCRUING.
