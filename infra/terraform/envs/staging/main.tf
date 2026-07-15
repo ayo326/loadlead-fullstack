@@ -35,6 +35,10 @@ module "network" {
 # Audit v4 COA-3A: staging's mirror of the new loadId-index (AccessorialCharges)
 # and ownerId-index (ComplianceDocuments) GSIs arrives through this shared
 # tableset module - see modules/dynamodb_tableset in the same change set.
+# Audit v6 COA-3 phase 2: likewise, staging's mirror of the new carrierId-index
+# (FactoringAssignments) and entityId-index (LegalHolds) GSIs arrives here via the
+# same module. Prod declares those two tables directly in envs/prod/main.tf, so the
+# staging mirror lives in the module rather than a staging-specific resource.
 module "dynamodb" {
   source              = "../../modules/dynamodb_tableset"
   env                 = local.env

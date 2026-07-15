@@ -286,9 +286,11 @@ locals {
       gsis       = []
     }
     LegalHolds = {
-      hash_key   = "holdId"
-      attributes = [{ name = "holdId", type = "S" }]
-      gsis       = []
+      hash_key = "holdId"
+      # entityId-index (audit v6 COA-3 phase 2): isOnHold runs on every delete/purge;
+      # this turns the delete guard from a full-table scan into a per-entity query.
+      attributes = [{ name = "holdId", type = "S" }, { name = "entityId", type = "S" }]
+      gsis       = [{ name = "entityId-index", hash_key = "entityId" }]
     }
     LawEnforcementRequests = {
       hash_key   = "recordId"
@@ -352,9 +354,11 @@ locals {
     # Append-only factoring assignment log. A release/change is a new row; the
     # active assignment resolves with invoice-level precedence over account-level.
     FactoringAssignments = {
-      hash_key   = "assignmentId"
-      attributes = [{ name = "assignmentId", type = "S" }]
-      gsis       = []
+      hash_key = "assignmentId"
+      # carrierId-index (audit v6 COA-3 phase 2): getActiveAssignment/listForCarrier
+      # scanned the whole append-only log; this makes them per-carrier queries.
+      attributes = [{ name = "assignmentId", type = "S" }, { name = "carrierId", type = "S" }]
+      gsis       = [{ name = "carrierId-index", hash_key = "carrierId" }]
     }
 
     # Append-only Notices of Assignment (legal redirection snapshots).

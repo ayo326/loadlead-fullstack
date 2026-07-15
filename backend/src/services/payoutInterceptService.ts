@@ -183,6 +183,14 @@ export class PayoutInterceptService {
     };
   }
 
+  // COA-3 phase 2 (deliberate): this stays a full-table scan, NOT a GSI query.
+  // activeFor() resolves by EITHER invoiceId (INVOICE target) OR carrierId (CARRIER
+  // target) AND needs a global supersession set - a single-attribute GSI cannot serve
+  // that dual key, and a carrierId-index would silently miss an INVOICE-target
+  // intercept whose carrierId differs from the settling carrier. On a garnishment/
+  // levy path a missed intercept under-applies a legal order, so correctness wins.
+  // Intercepts are rare (law-enforcement) and this table stays tiny; revisit only
+  // with a dedicated invoiceId-index + carrierId-index pair if volume ever grows.
   private static async scanAll(): Promise<PayoutIntercept[]> {
     try {
       return await Database.scan<PayoutIntercept>(config.dynamodb.payoutInterceptsTable);

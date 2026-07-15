@@ -17,6 +17,7 @@ import { Database } from '../config/database';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import { Logger } from '../utils/logger';
+import { queryIndexOrScan } from '../utils/indexQuery';
 
 export type RecourseType = 'RECOURSE' | 'NON_RECOURSE';
 export type AssignmentScope = 'FULL_INVOICE' | 'LINEHAUL_ONLY';
@@ -87,8 +88,11 @@ export class FactoringAssignmentService {
    * an already-released target is a no-op that returns the latest row.
    */
   static async release(assignmentId: string, actorId: string): Promise<FactoringAssignment> {
-    const all = await this.scanAll();
-    const target = all.find((a) => a.assignmentId === assignmentId);
+    // assignmentId is the table's hash key: a point read, never a scan.
+    const target = await Database.getItem<FactoringAssignment>(
+      config.dynamodb.factoringAssignmentsTable,
+      { assignmentId },
+    );
     if (!target) throw new Error(`assignment not found: ${assignmentId}`);
 
     // Find the current effective row for this target; if already released, no-op.
@@ -111,8 +115,7 @@ export class FactoringAssignmentService {
 
   /** Every assignment row for a carrier, newest first. Append-only history. */
   static async listForCarrier(carrierId: string): Promise<FactoringAssignment[]> {
-    const all = await this.scanAll();
-    return all.filter((a) => a.carrierId === carrierId).sort((a, b) => b.createdAt - a.createdAt);
+    return (await this.byCarrier(carrierId)).sort((a, b) => b.createdAt - a.createdAt);
   }
 
   /**
@@ -127,7 +130,7 @@ export class FactoringAssignmentService {
    * otherwise the live account-level row decides.
    */
   static async getActiveAssignment(carrierId: string, invoiceId?: string): Promise<FactoringAssignment | null> {
-    const rows = (await this.scanAll()).filter((a) => a.carrierId === carrierId);
+    const rows = await this.byCarrier(carrierId);
     const superseded = new Set(rows.map((a) => a.supersedesAssignmentId).filter(Boolean) as string[]);
     const live = rows.filter((a) => !superseded.has(a.assignmentId));
 
@@ -146,6 +149,24 @@ export class FactoringAssignmentService {
       return accountDecision.status === 'ACTIVE' ? accountDecision : null;
     }
     return null;
+  }
+
+  /**
+   * All assignment rows for one carrier. COA-3 phase 2: queries carrierId-index
+   * instead of scanning the whole append-only log. The guarded scan fallback keeps
+   * this correct if the index is unavailable (e.g. before backfill). Supersession
+   * is self-consistent within a carrier's rows - a release/change row carries the
+   * same carrierId as the row it supersedes - so a carrier-scoped set is complete.
+   */
+  private static async byCarrier(carrierId: string): Promise<FactoringAssignment[]> {
+    return queryIndexOrScan<FactoringAssignment>(
+      config.dynamodb.factoringAssignmentsTable,
+      'carrierId-index',
+      'carrierId',
+      carrierId,
+      async () => (await this.scanAll()).filter((a) => a.carrierId === carrierId),
+      'FactoringAssignmentService.byCarrier',
+    );
   }
 
   private static async scanAll(): Promise<FactoringAssignment[]> {
