@@ -16,6 +16,7 @@ import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import { AdminAuditService } from './adminAuditService';
 import { ComplianceRole } from '../types/complianceRole';
+import { queryIndexOrScan } from '../utils/indexQuery';
 
 export type HoldEventType = 'PLACE' | 'RELEASE';
 
@@ -66,7 +67,18 @@ export class LegalHoldService {
 
   /** The newest event for an entity decides; a PLACE not followed by a RELEASE = held. */
   static async isOnHold(entityType: string, entityId: string): Promise<boolean> {
-    const events = (await this.scanAll())
+    // COA-3 phase 2: isOnHold runs on EVERY delete/purge, so it queries
+    // entityId-index instead of scanning the whole hold log. The guarded scan
+    // fallback keeps the delete guard correct if the index is ever unavailable
+    // (fail-closed remains the caller's job via assertDeletable).
+    const events = (await queryIndexOrScan<LegalHoldEvent>(
+      config.dynamodb.legalHoldsTable,
+      'entityId-index',
+      'entityId',
+      entityId,
+      async () => (await this.scanAll()).filter((e) => e.entityId === entityId),
+      'LegalHoldService.isOnHold',
+    ))
       .filter((e) => e.entityType === entityType && e.entityId === entityId)
       .sort((a, b) => b.at - a.at || (b.seq ?? 0) - (a.seq ?? 0));
     return events.length > 0 && events[0].eventType === 'PLACE';

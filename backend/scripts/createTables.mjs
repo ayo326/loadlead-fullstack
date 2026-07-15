@@ -208,8 +208,19 @@ const TABLES = [
   },
   {
     TableName: process.env.DYNAMODB_LEGAL_HOLDS_TABLE || "LoadLead_LegalHolds",
-    AttributeDefinitions: [{ AttributeName: "holdId", AttributeType: "S" }],
+    AttributeDefinitions: [
+      { AttributeName: "holdId", AttributeType: "S" },
+      { AttributeName: "entityId", AttributeType: "S" },
+    ],
     KeySchema: [{ AttributeName: "holdId", KeyType: "HASH" }],
+    // COA-3 phase 2: isOnHold queries this index (runs on every delete/purge).
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "entityId-index",
+        KeySchema: [{ AttributeName: "entityId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
     BillingMode: "PAY_PER_REQUEST",
   },
   {
@@ -294,8 +305,19 @@ const TABLES = [
   {
     // Append-only factoring assignment log (release/change = new row).
     TableName: process.env.DYNAMODB_FACTORING_ASSIGNMENTS_TABLE || "LoadLead_FactoringAssignments",
-    AttributeDefinitions: [{ AttributeName: "assignmentId", AttributeType: "S" }],
+    AttributeDefinitions: [
+      { AttributeName: "assignmentId", AttributeType: "S" },
+      { AttributeName: "carrierId", AttributeType: "S" },
+    ],
     KeySchema: [{ AttributeName: "assignmentId", KeyType: "HASH" }],
+    // COA-3 phase 2: getActiveAssignment/listForCarrier query this index.
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "carrierId-index",
+        KeySchema: [{ AttributeName: "carrierId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
     BillingMode: "PAY_PER_REQUEST",
   },
   {

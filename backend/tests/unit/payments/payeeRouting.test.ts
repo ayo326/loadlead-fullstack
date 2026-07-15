@@ -14,7 +14,11 @@ const { tables, putItem, getItem, scan, updateItem, deleteItem } = vi.hoisted(()
     putItem: vi.fn(async (table: string, item: any) => {
       (tables[table] ??= []).push(item);
     }),
-    getItem: vi.fn(async () => null),
+    // Real point read by key so services that fetch by hash key (e.g.
+    // FactoringAssignmentService.release) behave like DynamoDB, not a null stub.
+    getItem: vi.fn(async (table: string, key: any) =>
+      (tables[table] ?? []).find((it) => Object.keys(key).every((k) => it[k] === key[k])) ?? null,
+    ),
     scan: vi.fn(async (table: string) => [...(tables[table] ?? [])]),
     updateItem: vi.fn(async () => ({})),
     deleteItem: vi.fn(async () => ({})),

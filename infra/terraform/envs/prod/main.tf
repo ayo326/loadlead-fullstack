@@ -249,10 +249,14 @@ module "ddb_adjudications" {
   tags                = local.tags
 }
 module "ddb_legal_holds" {
-  source              = "../../modules/dynamodb_table"
-  name                = "LoadLead_LegalHolds"
-  hash_key            = "holdId"
-  attributes          = [{ name = "holdId", type = "S" }]
+  source   = "../../modules/dynamodb_table"
+  name     = "LoadLead_LegalHolds"
+  hash_key = "holdId"
+  # entityId-index (audit v6 COA-3 phase 2): isOnHold runs on every delete/purge.
+  attributes = [{ name = "holdId", type = "S" }, { name = "entityId", type = "S" }]
+  global_secondary_indexes = [
+    { name = "entityId-index", hash_key = "entityId", projection_type = "ALL" },
+  ]
   deletion_protection = true
   tags                = local.tags
 }
@@ -394,8 +398,14 @@ module "ddb_factoring_assignments" {
   source   = "../../modules/dynamodb_table"
   name     = "LoadLead_FactoringAssignments"
   hash_key = "assignmentId"
+  # carrierId-index (audit v6 COA-3 phase 2): active-assignment + history reads
+  # resolve per carrier instead of scanning the whole append-only log.
   attributes = [
     { name = "assignmentId", type = "S" },
+    { name = "carrierId", type = "S" },
+  ]
+  global_secondary_indexes = [
+    { name = "carrierId-index", hash_key = "carrierId", projection_type = "ALL" },
   ]
   deletion_protection = true
   tags                = local.tags
