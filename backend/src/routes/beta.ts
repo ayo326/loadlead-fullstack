@@ -16,6 +16,7 @@
  */
 
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { body } from 'express-validator';
 import { asyncHandler } from '../middleware/errorHandler';
 import { validate } from '../middleware/validation';
@@ -27,6 +28,18 @@ import { Logger } from '../utils/logger';
 import { UserRole } from '../types';
 
 const router = express.Router();
+
+// M4 (audit v6): the public waitlist auto-sends a Tally invite to the submitted
+// email, so an unthrottled loop mail-bombs any victim and burns sending quota.
+// Cap per-IP submissions (trust-proxy is set in index.ts, so the key is the real
+// client IP behind CloudFront). Generous enough for real signups, far below abuse.
+const waitlistLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many waitlist requests. Please try again later.', statusCode: 429 },
+});
 
 /** Public status - no auth, no PII. Tells the FE landing page how to
  *  behave (private-beta gate visible? Tally form connected?). */
@@ -48,6 +61,7 @@ router.get('/status', (req, res) => {
  *  email-existence disclosure via status code). */
 router.post(
   '/waitlist',
+  waitlistLimiter,
   validate([
     body('email').isEmail().withMessage('Valid email is required'),
     body('name').optional().isString().isLength({ max: 200 }),

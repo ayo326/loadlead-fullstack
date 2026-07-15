@@ -12,6 +12,9 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate, requireOwnerOperator, requireShipper, requireAdmin, AuthRequest } from '../middleware/auth';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
+import { UserRole } from '../types';
+import { LoadService } from '../services/loadService';
+import { DriverService } from '../services/driverService';
 import { OwnerOperatorService } from '../services/ownerOperatorService';
 import { ComplianceDocumentService } from '../services/complianceDocumentService';
 import {
@@ -90,6 +93,42 @@ async function haulerFor(req: AuthRequest): Promise<{ operatorId: string; userId
   const profile = await OwnerOperatorService.getByUserId(req.user!.userId);
   if (!profile) throw new AppError('Owner Operator profile not found', 404);
   return { operatorId: profile.operatorId, userId: profile.userId };
+}
+
+// ── M5 (audit v6): server-side upload validation ──────────────────────────────
+// The COI/LOA byte content arrives base64 with a CLIENT-supplied content-type. Pin it
+// to an allowlist (server-authoritative) and verify the leading magic bytes match, so
+// an arbitrary content-type/payload can't be stored and later served.
+const ALLOWED_UPLOAD_MIME = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+
+function pinContentType(clientValue: unknown, fallback = 'application/pdf'): string {
+  const ct = typeof clientValue === 'string' ? clientValue.toLowerCase().split(';')[0].trim() : '';
+  if (ct && !ALLOWED_UPLOAD_MIME.has(ct)) {
+    throw new AppError('Unsupported file type; allowed types are PDF, JPEG, PNG', 415);
+  }
+  return ct || fallback;
+}
+
+function assertMagicMatches(bytes: Buffer, contentType: string): void {
+  const hex4 = bytes.subarray(0, 4).toString('hex').toUpperCase();
+  const ok =
+    (contentType === 'application/pdf' && bytes.subarray(0, 5).toString('latin1') === '%PDF-') ||
+    (contentType === 'image/jpeg' && hex4.startsWith('FFD8')) ||
+    (contentType === 'image/png' && hex4 === '89504E47');
+  if (!ok) throw new AppError('File content does not match its declared type', 400);
+}
+
+// ── M3 (audit v6): shipper-policy-on-load party checks ────────────────────────
+// The attached policy + its signed URL are party data, and a signature is a legal
+// attestation. Restrict reads to the load's parties and signing to the assigned hauler.
+async function callerIsAssignedHauler(req: AuthRequest, loadId: string): Promise<boolean> {
+  const load = await LoadService.getLoadById(loadId);
+  if (!load?.assignedDriverId) return false;
+  const driver = await DriverService.getProfileById(load.assignedDriverId);
+  if (!driver) return false;
+  if (driver.userId === req.user!.userId) return true; // the OO's own self-driver
+  const oo = await OwnerOperatorService.getByUserId(req.user!.userId).catch(() => null);
+  return !!oo && driver.ownedByOperatorId === oo.operatorId; // a driver in the caller's fleet
 }
 
 /** Build a W9 form input bound to the acting hauler. */
@@ -208,13 +247,15 @@ router.post(
     const { operatorId } = await haulerFor(req);
     const bytes = Buffer.from(String(req.body.fileBase64 ?? ''), 'base64');
     if (bytes.length === 0) throw new AppError('fileBase64 is required', 400);
+    const contentType = pinContentType(req.body.contentType);
+    assertMagicMatches(bytes, contentType);
     const doc = await submitCoi(
       {
         ownerType: 'HAULER',
         ownerId: operatorId,
         fileBytes: bytes,
         originalFilename: req.body.originalFilename ?? 'coi.pdf',
-        contentType: req.body.contentType ?? 'application/pdf',
+        contentType,
         fields: req.body.fields,
       },
       req.user!.userId,
@@ -232,13 +273,15 @@ router.post(
     const { operatorId } = await haulerFor(req);
     const bytes = Buffer.from(String(req.body.fileBase64 ?? ''), 'base64');
     if (bytes.length === 0) throw new AppError('fileBase64 is required', 400);
+    const contentType = pinContentType(req.body.contentType);
+    assertMagicMatches(bytes, contentType);
     const doc = await submitLetterOfAuthority(
       {
         ownerType: 'HAULER',
         ownerId: operatorId,
         fileBytes: bytes,
         originalFilename: req.body.originalFilename ?? 'loa.pdf',
-        contentType: req.body.contentType ?? 'application/pdf',
+        contentType,
         mcNumber: req.body.mcNumber,
         dotNumber: req.body.dotNumber,
       },
@@ -360,6 +403,13 @@ router.get(
   asyncHandler(async (req: AuthRequest, res) => {
     const att = await getAttachment(req.params.loadId);
     if (!att) return res.json({ attachment: null });
+    // M3: only the load's parties (its shipper or assigned hauler) may read the
+    // attached policy + its signed document URL.
+    const isParty =
+      req.user!.role === UserRole.ADMIN ||
+      req.user!.userId === att.shipperId ||
+      (await callerIsAssignedHauler(req, req.params.loadId));
+    if (!isParty) throw new AppError('Not authorized for this load policy', 403);
     const url = await policyDocumentUrl(att.policyVersionId);
     res.json({ attachment: att, url });
   }),
@@ -370,6 +420,11 @@ router.post(
   '/policy/load/:loadId/sign',
   requireOwnerOperator,
   asyncHandler(async (req: AuthRequest, res) => {
+    // M3: a policy signature is a legal attestation - only the load's assigned hauler
+    // may sign, not any owner-operator.
+    if (req.user!.role !== UserRole.ADMIN && !(await callerIsAssignedHauler(req, req.params.loadId))) {
+      throw new AppError("Only the load's assigned hauler may sign this policy", 403);
+    }
     const signed = await signAttachedPolicy({
       loadId: req.params.loadId,
       signerUserId: req.user!.userId,

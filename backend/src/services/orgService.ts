@@ -640,9 +640,15 @@ export class OrgInvitationService {
   }
 
   /** Revoke a pending invitation (spec §4.3). Only Owner/OrgAdmin may revoke. */
-  static async revokeInvitation(token: string, actorUserId: string): Promise<void> {
+  static async revokeInvitation(token: string, actorUserId: string, expectedOrgId?: string): Promise<void> {
     const invite = await this.getInvitationByToken(token);
     if (!invite) throw new AppError('Invitation not found', 404);
+    // M8 (audit v6): the token is looked up globally, so an org owner could revoke
+    // ANOTHER org's invitation via their own org's path. Bind the invite to the org
+    // the caller was authorized against (mirrors the SEC-C2 membership tenant-binding).
+    if (expectedOrgId && invite.orgId !== expectedOrgId) {
+      throw new AppError('Invitation not found', 404);
+    }
     if (invite.acceptedAt) throw new AppError('Invitation already accepted - cannot revoke', 409);
     if (invite.revokedAt) throw new AppError('Invitation already revoked', 409);
 
@@ -664,19 +670,28 @@ export class OrgInvitationService {
       });
     }
 
-    Logger.info(`Invitation revoked: ${token} by ${actorUserId}`);
+    // M10 (audit v6): the token is a bearer credential - log only a last-4 suffix,
+    // never the full token (log readers must not be able to replay an invite).
+    Logger.info(`Invitation revoked: ***${token.slice(-4)} by ${actorUserId}`);
   }
 
   /** Accept an invitation: creates membership, marks invitation accepted.
    *  Branches on invite.orgId - self-signup invites (no orgId) skip the
    *  membership step and just mark the token consumed. */
-  static async acceptInvitation(token: string, userId: string): Promise<OrgMembership | null> {
+  static async acceptInvitation(token: string, userId: string, userEmail?: string): Promise<OrgMembership | null> {
     const invite = await this.getInvitationByToken(token);
     if (!invite) throw new AppError('Invitation not found', 404);
     if (invite.acceptedAt) throw new AppError('Invitation already used', 409);
     if (invite.revokedAt) throw new AppError('Invitation has been revoked', 410);
     if (invite.expiresAt < Helpers.getCurrentTimestamp()) {
       throw new AppError('Invitation has expired', 410);
+    }
+    // M8 (audit v6): an invitation is addressed to a specific email. Without this
+    // bind, any authenticated user who obtains a token joins the org with the invited
+    // role. The authenticated accept route passes the caller's email; when supplied it
+    // MUST match the invite (signup consumes its own email-bound token, so it omits it).
+    if (userEmail && invite.email && invite.email.toLowerCase() !== userEmail.toLowerCase()) {
+      throw new AppError('This invitation was issued to a different email', 403);
     }
 
     // Self-signup branch: no orgId means there's no membership to create -
@@ -686,7 +701,7 @@ export class OrgInvitationService {
       await Database.updateItem(config.dynamodb.invitationsTable, { token }, {
         acceptedAt: Helpers.getCurrentTimestamp(),
       });
-      Logger.info(`Self-signup invitation accepted: ${token} by user ${userId}`);
+      Logger.info(`Self-signup invitation accepted: ***${token.slice(-4)} by user ${userId}`);
       return null;
     }
 
@@ -731,7 +746,7 @@ export class OrgInvitationService {
       newValue: invite.orgRole,
     });
 
-    Logger.info(`Invitation accepted: ${token} by user ${userId}`);
+    Logger.info(`Invitation accepted: ***${token.slice(-4)} by user ${userId}`);
     return membership;
   }
 }

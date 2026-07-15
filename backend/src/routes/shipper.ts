@@ -257,12 +257,39 @@ router.get('/loads/:loadId', asyncHandler(async (req: AuthRequest, res) => {
       res.json({ load, tracking });
 }));
 
+// M9 (audit v6): a shipper may edit only descriptive/logistics fields on their own
+// load. Ownership was checked, but the whole req.body was passed to updateLoad, so a
+// shipper could set status (bypass the negotiation/delivery state machine), rateAmount
+// or other money fields, assignedDriverId/carrierId, or inject arbitrary attributes.
+// Allowlist the editable set and drop everything else. Money, assignment, IDs, status,
+// and derived/audit fields are intentionally NOT editable via this endpoint.
+const SHIPPER_EDITABLE_LOAD_FIELDS = new Set<string>([
+  'referenceNumber', 'equipmentType', 'loadSize', 'totalWeightLbs',
+  'length', 'width', 'height', 'dimLengthIn', 'dimWidthIn', 'dimHeightIn', 'loadVolumeCuIn',
+  'acceptedEquipmentTypes', 'tempRequiredMin', 'tempRequiredMax',
+  'pickupFacility', 'pickupCity', 'pickupState', 'pickupZip', 'pickupAddress',
+  'pickupLat', 'pickupLng', 'pickupDate', 'pickupTime', 'pickupType', 'pickupInstructions',
+  'deliveryFacility', 'deliveryCity', 'deliveryState', 'deliveryZip', 'deliveryAddress',
+  'deliveryLat', 'deliveryLng', 'deliveryDate', 'deliveryTime', 'deliveryType', 'deliveryInstructions',
+  'commodityDescription', 'commodity', 'palletCount', 'stackable', 'fragile', 'highValue',
+  'hazmat', 'hazmatClass', 'temperatureMin', 'temperatureMax',
+  'minMcMaturityDays', 'minCargoInsurance', 'minLiabilityInsurance',
+  'requiredEndorsements', 'experienceRequired', 'broadcastRadiusMiles', 'offerTtlMinutes',
+  'characteristics', 'service_type', 'mode', 'equipment_required', 'equipment_model',
+  'trailer_utilization', 'team_driver_required', 'twic_required', 'accessorials',
+]);
+
 // PUT /api/shipper/loads/:loadId
 router.put('/loads/:loadId', asyncHandler(async (req: AuthRequest, res) => {
   const { loadId } = req.params;
   await requireOwnLoad(req.user!.userId, loadId);   // ← ownership check
 
-  await LoadService.updateLoad(loadId, req.body);
+  const updates: Record<string, any> = {};
+  for (const [k, v] of Object.entries(req.body ?? {})) {
+    if (SHIPPER_EDITABLE_LOAD_FIELDS.has(k)) updates[k] = v;
+  }
+
+  await LoadService.updateLoad(loadId, updates);
   res.json({ message: 'Load updated successfully' });
 }));
 

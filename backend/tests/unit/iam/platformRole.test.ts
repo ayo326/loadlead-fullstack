@@ -142,9 +142,12 @@ describe('per-route tier enforcement on destructive admin endpoints', () => {
     });
   }
 
-  it('legacy admin row with no platformRole resolves to STAFF_ADMIN (back-compat)', async () => {
+  // SEC-C1 follow-up (audit v6): an admin with NO platformRole no longer silently
+  // resolves to STAFF_ADMIN - resolvePlatformRole returns null and the destructive
+  // endpoint is denied (fail-closed). The self-signup-ADMIN amplifier is gone.
+  it('legacy admin row with no platformRole is DENIED on destructive endpoints (fail-closed)', async () => {
     CURRENT_TIER = null;
     const r = await request(app()).post('/api/admin/orgs/org-1/suspend').send({ reason: 'lookup test' });
-    expect(r.status).toBe(200);
+    expect(r.status).toBe(403);
   });
 });

@@ -618,7 +618,7 @@ router.delete(
       (callerMembership && hasPermission(callerMembership.orgRole, 'members:invite'));
     if (!canRevoke) throw new AppError('Forbidden', 403);
 
-    await OrgInvitationService.revokeInvitation(token, req.user!.userId);
+    await OrgInvitationService.revokeInvitation(token, req.user!.userId, orgId);
     res.json({ ok: true });
   })
 );
@@ -631,7 +631,7 @@ router.post(
   '/invitations/:token/accept',
   asyncHandler(async (req: AuthRequest, res) => {
     const { token } = req.params;
-    const membership = await OrgInvitationService.acceptInvitation(token, req.user!.userId);
+    const membership = await OrgInvitationService.acceptInvitation(token, req.user!.userId, req.user!.email);
     res.json({ membership });
   })
 );
