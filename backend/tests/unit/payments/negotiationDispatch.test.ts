@@ -22,6 +22,7 @@ const m = vi.hoisted(() => ({
   ooGetByUserId:      vi.fn(async (): Promise<any> => null),
   getMembership:      vi.fn(async (): Promise<any> => null),
   send:               vi.fn(async () => undefined),
+  deliver:            vi.fn(async () => undefined),
 }));
 
 vi.mock('../../../src/services/negotiationService', () => ({
@@ -39,6 +40,10 @@ vi.mock('../../../src/services/ownerOperatorService', () => ({ OwnerOperatorServ
 vi.mock('../../../src/services/orgService', () => ({ OrgMembershipService: { getMembership: m.getMembership } }));
 vi.mock('../../../src/services/shipperService', () => ({ ShipperService: { getProfileByUserId: vi.fn(async () => null) } }));
 vi.mock('../../../src/services/pushService', () => ({ PushService: { send: m.send } }));
+// M15 (audit v6): the outbox was NOT mocked, so notify() issued a live Database.putItem
+// (swallowed on failure) - a "false green" that also hid the real DDB write. Mock it and
+// assert the durable-intent write is attempted.
+vi.mock('../../../src/services/notificationOutboxService', () => ({ NotificationOutboxService: { deliver: m.deliver } }));
 vi.mock('../../../src/services/loadService', () => ({ LoadService: { getLoadById: vi.fn(async () => null) } }));
 vi.mock('../../../src/services/verification', () => ({ requireVerifiedCarrier: () => (_r: any, _s: any, n: any) => n() }));
 vi.mock('../../../src/utils/logger', () => ({ Logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() }, default: { info: vi.fn(), error: vi.fn(), warn: vi.fn() } }));
