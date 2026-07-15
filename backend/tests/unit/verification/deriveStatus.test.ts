@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { VerificationStatus, EntityType } from '../../../src/services/verification';
 
 const sendMock = vi.hoisted(() => vi.fn());
@@ -156,5 +156,64 @@ describe('recomputeAndPersist + deriveStatus', () => {
       entityType: EntityType.OWNER_OPERATOR,
     });
     expect(result.verificationStatus).toBe(VerificationStatus.UNVERIFIED);
+  });
+});
+
+// ── Audit v6 M1: AML_REQUIRED gate ───────────────────────────────────────────
+// With the flag OFF the gate is unchanged (undefined amlStatus passes). With it
+// ON, a never-screened entity (undefined) no longer counts as AML-clear, for
+// BOTH carriers and drivers (the chosen "all carriers + drivers" scope).
+describe('deriveStatus AML_REQUIRED gate (audit v6 M1)', () => {
+  const carrier = (extra: Record<string, unknown>) => ({
+    entityId: 'OP', entityType: EntityType.OWNER_OPERATOR,
+    docsSubmittedAt: new Date().toISOString(),
+    fmcsaAuthorityActive: true, kybStatus: 'pass',
+    updatedAt: new Date().toISOString(), ...extra,
+  });
+  const driver = (extra: Record<string, unknown>) => ({
+    entityId: 'U', entityType: EntityType.DRIVER,
+    docsSubmittedAt: new Date().toISOString(),
+    idvStatus: 'pass', updatedAt: new Date().toISOString(), ...extra,
+  });
+  const derive = async (item: Record<string, unknown>) => {
+    sendMock.mockResolvedValueOnce({ Item: item }).mockResolvedValueOnce({});
+    return (await recomputeAndPersist(String(item.entityId), {})).verificationStatus;
+  };
+
+  afterEach(() => { delete process.env.AML_REQUIRED; });
+
+  it('flag OFF: carrier with undefined amlStatus stays VERIFIED (current behavior)', async () => {
+    delete process.env.AML_REQUIRED;
+    expect(await derive(carrier({}))).toBe(VerificationStatus.VERIFIED);
+  });
+
+  it('flag OFF: driver with undefined amlStatus stays VERIFIED (current behavior)', async () => {
+    delete process.env.AML_REQUIRED;
+    expect(await derive(driver({}))).toBe(VerificationStatus.VERIFIED);
+  });
+
+  it('flag ON: carrier with undefined amlStatus → PENDING (no longer auto-passes)', async () => {
+    process.env.AML_REQUIRED = 'true';
+    expect(await derive(carrier({}))).toBe(VerificationStatus.PENDING);
+  });
+
+  it('flag ON: carrier with amlStatus pass → VERIFIED', async () => {
+    process.env.AML_REQUIRED = 'true';
+    expect(await derive(carrier({ amlStatus: 'pass' }))).toBe(VerificationStatus.VERIFIED);
+  });
+
+  it('flag ON: driver with undefined amlStatus → PENDING (AML now required for drivers too)', async () => {
+    process.env.AML_REQUIRED = 'true';
+    expect(await derive(driver({}))).toBe(VerificationStatus.PENDING);
+  });
+
+  it('flag ON: driver with amlStatus pass → VERIFIED', async () => {
+    process.env.AML_REQUIRED = 'true';
+    expect(await derive(driver({ amlStatus: 'pass' }))).toBe(VerificationStatus.VERIFIED);
+  });
+
+  it('flag ON: amlStatus fail → REJECTED regardless (was already true)', async () => {
+    process.env.AML_REQUIRED = 'true';
+    expect(await derive(carrier({ amlStatus: 'fail' }))).toBe(VerificationStatus.REJECTED);
   });
 });

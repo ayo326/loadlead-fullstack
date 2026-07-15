@@ -90,10 +90,25 @@ function deriveStatus(v: Partial<Verification>): VerificationStatus {
   const fmcsaOk = !isCarrier || v.fmcsaAuthorityActive === true;
   const kybOk   = !isCarrier || v.kybStatus === 'pass';
   const idvOk   = isCarrier || v.idvStatus === 'pass';
-  const amlOk   = v.amlStatus === undefined || v.amlStatus === 'pass';
+  // Audit v6 M1: a never-screened entity (amlStatus undefined) must not count as
+  // AML-clear. Gated behind AML_REQUIRED so this ships inert - undefined keeps
+  // passing until (1) existing entities are backfilled with a real amlStatus and
+  // (2) the flag is flipped in prod. A definitive 'fail' already REJECTs above;
+  // 'pending' is never a pass, so a screen still in progress holds at PENDING.
+  const amlOk   = v.amlStatus === 'pass' || (!amlRequired() && v.amlStatus === undefined);
 
   if (fmcsaOk && kybOk && idvOk && amlOk) return VerificationStatus.VERIFIED;
   return VerificationStatus.PENDING;
+}
+
+/**
+ * AML enforcement gate (audit v6 M1). OFF by default so the AML wiring ships
+ * inert. Flip AML_REQUIRED=true in prod ONLY after every already-verified
+ * carrier/driver has been backfilled with a real amlStatus - otherwise the flip
+ * would immediately un-verify them (they currently have amlStatus=undefined).
+ */
+export function amlRequired(): boolean {
+  return process.env.AML_REQUIRED === 'true';
 }
 
 export async function recomputeAndPersist(
@@ -442,7 +457,20 @@ export async function diditWebhookHandler(req: Request, res: Response) {
       'pending';
   }
 
-  await recomputeAndPersist(entityId, patch);
+  const merged = await recomputeAndPersist(entityId, patch);
+
+  // Audit v6 M1: when AML enforcement is on, run a standalone AML screen the
+  // moment KYB (carrier) or IDV (driver) passes and no definitive AML result is
+  // yet on record (the KYB/IDV workflow itself may not include AML). Best-effort:
+  // a screen failure leaves amlStatus 'pending' (held, not verified via
+  // deriveStatus) and never breaks the webhook acknowledgement.
+  if (amlRequired() && sub === 'pass' && merged.amlStatus !== 'pass' && merged.amlStatus !== 'fail') {
+    try {
+      await screenEntityAml(entityId, merged.entityType);
+    } catch (err) {
+      console.error('[verification] AML screen after pass failed (left pending):', err);
+    }
+  }
   return res.json({ ok: true });
 }
 
@@ -451,4 +479,50 @@ export async function diditWebhookHandler(req: Request, res: Response) {
 export async function screenCarrierAml(entityId: string, fullName: string): Promise<void> {
   const result = await callDiditAml(entityId, fullName);
   await recomputeAndPersist(entityId, { amlStatus: result });
+}
+
+// Resolve the natural-person full name to AML-screen for a verification entity:
+//   DRIVER         -> the User behind the driver (identity is per-person)
+//   OWNER_OPERATOR -> the operator's legal name
+//   ORGANIZATION   -> the org legal name. NOTE: this screens the business name
+//                     as a person; a future refinement should screen a named
+//                     beneficial owner and/or use a business AML endpoint.
+// Fetches Users/Orgs via Database.getItem to avoid a circular service import.
+export async function resolveScreeningName(
+  entityId: string,
+  entityType: EntityType,
+): Promise<string | null> {
+  if (entityType === EntityType.DRIVER) {
+    const user = await Database.getItem<{ fullName?: string; firstName?: string; lastName?: string }>(
+      config.dynamodb.usersTable, { userId: entityId });
+    const name = user?.fullName || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+    return name || null;
+  }
+  if (entityType === EntityType.OWNER_OPERATOR) {
+    const op = await OwnerOperatorService.getById(entityId);
+    return op?.legalName || null;
+  }
+  if (entityType === EntityType.ORGANIZATION) {
+    const org = await Database.getItem<{ legalName?: string }>(
+      config.dynamodb.orgsTable, { orgId: entityId });
+    return org?.legalName || null;
+  }
+  return null;
+}
+
+// AML screening for ANY entity type (audit v6 M1) - resolves the person name
+// then screens + persists amlStatus. Used by the post-KYB/IDV webhook trigger
+// and the backfill script. Returns null (no screen run) when no name resolves.
+export async function screenEntityAml(
+  entityId: string,
+  entityType: EntityType,
+): Promise<SubStatus | null> {
+  const fullName = await resolveScreeningName(entityId, entityType);
+  if (!fullName) {
+    console.warn('[verification] AML screen skipped - no screening name for', entityType, entityId);
+    return null;
+  }
+  const result = await callDiditAml(entityId, fullName);
+  await recomputeAndPersist(entityId, { amlStatus: result });
+  return result;
 }
