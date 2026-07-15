@@ -1,5 +1,6 @@
 import { Driver, DriverStatus } from '../types';
 import { Database } from '../config/database';
+import { queryIndexOrScan } from '../utils/indexQuery';
 import config from '../config/environment';
 import { Helpers } from '../utils/helpers';
 import Logger from '../utils/logger';
@@ -118,10 +119,17 @@ export class DriverService {
 
   static async getProfileByUserId(userId: string): Promise<Driver | null> {
     try {
-      const drivers = await Database.scan<Driver>(
+      // COA-3 / audit v6 H8: query the existing userId-index instead of a
+      // full-table scan on this hot auth path (first call in ~60 handlers).
+      // queryIndexOrScan falls back to the scan (loudly) if the index is ever
+      // unavailable, so this is safe regardless of backfill state.
+      const drivers = await queryIndexOrScan<Driver>(
         config.dynamodb.driversTable,
-        'userId = :userId',
-        { ':userId': userId }
+        'userId-index',
+        'userId',
+        userId,
+        () => Database.scan<Driver>(config.dynamodb.driversTable, 'userId = :userId', { ':userId': userId }),
+        'DriverService.getProfileByUserId',
       );
 
       return drivers.length > 0 ? drivers[0] : null;
