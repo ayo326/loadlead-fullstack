@@ -270,6 +270,13 @@ export async function assertRequiredIndexesActive(): Promise<void> {
     { table: config.dynamodb.loadsTable, index: 'shipperId-index' },
     { table: config.dynamodb.accessorialChargesTable, index: 'loadId-index' },
     { table: config.dynamodb.complianceDocumentsTable, index: 'ownerId-index' },
+    // Promoted 2026-07-14 (audit v6 COA-3 H8): getProfileByUserId is the FIRST
+    // call on ~60 authenticated handlers - a missing userId-index turns the
+    // hottest read path into a full-table scan (self-DoS as the table grows).
+    // Confirmed ACTIVE in staging and prod before promotion (items live).
+    { table: config.dynamodb.driversTable, index: 'userId-index' },
+    { table: config.dynamodb.shippersTable, index: 'userId-index' },
+    { table: config.dynamodb.receiversTable, index: 'userId-index' },
   ];
   // New indexes start here warn-only, then get promoted once ACTIVE everywhere.
   const EXPECTED: { table: string; index: string }[] = [];
