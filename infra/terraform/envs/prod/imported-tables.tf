@@ -74,6 +74,12 @@ resource "aws_dynamodb_table" "ddb_loads" {
     name = "status"
     type = "S"
   }
+  # assignedDriverId-index (audit v6 M6): getLoadsByAssignedDriver fans out once per
+  # fleet driver on dashboards; this makes each a query instead of a full-table scan.
+  attribute {
+    name = "assignedDriverId"
+    type = "S"
+  }
 
   global_secondary_index {
     name            = "status-index"
@@ -87,12 +93,18 @@ resource "aws_dynamodb_table" "ddb_loads" {
     projection_type = "ALL"
   }
 
+  global_secondary_index {
+    name            = "assignedDriverId-index"
+    hash_key        = "assignedDriverId"
+    projection_type = "ALL"
+  }
+
   point_in_time_recovery {
     enabled = true
   }
 
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 output "loads_table_arn" { value = aws_dynamodb_table.ddb_loads.arn }
 
@@ -149,7 +161,7 @@ resource "aws_dynamodb_table" "ddb_offers" {
   }
 
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 output "offers_table_arn" { value = aws_dynamodb_table.ddb_offers.arn }
 
@@ -178,7 +190,7 @@ resource "aws_dynamodb_table" "ddb_drivers" {
   }
 
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 output "drivers_table_arn" { value = aws_dynamodb_table.ddb_drivers.arn }
 
@@ -207,7 +219,7 @@ resource "aws_dynamodb_table" "ddb_receivers" {
   }
 
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 output "receivers_table_arn" { value = aws_dynamodb_table.ddb_receivers.arn }
 
@@ -236,7 +248,7 @@ resource "aws_dynamodb_table" "ddb_shippers" {
   }
 
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 output "shippers_table_arn" { value = aws_dynamodb_table.ddb_shippers.arn }
 
@@ -255,7 +267,7 @@ resource "aws_dynamodb_table" "ddb_organizations" {
   }
 
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 output "organizations_table_arn" { value = aws_dynamodb_table.ddb_organizations.arn }
 
@@ -294,7 +306,7 @@ resource "aws_dynamodb_table" "ddb_memberships" {
   }
 
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 output "memberships_table_arn" { value = aws_dynamodb_table.ddb_memberships.arn }
 
@@ -333,7 +345,7 @@ resource "aws_dynamodb_table" "ddb_bol" {
   }
 
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 output "bol_table_arn" { value = aws_dynamodb_table.ddb_bol.arn }
 
@@ -362,7 +374,7 @@ resource "aws_dynamodb_table" "ddb_verifications" {
   }
 
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 output "verifications_table_arn" { value = aws_dynamodb_table.ddb_verifications.arn }
 
@@ -398,7 +410,7 @@ resource "aws_dynamodb_table" "ddb_membership_audit_logs" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_admin_audit" {
@@ -414,7 +426,7 @@ resource "aws_dynamodb_table" "ddb_admin_audit" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_admin_bootstrap_attempts" {
@@ -430,7 +442,7 @@ resource "aws_dynamodb_table" "ddb_admin_bootstrap_attempts" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_carrier_factoring_profiles" {
@@ -446,7 +458,7 @@ resource "aws_dynamodb_table" "ddb_carrier_factoring_profiles" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_factoring_opt_ins" {
@@ -471,7 +483,7 @@ resource "aws_dynamodb_table" "ddb_factoring_opt_ins" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_fleet_invites" {
@@ -505,7 +517,7 @@ resource "aws_dynamodb_table" "ddb_fleet_invites" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_invitations" {
@@ -530,7 +542,7 @@ resource "aws_dynamodb_table" "ddb_invitations" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_notifications" {
@@ -555,7 +567,7 @@ resource "aws_dynamodb_table" "ddb_notifications" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_owner_operators" {
@@ -580,7 +592,7 @@ resource "aws_dynamodb_table" "ddb_owner_operators" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_password_resets" {
@@ -596,7 +608,7 @@ resource "aws_dynamodb_table" "ddb_password_resets" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_push_subscriptions" {
@@ -612,7 +624,7 @@ resource "aws_dynamodb_table" "ddb_push_subscriptions" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_setup_tokens" {
@@ -628,7 +640,7 @@ resource "aws_dynamodb_table" "ddb_setup_tokens" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_support_inbound" {
@@ -644,7 +656,7 @@ resource "aws_dynamodb_table" "ddb_support_inbound" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_support_messages" {
@@ -660,7 +672,7 @@ resource "aws_dynamodb_table" "ddb_support_messages" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_support_settings" {
@@ -676,7 +688,7 @@ resource "aws_dynamodb_table" "ddb_support_settings" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_support_tickets" {
@@ -692,7 +704,7 @@ resource "aws_dynamodb_table" "ddb_support_tickets" {
 
   point_in_time_recovery { enabled = true }
   deletion_protection_enabled = false
-  tags = local.tags
+  tags                        = local.tags
 }
 
 
@@ -744,7 +756,7 @@ resource "aws_dynamodb_table" "ddb_beta_allowlist" {
   }
 
   deletion_protection_enabled = true
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_beta_applications" {
@@ -792,7 +804,7 @@ resource "aws_dynamodb_table" "ddb_beta_applications" {
   }
 
   deletion_protection_enabled = true
-  tags = local.tags
+  tags                        = local.tags
 }
 
 resource "aws_dynamodb_table" "ddb_waitlist" {
@@ -820,7 +832,7 @@ resource "aws_dynamodb_table" "ddb_waitlist" {
   }
 
   deletion_protection_enabled = true
-  tags = local.tags
+  tags                        = local.tags
 }
 
 # ─── Append-only protection for beta application intake ─────────────────────

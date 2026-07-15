@@ -39,6 +39,8 @@ module "network" {
 # (FactoringAssignments) and entityId-index (LegalHolds) GSIs arrives here via the
 # same module. Prod declares those two tables directly in envs/prod/main.tf, so the
 # staging mirror lives in the module rather than a staging-specific resource.
+# Audit v6 M6: same again for the new Loads assignedDriverId-index - staging gets it
+# via the tableset module; prod declares LoadLead_Loads in envs/prod/imported-tables.tf.
 module "dynamodb" {
   source              = "../../modules/dynamodb_tableset"
   env                 = local.env
