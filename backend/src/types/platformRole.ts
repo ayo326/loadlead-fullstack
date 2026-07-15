@@ -59,7 +59,14 @@ export const DESTRUCTIVE_TIER: PlatformRole[] = [
  * (corrupt or tampered), return null so the caller can refuse.
  */
 export function resolvePlatformRole(stored: string | null | undefined): PlatformRole | null {
-  if (stored == null) return PlatformRole.STAFF_ADMIN;       // back-compat
+  // SEC-C1 follow-up (audit v6): a missing platformRole now resolves to NULL, not
+  // STAFF_ADMIN. Previously any role=ADMIN with no explicit platformRole was silently
+  // granted the full DESTRUCTIVE tier - the amplifier behind the self-signup-ADMIN
+  // CRITICAL. The auth gate (middleware/auth.requireStaffTier) treats null as no tier
+  // and denies, so a null-platformRole admin is now fail-closed. Safe to flip: the
+  // bootstrapped admin is stamped STAFF_ADMIN explicitly, and a prod users audit
+  // (2026-07-14) confirmed every role=ADMIN row already carries an explicit platformRole.
+  if (stored == null) return null;
   return ALL_PLATFORM_ROLES.includes(stored as PlatformRole)
     ? (stored as PlatformRole)
     : null;

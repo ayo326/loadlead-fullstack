@@ -28,7 +28,15 @@ vi.mock('../../../src/services/accessorialPolicyService', () => ({
   AccessorialPolicyService: { getOrCreateForLoad: vi.fn(async () => ({})), acceptPolicy: vi.fn() },
 }));
 vi.mock('../../../src/services/loadService', () => ({ LoadService: { getLoadById } }));
-vi.mock('../../../src/services/driverService', () => ({ DriverService: { getProfileById: vi.fn(async () => null) } }));
+// SEC-M2: the caller (driver d1) resolves to the load's assigned mover, so stop
+// events are authorized. getProfileById(assignedDriverId) stays null so resolveMoverId
+// falls back to the assignedDriverId ('d1'), which callerMoverIds also yields.
+vi.mock('../../../src/services/driverService', () => ({
+  DriverService: {
+    getProfileById: vi.fn(async () => null),
+    getProfileByUserId: vi.fn(async () => ({ driverId: 'd1', userId: 'd1' })),
+  },
+}));
 vi.mock('../../../src/services/shipperService', () => ({ ShipperService: { getProfileByUserId: getShipperByUserId } }));
 vi.mock('../../../src/services/carrierOfRecord', () => ({ resolveCarrierOfRecord: vi.fn(async () => ({ entityId: 'carrier-1' })) }));
 vi.mock('../../../src/utils/logger', () => ({ Logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() } }));

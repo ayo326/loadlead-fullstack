@@ -45,6 +45,44 @@ async function resolveMoverId(load: any): Promise<string> {
   return cor?.entityId ?? load.assignedDriverId;
 }
 
+/** The caller's mover identity: their own driver id and carrier-of-record id (if any). */
+async function callerMoverIds(req: AuthRequest): Promise<{ driverId: string | null; carrierEntityId: string | null }> {
+  const driver = await DriverService.getProfileByUserId(req.user!.userId).catch(() => null);
+  if (!driver) return { driverId: null, carrierEntityId: null };
+  const cor = await resolveCarrierOfRecord(driver).catch(() => null);
+  return { driverId: driver.driverId, carrierEntityId: cor?.entityId ?? driver.driverId };
+}
+
+/**
+ * M2 (audit v6): stop events (check-in/check-out) drive detention/accessorial CENTS
+ * and land in the append-only stop-event log. requireRole only proves the caller is
+ * *a* mover; without this any driver/OO could fabricate or suppress detention on ANY
+ * load. The caller must be the load's ASSIGNED mover (ADMIN bypasses for support).
+ */
+async function assertCallerIsAssignedMover(req: AuthRequest, load: any): Promise<void> {
+  if (req.user!.role === UserRole.ADMIN) return;
+  if (!load.assignedDriverId) throw new AppError('Load has no assigned mover', 403);
+  const [{ driverId, carrierEntityId }, moverId] = await Promise.all([callerMoverIds(req), resolveMoverId(load)]);
+  const ok = (driverId && driverId === load.assignedDriverId) || (carrierEntityId && carrierEntityId === moverId);
+  if (!ok) throw new AppError('Not authorized for this load', 403);
+}
+
+/**
+ * M1 (audit v6): accessorial charge amounts (cents) + carrier identity are party data.
+ * The listing was authenticated but ungated, so any persona could enumerate any load's
+ * charges. Restrict to the load's shipper OR its assigned mover (ADMIN bypasses).
+ */
+async function assertCallerIsLoadParty(req: AuthRequest, loadId: string): Promise<void> {
+  if (req.user!.role === UserRole.ADMIN) return;
+  const load = await LoadService.getLoadById(loadId);
+  if (!load) throw new AppError(`Load ${loadId} not found`, 404);
+  const shipper = await ShipperService.getProfileByUserId(req.user!.userId).catch(() => null);
+  if (shipper && load.shipperId === shipper.shipperId) return;
+  const [{ driverId, carrierEntityId }, moverId] = await Promise.all([callerMoverIds(req), resolveMoverId(load)]);
+  if ((driverId && driverId === load.assignedDriverId) || (carrierEntityId && carrierEntityId === moverId)) return;
+  throw new AppError('Not authorized for this load', 403);
+}
+
 // ── Stop events (mover side) ────────────────────────────────────────────────
 
 /** POST /api/accessorials/loads/:loadId/stops/:stopId/check-in */
@@ -61,7 +99,8 @@ router.post(
     body('note').optional().isString().isLength({ max: 2000 }),
   ]),
   asyncHandler(async (req: AuthRequest, res) => {
-    await requireLoad(req.params.loadId);
+    const load = await requireLoad(req.params.loadId);
+    await assertCallerIsAssignedMover(req, load);
     const event = await StopEventService.checkIn({
       loadId: req.params.loadId,
       stopId: req.params.stopId,
@@ -90,7 +129,8 @@ router.post(
     body('note').optional().isString().isLength({ max: 2000 }),
   ]),
   asyncHandler(async (req: AuthRequest, res) => {
-    await requireLoad(req.params.loadId);
+    const load = await requireLoad(req.params.loadId);
+    await assertCallerIsAssignedMover(req, load);
     const event = await StopEventService.checkOut({
       loadId: req.params.loadId,
       stopId: req.params.stopId,
@@ -197,6 +237,7 @@ router.get(
   '/loads/:loadId/charges',
   validate([param('loadId').isString().isLength({ min: 1, max: 200 })]),
   asyncHandler(async (req: AuthRequest, res) => {
+    await assertCallerIsLoadParty(req, req.params.loadId);
     const charges = await AccessorialChargeService.listForLoad(req.params.loadId);
     res.json({ charges, count: charges.length });
   })

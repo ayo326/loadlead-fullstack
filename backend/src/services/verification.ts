@@ -411,7 +411,13 @@ export async function diditWebhookHandler(req: Request, res: Response) {
   const webhookType: string = event?.webhook_type ?? '';
 
   if (!entityId) {
-    console.warn('[verification] Didit webhook missing vendor_data - body:', JSON.stringify(event));
+    // M10 (audit v6): never log the full Didit event body - it carries identity/KYC
+    // PII. Log only the non-PII envelope fields needed to debug a missing vendor_data.
+    console.warn('[verification] Didit webhook missing vendor_data', {
+      session_id: sessionId,
+      webhook_type: webhookType,
+      status,
+    });
     return res.status(400).json({ error: 'missing_entity' });
   }
 
