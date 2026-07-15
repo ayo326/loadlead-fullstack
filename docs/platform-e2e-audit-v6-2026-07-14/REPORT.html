@@ -1,0 +1,368 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>LoadLead Platform E2E Audit v6 (2026-07-14)</title>
+<!doctype html><html><head><meta charset="utf-8"><style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #1a1f2b; max-width: 100%; margin: 0; }
+h1 { font-size: 23px; color: #0f172a; border-bottom: 3px solid #2563eb; padding-bottom: 8px; margin: 0 0 4px; }
+h2 { font-size: 16px; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin: 22px 0 8px; page-break-after: avoid; }
+h3 { font-size: 13px; color: #1e293b; margin: 14px 0 6px; page-break-after: avoid; }
+h4 { font-size: 11.5px; color: #334155; margin: 10px 0 4px; }
+p, li { font-size: 11px; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 10px; page-break-inside: avoid; }
+th, td { border: 1px solid #cbd5e1; padding: 5px 7px; text-align: left; vertical-align: top; }
+th { background: #f1f5f9; font-weight: 600; }
+tr:nth-child(even) td { background: #f8fafc; }
+code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-family: "SF Mono", Menlo, monospace; font-size: 9.5px; }
+pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 6px; overflow-x: auto; font-size: 9px; line-height: 1.45; page-break-inside: avoid; }
+pre code { background: none; color: inherit; padding: 0; }
+blockquote { border-left: 3px solid #2563eb; margin: 8px 0; padding: 2px 12px; color: #475569; background: #f8fafc; }
+hr { border: none; border-top: 1px solid #e2e8f0; margin: 18px 0; }
+a { color: #2563eb; text-decoration: none; }
+strong { color: #0f172a; }
+/* severity chips */
+td:first-child, .sev { white-space: nowrap; }
+h2 { page-break-before: auto; }
+</style></head><body>
+<style>
+@page { margin: 14mm 12mm; }
+body { max-width: none; }
+table { width: 100%; border-collapse: collapse; table-layout: auto; }
+th, td { word-break: break-word; }
+pre, code { white-space: pre-wrap; word-break: break-word; }
+h1,h2,h3 { page-break-after: avoid; }
+tr, table { page-break-inside: avoid; }
+</style>
+</head><body>
+<h1>LoadLead Platform E2E Audit v6</h1>
+<p><strong>Date:</strong> 2026-07-14 · <strong>Author:</strong> Platform Engineering · <strong>Scope:</strong> backend (Express/TS/DynamoDB), frontend-v2 (React/Vite), infra (Terraform/OpenTofu), across dev / staging / prod. Six parallel dimensions: backend test suite, frontend, environment parity, business-logic, live smoke, security/IAM.</p>
+<hr>
+<h2>1. Executive summary</h2>
+<p>The platform is well engineered and, at today&#39;s data volume, running correctly: 772/772 backend tests pass with zero flakes, the frontend is clean and the blank-page regression cannot recur, prod is healthy and hardened, and the cryptographic trust boundary (JWT alg pinning, KMS-encrypted TIN, webhook signatures, secrets hygiene) is largely sound. The boot guard is fail-closed and fully wired.</p>
+<p>The risk this round is concentrated in <strong>authorization</strong> and <strong>scale</strong>. The adversarial passes found <strong>3 CRITICAL</strong> issues: one latent data-correctness bomb on money/legal paths, and two live privilege/tenant-isolation holes. None require broken crypto to exploit; they are missing ownership checks, an over-permissive signup, and an un-paginated query helper.</p>
+<h3>Findings by severity</h3>
+<table>
+<thead>
+<tr>
+<th>Severity</th>
+<th>Count</th>
+<th>Theme</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CRITICAL</td>
+<td>3</td>
+<td>Un-paginated DB reads truncate money/legal data; self-signup as ADMIN; cross-tenant org takeover</td>
+</tr>
+<tr>
+<td>HIGH</td>
+<td>13</td>
+<td>Object-level authorization (IDOR) on charges/factoring/receiver/BOL/org; unauth billed maps proxy; Didit fail-open; hot-path scan DoS; presigned-upload abuse; admin tier-drift; axios/deps; SNS verifier untested; dev capacity table pointer</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>~16</td>
+<td>AML skippable; unvalidated maxCapacityLbs; accessorial double-charge; silent-failure admin fetches; stop-event injection; IDOR on policy docs; email-bomb; upload MIME; N-scan fan-out; token logging; route/webhook test gaps</td>
+</tr>
+<tr>
+<td>LOW</td>
+<td>~15</td>
+<td>Capacity same-ms nondeterminism; JWT base-role TTL; ErrorBoundary/lazy hygiene; legal-hold wiring; deps; staging tfvars dead values</td>
+</tr>
+</tbody></table>
+<h3>The 3 CRITICALs</h3>
+<ol>
+<li><p><strong>BL-C1 - <code>Database.scan</code>/<code>query</code> never paginate.</strong> Both helpers issue one command and return <code>result.Items</code>, ignoring <code>LastEvaluatedKey</code> (<code>config/database.ts:94-137</code>). DynamoDB caps a page at 1 MB. Once the forever-growing append-only tables cross 1 MB, three paths silently return wrong answers, with no error: court-ordered <strong>payout intercepts</strong> (a levied carrier gets paid in full), <strong>factor payee routing</strong> (funds to the wrong party), and <strong>legal holds</strong> (a held record becomes deletable). Latent today; fires with data growth.</p>
+</li>
+<li><p><strong>SEC-C1 - Self-registration as platform ADMIN.</strong> <code>POST /api/auth/signup</code> accepts an attacker-chosen <code>role</code>, and the validator allows <code>ADMIN</code> (<code>routes/auth.ts:52</code>, <code>utils/validators.ts:16</code>). <code>resolvePlatformRole(undefined)</code> then grants STAFF_ADMIN across every tier. Currently gated behind the beta wall (BETA_MODE is on in prod), so the immediate exposure is &quot;any beta-cohort member can become full platform admin&quot;; with BETA_MODE off it is fully unauthenticated.</p>
+</li>
+<li><p><strong>SEC-C2 - Cross-tenant org takeover (IDOR/BOLA).</strong> Org member routes authorize the caller against the path <code>:orgId</code> but act on a globally-resolved <code>:membershipId</code> with no <code>target.orgId === orgId</code> check (<code>routes/org.ts:308,347</code>; <code>orgService.ts:303,354</code>). An attacker who owns a throwaway org can promote a colluder to OWNER of any other org, or remove that org&#39;s real owner.</p>
+</li>
+</ol>
+<h3>Top fixes to land first</h3>
+<p>SEC-C1, SEC-C2, and SEC-H7 (Didit fail-open) are each a single-file, low-risk patch with outsized blast-radius reduction. BL-C1 is a shared-helper change (add a <code>LastEvaluatedKey</code> loop) plus a few GSIs. These four are the recommended immediate sprint (Section 4).</p>
+<hr>
+<h2>2. Severity-ranked findings (consolidated, deduped)</h2>
+<p>Two findings were reported independently by the business-logic and security passes and are merged here (Didit fail-open; hot-path scans), which raises confidence.</p>
+<h3>CRITICAL</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Finding</th>
+<th>Where</th>
+<th>Dimension</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C1</td>
+<td>DB scan/query no pagination -&gt; silent truncation of intercepts / factoring / legal holds</td>
+<td><code>config/database.ts:94-137</code></td>
+<td>Business-logic</td>
+</tr>
+<tr>
+<td>C2</td>
+<td>Self-signup as ADMIN (privilege escalation to full compromise)</td>
+<td><code>routes/auth.ts:52</code>, <code>utils/validators.ts:16</code></td>
+<td>Security</td>
+</tr>
+<tr>
+<td>C3</td>
+<td>Cross-tenant org takeover via unbound <code>membershipId</code> (IDOR)</td>
+<td><code>routes/org.ts:308,347</code></td>
+<td>Security</td>
+</tr>
+</tbody></table>
+<h3>HIGH</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Finding</th>
+<th>Where</th>
+<th>Dimension</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>H1</td>
+<td>Accessorial charge approve/adjust/dispute on any load&#39;s charge (financial IDOR)</td>
+<td><code>accessorials.ts:205,216,236</code></td>
+<td>Security</td>
+</tr>
+<tr>
+<td>H2</td>
+<td>Factoring invoice package/export cross-tenant read + exfiltration</td>
+<td><code>factoring.ts:395,409,231</code></td>
+<td>Security</td>
+</tr>
+<tr>
+<td>H3</td>
+<td>Receiver reads any load by id</td>
+<td><code>receiver.ts:41</code></td>
+<td>Security</td>
+</tr>
+<tr>
+<td>H4</td>
+<td>BOL creation on another shipper&#39;s load</td>
+<td><code>bol.ts:64</code></td>
+<td>Security</td>
+</tr>
+<tr>
+<td>H5</td>
+<td>Org member suspend/reinstate: same tenant-binding gap</td>
+<td><code>org.ts:369,391</code></td>
+<td>Security</td>
+</tr>
+<tr>
+<td>H6</td>
+<td><code>/api/maps/*</code> unauthenticated, unthrottled, billed proxy (billing/availability DoS)</td>
+<td><code>index.ts:321</code>, <code>maps.ts:68</code></td>
+<td>Security</td>
+</tr>
+<tr>
+<td>H7</td>
+<td>Didit webhook fails OPEN when secret unset (forge VERIFIED) [also found by business-logic]</td>
+<td><code>verification.ts:382</code></td>
+<td>Security + Business-logic</td>
+</tr>
+<tr>
+<td>H8</td>
+<td>Hot-path profile lookups (driver/shipper/receiver) full-table scan -&gt; null at scale + DoS [also found by business-logic]</td>
+<td><code>driverService.ts:119</code>, <code>shipperService.ts:71</code>, <code>receiverService.ts:42</code></td>
+<td>Security + Business-logic</td>
+</tr>
+<tr>
+<td>H9</td>
+<td>Presigned-PUT uploads: no size/MIME cap, client Content-Type, no ownership, public bucket</td>
+<td><code>driver.ts:261,275</code>, <code>attestation.ts:48</code></td>
+<td>Security</td>
+</tr>
+<tr>
+<td>H10</td>
+<td>Admin grant/revoke on bare <code>requireAdmin</code> (intra-staff tier escalation)</td>
+<td><code>admin.ts:79,87</code></td>
+<td>Security</td>
+</tr>
+<tr>
+<td>H11</td>
+<td>Dependency vulns: axios SSRF/proto-pollution, form-data CRLF, path-to-regexp ReDoS (all fixAvailable)</td>
+<td>backend <code>package.json</code></td>
+<td>Security</td>
+</tr>
+<tr>
+<td>H12</td>
+<td>SNS webhook signature verifier has zero test coverage (SSRF allowlist + X.509)</td>
+<td><code>services/snsVerify.ts</code></td>
+<td>Backend tests</td>
+</tr>
+<tr>
+<td>H13</td>
+<td>Dev missing <code>DYNAMODB_CAPACITY_STATE_EVENTS_TABLE</code> -&gt; resolves to PROD table name</td>
+<td><code>envs/dev/main.tf</code>, <code>environment.ts:71</code></td>
+<td>Env parity</td>
+</tr>
+</tbody></table>
+<h3>MEDIUM (condensed; full detail in dimension files)</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Finding</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>M1</td>
+<td>AML gate treats never-screened (undefined) as passing</td>
+<td><code>verification.ts:93</code></td>
+</tr>
+<tr>
+<td>M2</td>
+<td><code>maxCapacityLbs</code> unvalidated on PUT -&gt; breaks integer invariant + unlimited capacity board</td>
+<td><code>driver.ts:87</code>, <code>driverService.ts:143</code></td>
+</tr>
+<tr>
+<td>M3</td>
+<td>Accessorial double-charge when policy edited after charge computed</td>
+<td><code>accessorialChargeService.ts:96</code></td>
+</tr>
+<tr>
+<td>M4</td>
+<td>Silent-failure fetches in admin consoles (misleading empty state on error)</td>
+<td><code>BetaProgramDashboard.tsx</code>, <code>LiquidityDashboard.tsx</code></td>
+</tr>
+<tr>
+<td>M5</td>
+<td>Accessorial charge listing has no role guard</td>
+<td><code>accessorials.ts:195</code></td>
+</tr>
+<tr>
+<td>M6</td>
+<td>Stop-event injection on unassigned loads (fabricate/suppress detention)</td>
+<td><code>accessorials.ts:50,79</code></td>
+</tr>
+<tr>
+<td>M7</td>
+<td>Compliance policy-doc read/sign IDOR</td>
+<td><code>compliance.ts:358,369</code></td>
+</tr>
+<tr>
+<td>M8</td>
+<td>Unauthenticated waitlist email-bomb</td>
+<td><code>beta.ts:49</code></td>
+</tr>
+<tr>
+<td>M9</td>
+<td>COI/LOA/shipper-policy upload: no MIME allowlist + 100KB json cap (also a functional bug)</td>
+<td><code>compliance.ts:204,228,329</code></td>
+</tr>
+<tr>
+<td>M10</td>
+<td>Dashboard N x full-Loads-scan fan-out</td>
+<td><code>ownerOperator.ts:507</code>, <code>org.ts:769</code></td>
+</tr>
+<tr>
+<td>M11</td>
+<td>Invitation accept not bound to <code>invite.email</code>; revoke not org-bound</td>
+<td><code>orgService.ts:659</code>, <code>org.ts:586</code></td>
+</tr>
+<tr>
+<td>M12</td>
+<td>Load mass-assignment via unfiltered <code>req.body</code> spread</td>
+<td><code>loadService.ts:173</code></td>
+</tr>
+<tr>
+<td>M13</td>
+<td>Invitation tokens + full Didit event body (PII) logged in cleartext</td>
+<td><code>orgService.ts:653</code>, <code>verification.ts:407</code></td>
+</tr>
+<tr>
+<td>M14</td>
+<td>Canopy webhook route + capacity route untested end-to-end (raw-body / role gate)</td>
+<td><code>canopyWebhook.ts</code>, <code>routes/capacity.ts</code></td>
+</tr>
+<tr>
+<td>M15</td>
+<td>&quot;False-green&quot; negotiation tests hit real DynamoDB; outbox persistence unverified</td>
+<td><code>negotiationDispatch.test.ts</code>, <code>negotiationEsign.test.ts</code></td>
+</tr>
+<tr>
+<td>M16</td>
+<td>Untested services: <code>calcUsableVolume</code> geometry, <code>complianceGather</code></td>
+<td><code>capacityService.ts</code>, <code>complianceGather.ts</code></td>
+</tr>
+</tbody></table>
+<h3>LOW (condensed)</h3>
+<p>Capacity fold same-ms nondeterminism (add a <code>seq</code> tiebreaker, <code>haulerCapacityService.ts:51</code>); base <code>role</code> trusted from a 7-day JWT with no revocation (TB1); legal-hold <code>assertDeletable</code> thin + <code>RetentionService</code> unwired; BOL reads nonexistent <code>driverId</code> (use <code>assignedDriverId</code>); single root ErrorBoundary; ineffective <code>lazy()</code> on PrivateBetaLanding; backend <code>/api/admin</code> mount ordering foot-gun; CORS returns hard 403 on <code>/api/health</code> for disallowed origins; staging <code>.auto.tfvars</code> sets dead BETA_MODE/NODE_ENV; prod fail-closed invariants enforced out-of-band (not IaC); moderate deps (qs, uuid, dompurify); no lockfile; AWS SDK node-22 deprecation (before Jan 2027); admin routes lack route-level tests.</p>
+<hr>
+<h2>3. Environment parity matrix</h2>
+<p>62 table slots (52 prefix-derived config + 10 service-direct). Single divergence:</p>
+<table>
+<thead>
+<tr>
+<th>Table slot</th>
+<th>dev env-var</th>
+<th>staging env-var</th>
+<th>prod table</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CapacityStateEvents</td>
+<td>MISSING -&gt; resolves to <code>LoadLead_CapacityStateEvents</code> (PROD)</td>
+<td><code>LoadLead-Staging-CapacityStateEvents</code> (prefix)</td>
+<td><code>LoadLead_CapacityStateEvents</code></td>
+</tr>
+<tr>
+<td>all other 61 slots</td>
+<td>in parity</td>
+<td>in parity</td>
+<td>in parity</td>
+</tr>
+</tbody></table>
+<p>Physical tables exist in all three envs. The CI parity checker (<code>scripts/check-table-env-parity.mjs</code>) exits 1 on this one gap. The boot guard would refuse to boot a hosted dev env that resolved a prod name, so real blast radius is contained (dev has never been applied and runs on local DynamoDB). Cross-env integration modes (stub/sandbox vs live), feature flags, and prefixes are all intentional and correct. Staging backend is currently PAUSED (ASG at 0 via the toggle); its static frontend stays served.</p>
+<hr>
+<h2>4. Course of action (prioritized)</h2>
+<h3>COA-1 - Immediate (this week): the two live authorization CRITICALs + one HIGH</h3>
+<ul>
+<li><strong>SEC-C1:</strong> allowlist <code>/signup</code> to non-privileged roles only; reject ADMIN/CARRIER_ADMIN unconditionally; <code>resolvePlatformRole</code> returns null (not STAFF_ADMIN) for users with no explicit tier. Add a regression test.</li>
+<li><strong>SEC-C2 + H5:</strong> centralize a <code>target.orgId === orgId</code> assertion in the four member routes (PATCH/DELETE/suspend/reinstate) and the four service methods.</li>
+<li><strong>SEC-H7:</strong> Didit webhook returns 401 in production when the secret is unset (mirror Canopy); bootGuard asserts the secret&#39;s presence.</li>
+<li>Each is single-file, low-risk, staging-first. Ship together.</li>
+</ul>
+<h3>COA-2 - Near-term (next sprint): the data-correctness CRITICAL + IDOR cluster</h3>
+<ul>
+<li><strong>BL-C1:</strong> add a <code>do/while (LastEvaluatedKey)</code> loop to <code>Database.scan</code> and <code>Database.query</code>; add <code>carrierId</code>/<code>invoiceId</code>/<code>entityId</code> GSIs and move the intercept / factoring / legal-hold resolvers to <code>query</code>. Add a &gt;1MB pagination test.</li>
+<li><strong>IDOR sweep:</strong> apply the existing <code>assertCallerActsForLoad</code> / load-party pattern to H1 (charges), H2 (factoring invoices), H3 (receiver), H4 (BOL create), plus M5/M6/M7 (charge listing, stop events, policy docs).</li>
+<li><strong>SEC-H8 / H2 (perf):</strong> add <code>userId-index</code> GSIs for driver/shipper/receiver profile lookups and switch to <code>query</code>.</li>
+</ul>
+<h3>COA-3 - Hardening: DoS, uploads, deps, data integrity</h3>
+<ul>
+<li><strong>SEC-H6:</strong> authenticate + rate-limit <code>/api/maps/*</code>; cap the Google key daily spend.</li>
+<li><strong>SEC-H9 / M9:</strong> <code>createPresignedPost</code> with server-pinned Content-Type + content-length-range; verify load-party; keep buckets private.</li>
+<li><strong>SEC-H11:</strong> <code>npm audit fix</code> (axios &gt;= 1.16.0 first).</li>
+<li><strong>SEC-H10:</strong> raise admin grant/revoke to DESTRUCTIVE_TIER.</li>
+<li><strong>BL-M2 (capacity):</strong> validate <code>maxCapacityLbs</code> as a non-negative integer with a sane max, at the route and in <code>updateProfile</code>.</li>
+<li><strong>BL-M1 (AML), BL-M3 (double-charge), M11 (invite email-bind), M12 (mass-assignment allowlist), M13 (redact token/PII logs).</strong></li>
+</ul>
+<h3>COA-4 - Parity, tests, hygiene</h3>
+<ul>
+<li><strong>H13:</strong> migrate dev to <code>DYNAMODB_TABLE_PREFIX = local.prefix</code> (staging pattern); re-run the parity checker to green.</li>
+<li><strong>H12 / M14 / M15 / M16:</strong> add tests for snsVerify, canopy + capacity routes, and mock the outbox in the two false-green negotiation tests; add a lockfile.</li>
+<li><strong>BL-L1 (capacity):</strong> add a monotonic <code>seq</code> tiebreaker to the capacity fold.</li>
+<li>Frontend: <code>.catch</code> on the admin-console loaders; consider a per-route ErrorBoundary.</li>
+</ul>
+<hr>
+<h2>5. Recommendations &amp; next steps</h2>
+<ol>
+<li><strong>Treat SEC-C1 and SEC-C2 as security incidents</strong> even though BETA_MODE gates C1 today: verify no unexpected ADMIN accounts exist in prod (audit the users table for <code>role=ADMIN</code> with no legitimate platformRole), then land COA-1.</li>
+<li><strong>Do not let the intercept / factoring / legal-hold tables grow further without BL-C1.</strong> They are the exact tables where silent truncation has legal and financial consequence; add a CloudWatch item-count alarm at, say, 5,000 rows as an interim tripwire until pagination ships.</li>
+<li><strong>Add an authorization contract test</strong> (the Cypress <code>authz-cross-tenant</code> spec exists) covering the IDOR cluster so these do not regress.</li>
+<li><strong>Resume staging</strong> and re-run the live smoke to confirm prod/staging parity (blocked this round by the pause).</li>
+<li>Keep shipping staging-first with admin-merge; every COA item above is scoped to a single team&#39;s lane (mostly Identity/Access and Settlements) and can be parallelized.</li>
+</ol>
+<hr>
+<h2>6. Confidence: what was verified clean</h2>
+<p>Negotiation state machine (first-accept-wins, e-sign gate, integer cents, Load row never mutated); capacity deduct/restore idempotency; money primitives (integer cents, half-up rounding); reconciliation/intercept idempotency keys; Canopy signature (raw-body HMAC, replay window, rejects unsigned in prod - the previously-open blocker is resolved); JWT alg pinning; no DynamoDB expression injection; W9 TIN KMS envelope encryption; crown-jewel W9/COI/LOA reads gated; cookies httpOnly+Secure+SameSite; boot guard fail-closed and wired before listen; frontend chunk shape known-good; API contract fully matched; no secrets in source/bundle/infra.</p>
+<h2>7. Appendix - dimension detail</h2>
+<p>Full evidence per dimension: <code>01-backend-tests.md</code>, <code>02-frontend.md</code>, <code>03-env-parity.md</code>, <code>04-business-logic.md</code>, <code>05-live-smoke.md</code>, <code>06-security-iam.md</code> (this directory).</p>
+
+</body></html>
