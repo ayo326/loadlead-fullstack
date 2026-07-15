@@ -76,17 +76,20 @@ router.get('/shippers/admin-requests', asyncHandler(async (req: AuthRequest, res
 }));
 
 // POST /api/admin/shippers/:shipperId/approve-admin
-router.post('/shippers/:shipperId/approve-admin', asyncHandler(async (req: AuthRequest, res) => {
+// H10 (audit v6): granting/revoking admin privileges is a privilege operation - gate it
+// to DESTRUCTIVE_TIER (STAFF_ADMIN), like org suspend/reinstate and platform revoke-admin,
+// not the router-wide bare requireAdmin any staff tier passes.
+router.post('/shippers/:shipperId/approve-admin', requireStaffTier(...DESTRUCTIVE_TIER), asyncHandler(async (req: AuthRequest, res) => {
   const { shipperId } = req.params;
-  
+
   await ShipperService.approveAdminPrivileges(shipperId);
   res.json({ message: 'Shipper admin privileges approved' });
 }));
 
 // POST /api/admin/shippers/:shipperId/revoke-admin
-router.post('/shippers/:shipperId/revoke-admin', asyncHandler(async (req: AuthRequest, res) => {
+router.post('/shippers/:shipperId/revoke-admin', requireStaffTier(...DESTRUCTIVE_TIER), asyncHandler(async (req: AuthRequest, res) => {
   const { shipperId } = req.params;
-  
+
   await ShipperService.revokeAdminPrivileges(shipperId);
   res.json({ message: 'Shipper admin privileges revoked' });
 }));
