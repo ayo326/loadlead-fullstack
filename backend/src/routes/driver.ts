@@ -257,12 +257,24 @@ router.get(
   })
 );
 
+// H9 (audit v6): headshots/POD were signed for a CLIENT-supplied Content-Type with no
+// allowlist. Pin the signed Content-Type to an image allowlist so a presigned PUT can't
+// store an arbitrary payload type (the signature binds this exact Content-Type).
+const IMAGE_UPLOAD_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
+function pinImageType(clientValue: unknown): string {
+  const ct = typeof clientValue === 'string' ? clientValue.toLowerCase().split(';')[0].trim() : 'image/jpeg';
+  if (!IMAGE_UPLOAD_MIME.has(ct)) {
+    throw new AppError('Unsupported file type; allowed types are JPEG, PNG, WebP', 415);
+  }
+  return ct;
+}
+
 // POST /api/driver/headshot/upload-url - presigned URL to upload profile headshot
 router.post(
   '/headshot/upload-url',
   asyncHandler(async (req: AuthRequest, res) => {
-    const { fileType = 'image/jpeg' } = req.body;
-    const key = `headshots/${req.user!.userId}.jpg`;
+    const fileType = pinImageType(req.body.fileType);
+    const key = `headshots/${req.user!.userId}.jpg`; // key is server-scoped to the caller
     const cmd = new PutObjectCommand({ Bucket: POD_BUCKET, Key: key, ContentType: fileType });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const url = await getSignedUrl(podS3 as any, cmd as any, { expiresIn: 300 });
@@ -276,7 +288,18 @@ router.post(
   '/loads/:loadId/pod/upload-url',
   asyncHandler(async (req: AuthRequest, res) => {
     const { loadId } = req.params;
-    const { fileType = 'image/jpeg' } = req.body;
+    const fileType = pinImageType(req.body.fileType);
+    // H9: only the load's assigned driver (or ADMIN) may mint a POD upload URL for it -
+    // previously any driver could get a presigned PUT for any load's POD prefix.
+    if (req.user!.role !== UserRole.ADMIN) {
+      const [load, driver] = await Promise.all([
+        LoadService.getLoadById(loadId),
+        DriverService.getProfileByUserId(req.user!.userId).catch(() => null),
+      ]);
+      if (!load || !driver || load.assignedDriverId !== driver.driverId) {
+        throw new AppError('Not authorized for this load', 403);
+      }
+    }
     const key = `pod/${loadId}/${Date.now()}.jpg`;
     const cmd = new PutObjectCommand({ Bucket: POD_BUCKET, Key: key, ContentType: fileType });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
