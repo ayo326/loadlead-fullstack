@@ -34,6 +34,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Logo } from "@/components/Logo";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Input } from "@/components/ui/input";
 import { TourMount, TourReplayButton } from "@/tour/LoadLeadTour";
 
@@ -290,7 +291,13 @@ export default function AppLayout() {
             {/* Tour controller - mounts once; auto-starts the right persona's
                 tour on first dashboard visit, persists completion locally. */}
             <TourMount />
-            <Outlet />
+            {/* Audit v6 F3: a per-route boundary so a render throw in one persona
+                page falls back inside the content area instead of tearing down
+                the whole app shell (the root boundary in App.tsx still catches
+                anything above the layout). */}
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
           </main>
         </div>
       </div>
