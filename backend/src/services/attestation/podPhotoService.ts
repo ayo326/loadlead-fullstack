@@ -13,9 +13,9 @@
 // are protected by the bucket policy (delete-resistant; Phase-2 Object Lock).
 
 import { createHash, randomUUID } from 'node:crypto';
-import { GetObjectCommand, PutObjectCommand, PutObjectRetentionCommand, S3Client } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { GetObjectCommand, PutObjectRetentionCommand, S3Client } from '@aws-sdk/client-s3';
 import { PutCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { presignedPodPost, pinUploadMime } from './podStorage';
 import { docClient } from '../../config/aws';
 
 // Module-scoped S3 client. driver.ts uses the same shape (loadlead-pod-uploads
@@ -45,19 +45,20 @@ export interface RequestUploadInput {
 export interface RequestUploadResult {
   photoId:    string;
   s3Key:      string;
-  uploadUrl:  string;
+  // H9 phase 3: size-capped presigned POST (policy enforces the byte cap +
+  // Content-Type). The client POSTs a multipart form (fields, then the file).
+  url:        string;
+  fields:     Record<string, string>;
   expiresIn:  number;
 }
 
 export async function requestUploadUrl(input: RequestUploadInput): Promise<RequestUploadResult> {
   const photoId = randomUUID();
   const s3Key   = makeKey(input.loadId, input.stage, photoId);
-  const contentType = input.contentType ?? 'image/jpeg';
+  const contentType = pinUploadMime(input.contentType); // allowlist gate (415 if off-list)
   const expiresIn = 300;
 
-  const cmd = new PutObjectCommand({ Bucket: POD_BUCKET, Key: s3Key, ContentType: contentType });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const uploadUrl = await getSignedUrl(podS3 as any, cmd as any, { expiresIn });
+  const post = await presignedPodPost(s3Key, contentType);
 
   const row: ProofPhoto = {
     photoId,
@@ -79,7 +80,7 @@ export async function requestUploadUrl(input: RequestUploadInput): Promise<Reque
     ConditionExpression: 'attribute_not_exists(photoId)',
   }));
 
-  return { photoId, s3Key, uploadUrl, expiresIn };
+  return { photoId, s3Key, url: post.url, fields: post.fields, expiresIn };
 }
 
 export async function getPhoto(photoId: string): Promise<ProofPhoto | null> {

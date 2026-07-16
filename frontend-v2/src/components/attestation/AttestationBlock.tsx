@@ -98,17 +98,17 @@ export function AttestationBlock(props: AttestationBlockProps) {
         loadId, stage,
         contentType: file.type || 'image/jpeg',
       });
-      // 1. PUT directly to S3
-      const put = await fetch(presign.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type || 'image/jpeg' },
-        body: file,
-      });
-      if (!put.ok) throw new Error(`S3 PUT failed: ${put.status}`);
+      // 1. Size-capped presigned POST (H9 phase 3): post the policy fields, then
+      //    the file LAST. S3 rejects an oversize/off-type upload by policy.
+      const form = new FormData();
+      Object.entries(presign.fields).forEach(([k, v]) => form.append(k, v));
+      form.append('file', file);
+      const post = await fetch(presign.url, { method: 'POST', body: form });
+      if (!post.ok) throw new Error(`S3 POST failed: ${post.status}`);
 
       // 2. Finalize: server reads bytes, sha256, sets contentHash.
       //    Only after this does the photo become bindable by a signature.
-      setPhotos((p) => [...p, { photoId: presign.photoId, uploadUrl: presign.uploadUrl, finalizing: true }]);
+      setPhotos((p) => [...p, { photoId: presign.photoId, uploadUrl: presign.url, finalizing: true }]);
       const fin = await api.attestationFinalizePhoto(presign.photoId);
       setPhotos((p) => p.map((x) =>
         x.photoId === presign.photoId ? { ...x, finalizing: false, contentHash: fin.contentHash } : x,

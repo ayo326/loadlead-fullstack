@@ -1,7 +1,5 @@
 import express from 'express';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-const podS3 = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+import { presignedPodPost } from '../services/attestation/podStorage';
 import { DriverService } from '../services/driverService';
 import { OfferService } from '../services/offerService';
 import { LoadService } from '../services/loadService';
@@ -20,8 +18,6 @@ import { OwnerOperatorService } from '../services/ownerOperatorService';
 import { OrgMembershipService } from '../services/orgService';
 import { Database } from '../config/database';
 import config from '../config/environment';
-
-const POD_BUCKET = process.env.POD_S3_BUCKET || 'loadlead-pod-uploads';
 
 const router = express.Router();
 
@@ -275,11 +271,10 @@ router.post(
   asyncHandler(async (req: AuthRequest, res) => {
     const fileType = pinImageType(req.body.fileType);
     const key = `headshots/${req.user!.userId}.jpg`; // key is server-scoped to the caller
-    const cmd = new PutObjectCommand({ Bucket: POD_BUCKET, Key: key, ContentType: fileType });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const url = await getSignedUrl(podS3 as any, cmd as any, { expiresIn: 300 });
-    const publicUrl = `https://${POD_BUCKET}.s3.amazonaws.com/${key}`;
-    res.json({ uploadUrl: url, key, publicUrl });
+    // H9 phase 3: size-capped presigned POST (policy enforces content-length-range
+    // + Content-Type). Client POSTs a multipart form (fields, then the file).
+    const post = await presignedPodPost(key, fileType);
+    res.json({ url: post.url, fields: post.fields, key });
   })
 );
 
@@ -301,10 +296,10 @@ router.post(
       }
     }
     const key = `pod/${loadId}/${Date.now()}.jpg`;
-    const cmd = new PutObjectCommand({ Bucket: POD_BUCKET, Key: key, ContentType: fileType });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const url = await getSignedUrl(podS3 as any, cmd as any, { expiresIn: 300 });
-    res.json({ uploadUrl: url, key, publicUrl: `https://${POD_BUCKET}.s3.amazonaws.com/${key}` });
+    // H9 phase 3: size-capped presigned POST. The bucket is served privately;
+    // no public URL is minted. Client POSTs a multipart form, then submits the key.
+    const post = await presignedPodPost(key, fileType);
+    res.json({ url: post.url, fields: post.fields, key });
   })
 );
 
