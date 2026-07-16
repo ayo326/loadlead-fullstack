@@ -536,6 +536,7 @@ export interface CapacityStateEvent {
   loadId?: string;        // set on PLATFORM_DEDUCT / PLATFORM_RESTORE, by id only
   source: CapacityEventSource;
   createdAt: number;      // epoch ms, server-set
+  seq?: number;           // process-monotonic tiebreaker for same-millisecond events (audit v6 BL-L1)
   note?: string;
 }
 

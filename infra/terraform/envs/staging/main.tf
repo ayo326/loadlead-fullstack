@@ -231,6 +231,10 @@ module "backend" {
   compliance_s3_bucket_arn = aws_s3_bucket.compliance_docs.arn
   w9_tin_kms_enabled       = true
   w9_tin_kms_key_arn       = aws_kms_key.w9_tin.arn
+  # Audit v6 (env-parity F3): this literal block is the SECOND arg to merge(), so
+  # it WINS over var.backend_env_vars (staging.auto.tfvars). Any NODE_ENV / BETA_MODE
+  # / APP_ENV set in that tfvars file is DEAD - the effective values are the ones
+  # below. Do not "fix" behavior by editing those tfvars keys; edit here.
   env_vars = merge(var.backend_env_vars, {
     NODE_ENV = "staging"
     # APP_ENV is the deliberate environment signal the boot guard, mode resolver

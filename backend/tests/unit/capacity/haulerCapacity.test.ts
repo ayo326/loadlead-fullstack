@@ -91,6 +91,27 @@ describe('foldSnapshot (the single resolver)', () => {
     expect(s.remainingWeightLbs).toBe(45000);
   });
 
+  it('BL-L1: same-millisecond declarations fold deterministically by seq, not array order', () => {
+    // Two declarations written in the same ms; the EMPTY has the higher seq (later).
+    const loaded = evt('DECLARED_LOADED', { weightLbs: 5000, createdAt: NOW, seq: 1 });
+    const empty = evt('DECLARED_EMPTY', { createdAt: NOW, seq: 2 });
+    // Either array order must fold to the same result - EMPTY wins by seq.
+    const a = foldSnapshot('drv-1', 45000, [loaded, empty], NOW);
+    const b = foldSnapshot('drv-1', 45000, [empty, loaded], NOW);
+    expect(a.declState).toBe('EMPTY');
+    expect(b.declState).toBe('EMPTY');
+    expect(a.declaredExternalWeightLbs).toBe(b.declaredExternalWeightLbs);
+  });
+
+  it('BL-L1: same-ms DEDUCT+RESTORE of one load nets to zero regardless of array order', () => {
+    const deduct = evt('PLATFORM_DEDUCT', { loadId: 'load-1', weightLbs: 12000, createdAt: NOW, seq: 1 });
+    const restore = evt('PLATFORM_RESTORE', { loadId: 'load-1', createdAt: NOW, seq: 2 });
+    const a = foldSnapshot('drv-1', 45000, [deduct, restore], NOW);
+    const b = foldSnapshot('drv-1', 45000, [restore, deduct], NOW);
+    expect(a.hasActivePlatformLoad).toBe(false);
+    expect(b.hasActivePlatformLoad).toBe(false);
+  });
+
   it('declaring EMPTY during an active platform load clears only the external component', () => {
     const s = foldSnapshot('drv-1', 45000, [
       evt('PLATFORM_DEDUCT', { loadId: 'load-1', weightLbs: 12000, createdAt: NOW - 2 }),

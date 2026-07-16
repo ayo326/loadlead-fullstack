@@ -12,10 +12,13 @@ import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
 import AppLayout from "./layouts/AppLayout.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
+// Audit v6 F2: PrivateBetaLanding is statically imported by the eager Login/
+// Signup pages, so a lazy() wrapper here was defeated (it folded into the eager
+// graph and only added a misleading dynamic-import). Import it statically.
+import PrivateBetaLanding from "./pages/PrivateBetaLanding.tsx";
 // D6: every persona dashboard and secondary page is route-level code-split
 // so a signed-in shipper never downloads the driver/admin/carrier bundles.
 // react-router only mounts the matched element, so the chunk loads on demand.
-const PrivateBetaLanding = lazy(() => import("./pages/PrivateBetaLanding.tsx"));
 const DriverDashboard = lazy(() => import("./pages/driver/DriverDashboard.tsx"));
 const DriverLoadDetail = lazy(() => import("./pages/driver/LoadDetail.tsx"));
 const ShipperDashboard = lazy(() => import("./pages/shipper/ShipperDashboard.tsx"));

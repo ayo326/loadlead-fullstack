@@ -30,6 +30,12 @@ import { CAPACITY_POLICY, CapacityFilterMode } from '../config/capacityPolicy';
 
 const STALE_MS = CAPACITY_POLICY.staleAfterHours * 60 * 60 * 1000;
 
+// Audit v6 BL-L1: process-monotonic sequence, mirroring legalHoldService. Two
+// events written in the same millisecond (e.g. a DECLARE + a PLATFORM_DEDUCT, or
+// a DEDUCT+RESTORE of one loadId) would otherwise fold in arbitrary order and
+// make declState/remaining differ between reads. seq breaks the tie.
+let capSeq = 0;
+
 function assertWholePounds(weightLbs: number, label: string): void {
   if (!Number.isInteger(weightLbs) || weightLbs < 0) {
     throw new AppError(`${label} must be a whole number of pounds (0 or more).`, 400);
@@ -48,7 +54,7 @@ export function foldSnapshot(
   nowMs: number,
   carrierId?: string,
 ): CapacitySnapshot {
-  const ordered = [...events].sort((a, b) => a.createdAt - b.createdAt);
+  const ordered = [...events].sort((a, b) => a.createdAt - b.createdAt || (a.seq ?? 0) - (b.seq ?? 0));
 
   // Latest declared external state wins (EMPTY zeroes the external component).
   let declaredExternalWeightLbs = 0;
@@ -217,6 +223,8 @@ export class HaulerCapacityService {
       eventType,
       source,
       createdAt: Helpers.getCurrentTimestamp(),
+      seq: ++capSeq, // BL-L1: same-ms tiebreaker so the fold is deterministic
+
       ...(extra.weightLbs !== undefined ? { weightLbs: extra.weightLbs } : {}),
       ...(extra.loadId ? { loadId: extra.loadId } : {}),
       ...(extra.note ? { note: extra.note } : {}),
@@ -301,7 +309,7 @@ export class HaulerCapacityService {
   /** loadIds currently deducted and not yet restored. */
   private static activeLoadIds(events: CapacityStateEvent[]): Set<string> {
     const active = new Set<string>();
-    for (const e of [...events].sort((a, b) => a.createdAt - b.createdAt)) {
+    for (const e of [...events].sort((a, b) => a.createdAt - b.createdAt || (a.seq ?? 0) - (b.seq ?? 0))) {
       if (e.eventType === 'PLATFORM_DEDUCT' && e.loadId) active.add(e.loadId);
       if (e.eventType === 'PLATFORM_RESTORE' && e.loadId) active.delete(e.loadId);
     }

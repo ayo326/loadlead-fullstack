@@ -260,7 +260,6 @@ app.use('/api/attestation', attestationRoutes);
 app.use('/api/driver', driverRoutes);
 app.use('/api/capacity', capacityRoutes);
 app.use('/api/shipper', shipperRoutes);
-app.use('/api/admin', adminRoutes);
 app.use('/api/receiver', receiverRoutes);
 app.use('/api/bol', bolRoutes);
 app.use('/api/notifications', notificationRoutes);
@@ -352,6 +351,11 @@ app.use('/api/admin/liquidity', adminLiquidityRoutes);
 app.use('/api/factoring', factoringRoutes);
 app.use('/api/accessorials', accessorialRoutes);
 app.use('/api/admin/compliance', adminComplianceRoutes);
+// Audit v6 F4: mount the broad /api/admin AFTER the specific /api/admin/*
+// routers above. Express matches in registration order, so a future colliding
+// sub-path added to adminRoutes can no longer shadow beta/staff/liquidity/
+// compliance.
+app.use('/api/admin', adminRoutes);
 app.use('/api/negotiations', negotiationRoutes);
 app.use('/api/reference', referenceRoutes);
 

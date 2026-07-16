@@ -155,6 +155,10 @@ router.post(
   ]),
   asyncHandler(async (req: AuthRequest, res) => {
     const load = await requireLoad(req.params.loadId);
+    // Audit v6 L1: compute writes/updates the charge (money) for this stop, so
+    // restrict it to the load's parties - same guard as GET .../charges. Without
+    // it any driver/OO/shipper could recompute charges on any load by id.
+    await assertCallerIsLoadParty(req, req.params.loadId);
     const charge = await AccessorialChargeService.computeForStop(
       { loadId: load.loadId, hazmat: load.hazmat, equipmentType: load.equipmentType },
       req.params.stopId,
@@ -215,6 +219,12 @@ router.post(
   ]),
   asyncHandler(async (req: AuthRequest, res) => {
     const load = await requireLoad(req.params.loadId);
+    // Audit v6 L1 (residual, flagged not fixed here): acceptance happens "at
+    // claim" and the acknowledgment modal is shown at OFFER time, i.e. BEFORE the
+    // driver is assigned - so a load-party / assigned-mover guard would 403 a
+    // legitimate pre-assignment accept. The correct guard is offer/claim
+    // eligibility (does the caller have an active offer/broadcast on this load),
+    // a Marketplace x Settlements seam decision. Left ungated pending that.
     const acceptance = await AccessorialPolicyService.acceptPolicy({
       load: { loadId: load.loadId, hazmat: load.hazmat, equipmentType: load.equipmentType },
       acceptedByUserId: req.user!.userId,
