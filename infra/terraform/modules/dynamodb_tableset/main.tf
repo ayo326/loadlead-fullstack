@@ -519,6 +519,13 @@ locals {
       attributes = [{ name = "accessId", type = "S" }]
       gsis       = []
     }
+    # Append-only POD document access log (audit v6 H9 residual). Mirrors
+    # W9AccessLog: who opened which POD photo, when, on what basis.
+    PodAccessLog = {
+      hash_key   = "accessId"
+      attributes = [{ name = "accessId", type = "S" }]
+      gsis       = []
+    }
     ShipperCompliancePolicies = {
       hash_key   = "policyVersionId"
       attributes = [{ name = "policyVersionId", type = "S" }]

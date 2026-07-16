@@ -6,6 +6,7 @@ import { Helpers } from '../utils/helpers';
 import Logger from '../utils/logger';
 import { AppError } from '../middleware/errorHandler';
 import { CAPACITY_POLICY, isValidRatedCapacity } from '../config/capacityPolicy';
+import { signedPodGetUrl } from './attestation/podStorage';
 
 export class DriverService {
   private static toTimestamp(value?: number | string): number | undefined {
@@ -134,7 +135,7 @@ export class DriverService {
         'DriverService.getProfileByUserId',
       );
 
-      return drivers.length > 0 ? drivers[0] : null;
+      return this.withSignedHeadshot(drivers.length > 0 ? drivers[0] : null);
     } catch (error) {
       Logger.error('Get driver profile error', error);
       throw error;
@@ -143,10 +144,33 @@ export class DriverService {
 
   static async getProfileById(driverId: string): Promise<Driver | null> {
     try {
-      return await Database.getItem<Driver>(config.dynamodb.driversTable, { driverId });
+      const driver = await Database.getItem<Driver>(config.dynamodb.driversTable, { driverId });
+      return this.withSignedHeadshot(driver);
     } catch (error) {
       Logger.error('Get driver by ID error', error);
       throw error;
+    }
+  }
+
+  /**
+   * H9 residual (audit v6): the headshot object lives in the private POD bucket.
+   * Sign it at serve time - replace the display `headshotUrl` with a short-lived
+   * signed GET URL derived from the stored `headshotKey`. Legacy rows carry only
+   * a public `headshotUrl`; for those we derive the deterministic key
+   * (headshots/<userId>.jpg) so they keep working with no backfill. A driver with
+   * no headshot is returned unchanged. The signed URL is never persisted.
+   */
+  private static async withSignedHeadshot(driver: Driver | null): Promise<Driver | null> {
+    if (!driver) return driver;
+    const key = driver.headshotKey || (driver.headshotUrl ? `headshots/${driver.userId}.jpg` : null);
+    if (!key) return driver;
+    try {
+      const headshotUrl = await signedPodGetUrl(key, config.pod?.headshotSignedGetTtlSeconds);
+      return { ...driver, headshotKey: key, headshotUrl };
+    } catch (err) {
+      // Signing must never break a profile read; fall back to the stored value.
+      Logger.error('Headshot signing failed; returning driver without a fresh URL', err);
+      return driver;
     }
   }
 

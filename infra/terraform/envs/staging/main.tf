@@ -41,6 +41,9 @@ module "network" {
 # staging mirror lives in the module rather than a staging-specific resource.
 # Audit v6 M6: same again for the new Loads assignedDriverId-index - staging gets it
 # via the tableset module; prod declares LoadLead_Loads in envs/prod/imported-tables.tf.
+# Audit v6 H9 residual: the new LoadLead_PodAccessLog table (POD document read audit)
+# arrives in staging via this tableset module; prod declares it directly in
+# envs/prod/main.tf (module.ddb_pod_access_log).
 module "dynamodb" {
   source              = "../../modules/dynamodb_tableset"
   env                 = local.env

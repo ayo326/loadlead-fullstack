@@ -165,6 +165,10 @@ export const config = {
     // Append-only access log of every full-W9 open (viewer, relationship basis,
     // when). The most sensitive read on the platform; never mutated or deleted.
     w9AccessLogTable: t('DYNAMODB_W9_ACCESS_LOG_TABLE', 'LoadLead_W9AccessLog'),
+    // Append-only access log of every POD (proof-of-delivery) document open
+    // (viewer, relationship basis, when). Mirrors w9AccessLogTable; PODs carry
+    // signatures/addresses/legal evidence, so reads are audited. Never mutated.
+    podAccessLogTable: t('DYNAMODB_POD_ACCESS_LOG_TABLE', 'LoadLead_PodAccessLog'),
     // Versioned shipper compliance policies (Phase 7). Editing creates a new
     // version; prior versions are never mutated. Snapshotted onto a load at accept.
     shipperCompliancePoliciesTable:
@@ -209,6 +213,22 @@ export const config = {
 
   google: {
     mapsApiKey: process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+  },
+
+  // POD (proof-of-delivery) + driver-headshot object store. Private bucket served
+  // by short-lived signed GET URLs (never store a signed URL - store the key,
+  // sign at serve time). Keys/caps are configuration, never hardcoded.
+  pod: {
+    bucket: process.env.POD_S3_BUCKET || 'loadlead-pod-uploads',
+    region: process.env.AWS_REGION || 'us-east-1',
+    // Signed-GET TTL for a POD document (seconds). Short by default; configurable.
+    signedGetTtlSeconds: Number(process.env.POD_SIGNED_GET_TTL_SECONDS ?? 300),
+    // Headshots are low-sensitivity avatars re-signed on every profile read; a
+    // longer TTL cuts re-sign churn without materially widening exposure.
+    headshotSignedGetTtlSeconds: Number(process.env.HEADSHOT_SIGNED_GET_TTL_SECONDS ?? 3600),
+    // Upload size cap enforced by the presigned-post policy (not just the UI).
+    // 15 MB covers phone-camera photos and scanned PDFs with headroom.
+    maxUploadBytes: Number(process.env.POD_MAX_UPLOAD_BYTES ?? 15728640),
   },
 
   app: {

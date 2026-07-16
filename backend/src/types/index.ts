@@ -575,6 +575,11 @@ export interface Driver {
   firstName?: string;
   lastName?: string;
   fullName?: string;
+  // Profile headshot: `headshotKey` is the S3 object key (private bucket). The
+  // read path signs it at serve time into `headshotUrl` (a short-lived signed
+  // URL, never persisted). Legacy rows may carry only a stored `headshotUrl`.
+  headshotKey?: string;
+  headshotUrl?: string;
   dob?: number;
   medicalCertExpiration?: number;
   mcIssueDate?: number;
