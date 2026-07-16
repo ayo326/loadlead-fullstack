@@ -28,7 +28,10 @@ import {
   requestUploadUrl,
   finalizeUpload,
   listReadyPhotos,
+  getPhoto,
 } from '../services/attestation/podPhotoService';
+import { signedPodGetUrl, recordPodAccess } from '../services/attestation/podStorage';
+import config from '../config/environment';
 import type {
   AttestationAction,
   ProofPhotoStage,
@@ -246,6 +249,32 @@ router.get('/chain/:loadId', asyncHandler(async (req: AuthRequest, res) => {
     exceptions:             s.exceptions,
   }));
   res.json({ loadId: req.params.loadId, chain: summary });
+}));
+
+/* ─────────────────────────────────────────────────────────────
+ * GET /api/attestation/photos/:photoId/url
+ * Short-lived signed GET URL for a POD photo. Viewable by the load's parties
+ * (shipper, hauler/carrier-of-record, assigned driver, receiver) or an admin -
+ * the SAME single resolver used for chain reads (assertChainReadAccess). Every
+ * open is written to the append-only POD access log BEFORE the URL is issued
+ * (fail-closed). The signed URL is never persisted; the caller re-requests it.
+ * H9 residual (audit v6): closes the public-bucket exposure for PODs.
+ * ───────────────────────────────────────────────────────────── */
+router.get('/photos/:photoId/url', asyncHandler(async (req: AuthRequest, res) => {
+  const photo = await getPhoto(req.params.photoId);
+  if (!photo) throw new AppError(`Photo ${req.params.photoId} not found`, 404);
+
+  const load = await LoadService.getLoadById(photo.loadId);
+  if (!load) throw new AppError(`Load ${photo.loadId} not found`, 404);
+
+  // One resolver, one place: shipper OR hauler OR driver OR receiver OR admin.
+  const { matchedAsAdmin } = await assertChainReadAccess(load, req.user!.userId, req.user!.role);
+
+  // Audit the read before issuing the URL (fail-closed).
+  await recordPodAccess(photo.photoId, photo.loadId, req.user!.userId, matchedAsAdmin ? 'ADMIN' : 'CHAIN_PARTY');
+
+  const url = await signedPodGetUrl(photo.s3Key);
+  res.json({ url, expiresIn: config.pod.signedGetTtlSeconds });
 }));
 
 export default router;

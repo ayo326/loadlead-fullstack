@@ -241,6 +241,7 @@ module "backend" {
     DYNAMODB_COMPLIANCE_DOCUMENTS_TABLE           = "${local.prefix}ComplianceDocuments"
     DYNAMODB_COMPLIANCE_VERIFICATION_EVENTS_TABLE = "${local.prefix}ComplianceVerificationEvents"
     DYNAMODB_W9_ACCESS_LOG_TABLE                  = "${local.prefix}W9AccessLog"
+    DYNAMODB_POD_ACCESS_LOG_TABLE                 = "${local.prefix}PodAccessLog"
     DYNAMODB_SHIPPER_COMPLIANCE_POLICIES_TABLE    = "${local.prefix}ShipperCompliancePolicies"
     DYNAMODB_SHIPPER_POLICY_ATTACHMENTS_TABLE     = "${local.prefix}ShipperPolicyAttachments"
     DYNAMODB_NOTIFICATION_OUTBOX_TABLE            = "${local.prefix}NotificationOutbox"

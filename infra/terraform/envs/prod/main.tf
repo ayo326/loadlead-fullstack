@@ -146,6 +146,18 @@ module "ddb_pod_photos" {
   tags                = local.tags
 }
 
+# Append-only POD document access log (audit v6 H9 residual). Every signed-GET
+# of a POD photo is recorded here before the URL is issued. Mirrors
+# ddb_w9_access_log; never mutated or deleted.
+module "ddb_pod_access_log" {
+  source              = "../../modules/dynamodb_table"
+  name                = "LoadLead_PodAccessLog"
+  hash_key            = "accessId"
+  attributes          = [{ name = "accessId", type = "S" }]
+  deletion_protection = true
+  tags                = local.tags
+}
+
 # ─── LoadLead_BetaTrustEvents ───────────────────────────────────────────────
 # Beta-admin trust/operational events (no-show, trust incident). Deliberately
 # SEPARATE from the loads table: these records reference a load and carrier by
@@ -511,6 +523,7 @@ module "ddb_factoring_submissions" {
 
 output "signatures_table_arn" { value = module.ddb_signatures.arn }
 output "pod_photos_table_arn" { value = module.ddb_pod_photos.arn }
+output "pod_access_log_table_arn" { value = module.ddb_pod_access_log.arn }
 output "platform_fee_policy_table_arn" { value = module.ddb_platform_fee_policy.arn }
 output "accessorial_policies_table_arn" { value = module.ddb_accessorial_policies.arn }
 output "accessorial_policy_acceptances_table_arn" { value = module.ddb_accessorial_policy_acceptances.arn }
