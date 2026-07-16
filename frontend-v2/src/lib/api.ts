@@ -609,13 +609,13 @@ export const api = {
     request<{ safetyBufferPct: number; overBufferFlag: boolean; maxCapacityLbs: number; maxOperationalLbs: number; currentLoadLbs: number }>(
       "GET", `/admin/drivers/${driverId}/buffer`),
 
-  // Headshot
+  // Headshot - H9: presigned POST (url + policy fields), store the key
   getHeadshotUploadUrl: (fileType?: string) =>
-    request<{ uploadUrl: string; key: string; publicUrl: string }>("POST", "/driver/headshot/upload-url", { fileType }),
+    request<{ url: string; fields: Record<string, string>; key: string }>("POST", "/driver/headshot/upload-url", { fileType }),
 
-  // Proof of Delivery
+  // Proof of Delivery - H9: presigned POST (url + policy fields), submit the key
   getPodUploadUrl: (loadId: string, fileType?: string) =>
-    request<{ uploadUrl: string; key: string; publicUrl: string }>("POST", `/driver/loads/${loadId}/pod/upload-url`, { fileType }),
+    request<{ url: string; fields: Record<string, string>; key: string }>("POST", `/driver/loads/${loadId}/pod/upload-url`, { fileType }),
   submitPOD: (loadId: string, data: { photoKey: string; signatureData?: string; notes?: string }) =>
     request("POST", `/driver/loads/${loadId}/pod`, data),
 
@@ -635,7 +635,7 @@ export const api = {
     contentType?: string;
     lat?: number; lng?: number;
     capturedAt?: string;
-  }) => request<{ photoId: string; s3Key: string; uploadUrl: string; expiresIn: number }>(
+  }) => request<{ photoId: string; s3Key: string; url: string; fields: Record<string, string>; expiresIn: number }>(
     "POST", "/attestation/photos/upload-url", data,
   ),
   attestationFinalizePhoto: (photoId: string) =>

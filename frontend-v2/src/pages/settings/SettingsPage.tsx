@@ -294,11 +294,16 @@ function HeadshotUploader() {
     try {
       const localPreview = URL.createObjectURL(file);
       setPreview(localPreview);
-      // H9 residual: store the S3 KEY, not a public URL. The backend signs a
-      // short-lived headshotUrl at profile-read time (private bucket). The local
-      // object URL gives immediate feedback; the signed URL loads on next fetch.
-      const { uploadUrl, key } = await api.getHeadshotUploadUrl(file.type);
-      await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      // H9: size-capped presigned POST + store the S3 KEY (not a public URL).
+      // The backend signs a short-lived headshotUrl at profile-read time (private
+      // bucket). Post the policy fields, then the file LAST; the local object URL
+      // gives immediate feedback and the signed URL loads on next fetch.
+      const { url, fields, key } = await api.getHeadshotUploadUrl(file.type);
+      const form = new FormData();
+      Object.entries(fields).forEach(([k, v]) => form.append(k, v));
+      form.append("file", file);
+      const post = await fetch(url, { method: "POST", body: form });
+      if (!post.ok) throw new Error("Upload failed");
       await api.updateDriverProfile({ headshotKey: key });
       setHeadshotUrl(localPreview);
       toast.success("Profile photo updated!");

@@ -49,13 +49,14 @@ export function PodUploadButton({ loadId, loadStatus, size = "sm" }: PodUploadBu
 
     setBusy(true);
     try {
-      const { uploadUrl, key } = await api.getPodUploadUrl(loadId, file.type);
-      const put = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!put.ok) throw new Error("Upload failed");
+      // H9 phase 3: presigned POST. Post the policy fields, then the file LAST.
+      // S3 rejects the upload if it violates the size/type policy.
+      const { url, fields, key } = await api.getPodUploadUrl(loadId, file.type);
+      const form = new FormData();
+      Object.entries(fields).forEach(([k, v]) => form.append(k, v));
+      form.append("file", file);
+      const post = await fetch(url, { method: "POST", body: form });
+      if (!post.ok) throw new Error("Upload failed");
 
       await api.submitPOD(loadId, { photoKey: key });
       setSubmitted(true);

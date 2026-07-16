@@ -10,14 +10,53 @@
 
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createPresignedPost, type PresignedPost } from '@aws-sdk/s3-presigned-post';
 import { Database } from '../../config/database';
 import config from '../../config/environment';
 import { Helpers } from '../../utils/helpers';
 import { Logger } from '../../utils/logger';
+import { AppError } from '../../middleware/errorHandler';
 
 // Region is read defensively so partial config mocks (test suites that stub
 // config/environment without the pod block) don't crash at import time.
 const s3 = new S3Client({ region: config.pod?.region ?? process.env.AWS_REGION ?? 'us-east-1' });
+
+// The upload MIME allowlist (H9 / audit v6 #93). Pinned into the presigned-post
+// policy so S3 itself - not just the UI - rejects an off-type upload.
+export const POD_UPLOAD_MIME = ['image/jpeg', 'image/png', 'image/webp'] as const;
+
+/** Validate + normalize a client-supplied content type against the allowlist
+ *  (throws 415 if off-list). The UI is a friendly first line; this is the gate. */
+export function pinUploadMime(clientValue: unknown): string {
+  const ct = typeof clientValue === 'string' ? clientValue.toLowerCase().split(';')[0].trim() : 'image/jpeg';
+  if (!(POD_UPLOAD_MIME as readonly string[]).includes(ct)) {
+    throw new AppError('Unsupported file type; allowed types are JPEG, PNG, WebP', 415);
+  }
+  return ct;
+}
+
+/** Short presigned-POST expiry (seconds). Uploads are one-shot and immediate. */
+const UPLOAD_EXPIRY_SECONDS = 300;
+
+/**
+ * A size-capped, type-pinned presigned POST for a POD/headshot upload. The
+ * POLICY (not just the UI) enforces the limits: S3 rejects the PUT/POST if the
+ * body is empty, exceeds config.pod.maxUploadBytes, or is not the pinned
+ * Content-Type. The key is server-set (never client-chosen). Returns
+ * { url, fields } - the client POSTs a multipart form (fields, then the file).
+ */
+export async function presignedPodPost(key: string, contentType: string): Promise<PresignedPost> {
+  return createPresignedPost(s3, {
+    Bucket: config.pod?.bucket ?? 'loadlead-pod-uploads',
+    Key: key,
+    Conditions: [
+      ['content-length-range', 1, config.pod?.maxUploadBytes ?? 15728640],
+      { 'Content-Type': contentType },
+    ],
+    Fields: { 'Content-Type': contentType },
+    Expires: UPLOAD_EXPIRY_SECONDS,
+  });
+}
 
 /**
  * Short-lived signed GET URL for a POD (or headshot) object in the POD bucket.
