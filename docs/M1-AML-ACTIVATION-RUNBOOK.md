@@ -119,7 +119,7 @@ aws elasticbeanstalk describe-configuration-settings \
 # Health green:
 curl -s -o /dev/null -w "%{http_code}\n" https://api.loadleadapp.com/api/health
 
-# The 2 backfilled entities are still VERIFIED (amlStatus=pass survives a recompute).
+# The backfilled entities are still VERIFIED (amlStatus=pass survives a recompute).
 # A fresh carrier/driver now cannot reach VERIFIED without an AML pass.
 ```
 
