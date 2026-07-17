@@ -6,11 +6,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { getItem } = vi.hoisted(() => ({ getItem: vi.fn() }));
+const { getItem, updateItem } = vi.hoisted(() => ({ getItem: vi.fn(), updateItem: vi.fn() }));
 const signedPodGetUrlMock = vi.hoisted(() => vi.fn().mockResolvedValue('https://signed.example/headshot?sig=x'));
 
 vi.mock('../../../src/config/database', () => ({
-  Database: { getItem, scan: vi.fn().mockResolvedValue([]), updateItem: vi.fn(), query: vi.fn().mockResolvedValue([]) },
+  Database: { getItem, scan: vi.fn().mockResolvedValue([]), updateItem, query: vi.fn().mockResolvedValue([]) },
 }));
 vi.mock('../../../src/utils/logger', () => {
   const l = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
@@ -22,6 +22,7 @@ import { DriverService } from '../../../src/services/driverService';
 
 beforeEach(() => {
   getItem.mockReset();
+  updateItem.mockReset();
   signedPodGetUrlMock.mockClear().mockResolvedValue('https://signed.example/headshot?sig=x');
 });
 
@@ -53,5 +54,26 @@ describe('DriverService headshot sign-at-read (audit v6 H9)', () => {
     signedPodGetUrlMock.mockRejectedValueOnce(new Error('KMS down'));
     const driver = await DriverService.getProfileById('drv-4');
     expect(driver?.driverId).toBe('drv-4'); // still returned
+  });
+});
+
+describe('DriverService.updateProfile headshot write guard (audit v6 H9 phase 5)', () => {
+  it('persists headshotKey but never persists a client-supplied headshotUrl', async () => {
+    await DriverService.updateProfile('drv-w1', {
+      headshotKey: 'headshots/u-w1.jpg',
+      // A client PUTs this straight into req.body; it must not be stored - the
+      // read path signs a fresh URL from the key, never a stored URL.
+      headshotUrl: 'https://attacker.example/evil.jpg',
+    } as any);
+    expect(updateItem).toHaveBeenCalledTimes(1);
+    const persisted = updateItem.mock.calls[0][2];
+    expect(persisted.headshotKey).toBe('headshots/u-w1.jpg');
+    expect('headshotUrl' in persisted).toBe(false);
+  });
+
+  it('drops a lone headshotUrl too (no key supplied)', async () => {
+    await DriverService.updateProfile('drv-w2', { headshotUrl: 'https://x/y.jpg' } as any);
+    const persisted = updateItem.mock.calls[0][2];
+    expect('headshotUrl' in persisted).toBe(false);
   });
 });
