@@ -1,0 +1,382 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LoadLead Platform E2E Audit v7 (2026-07-16)</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#1f2530; --muted:#5b6676; --rule:#e3e8ef; --rule-strong:#c9d2de;
+  --accent:#2563eb; --th-bg:#f4f7fb; --zebra:#fafbfd; --code-bg:#f1f5f9; --code-fg:#0f172a;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1319; --fg:#dde3ec; --muted:#95a1b2; --rule:#232b36; --rule-strong:#39434f;
+    --accent:#6ea8ff; --th-bg:#182029; --zebra:#141a22; --code-bg:#1b2430; --code-fg:#dbe4f0;
+  }
+}
+*{box-sizing:border-box;}
+html{ -webkit-text-size-adjust:100%; }
+body{
+  background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  font-size:16px; line-height:1.65;
+  max-width:900px; margin:0 auto; padding:48px 32px 96px;
+}
+h1{ font-size:32px; line-height:1.2; letter-spacing:-0.02em; margin:0 0 6px;
+    padding-bottom:14px; border-bottom:3px solid var(--accent); text-wrap:balance; }
+h2{ font-size:23px; line-height:1.25; letter-spacing:-0.01em; margin:44px 0 14px;
+    padding-bottom:8px; border-bottom:1px solid var(--rule); text-wrap:balance; }
+h3{ font-size:18px; margin:28px 0 8px; }
+h4{ font-size:16px; color:var(--muted); margin:20px 0 6px; }
+p,li{ font-size:16px; }
+p{ margin:0 0 14px; }
+ul,ol{ padding-left:22px; margin:0 0 14px; }
+li{ margin:5px 0; }
+li>ul,li>ol{ margin:6px 0; }
+strong{ font-weight:650; }
+a{ color:var(--accent); text-decoration:none; }
+a:hover{ text-decoration:underline; }
+hr{ border:0; border-top:1px solid var(--rule); margin:34px 0; }
+blockquote{ border-left:3px solid var(--accent); margin:14px 0; padding:6px 16px; color:var(--muted); }
+/* tables: readable, and never force the page to scroll sideways */
+.tw{ overflow-x:auto; margin:16px 0; }
+table{ border-collapse:collapse; width:100%; font-size:14px; line-height:1.5; }
+th,td{ border:1px solid var(--rule-strong); padding:9px 12px; text-align:left; vertical-align:top; }
+th{ background:var(--th-bg); font-weight:650; }
+tr:nth-child(even) td{ background:var(--zebra); }
+td code, th code{ font-size:12.5px; }
+code{ background:var(--code-bg); color:var(--code-fg); padding:2px 5px; border-radius:4px;
+      font-family:"SF Mono",Menlo,Consolas,monospace; font-size:13.5px; }
+pre{ background:var(--code-bg); color:var(--code-fg); padding:14px 16px; border-radius:8px;
+     overflow-x:auto; font-size:13px; line-height:1.5; }
+pre code{ background:none; padding:0; font-size:inherit; }
+
+/* PRINT: compact, full-bleed, page-break aware (this is what the PDF uses) */
+@media print{
+  :root{ --bg:#fff; --fg:#1a1f2b; --muted:#475569; --rule:#e2e8f0; --rule-strong:#cbd5e1;
+         --accent:#2563eb; --th-bg:#f1f5f9; --zebra:#f8fafc; --code-bg:#f1f5f9; --code-fg:#0f172a; }
+  @page{ margin:14mm 12mm; }
+  body{ max-width:none; margin:0; padding:0; font-size:11.5px; line-height:1.5; }
+  h1{ font-size:23px; padding-bottom:8px; }
+  h2{ font-size:16px; margin:20px 0 8px; page-break-after:avoid; }
+  h3{ font-size:13px; margin:14px 0 6px; page-break-after:avoid; }
+  h4{ font-size:11.5px; }
+  p,li{ font-size:11.5px; }
+  .tw{ overflow:visible; margin:8px 0; }
+  table{ font-size:10px; page-break-inside:avoid; }
+  th,td{ padding:5px 7px; word-break:break-word; }
+  code{ font-size:9.5px; } pre{ font-size:9px; white-space:pre-wrap; word-break:break-word; }
+  hr{ margin:16px 0; }
+  a{ color:#1d4ed8; }
+}
+</style></head><body>
+<h1>LoadLead Platform E2E Audit v7</h1>
+<p><strong>Date:</strong> 2026-07-16 · <strong>Scope:</strong> backend (Express/TS/DynamoDB), frontend-v2 (React/Vite), infra (Terraform/OpenTofu), across dev / staging / prod. Six parallel dimensions: build+test health, business-logic correctness, security/IAM, environment parity + infra, live prod/staging smoke, and a deploy-delta (&quot;not yet in prod&quot;) register. Baseline: <code>origin/main</code> HEAD <code>42bc406</code>; last prod deploy <code>20b54cc</code> (H9 phase 5).</p>
+<hr>
+<h2>1. Executive summary</h2>
+<p><strong>The v6 remediation is real and complete.</strong> Every one of the v6 <strong>3 CRITICAL</strong> and <strong>13 HIGH</strong> findings was verified fixed in current <code>main</code> by direct source read (Section 3). Money and legal invariants are clean (integer cents, append-only ledgers, first-accept-wins, tenant isolation). The suite is <strong>890/890 green</strong> (up from 772), frontend builds clean with the known-good chunk shape, both parity CI gates pass, and prod is healthy, hardened, and private (POD bucket locked down this session).</p>
+<p><strong>The risk this round was one new authorization hole and a CI blind spot - both now closed.</strong> The adversarial pass found <strong>1 new HIGH bordering CRITICAL</strong>: a driver could self-declare <code>ownedByOperatorId</code> via an unvalidated profile update and inherit any VERIFIED carrier&#39;s FMCSA authority + insurance without consent (N1). One <strong>MEDIUM</strong> was a latent parity-checker gap that silently excluded the platform&#39;s single most sensitive table (ENV-1). <strong>Both were fixed and deployed to prod on 2026-07-17</strong> (PR #106, backend bundle <code>loadlead-backend-20260717081549</code>) - see Section 2 and the remediation status below. The remaining items are LOW/hygiene or intentionally-gated (M1 AML inert; Canopy prod-disabled).</p>
+<h3>Remediation status (post-audit)</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Severity</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>N1</td>
+<td>HIGH</td>
+<td><strong>FIXED + deployed</strong> - PR #106, bundle <code>loadlead-backend-20260717081549</code>. Verified live: attack surface 401-gated; prod pre/post-check shows <strong>0 drivers lost carrier authority</strong>.</td>
+</tr>
+<tr>
+<td>ENV-1</td>
+<td>MEDIUM</td>
+<td><strong>FIXED</strong> - PR #106. Checker now reports 54 prefix-derived slots (was 53) and still exits 0; the W9/TIN access log is inside the guard.</td>
+</tr>
+<tr>
+<td>N2 (M1 AML)</td>
+<td>MEDIUM</td>
+<td><strong>OPEN, blocked</strong> on enabling Didit&#39;s standalone AML product (Section 5).</td>
+</tr>
+<tr>
+<td>N3-N6, INF-1..8</td>
+<td>LOW</td>
+<td><strong>OPEN</strong> - batchable hygiene (COA-3/COA-4).</td>
+</tr>
+</tbody></table></div>
+<h3>Findings by severity (this round)</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Severity</th>
+<th>Count</th>
+<th>Theme</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CRITICAL</td>
+<td>0</td>
+<td>- (all 3 v6 CRITICALs remediated)</td>
+</tr>
+<tr>
+<td>HIGH</td>
+<td>1 (<strong>fixed</strong>)</td>
+<td>N1: driver self-affiliation mass-assignment → carrier-authority bypass</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>2 (1 <strong>fixed</strong>, 1 open)</td>
+<td>ENV-1 (<strong>fixed</strong>): parity checker blind to W9-access-log table; N2 (open): AML enforcement inert (blocked on Didit)</td>
+</tr>
+<tr>
+<td>LOW</td>
+<td>~12</td>
+<td>accessorial policy-accept ungated; org-invite privileged role (not exploitable); JWT base-role TTL; loadboard full-scan; Lambda node20 EOL; stale <code>imported-tables.tf.draft</code>; orphan <code>LoadLead_AdminAudit</code>; Canopy secrets out-of-band; dead staging tfvars; dead <code>/api/health</code> handlers; dev enumerates tables vs prefix; BOL GSI drift</td>
+</tr>
+</tbody></table></div>
+<h3>Delta from v6</h3>
+<ul>
+<li><strong>Closed since v6:</strong> all 3 CRITICAL (C1 pagination, C2 self-signup ADMIN, C3 org takeover), all 13 HIGH (IDOR cluster H1-H5, maps H6, Didit fail-open H7, hot-path scans H8, uploads/public-bucket H9 [fully, phases 2-5 this session], admin tier H10, deps H11, SNS tests H12, dev capacity table H13), plus MEDIUMs M2/M3/M4/M9/M11 and the LOW hygiene batch. <strong>H9 is now the strongest area</strong> (private bucket, signed serving, size-capped uploads, DoD matrix).</li>
+<li><strong>Still open by design:</strong> M1 AML (wired inert, activation blocked on Didit - see N2/Section 5).</li>
+<li><strong>New this round:</strong> N1 (HIGH) and ENV-1 (MEDIUM) - both since fixed and deployed - plus the LOW/infra cluster (open).</li>
+</ul>
+<hr>
+<h2>2. Severity-ranked findings</h2>
+<h3>HIGH</h3>
+<p><strong>N1 - Driver self-affiliation via mass-assignment → carrier-authority (Gate 1) bypass.</strong> <code>PUT /api/driver/profile</code> (<code>routes/driver.ts:83</code>) has no validation schema and passes raw <code>req.body</code> to <code>DriverService.updateProfile</code> (<code>driverService.ts:177</code>), which spreads <code>...updates</code> and strips only <code>headshotUrl</code>. <code>createProfile</code> also copies <code>ownedByOperatorId</code> from the body (<code>driverService.ts:107</code>). <code>resolveCarrierOfRecord</code> (<code>carrierOfRecord.ts:39-46</code>) then trusts <code>driver.ownedByOperatorId</code> <strong>with no back-check</strong> that the operator&#39;s fleet includes this driver.</p>
+<ul>
+<li><strong>Failure scenario:</strong> an attacker signs up as DRIVER, sets <code>{&quot;ownedByOperatorId&quot;:&quot;oo_&lt;a known VERIFIED operator&gt;&quot;}</code> on their profile, completes their own genuine IDV (Gate 2 checks only the attacker&#39;s <code>user.idvStatus</code>), and <code>requireVerifiedCarrier</code> passes - Gate 1 resolves the victim operator as VERIFIED. The attacker accepts/hauls real freight under a legitimate carrier&#39;s FMCSA authority and insurance without consent, defeating the core &quot;only a VERIFIED carrier may accept loads&quot; invariant. Operator ids leak via offers, dashboards, NOA docs, and <code>acct:${carrierId}</code> payee strings.</li>
+<li><strong>Verified</strong> against source (the four hops above were all present and unguarded).</li>
+<li><strong>STATUS: FIXED + deployed 2026-07-17</strong> (PR #106, bundle <code>loadlead-backend-20260717081549</code>). Two layers, since either alone leaves a gap:<ol>
+<li><code>routes/driver.ts</code> strips server-controlled fields (<code>driverId</code>, <code>userId</code>, <code>ownedByOperatorId</code>, <code>isSelf</code>, <code>status</code>) on POST + PUT <code>/profile</code>. At the ROUTE, not the service, so the server-derived writers (self-driver creation, the consented fleet-invite accept, <code>createOrgDriver</code>, <code>updateStatus</code>) are unaffected.</li>
+<li><code>resolveCarrierOfRecord</code> requires the operator to corroborate the link: the driver is in its <code>fleetDriverIds</code>, OR the driver row belongs to the operator&#39;s own <code>userId</code>. <code>driver.isSelf</code> is deliberately not consulted - it is forgeable by the same vector. An unclaimed link falls through to the org path, so a legitimate org driver with a stale field still resolves their real carrier. <code>isFleetCarrierDriver</code>&#39;s raw-field shortcut was collapsed into the same resolver (it could otherwise disagree with it about the same driver).</li>
+</ol>
+</li>
+<li><strong>Two deliberate departures from the original recommendation</strong>, both validated against real data:<ul>
+<li><code>carrierId</code> is NOT stripped: it is a user-entered, required profile field (<code>REQUIRED_PROFILE</code> in <code>SettingsPage</code>), so stripping it would make the driver profile impossible to complete. It is not an authority field - <code>resolveCarrierOfRecord</code> never reads it.</li>
+<li>The back-check is not <code>fleetDriverIds.includes()</code> alone: the OO self-driver is deliberately never in that list. A prod pre-check found the ONE linked driver in prod is exactly that self-driver (<code>in_fleetDriverIds=false, same_userId=true</code>) - the naive check would have silently broken OO self-haul in production.</li>
+</ul>
+</li>
+<li><strong>Rollout proof:</strong> prod pre- and post-deploy checks both report <strong>0 drivers would lose OO authority</strong>; live probes return 401 on the attack surface; health 200 <code>productionHardened</code>.</li>
+<li>Regression tests: 4 resolver-refusal cases + 3 route-strip cases + 1 fleet-pool case (suite 890 -&gt; 898).</li>
+</ul>
+<h3>MEDIUM</h3>
+<p><strong>ENV-1 - Parity checker is blind to the W9-access-log table (regex excludes digits).</strong> <code>scripts/check-table-env-parity.mjs:41-43</code> matches <code>DYNAMODB_[A-Z_]+_TABLE</code>; the character class excludes digits, so <code>DYNAMODB_W9_ACCESS_LOG_TABLE</code> never matches. The checker verifies only 53 of 54 config slots and <strong>never confirms dev/staging override the W9 table</strong> - the append-only log of every full-W9/TIN open, which <code>environment.ts:166</code> calls &quot;the most sensitive read on the platform.&quot; Masked today (dev enumerates it at <code>dev/main.tf:243</code>; staging derives it from the prefix), but a future edit dropping the dev line would leave CI green while dev silently resolved the prod <code>LoadLead_W9AccessLog</code>; only the runtime boot guard would catch it. <strong>STATUS: FIXED</strong> (PR #106) - all three regexes are now <code>DYNAMODB_[A-Z0-9_]+_TABLE</code>; the checker reports 54 prefix-derived slots (was 53) and still exits 0, so the W9/TIN access log is finally inside the guard rather than merely appearing to be.</p>
+<p><strong>N2 - AML enforcement ships inert (carryover of v6 M1).</strong> <code>deriveStatus</code> treats <code>amlStatus === undefined</code> as passing while <code>AML_REQUIRED</code> is off (<code>verification.ts:98,110</code>). Wiring (#97) + runbook (#104) landed, but the control is not enforced in prod today. <strong>Activation is blocked on Didit</strong> (see Section 5). <strong>Fix:</strong> enable the standalone Didit AML product (or switch to workflow-sourced AML), backfill, then <code>AML_REQUIRED=true</code> + a boot assertion.</p>
+<h3>LOW (condensed; full detail in dimension files)</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Finding</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>N3</td>
+<td>Accessorial policy-accept ungated by load party - any carrier can e-sign a policy acceptance for any <code>loadId</code> (integrity/spam, not money)</td>
+<td><code>routes/accessorials.ts:210-241</code></td>
+</tr>
+<tr>
+<td>N4</td>
+<td>Org invite validator accepts privileged <code>userRole</code> - <strong>not exploitable</strong> (<code>membership.userRole</code> is never an authz source; staff-accept requires <code>invite.platformRole</code>) but tighten it</td>
+<td><code>routes/org.ts:537</code></td>
+</tr>
+<tr>
+<td>N5</td>
+<td>Base <code>role</code> trusted from a 7-day JWT with no revocation (sensitive tiers correctly re-derive from DB)</td>
+<td><code>middleware/auth.ts:54</code></td>
+</tr>
+<tr>
+<td>N6</td>
+<td>Loadboard scans full lock/offer/negotiation tables per poll (correct after pagination fix, worse cost profile) - deferred pending GSIs</td>
+<td><code>negotiationService.ts:133,279,736</code></td>
+</tr>
+<tr>
+<td>INF-1</td>
+<td><code>loadlead-prod-signatures-worm-sink</code> runs <code>nodejs20.x</code> (EOL) - bump to <code>nodejs22.x</code> (safe; handler uses only stable APIs)</td>
+<td><code>envs/prod/worm-sink.tf:196</code></td>
+</tr>
+<tr>
+<td>INF-2</td>
+<td>Stale drifted <code>imported-tables.tf.draft</code> re-declares imported tables + lacks the M6 GSI - delete it</td>
+<td><code>envs/prod/imported-tables.tf.draft</code></td>
+</tr>
+<tr>
+<td>INF-3</td>
+<td>Orphaned prod table <code>LoadLead_AdminAudit</code> (no backend reader; app uses <code>LoadLead_AdminAuditLog</code>)</td>
+<td><code>envs/prod/imported-tables.tf:416</code></td>
+</tr>
+<tr>
+<td>INF-4</td>
+<td>Canopy <code>CLIENT_ID/SECRET/WEBHOOK_SECRET</code> set out-of-band on EB, not in tfvars - an env recreate wipes them</td>
+<td><code>envs/staging/main.tf:279</code>, <code>envs/prod/canopy.tf:54</code></td>
+</tr>
+<tr>
+<td>INF-5</td>
+<td>Dead <code>NODE_ENV</code>/<code>BETA_MODE</code> values in <code>staging.auto.tfvars</code> (overridden by <code>merge()</code>)</td>
+<td><code>staging.auto.tfvars:9-10</code></td>
+</tr>
+<tr>
+<td>INF-6</td>
+<td>Dead duplicate <code>/api/health</code> handlers contradict the &quot;consolidated to one place&quot; comment</td>
+<td><code>backend/src/index.ts:425-431</code></td>
+</tr>
+<tr>
+<td>INF-7</td>
+<td>Dev enumerates ~64 table vars instead of <code>DYNAMODB_TABLE_PREFIX</code> (fragile; new tables must be hand-added)</td>
+<td><code>envs/dev/main.tf:177-251</code></td>
+</tr>
+<tr>
+<td>INF-8</td>
+<td>BOL GSI drift - prod <code>LoadLead_BOL</code> has a <code>status-index</code> the dev/staging tableset lacks (query-by-status would 500 non-prod)</td>
+<td><code>imported-tables.tf:337</code> vs <code>dynamodb_tableset/main.tf:118</code></td>
+</tr>
+</tbody></table></div>
+<hr>
+<h2>3. v6 CRITICAL / HIGH - confirmed remediated in current <code>main</code></h2>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>v6 ID</th>
+<th>Finding</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C1</td>
+<td>DB scan/query 1 MB truncation</td>
+<td><code>config/database.ts:108-119</code> (query) + <code>:147-151</code> (scan) loop on <code>LastEvaluatedKey</code></td>
+</tr>
+<tr>
+<td>C2</td>
+<td>Self-signup ADMIN</td>
+<td><code>utils/validators.ts:19</code> (<code>isIn(SELF_SIGNUP_ROLES)</code>) + <code>authService.ts:70</code> allowlist + <code>platformRole.ts:69</code> (<code>resolvePlatformRole(null)→null</code>) + <code>routes/auth.ts:132</code> ADMIN MFA gate</td>
+</tr>
+<tr>
+<td>C3</td>
+<td>Cross-tenant org takeover</td>
+<td><code>routes/org.ts:311</code> <code>resolveMembershipInOrg</code> on PATCH/DELETE/suspend/reinstate + <code>orgService.ts</code> <code>expectedOrgId</code> guards</td>
+</tr>
+<tr>
+<td>H1</td>
+<td>Accessorial charge lifecycle IDOR</td>
+<td><code>accessorials.ts:263</code> <code>assertCallerIsLoadShipper</code></td>
+</tr>
+<tr>
+<td>H2</td>
+<td>Factoring package/export cross-tenant</td>
+<td><code>factoring.ts:402,426</code> <code>assertCallerActsForLoad</code>; carrierId server-derived</td>
+</tr>
+<tr>
+<td>H3</td>
+<td>Receiver reads any load</td>
+<td><code>receiver.ts:43</code> <code>load.receiverId === receiver.receiverId</code> else 404</td>
+</tr>
+<tr>
+<td>H4</td>
+<td>BOL creation on another shipper&#39;s load</td>
+<td><code>bol.ts:74</code> shipper-owns-load; reads via <code>requireBOLAccess</code></td>
+</tr>
+<tr>
+<td>H5</td>
+<td>Org suspend/reinstate tenant-binding</td>
+<td>same <code>resolveMembershipInOrg</code> path</td>
+</tr>
+<tr>
+<td>H6</td>
+<td><code>/api/maps/*</code> unauth + unthrottled</td>
+<td><code>maps.ts:13</code> <code>authenticate</code> + <code>index.ts</code> <code>mapsRateLimiter</code></td>
+</tr>
+<tr>
+<td>H7</td>
+<td>Didit webhook fail-open</td>
+<td><code>verification.ts:403</code> 401 in prod when secret unset</td>
+</tr>
+<tr>
+<td>H8</td>
+<td>Hot-path profile scans</td>
+<td>driver/shipper/receiver services now <code>queryIndexOrScan</code> (userId-index, REQUIRED boot guard)</td>
+</tr>
+<tr>
+<td>H9</td>
+<td>Presigned uploads (MIME/size/ownership/public bucket)</td>
+<td>MIME allowlist (415) + POD assigned-driver check + size-capped <code>presignedPodPost</code> + private serving + PAB all-true (this session, phases 2-5)</td>
+</tr>
+<tr>
+<td>H10</td>
+<td>Admin grant/revoke on bare requireAdmin</td>
+<td><code>admin.ts:82,90</code> now <code>requireStaffTier(DESTRUCTIVE_TIER)</code></td>
+</tr>
+<tr>
+<td>H11-H13</td>
+<td>deps / SNS tests / dev capacity table</td>
+<td>axios bumped; snsVerify covered; <code>dev/main.tf:184</code> capacity slot pinned</td>
+</tr>
+</tbody></table></div>
+<p><strong>Money &amp; correctness invariants checked clean:</strong> integer cents only (<code>utils/money.ts</code>, <code>assertIntegerCents</code> in accessorial + payout-intercept); append-only ledgers (charge history append; terminal SETTLED; intercepts never mutate the invoice, per-(intercept,invoice) idempotency key); first-accept-wins negotiation lock (<code>attribute_not_exists(loadId)</code> conditional put); factoring carrierId server-derived.</p>
+<hr>
+<h2>4. AWS operational notices (from account emails)</h2>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Notice</th>
+<th>Impact</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Lambda <strong>Node.js 20.x EOL</strong> - no updates after 2027-03-03</td>
+<td>1 function: <code>loadlead-prod-signatures-worm-sink</code> (<code>nodejs20.x</code>); staging toggle already <code>nodejs22.x</code></td>
+<td>INF-1: bump <code>worm-sink.tf:196</code> to <code>nodejs22.x</code>, re-zip, apply. Prod-only PR (<code>[terraform-prod-only]</code>). Not urgent.</td>
+</tr>
+<tr>
+<td>Billing console <strong>CloudTrail event rename</strong> (Sept 28-Oct 7 2026)</td>
+<td><strong>Zero</strong> - nothing in LoadLead matches <code>GetPaymentPreference</code>/<code>billingconsole.amazonaws.com</code>/<code>Preferences_*</code></td>
+<td>None. Informational.</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h2>5. Not-yet-in-production register</h2>
+<ul>
+<li><strong>Bucket A (merged to main, not deployed): NONE.</strong> Prod backend + frontend are current with main&#39;s code. The only delta <code>20b54cc..42bc406</code> is the docs-only M1 runbook (#104).</li>
+<li><strong>Bucket B (un-landed): only 2 open PRs, both docs/tracking-only</strong> - <strong>#105</strong> (M1 runbook command fix, mergeable) and <strong>#83</strong> (v6 report + jira sync; report files already in main via #92, only <code>jira/sync.py</code>+manifest genuinely un-landed). <strong>No un-landed application code anywhere.</strong> ~90 &quot;ahead&quot; branches are squash-merge artifacts (content already in main); 3 <code>test/*</code> + <code>verify/*</code> branches are throwaway.</li>
+<li><strong>Bucket C (gated / intentionally not-live):</strong><ul>
+<li><strong>M1 AML enforcement</strong> - deployed inert; <code>AML_REQUIRED</code> unset. <strong>Blocked on Didit:</strong> the backend calls the standalone <code>/v3/aml/</code> API which returns 403 (&quot;no permission&quot;); AML exists on the Didit account only as a <em>workflow</em> feature (published &quot;Custom KYB&quot; workflow), not the standalone product. Flipping now would 403-block all new onboarding. Enable the standalone AML product (or switch to workflow-sourced AML), backfill, then flip.</li>
+<li><strong>Canopy Connect</strong> - code is in the deployed prod bundle but <code>connectEnabled=false</code> in prod (no prod Canopy creds; sandbox-first). Live + verified on staging. Open blockers: webhook-signature confirmation, SDK URL, Components-plan access.</li>
+<li><strong>Compliance carrier-documents</strong> - fully live in prod; minor deferred UI (hauler policy-sign button, sidebar links, <code>CarrierComplianceView</code> in shipper Load Detail).</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2>6. Live smoke (prod + staging)</h2>
+<p>Prod: <code>/api/health</code> 200 <code>productionHardened:true</code>; frontend 200; 13/13 unauthenticated route probes return 401 (no 5xx, no leak); EB <code>Ready/Green</code> on <code>loadlead-backend-20260716202247</code>; <code>AML_REQUIRED</code> unset (OFF); POD bucket PAB all-true + raw public GET 403 (privatization holding). Staging: frontend 200, API paused (expected - ASG idle behind the toggle). No failures.</p>
+<hr>
+<h2>7. Course of action (prioritized)</h2>
+<p><strong>COA-1 - the one live authorization hole: DONE (2026-07-17, PR #106).</strong></p>
+<ul>
+<li><strong>N1:</strong> route-level strip of server-controlled fields + operator corroboration in <code>resolveCarrierOfRecord</code> + 8 regression tests. Deployed and verified in prod; 0 drivers lost authority.</li>
+</ul>
+<p><strong>COA-2 - near-term (CI trust + AML):</strong></p>
+<ul>
+<li><strong>ENV-1: DONE</strong> (PR #106) - parity-checker regex now includes digits; config count 54.</li>
+<li><strong>N2 / M1 AML: OPEN, blocked.</strong> Enable the standalone Didit AML product (the account has AML only as a workflow feature, so the backend&#39;s <code>/v3/aml/</code> call 403s), backfill the verified entities, then flip <code>AML_REQUIRED=true</code> + boot assertion. Flipping before that would 403-block all new onboarding. (User-gated; see <code>docs/M1-AML-ACTIVATION-RUNBOOK.md</code>.)</li>
+</ul>
+<p><strong>COA-3 - hardening + hygiene (batchable):</strong></p>
+<ul>
+<li>N3 (gate accessorial policy-accept on offer/claim eligibility), N4 (tighten org-invite role validator), N6 (loadboard GSIs).</li>
+<li>INF-1 (Lambda node22 bump), INF-2 (delete <code>imported-tables.tf.draft</code>), INF-3 (remove/annotate <code>LoadLead_AdminAudit</code>), INF-4 (Canopy secrets into tfvars), INF-5/INF-6 (dead tfvars values / dead health handlers), INF-8 (add BOL <code>status-index</code> to the tableset module).</li>
+</ul>
+<p><strong>COA-4 - larger refactors (schedule):</strong></p>
+<ul>
+<li>INF-7: migrate dev to <code>DYNAMODB_TABLE_PREFIX</code> (retire the ~64-line enumeration).</li>
+<li>N5: JWT tokenVersion/revocation for base role.</li>
+</ul>
+<hr>
+<h2>8. Confidence - verified clean this round</h2>
+<p>890/890 backend tests green (0 flake); frontend clean + known-good chunk shape (no react-vendor split); both parity CI gates pass; all 3 v6 CRITICAL + 13 HIGH remediated; money primitives (integer cents, append-only, idempotent intercepts); negotiation first-accept-wins; tenant isolation on factoring/charges/BOL/receiver/org; POD/headshot privatization holding in prod (PAB all-true, 403 on public reads); prod healthy + hardened; deploy state fully reconciled (prod == main code).</p>
+<hr>
+<h2>9. Appendix - dimensions</h2>
+<p>Six parallel passes: build+test health, business-logic, security/IAM (merged here as Sections 2-3), environment parity + infra, live smoke, and the deploy-delta register. This report is the consolidated synthesis; per-dimension agent transcripts are in the session task logs.</p>
+
+</body></html>
