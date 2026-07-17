@@ -81,33 +81,11 @@ resource "aws_s3_bucket_public_access_block" "pod_uploads" {
   restrict_public_buckets = true
 }
 
-# audit v6 H9 phase 4: staging-first mirror of the prod POD-bucket flip
-# (envs/prod/pod-uploads-v1-privatize.tf). This bucket is already PAB-private,
-# so the privatizing control is proven here; what is new is the deny-all-deletes
-# policy, ordered after the PAB. Proving the mechanic here before prod. Deletes
-# fail loudly; overwriting a headshot key (PutObject) is unaffected.
-resource "aws_s3_bucket_policy" "pod_uploads_no_delete" {
-  bucket = aws_s3_bucket.pod_uploads.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Sid       = "DenyAllDeletes"
-      Effect    = "Deny"
-      Principal = "*"
-      Action = [
-        "s3:DeleteObject",
-        "s3:DeleteObjectVersion",
-        "s3:DeleteObjectTagging",
-        "s3:DeleteObjectVersionTagging",
-      ]
-      Resource = "${aws_s3_bucket.pod_uploads.arn}/*"
-    }]
-  })
-
-  depends_on = [aws_s3_bucket_public_access_block.pod_uploads]
-}
-
+# audit v6 H9 phase 4: the prod POD-bucket flip (envs/prod/pod-uploads-v1-
+# privatize.tf) reduced to a PAB hardening once the Step-0 review found the prod
+# bucket already private with a superior live delete/tamper policy. This staging
+# bucket is already PAB-private with all four flags true, so it is already at the
+# target posture - nothing to mirror here. Left as-is intentionally.
 resource "aws_s3_bucket_cors_configuration" "pod_uploads" {
   bucket = aws_s3_bucket.pod_uploads.id
   cors_rule {
