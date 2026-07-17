@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { aDriver, anOoSelfDriver, aVerification, anIdvVerification } from '../../fixtures/factories';
+import { aDriver, anOoSelfDriver, anOwnerOperator, aVerification, anIdvVerification } from '../../fixtures/factories';
 import { VerificationEntityType } from '../../../src/types';
 import { VerificationStatus, EntityType } from '../../../src/services/verification';
 
@@ -34,12 +34,21 @@ beforeEach(() => {
   sendMock.mockReset();
 });
 
+// Audit v7 N1: resolveCarrierOfRecord now makes the operator corroborate the
+// ownedByOperatorId link, so the OO path reads the OPERATOR first and the
+// verification record second. These gates are about authority, not affiliation,
+// so each OO case seeds a claiming operator ahead of its verification row.
+const claiming = (operatorId: string, driver: { driverId: string }) =>
+  ({ Item: anOwnerOperator({ operatorId, fleetDriverIds: [driver.driverId] }) });
+
 describe('isCarrierVerified', () => {
   it('[B1] both gates pass → verified true', async () => {
     const driver = aDriver({ ownedByOperatorId: 'OP1' });
     const v = aVerification('OP1', VerificationStatus.VERIFIED);
 
-    sendMock.mockResolvedValueOnce({ Item: v });
+    sendMock
+      .mockResolvedValueOnce(claiming('OP1', driver))
+      .mockResolvedValueOnce({ Item: v });
 
     const result = await isCarrierVerified(driver);
     expect(result.verified).toBe(true);
@@ -53,7 +62,9 @@ describe('isCarrierVerified', () => {
   it('[B2] identity PENDING → carrier still resolves but verified still requires gate 2', async () => {
     const driver = aDriver({ ownedByOperatorId: 'OP_IDV' });
     const v = aVerification('OP_IDV', VerificationStatus.VERIFIED);
-    sendMock.mockResolvedValueOnce({ Item: v });
+    sendMock
+      .mockResolvedValueOnce(claiming('OP_IDV', driver))
+      .mockResolvedValueOnce({ Item: v });
 
     const result = await isCarrierVerified(driver);
     expect(result.verified).toBe(true);
@@ -64,7 +75,9 @@ describe('isCarrierVerified', () => {
     const driver = aDriver({ ownedByOperatorId: 'OP2' });
     const v = aVerification('OP2', VerificationStatus.PENDING);
 
-    sendMock.mockResolvedValueOnce({ Item: v });
+    sendMock
+      .mockResolvedValueOnce(claiming('OP2', driver))
+      .mockResolvedValueOnce({ Item: v });
 
     const result = await isCarrierVerified(driver);
     expect(result.verified).toBe(false);
@@ -85,7 +98,9 @@ describe('isCarrierVerified', () => {
     const driver = aDriver({ ownedByOperatorId: 'OP3' });
     const v = aVerification('OP3', VerificationStatus.EXPIRED);
 
-    sendMock.mockResolvedValueOnce({ Item: v });
+    sendMock
+      .mockResolvedValueOnce(claiming('OP3', driver))
+      .mockResolvedValueOnce({ Item: v });
 
     const result = await isCarrierVerified(driver);
     expect(result.verified).toBe(false);
@@ -96,7 +111,9 @@ describe('isCarrierVerified', () => {
     const driver = anOoSelfDriver('OP4', 'U_OO');
     const v = aVerification('OP4', VerificationStatus.VERIFIED);
 
-    sendMock.mockResolvedValueOnce({ Item: v });
+    sendMock
+      .mockResolvedValueOnce({ Item: anOwnerOperator({ operatorId: 'OP4', userId: 'U_OO', fleetDriverIds: [] }) })
+      .mockResolvedValueOnce({ Item: v });
 
     const result = await isCarrierVerified(driver);
     expect(result.verified).toBe(true);
@@ -108,7 +125,9 @@ describe('isCarrierVerified', () => {
       sendMock.mockReset();
       const driver = aDriver({ ownedByOperatorId: 'OP_X' });
       const v = aVerification('OP_X', status);
-      sendMock.mockResolvedValueOnce({ Item: v });
+      sendMock
+        .mockResolvedValueOnce(claiming('OP_X', driver))
+        .mockResolvedValueOnce({ Item: v });
 
       const result = await isCarrierVerified(driver);
       expect(result.status).toBe(status);
@@ -120,7 +139,9 @@ describe('isCarrierVerified', () => {
     const driver = aDriver({ ownedByOperatorId: 'OP_REJ' });
     const v = aVerification('OP_REJ', VerificationStatus.REJECTED);
 
-    sendMock.mockResolvedValueOnce({ Item: v });
+    sendMock
+      .mockResolvedValueOnce(claiming('OP_REJ', driver))
+      .mockResolvedValueOnce({ Item: v });
 
     const result = await isCarrierVerified(driver);
     expect(result.verified).toBe(false);
@@ -129,7 +150,9 @@ describe('isCarrierVerified', () => {
 
   it('[B8b] no verification record → defaults to UNVERIFIED → not verified', async () => {
     const driver = aDriver({ ownedByOperatorId: 'OP_NORECORD' });
-    sendMock.mockResolvedValueOnce({ Item: undefined });
+    sendMock
+      .mockResolvedValueOnce(claiming('OP_NORECORD', driver))
+      .mockResolvedValueOnce({ Item: undefined });
 
     const result = await isCarrierVerified(driver);
     expect(result.verified).toBe(false);

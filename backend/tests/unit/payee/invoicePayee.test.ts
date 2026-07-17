@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { aDriver, anOoSelfDriver, aFleetDriver } from '../../fixtures/factories';
+import { aDriver, anOoSelfDriver, aFleetDriver, anOwnerOperator } from '../../fixtures/factories';
 import { VerificationEntityType, OrgCapability } from '../../../src/types';
 
 const sendMock = vi.hoisted(() => vi.fn());
@@ -57,10 +57,13 @@ describe('resolveInvoicePayee', () => {
   it('[F1] fleet driver, no factoring → CARRIER payee (OWNER_OPERATOR)', async () => {
     const driver = aFleetDriver('OP1');
     // 1st send: getOptInByLoad (QueryCommand) → no factoring
-    sendMock.mockResolvedValueOnce({ Items: [] });
+    // 2nd send: audit v7 N1 - resolveCarrierOfRecord makes the operator corroborate
+    //           the fleet link before it grants OWNER_OPERATOR
+    sendMock
+      .mockResolvedValueOnce({ Items: [] })
+      .mockResolvedValueOnce({ Item: anOwnerOperator({ operatorId: 'OP1', fleetDriverIds: [driver.driverId] }) });
     vi.mocked(LoadService.getLoadById).mockResolvedValueOnce({ assignedDriverId: driver.driverId } as any);
     vi.mocked(DriverService.getProfileById).mockResolvedValueOnce(driver);
-    // resolveCarrierOfRecord: fleet driver has ownedByOperatorId, no further sends needed
 
     const result = await resolveInvoicePayee('LOAD1');
     expect(result.payee).toBe('CARRIER');
@@ -92,7 +95,11 @@ describe('resolveInvoicePayee', () => {
 
   it('[F3] OO self-driver → CARRIER payee (OWNER_OPERATOR)', async () => {
     const driver = anOoSelfDriver('OP2', 'U_OO');
-    sendMock.mockResolvedValueOnce({ Items: [] }); // getOptInByLoad
+    sendMock
+      .mockResolvedValueOnce({ Items: [] }) // getOptInByLoad
+      // audit v7 N1: the self-driver is proven by the operator owning the same
+      // userId, not by fleetDriverIds (which never contains it)
+      .mockResolvedValueOnce({ Item: anOwnerOperator({ operatorId: 'OP2', userId: 'U_OO', fleetDriverIds: [] }) });
     vi.mocked(LoadService.getLoadById).mockResolvedValueOnce({ assignedDriverId: driver.driverId } as any);
     vi.mocked(DriverService.getProfileById).mockResolvedValueOnce(driver);
 

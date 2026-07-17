@@ -23,6 +23,7 @@ import {
   Organization,
   OrgMembership,
   OrgCapability,
+  OwnerOperator,
   VerificationEntityType,
   CarrierOfRecord,
 } from '../types';
@@ -31,6 +32,33 @@ import {
 import type { Verification, VerificationStatus } from './verification';
 
 const VERIFICATIONS_TABLE = process.env.DYNAMODB_VERIFICATIONS_TABLE || 'LoadLead_Verifications';
+// Read directly (not via OwnerOperatorService) to keep this module free of
+// runtime service imports - same reason as the type-only verification import.
+const OWNER_OPERATORS_TABLE = process.env.DYNAMODB_OWNER_OPERATORS_TABLE || 'LoadLead_OwnerOperators';
+
+/**
+ * Audit v7 N1: is the driver's claimed operator link actually CLAIMED by that
+ * operator? `driver.ownedByOperatorId` alone is only the driver row's assertion;
+ * trusting it let a driver self-declare into any VERIFIED carrier and inherit its
+ * FMCSA authority + insurance. The link counts only when the operator side
+ * corroborates it, by one of two server-owned facts:
+ *   - the driver is in the operator's `fleetDriverIds` (set by the consented
+ *     fleet-invite accept), or
+ *   - the driver row belongs to the operator's own user (the OO self-driver,
+ *     which is deliberately NOT in fleetDriverIds - see the fleet-remove guard).
+ * `driver.isSelf` is deliberately NOT consulted: it lives on the driver row and
+ * would be forgeable by the same vector this closes.
+ */
+async function operatorClaimsDriver(driver: Driver, operatorId: string): Promise<boolean> {
+  const res = await docClient.send(new GetCommand({
+    TableName: OWNER_OPERATORS_TABLE,
+    Key: { operatorId },
+  }));
+  const operator = res.Item as OwnerOperator | undefined;
+  if (!operator) return false;
+  if ((operator.fleetDriverIds ?? []).includes(driver.driverId)) return true;
+  return operator.userId === driver.userId;
+}
 
 /**
  * Resolve the carrier of record for a driver.
@@ -39,7 +67,11 @@ const VERIFICATIONS_TABLE = process.env.DYNAMODB_VERIFICATIONS_TABLE || 'LoadLea
 export async function resolveCarrierOfRecord(driver: Driver): Promise<CarrierOfRecord | null> {
   // 1. Owner Operator fleet - explicit fleet assignment wins. An OO's self-driver
   //    carries ownedByOperatorId === its own operatorId, so OO self-haul lands here.
-  if (driver.ownedByOperatorId) {
+  //    Audit v7 N1: the operator must corroborate the link (see operatorClaimsDriver).
+  //    An unclaimed link is ignored and we fall through, so a legitimate org driver
+  //    carrying a stale or forged field still resolves their real carrier below,
+  //    while a self-declared link grants nothing.
+  if (driver.ownedByOperatorId && (await operatorClaimsDriver(driver, driver.ownedByOperatorId))) {
     return {
       entityType: VerificationEntityType.OWNER_OPERATOR,
       entityId: driver.ownedByOperatorId,
@@ -88,9 +120,12 @@ export async function resolveCarrierOfRecord(driver: Driver): Promise<CarrierOfR
  * the caller so this stays independently testable.
  */
 export async function isFleetCarrierDriver(driver: Driver): Promise<boolean> {
-  // OO self/fleet drivers carry ownedByOperatorId - never a fleet carrier,
-  // and we can decide without any extra reads.
-  if (driver.ownedByOperatorId) return false;
+  // Audit v7 N1: resolve through the one corroborated path instead of
+  // short-circuiting on the raw ownedByOperatorId field. That shortcut saved a
+  // read but trusted an assertion the operator may not claim, so a stale or
+  // forged link would answer "not a fleet carrier" here while
+  // resolveCarrierOfRecord resolved the driver's real CARRIER_ORG - two paths
+  // disagreeing about the same driver. One resolver, one answer.
   const carrier = await resolveCarrierOfRecord(driver);
   return carrier?.entityType === VerificationEntityType.CARRIER_ORG;
 }

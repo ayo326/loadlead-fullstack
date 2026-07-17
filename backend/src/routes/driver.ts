@@ -29,11 +29,47 @@ router.use(authenticate);
 // the prod attestation e2e on DRIVER_PICKUP.
 router.use(requireRole(UserRole.DRIVER, UserRole.OWNER_OPERATOR, UserRole.ADMIN));
 
+// Audit v7 N1: fields on the Driver row that are SERVER-controlled and must never
+// be settable from a request body. `ownedByOperatorId` is the carrier-of-record
+// link (carrierOfRecord.ts reads it to resolve a driver's carrier authority) and
+// `isSelf` marks the Owner Operator's own self-driver - a client that could set
+// either would inherit an arbitrary VERIFIED carrier's FMCSA authority and
+// insurance. driverId/userId are identity; status is lifecycle. All of these are
+// set only by server-derived paths: OwnerOperatorService.createSelfDriver, the
+// consented fleet-invite accept (POST /fleet/accept below), createOrgDriver, and
+// DriverService.updateStatus - which call the service directly and so are
+// unaffected by this route-level filter.
+//
+// NOT stripped: `carrierId`. It looks server-ish but is a user-entered "Carrier
+// ID" on the driver profile form (REQUIRED_PROFILE in SettingsPage) - stripping
+// it would make the profile impossible to complete. It is not an authority field:
+// resolveCarrierOfRecord never reads it, and its only use is as a capacity-event
+// label fallback where the resolved carrier takes precedence anyway.
+//
+// express-validator validates known fields but does NOT strip unknown ones, so
+// the schema on POST /profile is not a substitute for this.
+const SERVER_CONTROLLED_DRIVER_FIELDS = [
+  'driverId',
+  'userId',
+  'ownedByOperatorId',
+  'isSelf',
+  'status',
+] as const;
+
+function stripServerControlledDriverFields<T extends Record<string, unknown>>(body: T): Partial<T> {
+  const clean: Record<string, unknown> = { ...(body ?? {}) };
+  for (const field of SERVER_CONTROLLED_DRIVER_FIELDS) delete clean[field];
+  return clean as Partial<T>;
+}
+
 router.post(
   '/profile',
   validate(driverValidators.createProfile),
   asyncHandler(async (req: AuthRequest, res) => {
-    const driver = await DriverService.createProfile(req.user!.userId, req.body);
+    const driver = await DriverService.createProfile(
+      req.user!.userId,
+      stripServerControlledDriverFields(req.body ?? {}),
+    );
     res.status(201).json({ driver });
   })
 );
@@ -87,7 +123,10 @@ router.put(
     if (!driver) return res.status(404).json({ error: 'Driver profile not found' });
 
     const prevRated = driver.maxCapacityLbs;
-    await DriverService.updateProfile(driver.driverId, req.body);
+    // Audit v7 N1: this route has no request schema and previously passed the raw
+    // body straight into updateProfile's spread, so a driver could self-declare
+    // ownedByOperatorId and inherit another carrier's authority. Strip first.
+    await DriverService.updateProfile(driver.driverId, stripServerControlledDriverFields(req.body ?? {}));
 
     // Record a rated-capacity change as an append-only event (audit trail). The
     // rated value itself lives on the Driver; this never blocks the profile save.
