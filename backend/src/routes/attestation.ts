@@ -45,7 +45,7 @@ router.use(authenticate);
 /* ─────────────────────────────────────────────────────────────
  * POST /api/attestation/photos/upload-url
  *   body: { loadId, stage: ORIGIN|PICKUP|DELIVERY|RECEIPT, contentType?, lat?, lng?, capturedAt? }
- * Returns: { photoId, s3Key, uploadUrl, expiresIn }
+ * Returns: { photoId, s3Key, url, fields, expiresIn } (size-capped presigned POST)
  * Side effect: creates a PENDING row in LoadLead_PodPhotos.
  * ───────────────────────────────────────────────────────────── */
 router.post('/photos/upload-url', asyncHandler(async (req: AuthRequest, res) => {

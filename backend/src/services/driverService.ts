@@ -194,6 +194,15 @@ export class DriverService {
         updatedAt: Helpers.getCurrentTimestamp(),
       };
 
+      // H9 phase 5 (audit v6): never persist a headshot URL. The object lives in
+      // the private POD bucket; the read path signs a fresh short-lived URL from
+      // `headshotKey` at serve time (withSignedHeadshot). Only the key is stored,
+      // so drop any client-supplied `headshotUrl` before it can be written - PUT
+      // /driver/profile spreads req.body straight in and has no request schema.
+      if ('headshotUrl' in updateData) {
+        delete updateData.headshotUrl;
+      }
+
       // Keep canonical insurance fields in sync with alias fields
       if (updateData.cargoCoverageAmount != null && !updateData.cargoInsuranceAmount) {
         updateData.cargoInsuranceAmount = updateData.cargoCoverageAmount;

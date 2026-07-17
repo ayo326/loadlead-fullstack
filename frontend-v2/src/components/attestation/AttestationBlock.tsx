@@ -64,7 +64,7 @@ interface AttestationBlockProps {
   onCancel?: () => void;
 }
 
-type UploadedPhoto = { photoId: string; uploadUrl: string; finalizing?: boolean; contentHash?: string };
+type UploadedPhoto = { photoId: string; finalizing?: boolean; contentHash?: string };
 
 const EXCEPTION_CODES = ['OSD', 'DAMAGE', 'SHORT', 'REFUSED', 'OTHER'] as const;
 
@@ -108,7 +108,7 @@ export function AttestationBlock(props: AttestationBlockProps) {
 
       // 2. Finalize: server reads bytes, sha256, sets contentHash.
       //    Only after this does the photo become bindable by a signature.
-      setPhotos((p) => [...p, { photoId: presign.photoId, uploadUrl: presign.url, finalizing: true }]);
+      setPhotos((p) => [...p, { photoId: presign.photoId, finalizing: true }]);
       const fin = await api.attestationFinalizePhoto(presign.photoId);
       setPhotos((p) => p.map((x) =>
         x.photoId === presign.photoId ? { ...x, finalizing: false, contentHash: fin.contentHash } : x,
