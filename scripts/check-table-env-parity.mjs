@@ -38,9 +38,16 @@ const KNOWN_SUFFIX = {
 //  2. Service-file-direct tables read `process.env.DYNAMODB_X_TABLE || 'default'`
 //     with no config slot, so the prefix does NOT reach them - each still needs
 //     its own explicit override in every non-prod stack.
-const PREFIX_DERIVED_RE = /\bt\('(DYNAMODB_[A-Z_]+_TABLE)',\s*'([^']+)'\)/g;
-const ENV_VAR_RE = /process\.env\.(DYNAMODB_[A-Z_]+_TABLE)(?:\s*\|\|\s*'([^']+)')?/g;
-const TF_KEY_RE = /(DYNAMODB_[A-Z_]+_TABLE)\s*=/g;
+// The character class MUST include digits (audit v7 ENV-1): slot names are not
+// all-alpha. DYNAMODB_W9_ACCESS_LOG_TABLE - the append-only log of every full
+// W9/TIN open, the most sensitive read on the platform - contains a '9', so an
+// [A-Z_]-only class silently skipped it: the checker under-counted the config
+// slots by one and never verified that dev/staging override that table. It stayed
+// green because dev happens to enumerate it today; drop that line and CI would
+// still pass while dev resolved the PROD W9 access log.
+const PREFIX_DERIVED_RE = /\bt\('(DYNAMODB_[A-Z0-9_]+_TABLE)',\s*'([^']+)'\)/g;
+const ENV_VAR_RE = /process\.env\.(DYNAMODB_[A-Z0-9_]+_TABLE)(?:\s*\|\|\s*'([^']+)')?/g;
+const TF_KEY_RE = /(DYNAMODB_[A-Z0-9_]+_TABLE)\s*=/g;
 const TF_PREFIX_RE = /DYNAMODB_TABLE_PREFIX\s*=/;
 
 function walk(dir) {
