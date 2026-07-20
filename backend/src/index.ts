@@ -421,11 +421,9 @@ start().catch((err) => {
 // Export for Lambda if needed
 export { app };
 
-// --- quick health check (local dev) ---
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
-});
-
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
-});
+// Audit v7 INF-6: two more duplicate /api/health handlers used to sit here. They
+// were dead - Express serves the first match, so the canonical hardened handler
+// above always won - but they contradicted its "exactly one place" comment and
+// would have quietly shadowed it if the mount order ever changed, answering
+// without productionHardened. Removed; the canonical handler is now genuinely
+// the only one.

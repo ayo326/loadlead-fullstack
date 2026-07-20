@@ -34,6 +34,20 @@ export const SELF_SIGNUP_ROLES: UserRole[] = [
   UserRole.OWNER_OPERATOR,
 ];
 
+/**
+ * Roles an ORG invitation may confer (audit v7 N4). Everything except platform
+ * ADMIN: an org invite is org-scoped and must never be able to mint a platform
+ * superuser. CARRIER_ADMIN stays - it is a legitimate org persona (a carrier org
+ * invites a co-admin/dispatcher), which is why this is not SELF_SIGNUP_ROLES.
+ * Staff/platform roles travel on a separate path (invite.platformRole, see
+ * staffService) that org invites never set, so this is least-privilege
+ * defence-in-depth rather than a live hole: membership.userRole is not an
+ * authorization source anywhere.
+ */
+export const ORG_INVITABLE_ROLES: UserRole[] = Object.values(UserRole).filter(
+  (r) => r !== UserRole.ADMIN,
+);
+
 export enum UserStatus {
   ACTIVE = 'ACTIVE',
   SUSPENDED = 'SUSPENDED',

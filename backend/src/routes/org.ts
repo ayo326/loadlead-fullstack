@@ -6,7 +6,7 @@ import { validate } from '../middleware/validation';
 import {
   OrgService, OrgMembershipService, OrgInvitationService, OrgAuditService,
 } from '../services/orgService';
-import { OrgCapability, OrgRole, ADMIN_ORG_ROLES, UserRole } from '../types';
+import { OrgCapability, OrgRole, ADMIN_ORG_ROLES, UserRole, ORG_INVITABLE_ROLES } from '../types';
 import { isFleetCarrierPersonaEnabled } from '../config/featureFlags';
 import { hasPermission } from '../services/orgPermissions';
 import { AppError } from '../middleware/errorHandler';
@@ -534,7 +534,10 @@ router.post(
   validate([
     body('email').isEmail().withMessage('Valid email required'),
     body('orgRole').isIn(Object.values(OrgRole)).withMessage('Invalid orgRole'),
-    body('userRole').isIn(Object.values(UserRole)).withMessage('Invalid userRole'),
+    // Audit v7 N4: everything but platform ADMIN - an org invite is org-scoped
+    // and must never mint a platform superuser. CARRIER_ADMIN remains invitable
+    // (a carrier org invites a co-admin), so this is not SELF_SIGNUP_ROLES.
+    body('userRole').isIn(ORG_INVITABLE_ROLES).withMessage('Invalid userRole'),
   ]),
   asyncHandler(async (req: AuthRequest, res) => {
     const { orgId } = req.params;
