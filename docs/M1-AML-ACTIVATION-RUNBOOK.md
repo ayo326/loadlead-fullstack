@@ -35,12 +35,29 @@ not record specific prod figures or entity identifiers in this repo.
       without live mode would write a STUB `amlStatus` and is NOT a real screen.
 - [ ] AWS creds with read/write on `LoadLead_Verifications`.
 
-## Step 1 - dry run (read-only, already done)
+## Running the script (runner + env gotchas)
+
+`ts-node` is not installed here; run the script with `tsx` (`npx --yes tsx`).
+Two env overrides are required so the script targets PROD and not local dev:
+
+- `DYNAMODB_ENDPOINT=` (empty) - `backend/.env` points DynamoDB at a local
+  endpoint (`localhost:8000`); the empty inline value clears it so the AWS SDK
+  uses the real regional endpoint. `dotenv` does not override an inline value.
+- Real AWS creds must win over the dummy `AWS_ACCESS_KEY_ID` /
+  `AWS_SECRET_ACCESS_KEY` in `backend/.env`. Load your real session creds into
+  the shell first (they are already set, so `dotenv` will not overwrite them):
+  `eval "$(aws configure export-credentials --format env)"` (does not print the
+  secret). Confirm the account is the prod account before Step 2.
+
+## Step 1 - dry run (read-only)
 
 ```
 cd backend
+eval "$(aws configure export-credentials --format env)"   # real creds into the shell
+DYNAMODB_ENDPOINT= \
+AWS_REGION=us-east-1 \
 DYNAMODB_VERIFICATIONS_TABLE=LoadLead_Verifications \
-  npx ts-node --transpile-only scripts/backfillAml.ts
+  npx --yes tsx scripts/backfillAml.ts
 ```
 
 Lists what it WOULD screen; no external calls, no writes, no names printed. The
@@ -50,26 +67,34 @@ count it reports is the backfill work list for Step 2.
 
 ```
 cd backend
+eval "$(aws configure export-credentials --format env)"   # real creds into the shell
 APP_ENV=production \
+DYNAMODB_ENDPOINT= \
+AWS_REGION=us-east-1 \
 DYNAMODB_VERIFICATIONS_TABLE=LoadLead_Verifications \
 DIDIT_API_KEY=***                                    # operator supplies; do not echo \
-  npx ts-node --transpile-only scripts/backfillAml.ts --apply
+  npx --yes tsx scripts/backfillAml.ts --apply
 ```
 
-Runs a real Didit AML screen for each entity on the Step 1 work list via the
-SAME `screenEntityAml` the post-KYB/IDV webhook uses, and persists `amlStatus`.
+`APP_ENV=production` puts the Didit adapter in LIVE mode. Runs a real Didit AML
+screen for each entity on the Step 1 work list via the SAME `screenEntityAml`
+the post-KYB/IDV webhook uses, and persists `amlStatus`.
 
 ## Step 3 - verify the backfill (read-only)
 
 ```
 # Re-run the dry run: it must now report "Nothing to backfill".
+eval "$(aws configure export-credentials --format env)"
+DYNAMODB_ENDPOINT= \
+AWS_REGION=us-east-1 \
 DYNAMODB_VERIFICATIONS_TABLE=LoadLead_Verifications \
-  npx ts-node --transpile-only scripts/backfillAml.ts
+  npx --yes tsx scripts/backfillAml.ts
 ```
 
-Confirm BOTH entities ended `amlStatus=pass`. If either came back `fail`, that
-entity is now REJECTED - stop and route it to compliance for review BEFORE the
-flip (do not flip with an unresolved fail; that is a real AML hit to adjudicate).
+Confirm every entity on the work list ended `amlStatus=pass`. If any came back
+`fail`, that entity is now REJECTED - stop and route it to compliance for review
+BEFORE the flip (do not flip with an unresolved fail; that is a real AML hit to
+adjudicate).
 
 ## Step 4 - flip the flag (prod EB)
 
@@ -94,7 +119,7 @@ aws elasticbeanstalk describe-configuration-settings \
 # Health green:
 curl -s -o /dev/null -w "%{http_code}\n" https://api.loadleadapp.com/api/health
 
-# The 2 backfilled entities are still VERIFIED (amlStatus=pass survives a recompute).
+# The backfilled entities are still VERIFIED (amlStatus=pass survives a recompute).
 # A fresh carrier/driver now cannot reach VERIFIED without an AML pass.
 ```
 
