@@ -413,21 +413,19 @@ resource "aws_dynamodb_table" "ddb_membership_audit_logs" {
   tags                        = local.tags
 }
 
-resource "aws_dynamodb_table" "ddb_admin_audit" {
-  name         = "LoadLead_AdminAudit"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "auditId"
-
-  attribute {
-    name = "auditId"
-    type = "S"
-  }
-
-
-  point_in_time_recovery { enabled = true }
-  deletion_protection_enabled = false
-  tags                        = local.tags
-}
+# Audit v7 INF-3: aws_dynamodb_table.ddb_admin_audit (name "LoadLead_AdminAudit")
+# was removed here. It has NO backend reader - the app's admin audit log is the
+# separate LoadLead_AdminAuditLog table (config slot adminAuditLogTable, managed
+# by module.ddb_admin_audit_log). The physical LoadLead_AdminAudit table does NOT
+# exist in AWS (describe-table -> ResourceNotFoundException); `tofu plan
+# -refresh-only` reports the resource "has been deleted". So it was stale state
+# for a non-existent table, and a normal `tofu apply` would have RE-CREATED an
+# unused table.
+#
+# REQUIRED before applying (see the PR runbook): drop the stale state entry so
+# this is a true no-op rather than a create:
+#   tofu state rm aws_dynamodb_table.ddb_admin_audit
+# After that, `tofu plan` shows no change for this address.
 
 resource "aws_dynamodb_table" "ddb_admin_bootstrap_attempts" {
   name         = "LoadLead_AdminBootstrapAttempts"
