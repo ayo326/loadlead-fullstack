@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { ArrowRight, Briefcase, Building2, CheckCircle2, Clock, Gauge, MapPin, PackageCheck, Radio, ShieldCheck, ShipWheel, Truck, Send } from "lucide-react";
+import { ArrowRight, Briefcase, Building2, CheckCircle2, Clock, Gauge, MapPin, Menu, PackageCheck, Radio, ShieldCheck, ShipWheel, Truck, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { StagingEnvToggle } from "@/components/StagingEnvToggle";
@@ -13,6 +13,16 @@ export default function Landing() {
   // and its signup CTA are not shown. Owner-operator, driver, shipper, and
   // receiver cards are unaffected.
   const { fleetCarrierPersonaEnabled } = useRuntimeConfig();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close the mobile menu on Escape for keyboard users.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
   return (
     <div className="font-display-hangar min-h-screen bg-background text-foreground">
       {/* Engineering-only staging start/pause control (renders only in the staging build) */}
@@ -20,7 +30,8 @@ export default function Landing() {
       {/* Nav */}
       <header className="cx-nav absolute top-0 inset-x-0 z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-5">
-          <div className="text-primary-foreground">
+          {/* Logo must never compress in the flex row (shrink-0). */}
+          <div className="text-primary-foreground shrink-0">
             <Logo variant="light" height={44} />
           </div>
           <nav className="hidden md:flex items-center gap-8 text-sm text-primary-foreground/80">
@@ -28,15 +39,46 @@ export default function Landing() {
             <a href="#roles" className="hover:text-primary-foreground">For your team</a>
             <a href="#metrics" className="hover:text-primary-foreground">Why LoadLead</a>
           </nav>
-          <div className="flex items-center gap-2">
+          {/* Desktop actions: one ghost + one primary CTA. */}
+          <div className="hidden md:flex items-center gap-2">
             <Button asChild variant="ghost" className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground">
               <Link to="/login">Sign in</Link>
             </Button>
             <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <Link to="/signup">Open dashboard <ArrowRight className="h-4 w-4" /></Link>
+              <Link to="/signup">Get started <ArrowRight className="h-4 w-4" /></Link>
             </Button>
           </div>
+          {/* Mobile: single 44px toggle, actions live in the panel below. */}
+          <button
+            type="button"
+            className="md:hidden inline-flex items-center justify-center h-11 w-11 -mr-2 rounded-md text-primary-foreground hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            aria-controls="landing-mobile-menu"
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
         </div>
+
+        {/* Mobile menu panel */}
+        {menuOpen && (
+          <div id="landing-mobile-menu" className="md:hidden border-t border-white/10 bg-[#0a2a66]">
+            <nav className="max-w-7xl mx-auto px-6 py-4 flex flex-col">
+              <a href="#how" onClick={() => setMenuOpen(false)} className="py-3 text-base text-primary-foreground/85 hover:text-primary-foreground">How it works</a>
+              <a href="#roles" onClick={() => setMenuOpen(false)} className="py-3 text-base text-primary-foreground/85 hover:text-primary-foreground">For your team</a>
+              <a href="#metrics" onClick={() => setMenuOpen(false)} className="py-3 text-base text-primary-foreground/85 hover:text-primary-foreground">Why LoadLead</a>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <Button asChild variant="outline" className="h-11 bg-transparent border-white/30 text-primary-foreground hover:bg-white/10 hover:text-primary-foreground">
+                  <Link to="/login" onClick={() => setMenuOpen(false)}>Sign in</Link>
+                </Button>
+                <Button asChild className="h-11 bg-accent text-accent-foreground hover:bg-accent/90">
+                  <Link to="/signup" onClick={() => setMenuOpen(false)}>Get started</Link>
+                </Button>
+              </div>
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Hero */}
@@ -65,7 +107,7 @@ export default function Landing() {
             <div className="mt-10 flex flex-wrap gap-6 text-sm text-primary-foreground/70">
               <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 cx-hi" />Eligibility-aware</div>
               <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 cx-hi" />Real-time offers</div>
-              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 cx-hi" />5 roles, one platform</div>
+              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 cx-hi" />{fleetCarrierPersonaEnabled ? "5" : "4"} roles, one platform</div>
             </div>
           </div>
 
