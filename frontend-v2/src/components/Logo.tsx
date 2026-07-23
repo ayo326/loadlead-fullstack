@@ -28,16 +28,21 @@ export function Logo({
 }) {
   const onDark = variant === "light";
   const tagline = onDark ? "text-sidebar-foreground/60" : "text-muted-foreground";
+  // Intrinsic aspect ratio of the source art (1036x213) so the browser
+  // reserves the correct box (no layout shift) and the lockup can never be
+  // compressed inside a tight flex row, e.g. the mobile landing header.
+  const width = Math.round(height * (1036 / 213));
 
   return (
     <a
       href="https://loadleadapp.com"
-      className="flex items-center gap-3 no-underline transition-opacity duration-fast ease-soft hover:opacity-80 cursor-pointer"
+      className="flex items-center gap-3 shrink-0 no-underline transition-opacity duration-fast ease-soft hover:opacity-80 cursor-pointer"
       aria-label="LoadLead - Where loads meet leads."
     >
       <img
         src="/loadlead-logo.png"
         alt="LoadLead"
+        width={width}
         height={height}
         style={{
           height: `${height}px`,
@@ -46,7 +51,7 @@ export function Logo({
           // badge + wordmark don't vanish into the background.
           filter: onDark ? "invert(1)" : undefined,
         }}
-        className="select-none"
+        className="select-none shrink-0"
         draggable={false}
       />
       {withTagline && (
