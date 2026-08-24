@@ -1,0 +1,256 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LoadLead Platform E2E Audit v8</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#1f2530; --muted:#5b6676; --rule:#e3e8ef; --rule-strong:#c9d2de;
+  --accent:#2563eb; --th-bg:#f4f7fb; --zebra:#fafbfd; --code-bg:#f1f5f9; --code-fg:#0f172a;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1319; --fg:#dde3ec; --muted:#95a1b2; --rule:#232b36; --rule-strong:#39434f;
+    --accent:#6ea8ff; --th-bg:#182029; --zebra:#141a22; --code-bg:#1b2430; --code-fg:#dbe4f0;
+  }
+}
+*{box-sizing:border-box;}
+html{ -webkit-text-size-adjust:100%; }
+body{
+  background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  font-size:16px; line-height:1.65;
+  max-width:900px; margin:0 auto; padding:48px 32px 96px;
+}
+h1{ font-size:32px; line-height:1.2; letter-spacing:-0.02em; margin:0 0 6px;
+    padding-bottom:14px; border-bottom:3px solid var(--accent); text-wrap:balance; }
+h2{ font-size:23px; line-height:1.25; letter-spacing:-0.01em; margin:44px 0 14px;
+    padding-bottom:8px; border-bottom:1px solid var(--rule); text-wrap:balance; }
+h3{ font-size:18px; margin:28px 0 8px; }
+h4{ font-size:16px; color:var(--muted); margin:20px 0 6px; }
+p,li{ font-size:16px; }
+p{ margin:0 0 14px; }
+ul,ol{ padding-left:22px; margin:0 0 14px; }
+li{ margin:5px 0; }
+li>ul,li>ol{ margin:6px 0; }
+strong{ font-weight:650; }
+a{ color:var(--accent); text-decoration:none; }
+a:hover{ text-decoration:underline; }
+hr{ border:0; border-top:1px solid var(--rule); margin:34px 0; }
+blockquote{ border-left:3px solid var(--accent); margin:14px 0; padding:6px 16px; color:var(--muted); }
+/* tables: readable, and never force the page to scroll sideways */
+.tw{ overflow-x:auto; margin:16px 0; }
+table{ border-collapse:collapse; width:100%; font-size:14px; line-height:1.5; }
+th,td{ border:1px solid var(--rule-strong); padding:9px 12px; text-align:left; vertical-align:top; }
+th{ background:var(--th-bg); font-weight:650; }
+tr:nth-child(even) td{ background:var(--zebra); }
+td code, th code{ font-size:12.5px; }
+code{ background:var(--code-bg); color:var(--code-fg); padding:2px 5px; border-radius:4px;
+      font-family:"SF Mono",Menlo,Consolas,monospace; font-size:13.5px; }
+pre{ background:var(--code-bg); color:var(--code-fg); padding:14px 16px; border-radius:8px;
+     overflow-x:auto; font-size:13px; line-height:1.5; }
+pre code{ background:none; padding:0; font-size:inherit; }
+
+/* PRINT: compact, full-bleed, page-break aware (this is what the PDF uses) */
+@media print{
+  :root{ --bg:#fff; --fg:#1a1f2b; --muted:#475569; --rule:#e2e8f0; --rule-strong:#cbd5e1;
+         --accent:#2563eb; --th-bg:#f1f5f9; --zebra:#f8fafc; --code-bg:#f1f5f9; --code-fg:#0f172a; }
+  @page{ margin:14mm 12mm; }
+  body{ max-width:none; margin:0; padding:0; font-size:11.5px; line-height:1.5; }
+  h1{ font-size:23px; padding-bottom:8px; }
+  h2{ font-size:16px; margin:20px 0 8px; page-break-after:avoid; }
+  h3{ font-size:13px; margin:14px 0 6px; page-break-after:avoid; }
+  h4{ font-size:11.5px; }
+  p,li{ font-size:11.5px; }
+  .tw{ overflow:visible; margin:8px 0; }
+  table{ font-size:10px; page-break-inside:avoid; }
+  th,td{ padding:5px 7px; word-break:break-word; }
+  code{ font-size:9.5px; } pre{ font-size:9px; white-space:pre-wrap; word-break:break-word; }
+  hr{ margin:16px 0; }
+  a{ color:#1d4ed8; }
+}
+</style></head><body>
+<h1>LoadLead Platform E2E Audit v8</h1>
+<p><strong>Date:</strong> 2026-08-23 <strong>Baseline:</strong> <code>main @ 3cd3eb9</code> <strong>Prod backend:</strong> <code>loadlead-backend-20260720172452</code> (Ready / Green) <strong>Auditor:</strong> Platform Engineering <strong>Scope:</strong> Full platform. Backend business logic, frontend, API + route paths, cross-environment parity (prod / staging / dev), live production smoke, authorization posture, money and compliance correctness.</p>
+<hr>
+<h2>1. Executive summary</h2>
+<p>The platform is in strong shape. The backend suite is fully green (898/898), production is healthy and hardened, the live authorization posture is fail-closed on every protected path probed, and the core marketplace race (first-accept-wins) is provably atomic. Every CRITICAL and HIGH from prior rounds (v1 through v7) that was spot-checked remains remediated in code and, where relevant, live in production.</p>
+<p>This round went deeper into the money and capacity math and surfaced <strong>one HIGH business-logic defect</strong> that has not appeared in any prior audit: the accessorial detention-to-layover billing curve is <strong>non-monotonic</strong> under the default policy, so a load billed for detention can cost <strong>dramatically less</strong> by dwelling one minute longer. It is gameable and does not make sense as a billing model. A second, <strong>MEDIUM</strong> invariant break was found in the operational-capacity service, which computes weight in floating point rather than integer pounds.</p>
+<p>Environment parity is largely intact. The notable gaps are a <strong>staging table that was never applied</strong> (<code>CapacityStateEvents</code>) and the <strong>production frontend running behind <code>main</code></strong> by the landing-page fix that is already staged and awaiting promotion.</p>
+<p><strong>Verdict: SHIP-HEALTHY with two logic fixes to schedule.</strong> No active CRITICAL. F1 (accessorial non-monotonicity) should be fixed before accessorial billing is switched on broadly.</p>
+<h3>Severity tally</h3>
+<div class="tw"><table><thead><tr><th>Sev</th><th>ID</th><th>Title</th><th>Area</th></tr></thead><tbody>
+<tr><td>HIGH</td><td>F1</td><td>Accessorial detention→layover billing is non-monotonic (charge drops as dwell rises)</td><td>Money / business logic</td></tr>
+<tr><td>MEDIUM</td><td>F2</td><td>Operational-capacity math uses floating-point pounds (integer-pounds invariant break)</td><td>Capacity / invariant</td></tr>
+<tr><td>MEDIUM</td><td>P1</td><td>Staging is missing the <code>CapacityStateEvents</code> DynamoDB table</td><td>Parity</td></tr>
+<tr><td>MEDIUM</td><td>P2</td><td>Production frontend is behind <code>main</code> (landing mobile fix not promoted)</td><td>Parity / deploy</td></tr>
+<tr><td>LOW</td><td>F3</td><td>AML gate holds a <code>pending</code> status even when <code>AML_REQUIRED</code> is off</td><td>Compliance edge</td></tr>
+<tr><td>LOW</td><td>F4</td><td>Stale comments claim the reverse of the SEC-C1 fix (regression trap)</td><td>Doc hygiene / security</td></tr>
+<tr><td>LOW</td><td>P3</td><td>Prod TF declares 2 Canopy COI tables not applied (deliberate, gated feature)</td><td>Parity (known)</td></tr>
+<tr><td>INFO</td><td>P4</td><td>Staging backend is paused; staging EB carries out-of-band env drift</td><td>Parity / readiness</td></tr>
+</tbody></table></div>
+<hr>
+<h2>2. Method</h2>
+<ul>
+<li><strong>Static + logic review</strong> of the money, capacity, negotiation, verification/compliance, and authorization services, reading the actual code paths rather than trusting comments.</li>
+<li><strong>Full backend test suite</strong> (<code>vitest run</code>) executed from <code>main</code>.</li>
+<li><strong>Live production smoke</strong>: unauthenticated probes across the auth, IDOR-class, webhook, and public path surfaces, asserting fail-closed behavior.</li>
+<li><strong>Cross-environment parity</strong>: <code>tofu plan</code> drift on prod and staging, the table-env parity checker, deployed-code-vs-<code>main</code> for both backend (EB version) and frontend (served bundle), and live health on prod and staging.</li>
+<li><strong>Contract check</strong>: frontend API path inventory diffed against backend route mounts.</li>
+<li><strong>Frontend typecheck + build.</strong></li>
+</ul>
+<p>All checks are code- and infrastructure-level. No production personal data was read or included in this report.</p>
+<hr>
+<h2>3. Baseline health (all GREEN)</h2>
+<div class="tw"><table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>
+<tr><td>Backend unit/integration suite</td><td><strong>898 passed / 898</strong> (114 files)</td></tr>
+<tr><td>Frontend typecheck + build</td><td>Clean</td></tr>
+<tr><td>Table-env parity checker</td><td><strong>PASS</strong> (64 table vars; staging via <code>DYNAMODB_TABLE_PREFIX</code>, dev explicit)</td></tr>
+<tr><td>Prod <code>/api/health</code></td><td><code>ok</code>, <code>productionHardened: true</code></td></tr>
+<tr><td>Prod backend deploy vs <code>main</code></td><td><strong>Current</strong> (<code>…20260720172452</code> = commit <code>0c8bf4b</code>, the latest backend-touching commit)</td></tr>
+<tr><td>Money-write idempotency</td><td>Intact (<code>attribute_not_exists</code> on <code>advanceId</code> / <code>outcomeId</code>)</td></tr>
+<tr><td>First-accept-wins lock</td><td><strong>Atomic</strong> (<code>attribute_not_exists(loadId)</code> conditional put; loser gets 409)</td></tr>
+<tr><td>Payout-intercept surfacing (SEC-6)</td><td>Intact (garnishment/levy/lien surfaced in payee routing)</td></tr>
+<tr><td>Notification suppression seam</td><td>Wired (law-enforcement hold + restricted-entity push suppression)</td></tr>
+<tr><td>Self-signup-ADMIN (SEC-C1)</td><td>Fixed in code (<code>resolvePlatformRole(null) → null</code>; <code>requireStaffTier</code> denies)</td></tr>
+<tr><td>Authorization never trusts JWT</td><td>Confirmed (<code>requireStaffTier</code> reads tier from a fresh DB get)</td></tr>
+<tr><td>COI expiry</td><td>Handled (<code>expireDueCois</code> sweeper + expired flags in packet/decision)</td></tr>
+<tr><td>FE ↔ BE path contract</td><td>Clean (every FE path first-segment maps to a BE mount)</td></tr>
+</tbody></table></div>
+<h3>Live production smoke (unauthenticated)</h3>
+<div class="tw"><table><thead><tr><th>Path</th><th>Expected</th><th>Observed</th></tr></thead><tbody>
+<tr><td><code>POST /api/auth/login</code> (bad creds)</td><td>401</td><td>401</td></tr>
+<tr><td><code>POST /api/auth/signup</code> (role=ADMIN)</td><td>403 beta wall</td><td>403</td></tr>
+<tr><td><code>GET /api/maps/autocomplete</code></td><td>401</td><td>401</td></tr>
+<tr><td><code>GET /api/driver/loadboard</code></td><td>401</td><td>401</td></tr>
+<tr><td><code>GET /api/shipper/loads</code></td><td>401</td><td>401</td></tr>
+<tr><td><code>GET /api/factoring/assignments</code></td><td>401</td><td>401</td></tr>
+<tr><td><code>GET /api/admin/staff</code></td><td>401</td><td>401</td></tr>
+<tr><td><code>GET /api/org/:id/members</code></td><td>401</td><td>401</td></tr>
+<tr><td><code>GET /api/accessorials/charges</code></td><td>401</td><td>401</td></tr>
+<tr><td><code>GET /api/capacity/state</code></td><td>401</td><td>401</td></tr>
+<tr><td><code>POST /api/webhooks/canopy</code> (unsigned)</td><td>401</td><td>401</td></tr>
+<tr><td><code>POST /api/webhooks/didit</code> (unsigned)</td><td>401</td><td>401</td></tr>
+<tr><td><code>POST /api/support/inbound</code> (bad body)</td><td>4xx not 500</td><td>400</td></tr>
+<tr><td><code>GET /api/compliance/w9/render-check</code></td><td>200, rate-limited</td><td>200</td></tr>
+<tr><td><code>GET /api/&lt;unknown&gt;</code></td><td>JSON 404</td><td><code>{"message":"Not found","statusCode":404}</code></td></tr>
+</tbody></table></div>
+<p>Every protected path fails closed. No 500s on the malformed/webhook probes.</p>
+<hr>
+<h2>4. Findings</h2>
+<h3>F1 — HIGH — Accessorial detention→layover billing is non-monotonic</h3>
+<p><strong>Where:</strong> <code>backend/src/services/accessorialCalc.ts:70</code> (<code>computeAccessorialFromDwell</code>).</p>
+<p><strong>What:</strong> When <code>dwellMinutes &gt; layoverThresholdMinutes</code>, the engine bills <strong>layover only</strong> and discards the detention that accrued in the first threshold window (the code comment says "detention stops accruing once layover takes over"). Because layover is billed as started 24-hour periods at a flat daily rate, the total charge can <strong>drop sharply</strong> the instant dwell crosses the threshold.</p>
+<p><strong>Reproduction with <code>DEFAULT_ACCESSORIAL_POLICY</code></strong> (freeTime 120 min, threshold 1440 min = 24 h, detention $50 / $150 / $175 per hour by class, layover $150/day):</p>
+<div class="tw"><table><thead><tr><th>Dwell</th><th>Branch</th><th>STANDARD</th><th>SPECIALIZED</th><th>HAZMAT</th></tr></thead><tbody>
+<tr><td>1440 min (24 h 00 m)</td><td>Detention (22 h billable)</td><td><strong>$1,100</strong></td><td><strong>$3,300</strong></td><td><strong>$3,850</strong></td></tr>
+<tr><td>1441 min (24 h 01 m)</td><td>Layover (ceil = 2 days)</td><td><strong>$300</strong></td><td><strong>$300</strong></td><td><strong>$300</strong></td></tr>
+</tbody></table></div>
+<p>One extra minute of delay drops the bill by <strong>$800 to $3,550</strong>. The "cheaper to dwell longer" zone persists for days (for STANDARD, layover only re-exceeds the forfeited detention after roughly 8 days).</p>
+<p><strong>Why it matters:</strong></p>
+<ul>
+<li><strong>Perverse incentive / gaming.</strong> Whichever party is disadvantaged by detention can push dwell just past 24 h to collapse the charge. Billing that *decreases* with more delay is not a defensible model.</li>
+<li><strong>Revenue and fairness.</strong> The platform under-bills the 1–7 day dwell band and forfeits legitimately-accrued detention.</li>
+<li><strong>Secondary:</strong> <code>ceil(dwell / 1440)</code> bills a full second layover day at 24 h 01 m. That "started periods" convention may be intended, but combined with the discontinuity it amplifies the surprise.</li>
+</ul>
+<p><strong>Current exposure:</strong> the accessorial billing pipeline is built (services + tables + tests) but not yet broadly switched on, so today's financial blast radius is limited. This should be fixed <strong>before</strong> accessorial billing is enabled for real settlements.</p>
+<p><strong>COA:</strong></p>
+<ol>
+<li>Make the charge <strong>monotonic</strong>: bill <code>charge = max(detention_equivalent_at_dwell, layover)</code> — or bill detention up to the threshold <strong>plus</strong> layover for full days beyond it. Product decides the model; both are monotonic.</li>
+<li>Add a <strong>policy guardrail</strong> asserting <code>layover(threshold+1) ≥ detention(threshold)</code> so a misconfigured policy cannot reintroduce the cliff.</li>
+<li>Add a <strong>property test</strong>: charge is non-decreasing in dwell across the threshold for every rate class and the full policy bound ranges.</li>
+</ol>
+<hr>
+<h3>F2 — MEDIUM — Operational-capacity math uses floating-point pounds</h3>
+<p><strong>Where:</strong> <code>backend/src/services/capacityService.ts:13</code> (<code>calcMaxOperationalWeight</code>) and the remaining-weight math that consumes it (lines 76, 102, 111).</p>
+<p><strong>What:</strong> <code>calcMaxOperationalWeight(maxCapacityLbs, bufferPct) = maxCapacityLbs * (1 - bufferPct / 100)</code> returns a <strong>non-integer</strong> whenever <code>maxCapacityLbs * bufferPct</code> is not divisible by 100 (e.g. <code>45001 * 0.9 = 40500.9</code>, <code>10001 * 0.85 = 8500.85</code>). That fractional value then flows into:</p>
+<ul>
+<li><code>remainingWeightLbs = maxOpWeight - projectedWeight</code> (fractional pounds surfaced to the UI),</li>
+<li>the DANGER/WARNING zone gate <code>projectedTotal &gt; maxOperational</code> (a floating-point comparison at the boundary),</li>
+<li>the user-facing "Action Denied … remaining operational capacity of <code>{n}</code> lbs" message, which can render fractional pounds.</li>
+</ul>
+<p><strong>Why it matters:</strong> it violates the platform's <strong>integer-whole-pounds invariant</strong>. The sibling service <code>haulerCapacityService.ts</code> is integer-clean (<code>Number.isInteger</code> guard, <code>Math.max(0, rated - onboard)</code>), so the two capacity engines now disagree on the invariant, and the float path is the one behind the booking gate.</p>
+<p><strong>COA:</strong> <code>Math.floor</code> the operational weight (flooring is the conservative choice for a safety buffer — you never permit above the buffer), keep every downstream capacity value integer, and add a <code>Number.isInteger</code> assertion plus a test with an odd <code>maxCapacityLbs</code>.</p>
+<hr>
+<h3>F3 — LOW — AML gate holds <code>pending</code> even when <code>AML_REQUIRED</code> is off</h3>
+<p><strong>Where:</strong> <code>backend/src/services/verification.ts:98</code>.</p>
+<p><strong>What:</strong> <code>amlOk = amlStatus === 'pass' || (!amlRequired() &amp;&amp; amlStatus === undefined)</code>. With AML disabled, an <code>undefined</code> status passes (the intended inert M1 behavior) but a <code>pending</code> status does <strong>not</strong> — it holds verification. Screening only runs when <code>amlRequired()</code>, so <code>pending</code> should not arise while AML is off; a legacy/edge <code>pending</code> would, however, be held where pre-M1 it would have verified.</p>
+<p><strong>Why it matters:</strong> negligible today (no path sets <code>pending</code> while AML is off), but it is an asymmetry worth removing before AML activation so the flip has no surprise holds.</p>
+<p><strong>COA:</strong> treat <code>pending</code> the same as <code>undefined</code> when <code>!amlRequired()</code> (both pass while inert), or confirm no code path can set <code>pending</code> with AML off and leave a test asserting it.</p>
+<hr>
+<h3>F4 — LOW — Stale comments contradict the SEC-C1 fix (regression trap)</h3>
+<p><strong>Where:</strong> <code>backend/src/types/platformRole.ts:54-55</code> (JSDoc) and <code>backend/src/middleware/auth.ts:76</code>.</p>
+<p><strong>What:</strong> Both comments still say a missing <code>platformRole</code> resolves to <code>STAFF_ADMIN</code> "for back-compat." The code does the opposite and correct thing (<code>if (stored == null) return null</code>), which is the SEC-C1 CRITICAL fix. The inline SEC-C1 note below the JSDoc is accurate, but the surrounding prose contradicts it.</p>
+<p><strong>Why it matters:</strong> a future maintainer "cleaning up" the code to match the stale comment would silently reopen the self-signup-ADMIN privilege escalation. Security-relevant comments must not describe the pre-fix behavior.</p>
+<p><strong>COA:</strong> update the JSDoc and the <code>auth.ts:76</code> comment to state that a missing/unknown <code>platformRole</code> resolves to <code>null</code> and is denied by the auth gate.</p>
+<hr>
+<h2>5. Environment parity</h2>
+<h3>Parity matrix</h3>
+<div class="tw"><table><thead><tr><th>Dimension</th><th>Production</th><th>Staging</th><th>Dev</th></tr></thead><tbody>
+<tr><td>Backend code</td><td><code>#0c8bf4b</code> (current)</td><td>Same build exists; <strong>env PAUSED</strong></td><td>n/a (no EB)</td></tr>
+<tr><td>Frontend code</td><td><strong>Behind <code>main</code></strong> (pre-<code>#110</code>)</td><td><code>#110</code> (deployed this cycle)</td><td>n/a</td></tr>
+<tr><td>DynamoDB tables</td><td>All present; <strong>+2 Canopy tables declared-not-applied</strong></td><td><strong>Missing <code>CapacityStateEvents</code></strong></td><td>Paper stack (0 live)</td></tr>
+<tr><td>Runtime env config</td><td>Out-of-band (<code>ignore_changes</code>, by design)</td><td><strong>EB env-var drift</strong> (in-place plan change)</td><td>Explicit overrides</td></tr>
+<tr><td>Live health</td><td>Green</td><td>API down (paused); FE 200</td><td>n/a</td></tr>
+<tr><td>TF drift (<code>tofu plan</code>)</td><td>2 to add (Canopy), 0 change, 0 destroy</td><td>1 to add (<code>CapacityStateEvents</code>), 1 change (EB)</td><td>n/a</td></tr>
+</tbody></table></div>
+<h3>P1 — MEDIUM — Staging is missing the <code>CapacityStateEvents</code> table</h3>
+<p><code>tofu plan</code> on <code>envs/staging</code> wants to <strong>create</strong> <code>module.dynamodb.module.table["CapacityStateEvents"]</code>. The table exists in prod but was never applied to staging (the capacity feature landed after staging was paused). If staging is resumed and the capacity path is exercised, its reads/writes resolve to a <code>LoadLead-Staging-CapacityStateEvents</code> name that does not exist and will fail. <strong>COA:</strong> targeted apply <code>tofu apply -target='module.dynamodb.module.table["CapacityStateEvents"]'</code> in <code>envs/staging</code> (DynamoDB is on-demand, ~$0). Do <strong>not</strong> run a full staging apply (it would also push the EB env-var drift — see P4).</p>
+<h3>P2 — MEDIUM — Production frontend is behind <code>main</code></h3>
+<p>Prod serves an older bundle; <code>main</code> and staging carry the landing mobile-header fix (<code>#110</code>, <code>3cd3eb9</code>). This is expected and in-flight (the fix was deployed to staging this cycle, prod promotion pending sign-off). <strong>COA:</strong> run <code>deploy-frontend.sh</code> (with <code>DEPLOY_MSG</code> set upfront) to close the gap.</p>
+<h3>P3 — LOW (known/deliberate) — Prod declares 2 unapplied Canopy tables</h3>
+<p>Prod <code>tofu plan</code> shows <code>ddb_carrier_insurance_connections</code> and <code>ddb_coi_crossreference_results</code> as "to add." Canopy is code-live-but-gated-off in prod (sandbox-first), so these are intentionally not applied. <strong>COA:</strong> apply them together with the Canopy prod secrets (INF-4) only when Canopy prod is enabled — not before.</p>
+<h3>P4 — INFO — Staging backend paused; staging EB env drift</h3>
+<p><code>api-staging</code> returns no response (HTTP 000 = paused to ~$0), while the staging FE bucket serves 200. Live staging <strong>API</strong> smoke is therefore not possible without a resume. Separately, the staging plan shows an in-place EB change — the known out-of-band env-var drift — which is why staging applies must be <code>-target</code>ed at DynamoDB only. <strong>COA:</strong> none required; documented so staging results are interpreted correctly.</p>
+<hr>
+<h2>6. Verified sound (regression checks on prior rounds)</h2>
+<p>The following prior-round fixes were re-checked this round and remain correct:</p>
+<ul>
+<li><strong>SEC-C1</strong> self-signup ADMIN — <code>resolvePlatformRole(null) → null</code>, auth gate denies (F4 is only the stale comment).</li>
+<li><strong>SEC-C2 / IDOR cluster</strong> — all probed protected paths 401 live.</li>
+<li><strong>BL-C1</strong> pagination — (not re-exercised this round; covered by suite).</li>
+<li><strong>V2-H1</strong> money-ledger idempotency — conditional puts present on reconciliation + funding advance.</li>
+<li><strong>SEC-6</strong> payout intercepts surfaced in payee routing.</li>
+<li><strong>BL-1</strong> COI validity — expiry sweeper + expired flags in place.</li>
+<li><strong>M1 (v1)</strong> negotiation accept→assign self-heal — <code>ensureAssignedAndReleased</code> + <code>reconcileAcceptedAssignments</code> + <code>snapshotPolicyWithRetry</code> + <code>policySnapshotPending</code> present.</li>
+<li><strong>First-accept-wins</strong> — atomic conditional lock.</li>
+<li><strong>Maps proxy (SEC-H6)</strong> — 401 unauth + rate-limited.</li>
+<li><strong>Webhook signature fail-closed</strong> — Canopy + Didit 401 on unsigned.</li>
+<li><strong>JSON 404 (v4)</strong> — confirmed live.</li>
+<li><strong>render-check rate limit (v4 H4)</strong> — live at the real path.</li>
+</ul>
+<hr>
+<h2>7. Prioritized action plan (COAs)</h2>
+<p><strong>Now (this or next cycle):</strong></p>
+<ol>
+<li><strong>F1</strong> — fix accessorial non-monotonicity (make charge monotonic + policy guardrail + property test). Land before accessorial billing is switched on broadly.</li>
+<li><strong>P2</strong> — promote the frontend to prod (<code>deploy-frontend.sh</code>) to close the FE deploy gap.</li>
+<li><strong>F4</strong> — correct the SEC-C1 comments (5-minute change; removes a security regression trap).</li>
+</ol>
+<p><strong>Soon:</strong></p>
+<ol>
+<li><strong>F2</strong> — floor operational-capacity to integer pounds + assertion + test.</li>
+<li><strong>P1</strong> — targeted staging apply of <code>CapacityStateEvents</code> (so a staging resume exercises capacity correctly).</li>
+</ol>
+<p><strong>Before feature activation:</strong></p>
+<ol>
+<li><strong>F3</strong> — align <code>pending</code> handling ahead of <code>AML_REQUIRED</code> activation.</li>
+<li><strong>P3</strong> — apply Canopy tables <strong>with</strong> Canopy prod secrets (INF-4) only at Canopy prod enablement.</li>
+</ol>
+<p><strong>Gated / unchanged from prior rounds:</strong> M1 AML activation (Didit standalone product + compliance sign-off), N3 accessorial policy-accept gating (needs an offer-eligibility primitive).</p>
+<hr>
+<h2>8. Standing recommendations</h2>
+<ul>
+<li><strong>Money/pounds invariant as a lint or test.</strong> F2 shows float can creep back in. Add a focused test (or a small AST lint) asserting capacity/money helpers return integers.</li>
+<li><strong>Monotonicity as a first-class property.</strong> Any tiered billing curve (detention/layover, and future accessorials) should carry a property test that the total is monotonic in the driving quantity.</li>
+<li><strong>Security-comment discipline.</strong> Comments on security-critical resolvers must describe post-fix behavior; a stale one is a latent regression (F4).</li>
+<li><strong>Deploy-parity visibility.</strong> Consider a tiny <code>/api/version</code> (commit SHA) so backend deploy-vs-<code>main</code> parity is a one-request check instead of an EB-label reconciliation.</li>
+<li><strong>Keep the monthly parity trio</strong> (env-parity checker + prod <code>tofu plan</code> + staging <code>tofu plan</code>); it is what surfaced P1 this round.</li>
+</ul>
+<hr>
+<h2>9. Appendix — route surface</h2>
+<ul>
+<li><strong>Backend:</strong> 280 route handlers across 28 route files (124 GET, 129 POST, 12 PUT, 6 PATCH, 9 DELETE), mounted under 20 <code>/api/*</code> prefixes.</li>
+<li><strong>Webhooks (raw-body, pre-<code>express.json</code>):</strong> Tally <code>POST /api/admin/beta/webhook</code>; Canopy <code>POST /api/webhooks/canopy</code>; Didit <code>POST /api/webhooks/didit</code>.</li>
+<li><strong>Frontend:</strong> central <code>request()</code> client (<code>src/lib/api.ts</code>); 8 components issue direct <code>request</code>/<code>fetch</code> calls outside the client (minor maintainability note, not a defect).</li>
+</ul>
+<p>*End of report.*</p>
+</body></html>
