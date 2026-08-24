@@ -1,19 +1,27 @@
 /**
  * Accessorial calculation engine (pure, deterministic, integer cents).
  *
- * Given the immutable arrival and departure times (Phase 4) and a frozen policy
- * snapshot (Phase 3), it computes either a DETENTION or a LAYOVER charge, never
- * both, so the same hours are never billed twice.
+ * Detention is a PENALTY that accrues per hour once the free-time grace is used
+ * up. Layover is an ADDITIONAL, escalating penalty for multi-day holds: it is
+ * billed ON TOP of the first-window detention, never in place of it. Keeping the
+ * detention that already accrued makes the total charge monotonic non-decreasing
+ * in dwell - a longer hold can never cost less than a shorter one. (Audit v8 F1;
+ * the prior model discarded detention at the threshold and could bill far LESS
+ * for a longer hold.)
  *
- *  dwell            = departure - arrival, in whole minutes
- *  if dwell > layoverThreshold:
- *      LAYOVER  = ceil(dwell / 1440) started 24h periods * layoverDailyRateCents
- *      (detention stops accruing once layover takes over)
- *  else:
- *      detained = max(0, dwell - freeTime), rounded UP to billingIncrement
- *      DETENTION = round(detained / 60 * detentionHourlyRateCents[rateClass])
+ *   dwell        = departure - arrival, in whole minutes
+ *   detention(d) = round( roundUp(max(0, d - freeTime), increment) / 60 * hourlyRate[class] )
  *
- * Optional per-load caps clamp the amount. All money is integer cents.
+ *   if dwell <= layoverThreshold:
+ *       charge = detention(dwell)                                   type DETENTION
+ *   else:
+ *       charge = detention(layoverThreshold)          first-window penalty, frozen
+ *              + ceil((dwell - layoverThreshold) / 1440) * layoverDailyRate
+ *                                                                    type LAYOVER
+ *
+ * The two components are reported separately (detentionCents / layoverCents) and
+ * summed into amountCents. Optional per-load caps clamp each component. All money
+ * is integer cents.
  */
 
 import type { AccessorialPolicy, AccessorialRateClass, AccessorialCaps } from '../config/accessorialPolicy';
@@ -22,17 +30,24 @@ import { assertIntegerCents } from '../utils/money';
 export type AccessorialChargeType = 'DETENTION' | 'LAYOVER';
 
 export interface AccessorialComputation {
+  /** DETENTION when the hold stays within the layover threshold; LAYOVER once it
+   *  crosses into the multi-day regime (which still includes the frozen detention). */
   type: AccessorialChargeType;
   dwellMinutes: number;
-  /** Rounded billable detention minutes (0 for layover). */
+  /** Billable detention minutes (capped at the threshold window for a LAYOVER charge). */
   detainedMinutes: number;
-  /** Started 24-hour periods (0 for detention). */
+  /** Started 24-hour periods billed BEYOND the layover threshold (0 for detention). */
   layoverDays: number;
   rateClass: AccessorialRateClass;
-  /** Hourly rate (detention) or daily rate (layover) used, in cents. */
+  /** Marginal rate used: hourly (detention) or daily (layover), in cents. */
   rateCents: number;
+  /** Detention penalty component, integer cents (>= 0). */
+  detentionCents: number;
+  /** Layover surcharge component, integer cents (0 when within the threshold). */
+  layoverCents: number;
+  /** detentionCents + layoverCents. */
   amountCents: number;
-  /** true when a per-load cap clamped the amount. */
+  /** true when a per-load cap clamped either component. */
   capped: boolean;
 }
 
@@ -53,6 +68,29 @@ function roundUpTo(value: number, increment: number): number {
 }
 
 /**
+ * Detention penalty for a dwell (whole minutes), integer cents. Monotonic
+ * non-decreasing in dwell. Clamped by the optional per-load detention cap.
+ */
+function detentionFor(
+  dwellMinutes: number,
+  rateClass: AccessorialRateClass,
+  policy: AccessorialPolicy,
+  caps?: AccessorialCaps
+): { billableMinutes: number; amountCents: number; capped: boolean } {
+  const rawDetained = Math.max(0, dwellMinutes - policy.freeTimeMinutes);
+  const billableMinutes = roundUpTo(rawDetained, policy.billingIncrementMinutes);
+  const rateCents = policy.detentionHourlyRateCents[rateClass];
+  let amountCents = Math.round((billableMinutes * rateCents) / 60);
+  let capped = false;
+  if (caps?.detentionMaxCents != null && amountCents > caps.detentionMaxCents) {
+    amountCents = caps.detentionMaxCents;
+    capped = true;
+  }
+  assertIntegerCents(amountCents, 'detention amount');
+  return { billableMinutes, amountCents, capped };
+}
+
+/**
  * Compute the accessorial for a dwell expressed in whole minutes. Separated from
  * the timestamp form so callers can compute a provisional amount for an open stop
  * (dwell so far) without faking a departure time.
@@ -67,30 +105,56 @@ export function computeAccessorialFromDwell(
     throw new Error(`accessorialCalc: dwellMinutes must be a non-negative integer, got ${dwellMinutes}`);
   }
 
-  if (dwellMinutes > policy.layoverThresholdMinutes) {
-    const layoverDays = Math.ceil(dwellMinutes / 1440);
-    const rateCents = policy.layoverDailyRateCents;
-    let amountCents = layoverDays * rateCents;
-    let capped = false;
-    if (caps?.layoverMaxCents != null && amountCents > caps.layoverMaxCents) {
-      amountCents = caps.layoverMaxCents;
-      capped = true;
-    }
-    assertIntegerCents(amountCents, 'layover amount');
-    return { type: 'LAYOVER', dwellMinutes, detainedMinutes: 0, layoverDays, rateClass, rateCents, amountCents, capped };
+  // Detention penalty: the whole dwell while within the threshold, frozen at the
+  // threshold amount once layover takes over (min(dwell, threshold)).
+  const detentionDwell = Math.min(dwellMinutes, policy.layoverThresholdMinutes);
+  const det = detentionFor(detentionDwell, rateClass, policy, caps);
+  const detentionRateCents = policy.detentionHourlyRateCents[rateClass];
+
+  // Within the threshold: pure detention.
+  if (dwellMinutes <= policy.layoverThresholdMinutes) {
+    return {
+      type: 'DETENTION',
+      dwellMinutes,
+      detainedMinutes: det.billableMinutes,
+      layoverDays: 0,
+      rateClass,
+      rateCents: detentionRateCents,
+      detentionCents: det.amountCents,
+      layoverCents: 0,
+      amountCents: det.amountCents,
+      capped: det.capped,
+    };
   }
 
-  const rawDetained = Math.max(0, dwellMinutes - policy.freeTimeMinutes);
-  const detainedMinutes = roundUpTo(rawDetained, policy.billingIncrementMinutes);
-  const rateCents = policy.detentionHourlyRateCents[rateClass];
-  let amountCents = Math.round((detainedMinutes * rateCents) / 60);
-  let capped = false;
-  if (caps?.detentionMaxCents != null && amountCents > caps.detentionMaxCents) {
-    amountCents = caps.detentionMaxCents;
-    capped = true;
+  // Extended hold: KEEP the first-window detention penalty and ADD an escalating
+  // layover surcharge for each started 24-hour period beyond the threshold. This
+  // is what makes the charge monotonic in dwell. (Audit v8 F1.)
+  const layoverDays = Math.ceil((dwellMinutes - policy.layoverThresholdMinutes) / 1440);
+  const layoverRateCents = policy.layoverDailyRateCents;
+  let layoverCents = layoverDays * layoverRateCents;
+  let layoverCapped = false;
+  if (caps?.layoverMaxCents != null && layoverCents > caps.layoverMaxCents) {
+    layoverCents = caps.layoverMaxCents;
+    layoverCapped = true;
   }
-  assertIntegerCents(amountCents, 'detention amount');
-  return { type: 'DETENTION', dwellMinutes, detainedMinutes, layoverDays: 0, rateClass, rateCents, amountCents, capped };
+  assertIntegerCents(layoverCents, 'layover amount');
+
+  const amountCents = det.amountCents + layoverCents;
+  assertIntegerCents(amountCents, 'accessorial amount');
+
+  return {
+    type: 'LAYOVER',
+    dwellMinutes,
+    detainedMinutes: det.billableMinutes,
+    layoverDays,
+    rateClass,
+    rateCents: layoverRateCents,
+    detentionCents: det.amountCents,
+    layoverCents,
+    amountCents,
+    capped: det.capped || layoverCapped,
+  };
 }
 
 /** Compute the accessorial from arrival and departure timestamps. */

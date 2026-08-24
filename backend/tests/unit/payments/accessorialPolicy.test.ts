@@ -78,7 +78,7 @@ describe('get-or-create per-load policy', () => {
     expect(p.prefilled).toBe(true);
     expect(p.rateClass).toBe('SPECIALIZED');
     expect(p.policy.freeTimeMinutes).toBe(DEFAULT_ACCESSORIAL_POLICY.freeTimeMinutes);
-    expect(p.policy.detentionHourlyRateCents.SPECIALIZED).toBe(15000);
+    expect(p.policy.detentionHourlyRateCents.SPECIALIZED).toBe(9000);
     expect(putItem).toHaveBeenCalledWith(POLICY_TABLE, expect.objectContaining({ loadId: 'load-2' }));
   });
 
@@ -106,7 +106,7 @@ describe('per-load overrides', () => {
     expect(updated.policy.freeTimeMinutes).toBe(60);
     expect(updated.rateClass).toBe('SPECIALIZED');
     expect(updated.policy.detentionHourlyRateCents.STANDARD).toBe(7500);
-    expect(updated.policy.detentionHourlyRateCents.HAZMAT).toBe(17500); // untouched
+    expect(updated.policy.detentionHourlyRateCents.HAZMAT).toBe(12500); // untouched
     expect(updated.caps?.detentionMaxCents).toBe(50000);
   });
 

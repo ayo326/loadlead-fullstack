@@ -81,28 +81,28 @@ describe('calculation matrix', () => {
   });
 
   it('a 3.5h dwell at the standard rate bills the rounded detained time and auto-approves', async () => {
-    seedStop('load-1', 'PICKUP', 0, 3.5 * HOUR); // detained 90 min -> 1.5h * $50
+    seedStop('load-1', 'PICKUP', 0, 3.5 * HOUR); // detained 90 min -> 1.5h * $75
     const c = await AccessorialChargeService.computeForStop(dryVan, 'PICKUP', 'sys');
     expect(c!.type).toBe('DETENTION');
     expect(c!.billableMinutes).toBe(90);
-    expect(c!.amountCents).toBe(7500);
+    expect(c!.amountCents).toBe(11250);
     expect(c!.status).toBe('APPROVED'); // 1.5h <= 2h auto-approve
   });
 
   it('a hazmat stop uses the hazmat rate', async () => {
-    seedStop('load-haz', 'PICKUP', 0, 3.5 * HOUR); // 1.5h * $175
+    seedStop('load-haz', 'PICKUP', 0, 3.5 * HOUR); // 1.5h * $125
     const c = await AccessorialChargeService.computeForStop(hazVan, 'PICKUP', 'sys');
     expect(c!.rateClass).toBe('HAZMAT');
-    expect(c!.amountCents).toBe(26250);
+    expect(c!.amountCents).toBe(18750);
   });
 
-  it('a 30h dwell produces layover, not detention, and does not double-bill', async () => {
+  it('a 30h dwell adds a layover surcharge ON TOP of the frozen first-day detention (F1: monotonic, no double-bill)', async () => {
     seedStop('load-1', 'DROP', 0, 30 * HOUR);
     const c = await AccessorialChargeService.computeForStop(dryVan, 'DROP', 'sys');
     expect(c!.type).toBe('LAYOVER');
-    expect(c!.layoverDays).toBe(2); // 2 started 24h periods
-    expect(c!.amountCents).toBe(30000); // 2 * $150
-    expect(c!.billableMinutes).toBe(0); // no detention component
+    expect(c!.billableMinutes).toBe(1320); // 22h detention frozen at the 24h threshold
+    expect(c!.layoverDays).toBe(1); // 1 started 24h period BEYOND the threshold
+    expect(c!.amountCents).toBe(180000); // $1,650 detention + $150 layover; never LESS than the 24h detention
     expect(c!.status).toBe('PENDING_REVIEW'); // layover always routes to review
   });
 });
@@ -112,12 +112,12 @@ describe('auto-approve vs review', () => {
     seedStop('load-1', 'OVER', 0, 5 * HOUR); // detained 3h > 2h
     const over = await AccessorialChargeService.computeForStop(dryVan, 'OVER', 'sys');
     expect(over!.status).toBe('PENDING_REVIEW');
-    expect(over!.amountCents).toBe(15000); // 3h * $50
+    expect(over!.amountCents).toBe(22500); // 3h * $75
 
     seedStop('load-1', 'UNDER', 0, 3 * HOUR); // detained 1h <= 2h
     const under = await AccessorialChargeService.computeForStop(dryVan, 'UNDER', 'sys');
     expect(under!.status).toBe('APPROVED');
-    expect(under!.amountCents).toBe(5000);
+    expect(under!.amountCents).toBe(7500);
   });
 });
 
@@ -157,7 +157,7 @@ describe('lifecycle: approve, adjust, dispute', () => {
     expect(adj.amountCents).toBe(9000);
     const hist = await AccessorialChargeService.history(c!.chargeId);
     const adjRow = hist.find((h) => h.toStatus === 'ADJUSTED');
-    expect(adjRow?.amountCentsBefore).toBe(15000);
+    expect(adjRow?.amountCentsBefore).toBe(22500);
     expect(adjRow?.amountCentsAfter).toBe(9000);
   });
 
@@ -240,12 +240,12 @@ describe('M6: advances flagged when a funded charge regresses', () => {
 describe('M3: a policy edit does not fork a second charge for a stop', () => {
   it('recompute after a policy edit returns the committed charge, not a duplicate', async () => {
     // Stop closes with a billable, auto-approved detention charge under policy v1.
-    seedStop('load-1', 'DOCK', 0, 3.5 * HOUR); // 1.5h detained -> $75, auto-APPROVED
+    seedStop('load-1', 'DOCK', 0, 3.5 * HOUR); // 1.5h detained -> $112.50, auto-APPROVED
     const first = await AccessorialChargeService.computeForStop(dryVan, 'DOCK', 'sys');
     expect(first!.status).toBe('APPROVED');
     const firstId = first!.chargeId;
     const firstAmount = first!.amountCents;
-    expect(firstAmount).toBe(7500);
+    expect(firstAmount).toBe(11250);
 
     // Shipper edits the load's accessorial policy after the charge is computed:
     // version bumps, policy hash changes, so the deterministic chargeId differs.

@@ -78,10 +78,10 @@ it('runs the full payments + factoring pipeline end to end', async () => {
     { eventId: 'd1', loadId: 'load-1', stopId: 'PICKUP', eventType: 'DEPARTURE', eventAt: 3 * HOUR, actorId: 'd', createdAt: 1 },
   ];
 
-  // Phase 5: compute the accessorial; 1h detained at $50/hr auto-approves.
+  // Phase 5: compute the accessorial; 1h detained at $75/hr auto-approves.
   const charge = await AccessorialChargeService.computeForStop(load, 'PICKUP', 'sys');
   expect(charge!.status).toBe('APPROVED');
-  expect(charge!.amountCents).toBe(5000);
+  expect(charge!.amountCents).toBe(7500);
 
   // Phase 8: factoring-ready package, both lines factorable.
   const pkg = InvoicePackageService.build({
@@ -93,7 +93,7 @@ it('runs the full payments + factoring pipeline end to end', async () => {
     charges: [charge!],
     activeAssignment: null,
   });
-  expect(pkg.advanceableTotalCents).toBe(grossCents + 5000);
+  expect(pkg.advanceableTotalCents).toBe(grossCents + 7500);
 
   // Phase 6/7: assign the invoice to a factor and serve the Notice of Assignment.
   const assignment = await FactoringAssignmentService.create({
@@ -116,9 +116,9 @@ it('runs the full payments + factoring pipeline end to end', async () => {
     destination: payee.destination, providerName: 'manual', recourseType: 'RECOURSE', scope: 'FULL_INVOICE',
     assignmentId: assignment.assignmentId,
   });
-  expect(advance.amountCents).toBe(5000);
+  expect(advance.amountCents).toBe(7500);
   const recon = await ReconciliationService.reconcileDebtorPayment({
-    invoiceId: 'inv-1', carrierId: 'carrier-1', payee, collectedCents: grossCents + 5000, feeCents: 0,
+    invoiceId: 'inv-1', carrierId: 'carrier-1', payee, collectedCents: grossCents + 7500, feeCents: 0,
   });
   expect(recon.find((o) => o.type === 'PAYMENT_ROUTED')!.payeeType).toBe('FACTOR');
 

@@ -9,8 +9,11 @@
  * row is upserted.
  *
  * Money invariant: only APPROVED and SETTLED charges affect money (isBillable).
- * No-double-bill invariant: a stop yields either a DETENTION or a LAYOVER charge,
- * never both (enforced in accessorialCalc).
+ * No-double-bill invariant: a stop yields exactly ONE charge row. Within the
+ * layover threshold it is a DETENTION charge; beyond it, a single LAYOVER charge
+ * that carries the frozen first-window detention PLUS the layover surcharge
+ * (detentionCents + layoverCents), so the total is monotonic in dwell and the
+ * accrued detention penalty is never discarded (Audit v8 F1, in accessorialCalc).
  *
  * References the load + stop by id only; the Load model is never touched.
  */

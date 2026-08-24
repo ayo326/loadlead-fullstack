@@ -1,7 +1,7 @@
 /**
  * Shipper detention/layover confirmation at posting.
  *
- * Proves the rate-card prefill (standard $50, hazmat $175), bounds enforcement on
+ * Proves the rate-card prefill (standard $75, hazmat $125), bounds enforcement on
  * the override, that posting freezes the policy and records ONE append-only
  * shipper agreement with the version + exact values + a server timestamp, that a
  * post-posting change is a new version (not a mutation of the frozen snapshot),
@@ -53,9 +53,9 @@ beforeEach(() => {
 });
 
 describe('rate-card prefill (no load needed)', () => {
-  it('standard dry van prefills $50/hr, hazmat $175/hr', () => {
-    expect(AccessorialPolicyService.rateCardDisclosure(dryVan).detentionHourlyRateCents).toBe(5000);
-    expect(AccessorialPolicyService.rateCardDisclosure(hazVan).detentionHourlyRateCents).toBe(17500);
+  it('standard dry van prefills $75/hr, hazmat $125/hr', () => {
+    expect(AccessorialPolicyService.rateCardDisclosure(dryVan).detentionHourlyRateCents).toBe(7500);
+    expect(AccessorialPolicyService.rateCardDisclosure(hazVan).detentionHourlyRateCents).toBe(12500);
     expect(AccessorialPolicyService.rateCardDisclosure(hazVan).rateClass).toBe('HAZMAT');
   });
 });
@@ -75,10 +75,10 @@ describe('freeze and agree at posting', () => {
       load: dryVan, shipperId: 'shipper-1', actorId: 'user-1',
     });
     expect(policy.version).toBe(1);
-    expect(disclosure.detentionHourlyRateCents).toBe(5000);
+    expect(disclosure.detentionHourlyRateCents).toBe(7500);
     expect(agreement.agreementId.startsWith('shipagree_')).toBe(true);
     expect(agreement.agreedVersion).toBe(1);
-    expect(agreement.disclosure.detentionHourlyRateCents).toBe(5000);
+    expect(agreement.disclosure.detentionHourlyRateCents).toBe(7500);
     expect(agreement.shipperId).toBe('shipper-1');
     expect(agreement.agreedAt).toBeGreaterThanOrEqual(before);
     expect(tables[AGREE].length).toBe(1);
@@ -129,6 +129,6 @@ describe('symmetry with the carrier side', () => {
     expect(updated.version).toBe(2);
     // The frozen agreement still references v1; it was not mutated.
     expect(tables[AGREE][0].agreedVersion).toBe(1);
-    expect(tables[AGREE][0].disclosure.detentionHourlyRateCents).toBe(5000);
+    expect(tables[AGREE][0].disclosure.detentionHourlyRateCents).toBe(7500);
   });
 });

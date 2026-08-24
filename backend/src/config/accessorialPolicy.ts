@@ -40,9 +40,9 @@ export const DEFAULT_ACCESSORIAL_POLICY: AccessorialPolicy = {
   freeTimeMinutes: 120,
   billingIncrementMinutes: 15,
   detentionHourlyRateCents: {
-    STANDARD: 5000, // $50/hr
-    SPECIALIZED: 15000, // $150/hr
-    HAZMAT: 17500, // $175/hr
+    STANDARD: 7500, // $75/hr (dry van / general freight; market $50 to $75)
+    SPECIALIZED: 9000, // $90/hr (reefer / flatbed / specialized; market $60 to $90 / $75 to $125)
+    HAZMAT: 12500, // $125/hr (hazmat / high-risk; market $75 to $125)
   },
   layoverThresholdMinutes: 1440, // 24 hours
   layoverDailyRateCents: 15000, // $150/day
@@ -57,10 +57,10 @@ export interface AccessorialCaps {
 }
 
 /**
- * Allowed bounds for a shipper's per-load override. Detention bands mirror the
- * rate-card comments (standard $25 to $100, specialized and hazmat $125 to $250);
- * layover is $50 to $200 per day. Enforced server-side at posting so an override
- * can never be set outside the rate card. All money is integer cents.
+ * Allowed bounds for a shipper's per-load override. Detention bands are market
+ * aligned (dry van/standard $25 to $100, reefer/flatbed/specialized $50 to $150,
+ * hazmat $75 to $150); layover is $50 to $200 per day. Enforced server-side at
+ * posting so an override can never be set outside the rate card. Integer cents.
  */
 export interface Bound {
   min: number;
@@ -77,9 +77,9 @@ export const ACCESSORIAL_BOUNDS: AccessorialBounds = {
   freeTimeMinutes: { min: 0, max: 480 }, // up to 8 hours
   billingIncrementMinutes: { min: 1, max: 60 },
   detentionHourlyRateCents: {
-    STANDARD: { min: 2500, max: 10000 }, // $25 to $100
-    SPECIALIZED: { min: 12500, max: 25000 }, // $125 to $250
-    HAZMAT: { min: 12500, max: 25000 }, // $125 to $250
+    STANDARD: { min: 2500, max: 10000 }, // $25 to $100 (dry van $50 to $75)
+    SPECIALIZED: { min: 5000, max: 15000 }, // $50 to $150 (reefer/flatbed $60 to $90, specialized $75 to $125)
+    HAZMAT: { min: 7500, max: 15000 }, // $75 to $150 (hazmat $75 to $125)
   },
   layoverThresholdMinutes: { min: 720, max: 2880 }, // 12 to 48 hours
   layoverDailyRateCents: { min: 5000, max: 20000 }, // $50 to $200

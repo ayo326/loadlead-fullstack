@@ -1,7 +1,7 @@
 /**
  * Detention seed helper (scripts/seedDetentionCharge.ts): reproduces the exact
  * sequence the helper performs — write a backdated ARRIVAL/DEPARTURE pair, then
- * AccessorialChargeService.computeForStop — and asserts a real $150 DETENTION
+ * AccessorialChargeService.computeForStop — and asserts a real $225 DETENTION
  * charge lands in PENDING_REVIEW (so it can be approved/adjusted/disputed), is
  * idempotent on re-run, and can then be approved into a billable state.
  */
@@ -65,16 +65,16 @@ function seedPair(loadId: string, stopId: string, dwellMinutes: number, now = Da
 beforeEach(() => { for (const k of Object.keys(tables)) delete tables[k]; });
 
 describe('detention seed helper flow', () => {
-  const load = { loadId: 'SEEDDET-TEST', equipmentType: TrailerType.DRY_VAN }; // STANDARD @ $50/hr
+  const load = { loadId: 'SEEDDET-TEST', equipmentType: TrailerType.DRY_VAN }; // STANDARD @ $75/hr
 
-  it('a 5h dwell yields exactly $150 detention in PENDING_REVIEW (free 2h + 3h detained @ $50)', async () => {
+  it('a 5h dwell yields exactly $225 detention in PENDING_REVIEW (free 2h + 3h detained @ $75)', async () => {
     seedPair(load.loadId, 'DELIVERY', 300);
     const charge = await AccessorialChargeService.computeForStop(load, 'DELIVERY', 'seed');
     expect(charge).not.toBeNull();
     expect(charge!.type).toBe('DETENTION');
     expect(charge!.dwellMinutes).toBe(300);
     expect(charge!.billableMinutes).toBe(180); // 3h past the 2h free window
-    expect(charge!.amountCents).toBe(15000);   // $150.00
+    expect(charge!.amountCents).toBe(22500);   // $225.00
     expect(charge!.status).toBe('PENDING_REVIEW'); // 3h > 2h auto-approve => review
     expect(isBillable(charge!)).toBe(false);
   });
@@ -99,7 +99,7 @@ describe('detention seed helper flow', () => {
     seedPair(load.loadId, 'DELIVERY', 240); // free 2h + exactly 2h detained
     const charge = await AccessorialChargeService.computeForStop(load, 'DELIVERY', 'seed');
     expect(charge!.billableMinutes).toBe(120);
-    expect(charge!.amountCents).toBe(10000); // $100 @ $50/hr
+    expect(charge!.amountCents).toBe(15000); // $150 @ $75/hr
     expect(charge!.status).toBe('APPROVED');
   });
 });
