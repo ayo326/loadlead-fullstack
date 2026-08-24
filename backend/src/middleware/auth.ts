@@ -72,8 +72,8 @@ export const requireOwnerOperator = requireRole(UserRole.OWNER_OPERATOR, UserRol
  * Use after `authenticate + requireAdmin` so the surface gate runs first
  * (a non-ADMIN never reaches this). The platformRole comes from a fresh
  * DB read of the user record - we DO NOT trust the JWT payload, which
- * may have been minted before the tier was changed. Pre-Phase-1 admins
- * with no platformRole resolve to STAFF_ADMIN for back-compat.
+ * may have been minted before the tier was changed. A missing platformRole
+ * resolves to null and is DENIED here (SEC-C1, audit v6), never STAFF_ADMIN.
  */
 export const requireStaffTier = (...allowed: PlatformRole[]) => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {

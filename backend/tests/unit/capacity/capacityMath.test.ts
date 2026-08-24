@@ -20,12 +20,21 @@ describe('calcMaxOperationalWeight', () => {
     expect(calcMaxOperationalWeight(8000, 0)).toBe(8000);
     expect(calcMaxOperationalWeight(8000, 100)).toBe(0);
   });
+  it('floors to whole pounds when the haircut is fractional (F2: integer-pounds invariant)', () => {
+    expect(calcMaxOperationalWeight(45001, 10)).toBe(40500); // 40500.9 floored
+    expect(calcMaxOperationalWeight(10001, 15)).toBe(8500);  // 8500.85 floored
+    expect(Number.isInteger(calcMaxOperationalWeight(45001, 10))).toBe(true);
+  });
 });
 
 describe('calcMaxOperationalVolume', () => {
   it('applies the same percentage haircut to a usable volume', () => {
     expect(calcMaxOperationalVolume(300000, 10)).toBe(270000);
     expect(calcMaxOperationalVolume(0, 10)).toBe(0);
+  });
+  it('floors to whole cubic inches when the haircut is fractional (F2)', () => {
+    expect(calcMaxOperationalVolume(300001, 10)).toBe(270000); // 270000.9 floored
+    expect(Number.isInteger(calcMaxOperationalVolume(300001, 10))).toBe(true);
   });
 });
 

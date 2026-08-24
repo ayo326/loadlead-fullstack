@@ -10,12 +10,16 @@ const MAX_BUFFER_PCT = 25;
 
 // ─── Pure math helpers ────────────────────────────────────────────────────────
 
+// Floored to whole units: capacity is integer (whole pounds / cubic inches), and
+// flooring is the conservative choice for a SAFETY buffer - it never permits more
+// than the buffer allows, and it stops fractional pounds leaking into the booking
+// gate (float comparisons) and the "remaining capacity" UI. (Audit v8 F2.)
 export function calcMaxOperationalWeight(maxCapacityLbs: number, bufferPct: number): number {
-  return maxCapacityLbs * (1 - bufferPct / 100);
+  return Math.floor(maxCapacityLbs * (1 - bufferPct / 100));
 }
 
 export function calcMaxOperationalVolume(usableVolumeCuIn: number, bufferPct: number): number {
-  return usableVolumeCuIn * (1 - bufferPct / 100);
+  return Math.floor(usableVolumeCuIn * (1 - bufferPct / 100));
 }
 
 export function calcUsableVolume(

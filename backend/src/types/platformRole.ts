@@ -51,12 +51,14 @@ export const DESTRUCTIVE_TIER: PlatformRole[] = [
 ];
 
 /**
- * Back-compat resolver. Pre-Phase-1 ADMIN users had no platformRole; treat
- * them as STAFF_ADMIN so the existing accounts still work. Anyone with an
- * explicit platformRole uses that value.
+ * Platform-tier resolver. A missing platformRole resolves to NULL (NOT
+ * STAFF_ADMIN): every role=ADMIN row carries an explicit platformRole, and the
+ * auth gate treats null as "no tier" and denies, so a null-platformRole admin is
+ * fail-closed. This is the SEC-C1 hardening (audit v6); see the note in the body.
+ * Anyone with an explicit, valid platformRole uses that value.
  *
- * Exact-match only. If the stored value isn't in the PlatformRole enum
- * (corrupt or tampered), return null so the caller can refuse.
+ * Exact-match only. If the stored value isn't in the PlatformRole enum (missing,
+ * corrupt, or tampered), return null so the caller can refuse.
  */
 export function resolvePlatformRole(stored: string | null | undefined): PlatformRole | null {
   // SEC-C1 follow-up (audit v6): a missing platformRole now resolves to NULL, not
