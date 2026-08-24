@@ -1,8 +1,8 @@
 /**
  * Detention/layover disclosure + acknowledgment.
  *
- * Proves the disclosure reads the load's frozen policy (standard -> $50/hr,
- * hazmat -> $175/hr), and that accepting with acknowledgment records ONE
+ * Proves the disclosure reads the load's frozen policy (standard -> $75/hr,
+ * hazmat -> $125/hr), and that accepting with acknowledgment records ONE
  * append-only acceptance row carrying the e-sign plus the acknowledgment with the
  * policy version, the exact shown rates, and a server timestamp. A re-acceptance
  * appends a new row; an acceptance without acknowledgment records no ack block.
@@ -64,20 +64,20 @@ beforeEach(() => {
 });
 
 describe('disclosure reads the freight-class rate from the snapshot', () => {
-  it('a standard dry van discloses $50 per hour', async () => {
+  it('a standard dry van discloses $75 per hour', async () => {
     const d = await AccessorialPolicyService.disclosureForLoad(dryVan);
     expect(d.rateClass).toBe('STANDARD');
-    expect(d.detentionHourlyRateCents).toBe(5000);
+    expect(d.detentionHourlyRateCents).toBe(7500);
     expect(d.freeTimeMinutes).toBe(120);
     expect(d.billingIncrementMinutes).toBe(15);
     expect(d.layoverThresholdMinutes).toBe(1440);
     expect(d.layoverDailyRateCents).toBe(15000);
   });
 
-  it('a hazmat load discloses $175 per hour', async () => {
+  it('a hazmat load discloses $125 per hour', async () => {
     const d = await AccessorialPolicyService.disclosureForLoad(hazVan);
     expect(d.rateClass).toBe('HAZMAT');
-    expect(d.detentionHourlyRateCents).toBe(17500);
+    expect(d.detentionHourlyRateCents).toBe(12500);
   });
 
   it('reflects a per-load rate override (no hardcoded numbers)', async () => {
@@ -93,7 +93,7 @@ describe('acknowledgment is recorded on the append-only acceptance', () => {
     expect(a.consentGiven).toBe(true);
     expect(a.acknowledgment?.acknowledged).toBe(true);
     expect(typeof a.acknowledgment?.acknowledgedAt).toBe('number');
-    expect(a.acknowledgment?.disclosure.detentionHourlyRateCents).toBe(5000);
+    expect(a.acknowledgment?.disclosure.detentionHourlyRateCents).toBe(7500);
     // the recorded policy version matches the acceptance version
     expect(a.acknowledgment?.disclosure.version).toBe(a.acceptedVersion);
     expect(tables[ACCEPT_TABLE].length).toBe(1);
@@ -101,7 +101,7 @@ describe('acknowledgment is recorded on the append-only acceptance', () => {
 
   it('a hazmat acceptance records the hazmat rate exactly as shown', async () => {
     const a = await AccessorialPolicyService.acceptPolicy(acceptInput(hazVan, true));
-    expect(a.acknowledgment?.disclosure.detentionHourlyRateCents).toBe(17500);
+    expect(a.acknowledgment?.disclosure.detentionHourlyRateCents).toBe(12500);
     expect(a.acknowledgment?.disclosure.rateClass).toBe('HAZMAT');
   });
 
